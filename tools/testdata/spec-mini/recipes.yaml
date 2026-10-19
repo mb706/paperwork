@@ -1,0 +1,13 @@
+- {id: iron-plate, category: smelting, time: 3.2, ingredients: [{id: iron-ore, amount: 1}], products: [{id: iron-plate, amount: 1}]}
+- {id: copper-plate, category: smelting, time: 3.2, ingredients: [{id: copper-ore, amount: 1}], products: [{id: copper-plate, amount: 1}]}
+- {id: iron-gear-wheel, category: crafting, time: 0.5, ingredients: [{id: iron-plate, amount: 2}], products: [{id: iron-gear-wheel, amount: 1}]}
+- {id: copper-cable, category: crafting, time: 0.5, ingredients: [{id: copper-plate, amount: 1}], products: [{id: copper-cable, amount: 2}]}
+- {id: electronic-circuit, category: crafting, time: 0.5, ingredients: [{id: iron-plate, amount: 1}, {id: copper-cable, amount: 3}], products: [{id: electronic-circuit, amount: 1}]}
+- {id: automation-science-pack, category: crafting, time: 5, ingredients: [{id: copper-plate, amount: 1}, {id: iron-gear-wheel, amount: 1}], products: [{id: automation-science-pack, amount: 1}]}
+- {id: logistic-science-pack, category: crafting, time: 6, ingredients: [{id: inserter, amount: 1}, {id: transport-belt, amount: 1}], products: [{id: logistic-science-pack, amount: 1}]}
+- {id: transport-belt, category: crafting, time: 0.5, ingredients: [{id: iron-plate, amount: 1}, {id: iron-gear-wheel, amount: 1}], products: [{id: transport-belt, amount: 2}]}
+- {id: inserter, category: crafting, time: 0.5, ingredients: [{id: electronic-circuit, amount: 1}, {id: iron-gear-wheel, amount: 1}, {id: iron-plate, amount: 1}], products: [{id: inserter, amount: 1}]}
+- {id: stone-furnace, category: crafting, time: 0.5, ingredients: [{id: stone, amount: 5}], products: [{id: stone-furnace, amount: 1}]}
+- {id: burner-mining-drill, category: crafting, time: 2, ingredients: [{id: iron-gear-wheel, amount: 3}, {id: stone-furnace, amount: 1}, {id: iron-plate, amount: 3}], products: [{id: burner-mining-drill, amount: 1}]}
+- {id: lab, category: crafting, time: 2, ingredients: [{id: electronic-circuit, amount: 10}, {id: iron-gear-wheel, amount: 10}, {id: transport-belt, amount: 4}], products: [{id: lab, amount: 1}]}
+- {id: assembler-1, category: crafting, time: 0.5, ingredients: [{id: electronic-circuit, amount: 3}, {id: iron-gear-wheel, amount: 5}, {id: iron-plate, amount: 9}], products: [{id: assembler-1, amount: 1}]}

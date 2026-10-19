@@ -1,0 +1,17 @@
+- {id: iron-ore, name: Iron ore, type: item, stack: 50, tier: automation-science-pack, mirrors: iron-ore, tags: [raw]}
+- {id: copper-ore, name: Copper ore, type: item, stack: 50, tier: automation-science-pack, mirrors: copper-ore, tags: [raw]}
+- {id: coal, name: Coal, type: item, stack: 50, tier: automation-science-pack, mirrors: coal, fuel_value: 4, fuel_category: chemical, tags: [raw, fuel]}
+- {id: stone, name: Stone, type: item, stack: 50, tier: automation-science-pack, mirrors: stone, tags: [raw]}
+- {id: iron-plate, name: Iron plate, type: item, stack: 100, tier: automation-science-pack, mirrors: iron-plate}
+- {id: copper-plate, name: Copper plate, type: item, stack: 100, tier: automation-science-pack, mirrors: copper-plate}
+- {id: iron-gear-wheel, name: Iron gear wheel, type: item, stack: 100, tier: automation-science-pack, mirrors: iron-gear-wheel}
+- {id: copper-cable, name: Copper cable, type: item, stack: 200, tier: automation-science-pack, mirrors: copper-cable}
+- {id: electronic-circuit, name: Electronic circuit, type: item, stack: 200, tier: automation-science-pack, mirrors: electronic-circuit}
+- {id: automation-science-pack, name: Automation science pack, type: item, stack: 200, tier: automation-science-pack, mirrors: automation-science-pack, tags: [science-pack]}
+- {id: logistic-science-pack, name: Logistic science pack, type: item, stack: 200, tier: logistic-science-pack, mirrors: logistic-science-pack, tags: [science-pack]}
+- {id: transport-belt, name: Transport belt, type: item, stack: 100, tier: automation-science-pack, mirrors: transport-belt, places: transport-belt}
+- {id: inserter, name: Inserter, type: item, stack: 50, tier: automation-science-pack, mirrors: inserter, places: inserter}
+- {id: stone-furnace, name: Stone furnace, type: item, stack: 50, tier: automation-science-pack, mirrors: stone-furnace, places: stone-furnace}
+- {id: burner-mining-drill, name: Burner mining drill, type: item, stack: 50, tier: automation-science-pack, mirrors: burner-mining-drill, places: burner-mining-drill}
+- {id: lab, name: Lab, type: item, stack: 10, tier: automation-science-pack, mirrors: lab, places: lab}
+- {id: assembler-1, name: Assembling machine 1, type: item, stack: 50, tier: automation-science-pack, mirrors: assembling-machine-1, places: assembler-1}

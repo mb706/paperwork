@@ -1,0 +1,69 @@
+#!/bin/bash
+# Verify the user-mode game-dev toolchain on this host (see CLAUDE.md).
+# Usage: tools/check-toolchain.sh   — exits non-zero if any check fails.
+set -uo pipefail
+
+fails=0
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+check() { # name, command...
+    local name=$1; shift
+    local out
+    if out=$("$@" 2>&1); then
+        printf '  ok    %-16s %s\n' "$name" "$(printf '%s' "$out" | head -1 | cut -c1-70)"
+    else
+        printf '  FAIL  %-16s %s\n' "$name" "$(printf '%s' "$out" | tail -1 | cut -c1-70)"
+        fails=$((fails + 1))
+    fi
+}
+
+echo "versions:"
+check node           node --version
+check npm            npm --version
+check uv             uv --version
+check gamedev-python gamedev-python -c "import numpy, scipy, soundfile, pedalboard, pretty_midi, music21, librosa, PIL; print('media libs import')"
+check ffmpeg         sh -c "ffmpeg -hide_banner -version | head -1"
+check blender        sh -c "blender --version | head -1"
+check fluidsynth     sh -c "fluidsynth --version 2>/dev/null | grep -m1 'FluidSynth runtime'"
+check sox            sox --version
+check magick         sh -c "magick -version | head -1"
+check resvg          resvg --version
+check gltf-transform gltf-transform --version
+check gltfpack       sh -c "gltfpack -v 2>&1 | head -1"
+check podman         sh -c "podman --version"
+
+echo "functional:"
+sf=$HOME/.local/share/soundfonts/GeneralUser-GS.sf2
+check soundfont      test -s "$sf"
+check audio-render   sh -c "
+    gamedev-python -c \"import pretty_midi as p; m=p.PrettyMIDI(); i=p.Instrument(0); i.notes.append(p.Note(100,60,0,0.5)); m.instruments.append(i); m.write('$work/t.mid')\" &&
+    fluidsynth -ni -q -F '$work/t.wav' '$sf' '$work/t.mid' >/dev/null 2>&1 &&
+    ffmpeg -hide_banner -loglevel error -y -i '$work/t.wav' -c:a libopus '$work/t.ogg' &&
+    test -s '$work/t.ogg' && echo 'MIDI -> FluidSynth -> Opus'"
+check svg-render     sh -c "
+    echo '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\"><rect width=\"8\" height=\"8\" fill=\"red\"/></svg>' > '$work/t.svg' &&
+    resvg '$work/t.svg' '$work/t.png' && magick identify '$work/t.png'"
+check chrome-webgl2  node --input-type=module -e "
+    import { chromium } from '$HOME/.local/lib/node_modules/playwright/index.mjs';
+    const b = await chromium.launch();
+    const p = await b.newPage();
+    const r = await p.evaluate(() => {
+        const gl = document.createElement('canvas').getContext('webgl2');
+        return gl ? gl.getParameter(gl.getExtension('WEBGL_debug_renderer_info').UNMASKED_RENDERER_WEBGL) : null;
+    });
+    await b.close();
+    if (!r) throw new Error('no WebGL2');
+    console.log(r);"
+check blender-eevee  sh -c "
+    blender -b --factory-startup -noaudio --python-expr \"
+import bpy
+s = bpy.context.scene
+s.render.engine = 'BLENDER_EEVEE'
+s.render.resolution_x = s.render.resolution_y = 64
+s.render.filepath = '$work/e.png'
+bpy.ops.render.render(write_still=True)
+\" >/dev/null 2>&1 && test -s '$work/e.png' && echo 'EEVEE via Xvfb + Mesa llvmpipe'"
+
+if [ "$fails" -eq 0 ]; then echo "all checks passed"; else echo "$fails check(s) failed"; fi
+exit "$fails"

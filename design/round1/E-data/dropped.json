@@ -1,0 +1,26 @@
+{
+ "ballistics": [
+  "submachine-gun",
+  "shotgun",
+  "shotgun-shell"
+ ],
+ "rollback_recovery": [
+  "poison-capsule",
+  "slowdown-capsule",
+  "combat-shotgun"
+ ],
+ "defense_in_depth": [
+  "piercing-shotgun-shell",
+  "cluster-grenade"
+ ],
+ "reference_monitor": [
+  "flamethrower",
+  "flamethrower-ammo"
+ ],
+ "rocketry": [
+  "rocket-launcher"
+ ],
+ "scaling_laws": [
+  "cargo-landing-pad"
+ ]
+}

@@ -1,0 +1,355 @@
+# Global settings: tiers, categories, start, quality, heat, staffing, runaways, hollow work, the world (W, j, σ),
+# world settings, the endgame and effect types. Schema: SCHEMA.md. Numbers here are what the engine reads; each
+# block names the spec section that states the rule in prose (formula_ref). Round 4 (R4-data), 2026-10-19.
+tiers: [memo, report, article, proceedings, preprint, model-card, system-card]
+crafting_categories: [centrifuging, chemistry, crafting, crafting-with-fluid, data-processing, data-refining, frontier-run, launch, recycling, research-run, serving, smelting, training, transcription]
+fuel_categories: [chemical, nuclear, fusion]
+town_classes: [starting-college, college-town, village, town, city, metropolis]
+start:
+  inventory: {burner-mining-drill: 1, stone-furnace: 1, iron-plate: 8}
+  recipes: []
+  note: Prior art (trigger start) holds the start recipes; it is researched when the game begins.
+  salvage:
+    name: Laboratory salvage
+    desc: Decommissioned laboratory equipment. Can be taken apart.
+    handbook_note: Surplus from a wartime laboratory.
+    within_tiles: 16
+    mining_time: 1
+    wreck_pieces: 6
+    per_piece: {iron-plate: 5}
+    crate: {radar: 1, logic-board: 10, copper-cable: 20}
+    formula_ref: 01 §9
+  guarantees:
+    inside_starting_coverage: [iron-ore-patch, copper-ore-patch, coal-patch, quartz-patch, archive]
+    starting_archive_records: 80000
+    formula_ref: 01 §9 (DECISIONS §32)
+quality:
+  tiers:
+  - {id: standard, name: Standard, level: 0}
+  - {id: selected, name: Selected, level: 1, unlocked_by: rejection-sampling}
+  - {id: verified, name: Verified, level: 2, unlocked_by: rejection-sampling}
+  - {id: audited, name: Audited, level: 3, unlocked_by: scalable-oversight}
+  - {id: reference, name: Reference, level: 5, unlocked_by: formal-verification}
+  modules: [comparator, comparator-2, comparator-3]
+  next_tier_chance: 0.1
+  never_drops: true
+  verifier_rule: The highest output tier index is 1 + the lowest tier index among the Comparators in the machine, by each Comparator's own quality (tier k verifies tier k + 1; A §5.1), capped by the unlocked tiers. Tier indices count the tiers list (0–4), not levels. Without a Comparator there is no roll. Quality modules never go into Switches (ISO).
+  catalysts: A product with affected_by_quality false never rolls; it returns at the quality of the ingredient it copies. Only the rest of that product's amount (amount − catalyst) rolls.
+  recipe_quality: ISO 2.0 — every ingredient, the catalyst included, has the recipe's quality.
+  entity_stats: ISO 2.0's table of the stats that scale, per entity type, carried by the engine overlay (10 §5.16), with slope stat_bonus_per_level
+  stat_bonus_per_level: 0.3
+  recycle_return: 0.25
+  model: Space Age quality, ISO — rolls once, +10% per further tier, never drops; recycling in the Verifier
+  formula_ref: 02 §6
+heat:
+  chunk_heat_capacity_mj_per_k: 20
+  tree_damage_c: 45
+  ambient:
+    base_c: 14
+    per_tile_south_k: 0.0125
+    noise: {kind: simplex, octaves: 1, wavelength_tiles: 512, amplitude_k: 3, seed_stream: ambient}
+    clamp_c: [-15, 35]
+    evaluated_at: chunk centre
+    spawn_c: [11, 17]
+    formula_ref: 01 §3
+  sunlight:
+    divisor_tiles: 5700
+    clamp: [0.6, 1.3]
+    evaluated_at: chunk centre
+    formula: s = clamp(1 + y / divisor_tiles, clamp)
+    formula_ref: 01 §3
+  diffusion: {share_per_neighbour: 0.02, every_ticks: 64, min_mj: 15, formula_ref: 03 §1.2}
+  loss:
+    base_kw: 2
+    kappa: per tile, tiles.yaml kappa_per_s (mean over the chunk's 1,024 tiles)
+    per_tree_per_s: 2.5e-05
+    leaf_stage_s: 600
+    rule: Newton cooling toward θ — each second a chunk loses κ·H + base_kw
+    formula_ref: 03 §1.2
+  emission:
+    default: An electric machine emits its drawn energy, drain included; a burner machine emits the fuel it burns.
+    twice-output: A thermal generator (steam engine, steam turbine, fusion generator) emits 2 × its current electrical output, in its own chunk.
+    none: Boilers, heat exchangers and reactors emit nothing for their conversion; the loss is booked at the generators. An entity's separate electric draw (the fusion reactor's extra.electric_kw) is still emitted.
+    waste_heat: A reactor emits the heat it generates but can neither pass on nor store (a fission reactor at its maximum temperature).
+    solar_and_storage: Solar panels, accumulators and heat pipes emit nothing.
+    formula_ref: 03 §1.1 (DECISIONS §24)
+  thermal_efficiency: '1/3: fuel values and burner draws are 3× Factorio''s, so item flows are unchanged; a boiler burns 5.4 MW for 1.8 MW of steam and its engines reject 3.6 MW (DECISIONS §18, §24)'
+  throttle:
+    span_k: 50
+    floor: 0.5
+    formula: m = clamp(1 − (T − T*_eff) / span_k, floor, 1); T*_eff = T* + liquid_cooled_bonus_k × q
+    applies_to: crafting or research speed of entities with heat.class; a Seminar holding a Researcher; a Switch's transmitted effects (× m before the 1/√n profile); the Frontier cluster's run-shard crafting (the launch itself is not throttled)
+    power_draw: unchanged (pure loss)
+    formula_ref: 03 §1.3
+  classes: {tube: 45, computer: 40, network: 40, cluster: 35, accelerator: 25}
+  liquid_cooled_bonus_k: 15
+  coolant:
+    mj_per_unit: 1
+    machine_takes_at_or_below_c: 35
+    machine_returns_c: 50
+    cooler_takes_at_or_above_c: 45
+    cooler_returns_c: 30
+    initial_c: 30
+    liquid_share: {liquid-cooling: 0.7, immersion-cooling: 0.9}
+    filter_rule: A machine's coolant input accepts coolant at or below machine_takes_at_or_below_c; a cooler's input accepts coolant at or above cooler_takes_at_or_above_c. A segment outside a box's range does not flow into it; the machine's heat then goes to the air.
+    no_flow: all heat goes to the chunk's air; never a stop
+    formula_ref: 03 §1.4
+  seminar_box: a Seminar has its coolant box from Liquid cooling whatever its staff slot holds; the box needs flow only while a Researcher is installed (otherwise nothing is needed and q = 1; R5-gate D12g)
+  interruptible_power: [research-hall, researcher]
+  notes: tube is defined for completeness; no base building uses it (assembling machines are mechanical, DECISIONS §9).
+staffing:
+  radius: 48
+  supply:
+    per_field_year: 0.08
+    max_multiplier: 2.0
+    formula: T = T0 × min(max_multiplier, 1 + per_field_year × W) staff-equivalents per university
+  t0: {starting-college: 12, college-town: 8, town: 12, city: 24, metropolis: 48}
+  university_share: {starting-college: 1.0, college-town: 1.0, village: 0, town: 0.5, city: 1.0, metropolis: 1.0}
+  demand:
+    base: 1
+    min: 0.2
+    formula: demand = w × max(min, base + Σ speed of its own modules + Σ speed from Switches); Seminar speed from technologies adds none
+    working_share: w = share of the last 60 ticks with a job, the papers for the current unit (or a unit in progress), electric satisfaction > 0 and no compromise
+    researcher: a Seminar holding a Researcher demands 0 and has staff 1
+  coverage: the 8 × 8 campus expanded by R tiles on every side (Chebyshev); a Seminar or Terminal is covered when its centre lies inside
+  network: 'graph nodes: universities, Seminars, Terminals. Edges: university–Seminar and university–Terminal by coverage; Terminal–Terminal on one data-line network, both powered. Satisfaction s = min(1, ΣT / Σ demand) per connected component; rebuilt and recomputed every 60 ticks'
+  terminal: a Terminal joins the universities whose coverage holds it to every network holding another powered Terminal on the same data-line network. Not susceptible; it creates no runaway link of its own
+  uncovered: a Seminar outside every coverage and without a Researcher has staff 0 (status No staff)
+  radius_upgrades: derived from the staffing-radius effects (Packet switching, Web search)
+  researcher: see items.researcher.staff
+  formula_ref: 01 §8
+runaways:
+  presets: ['off', contained, wild]
+  default: contained
+  leak:
+    per_hour: 0.01
+    verification_step: 0.2
+    every_ticks: 60
+    formula: per deploying building i that is not compromised, Δ = per_hour/3600 × w_i × A_i × (1 − v_i) × (1 − verification_step × O) per second; ℓ_i += Δ and L += Δ
+    on_threshold: when L ≥ 1, the uncompromised deploying building with the largest ℓ_i (ties lowest serial) is compromised, ℓ_i = 0 and L −= 1; with no candidate L holds at 1
+    on_removal: when a deploying building is removed or stops deploying (a Seminar's Researcher taken out), L −= ℓ_i (floored at 0) and ℓ_i = 0
+    working_share: w_i = the fraction of the last 60 ticks in which the building's crafting or research progress advanced
+    formula_ref: 03 §3.2
+  v_by_quality: {standard: 0, selected: 0.25, verified: 0.5, audited: 0.75, reference: 0.9}
+  verification_techs: [rejection-sampling, beam-search, monte-carlo-tree-search, scalable-oversight]
+  deploying_buildings: [endpoint, research-hall, seminar]
+  deploying_note: {rule: 'a Seminar deploys only while a Researcher is in its staff slot'}
+  susceptible: {rule: 'every computing machine (an entity with heat.class; a Seminar only while a Researcher is installed) and any machine holding a Learned or Distilled controller in a module slot. Immune unless holding such a controller: furnaces, drills, plain assemblers, Crawlers, Seminars without a Researcher, cooling buildings, the Verifier. Always immune: belts, inserters, power plants, Terminals, Monitors, the Constructor, towns (R5-gate D5)', formula_ref: 03 §3.1}
+  model_tier:
+    endpoint: {deep-learning: 1, attention: 2, instruction-tuning: 3}
+    endpoint_rule: a global value, the highest tier whose technology is researched (Instruction tuning does not require Attention)
+    research-hall: 4
+    seminar: 4
+  spread:
+    per: infection
+    interval_s: [60, 45, 30, 20]
+    rule: one timer per infection, started at the compromise; on firing, if a member is powered, copy into the nearest uncompromised, powered, susceptible machine linked to a powered member (centre to centre; ties lowest target serial, then lowest source serial); no target, nothing; the timer is cancelled when no members remain
+    hop_rule: one hop (R5-gate D6). Two machines are linked when they share one data-line network, one exchange, one Switch area or one agent hub's area; links are not chained through a third machine, and the containment overlay's clusters (their transitive closure) show the eventual reach
+    agent_link: {rule: 'source and target inside the logistic area of one agent hub whose network holds a logistic agent'}
+    links: [data-line network, exchange, switch area, agent hub area with a logistic agent]
+    never: [circuit wires, power wires, belts, pipes, inserters, trains]
+    formula_ref: 03 §3.3 (DECISIONS §27)
+  compromised:
+    signal: Compromised = 1 on every connected wire, with or without power
+    connector: every susceptible type has a circuit connector; where Factorio 2.0 gives its counterpart none (labs, beacons), the connector outputs only the Compromised signal and reads nothing (R5-gate D7)
+    locks: {rule: 'cannot be mined, deconstructed, fast-replaced, upgraded or emptied of modules, Researchers, accelerators or weights (reason "Compromised. Cut its power.", 08 §8.3)'}
+    state: progress frozen; nothing consumed or produced; full working draw and its heat; its leak share stops accruing
+    powered: electric satisfaction > 0 in its own priority class, as last computed (the cleaning counter reads this tick's, a spread timer the previous tick's; 10 §4.6); for a Seminar holding a Researcher, min(normal satisfaction, compute satisfaction) > 0 (R5-gate D12f)
+  escape_timer_s: [120, 90, 60, 45]
+  escape_rule: (Wild only) the timer starts at the compromise and starts again after every expiry, a nest founded or not, while the machine stays compromised (R5-gate D13)
+  escape_path: (Wild only) a building on an exchange tap; a data-line or exchange link to one; or lying inside the logistic area of an agent hub whose network holds logistic agents
+  clean:
+    power_off_s: 30
+    power_off_rule: consecutive ticks at satisfaction 0; any tick above 0 resets the count
+    monitor: {range: 24, interval_s: 5, consumes: evaluation-set, rule: 'centre-to-centre distance ≤ range; the cycle advances at satisfaction × (1 + Σ monitor-rate); it consumes a set only when it cleans'}
+    rollback: {consumes: {tiers_1_to_3: checkpoint, tier_4: frontier-checkpoint}, after: rollback-recovery, via: 'a hidden rollback input that exists only while the machine is compromised; fed like an ammo slot (hand, inserter, agent request); the item is consumed and the machine is clean at once'}
+  nest: {site: "nearest chunk at least 3 chunks beyond agent coverage (with no agent hub, beyond the Site's built area: every chunk holding one of its entities; R5-gate D13), by Factorio's expansion score", expansion: 'every 4–60 min a group of 5–20 founds a nest 3–5 chunks out (ISO)', per_infection_cooldown_min: 10, formula_ref: 03 §3.6}
+  raids: {points_per_min: {base: 4, per_evolution: 36, rule: 'per replicator: base + per_evolution × e'}, group: 'gathers 1–10 min, waits ≤ 2 min, holds ≤ 200 (ISO)', targets: nearest computing machines and power plants, formula_ref: 03 §3.6}
+  evolution: {per_field_year_after_first_nest: 0.0072, per_replicator_destroyed: 0.002, per_nest_founded_per_tier: 0.04, squash: e = T/(1 + T), formula_ref: 03 §3.6}
+  dismantling: an entity at 0 HP is removed; its item and one stack of contents go to the nest's stock; ghosts remain
+hollow_work:
+  from: automated-research
+  applies_to: Seminars staffed by a Researcher
+  per_tier: 0.1
+  cap: 0.5
+  frontier_tier: 4
+  formula: h = min(cap, per_tier × max(0, frontier_tier − O)) × (1 − v); O counts researched verification_techs
+  effect: research progress per paper × (1 − h); before Interpretability papers are consumed at the full rate
+  stopped_by: interpretability (papers are spent only on research that holds)
+  display: Yield (1 − h), e.g. "Yield 80%"
+  formula_ref: 03 §4
+world:
+  w0: 0
+  v0: 2.0
+  v0_race: 2.9
+  v0_race_hard: 3.4
+  beta: 0.5
+  publication_lag_s: 600
+  y_pub_start: 1945
+  y_pub_rule: Y_pub is the latest citation year among researched cited technologies whose cost includes a paper other than System cards; ΔY = max(0, year − Y_pub) adds beta × ΔY to W, released evenly over publication_lag_s
+  literature_rule: Literature = the latest citation year among researched technologies with regime cited
+  world_sigma_from_w: 70
+  world_sigma_per_field_year: 0.05
+  gamma: {from_w: 80, to_w: 90, w_per_generation: 0.5, rule: '1 for W < from_w; (m/g)^((W − from_w) / w_per_generation) for from_w ≤ W < to_w; 1 from to_w (scales W_own only)', formula_ref: 01 §12.1}
+  race_spoil_w: 0.002
+  j:
+    breakpoints: [[0, 0.3], [49, 0.3], [59, 0.45], [67, 0.55]]
+    rule: piecewise linear in W between breakpoints; constant after the last
+    formula_ref: 01 §12.2
+  sigma:
+    squash_max: 0.9
+    squash: σ = squash_max × Σ / (1 + Σ)
+    per_ratings: 0.0002
+    watermarking_factor: 0.5
+    formula_ref: 01 §12.3
+  model_collapse:
+    applies_to: [checkpoint, post-training-payload]
+    crawl_recipes: [quality-filtering, deduplication]
+    synthetic_recipes: [synthetic-data]
+    window_ticks: 36000
+    speed_factor: 1 - sigma*c
+    rule: before Synthetic detection the listed recipes run at speed × (1 − σ·c), c = text and prose made by crawl_recipes ÷ text and prose made by crawl_recipes and synthetic_recipes in the window (0 if none); after it, no penalty and crawler output × (1 − σ)
+    formula_ref: 03 §2.2 (DECISIONS §31, accuracy M4)
+  exchange:
+    base_yield_per_s: 10
+    full_amount: 300000
+    amount_per_percent: 3000
+    depletion_per_cycle: 10
+    yield: 10/s × max(A / full_amount, floor) per crawler (ISO)
+    floor: {rise_from_w: 40, doubling_w: 20, rule: 'F(W) = f × max(1, 2^((W − rise_from_w) / doubling_w))'}
+    f: {village: 0.1, college-town: 0.15, starting-college: 0.15, town: 0.2, city: 0.3, metropolis: 0.4}
+    closed_to_crawlers_at_sigma: {village: 0.8, college-town: 0.7, starting-college: 0.7, town: 0.6, city: 0.45, metropolis: 0.3}
+    starting_tap_initial_yield: 2.0
+    formula_ref: 01 §7
+  refinery_mix: products of quality-filtering and deduplication follow amounts_by_j in recipes.yaml (03 §2.1)
+  archives:
+    tiles: {records_per_tile: 1500, min: 16, max: 400, rule: 'n = clamp(round(total / records_per_tile), min, max)'}
+    per_tile: each tile holds ⌊total / n⌋ records; the first (total mod n) tiles in row order hold one more
+    starting_archive: 80000
+    library_totals: {village: [20000, 40000, 0.3], college-town: [40000, 80000, 0.7], town: [80000, 160000, 0.85], city: [200000, 400000, 1.0], metropolis: [500000, 1000000, 1.0]}
+    library_totals_note: '[min, max, chance that a town of the class has one]'
+    records_stores: {total: [150000, 300000], beyond_tiles: 512}
+    distance_factor: {scale_tiles: 2000, rule: '× (1 + d / scale_tiles), d the distance from spawn in tiles'}
+    formula_ref: 01 §6
+world_settings:
+  heat: {options: ['on', 'off'], default: 'on'}
+  staffing: {options: ['on', 'off'], default: 'on', rule: 'off: every Seminar has staff 1 (01 §8.6, 07 §17 Advanced; Sandbox)'}
+  runaways: {options: ['off', contained, wild], default: contained}
+  returns_to_research:
+    options: [1.2, 1.7095112913514547, 2.0]
+    labels: ['1.2', '1.71', '2.0']
+    default: 1.7095112913514547
+    g: 1.5
+    rule: research-per-paper effects multiply research per paper by m = g^r; the default r is ln 2 / ln g (shown as 1.71), so that m = 2 exactly (R5-gate D12b)
+  race_mode: {options: ['off', race, race_hard], default: 'off'}
+  scooped: {options: ['off', 'on'], default: 'off', forced_in_race: true, rule: 'significant results spoil into baselines after 54,000 ticks (15 min); in Race each spoil adds world.race_spoil_w to W'}
+  hollow_work: {options: ['on', 'off'], default: 'on'}
+  climate_compass: {options: ['on', 'off'], default: 'on'}
+endgame:
+  generations: Model generation 6–24 (multi-level) and Model generation 25 (capstone) cost 2400 × 1.5^(L − 6) System cards at 60 s per unit
+  closure: the first System card written by a Research hall (DECISIONS §16). Its Research run researches the hidden trigger technology loop-closed, which Model generation and the takeoff hardware require (R5-gate D9); the first frontier run only triggers In-context learning
+  victory: complete a frontier run carrying a Final report (recipe launch-final); the run report follows; play continues
+  takeoff_clock: closure → Model generation 25 (DECISIONS §16)
+  overhang: accelerators existing at closure
+  # The order Research scheduling follows (R5-gate D10; effects.research-queue-auto): G's φ = 0.15 order (R2-W),
+  # each hardware technology after the Model generation level it follows, then levels 16–25 and Energy per
+  # operation. An entry is a technology id, or {id: level} for one level of a finite multi-level technology; an
+  # infinite technology's entry is its next level. The validator checks that it holds every System-card-only
+  # technology level once, after every entry it requires.
+  takeoff_order:
+  - model-generation: 6
+  - research-scheduling
+  - two-phase-cooling
+  - model-generation: 7
+  - wafer-scale-integration
+  - weight-transplant
+  - model-generation: 8
+  - fleet-scheduling
+  - model-generation: 9
+  - fusion-power
+  - model-generation: 10
+  - sparse-inference
+  - model-generation: 11
+  - photonic-interconnect
+  - model-generation: 12
+  - microfluidic-cooling
+  - model-generation: 13
+  - self-reproducing-automata
+  - model-generation: 14
+  - nanofabrication
+  - model-generation: 15
+  - reversible-logic
+  - model-generation: 16
+  - model-generation: 17
+  - model-generation: 18
+  - model-generation: 19
+  - model-generation: 20
+  - model-generation: 21
+  - model-generation: 22
+  - model-generation: 23
+  - model-generation: 24
+  - model-generation-25
+  - energy-per-operation
+  formula_ref: 04 §4–§5
+# Damage categories (R5-gate D13; Wild): the one registry that damage bonuses (ammo-damage, gun-speed) name. Every
+# damage dealer declares one: an entity's extra.ammo_category, an ammo item's category (or its damage_category where
+# its slot category differs: the Interceptors), an equipment's ammo_category. 'arc' is the arc turret's.
+damage_categories: [bullet, rocket, landmine, laser, beam, electric, arc, artillery-shell]
+# Effect types. `line` is the generated tooltip line (fields: {pct} signed percent of value, {n} signed count,
+# {mult} ×multiplier (or ×m from the world setting), {fraction} percent, {category}, {turret}, {recipes}, {entities},
+# {quality}, {output}, {energy}); `rule` is the engine rule.
+effects:
+  laboratory-speed: {line: 'Seminar speed {pct}', rule: 'Seminar research speed × (1 + Σ value): additive with other lab-speed bonuses, multiplied with module and Switch speed (Factorio); adds no staff demand'}
+  research-productivity: {line: 'Research productivity {pct}', rule: research per paper +value (additive)}
+  research-per-paper: {line: 'Research per paper {mult}', rule: 'research per paper × m, m = g^r from world_settings.returns_to_research; global and retroactive (Model generation; G''s Π). Carries multiplier_from, never a literal multiplier'}
+  mining-productivity: {line: 'Mining productivity {pct}', rule: drill productivity +value (archives included)}
+  character-mining-speed: {line: 'Hand mining speed {pct}', rule: hand mining speed +value}
+  character-crafting-speed: {line: 'Hand-crafting speed {pct}', rule: hand-crafting speed +value; machines unaffected}
+  character-inventory-slots: {line: 'Inventory {n} slots', rule: player inventory +value slots}
+  worker-robot-speed: {line: 'Agent speed {pct}', rule: agent speed +value}
+  construction-agent-speed: {line: 'Construction agent speed {pct}', rule: construction agent speed +value}
+  agent-hub-charging: {line: 'Agent hub charging {mult}', rule: agent hub charging rate × multiplier}
+  worker-robot-storage: {line: 'Agent cargo {n}', rule: agent cargo +value}
+  inserter-stack-size-bonus: {line: 'Inserter capacity {n}', rule: inserter hand size +value}
+  bulk-inserter-capacity-bonus: {line: 'Bulk inserter capacity {n}', rule: bulk inserter hand size +value}
+  train-braking-force-bonus: {line: 'Braking force {pct}', rule: train braking force +value}
+  ammo-damage: {line: 'Damage: {category} {pct}', rule: 'damage +value for every damage dealer of a category in damage_categories (an entity''s extra.ammo_category, an ammo item''s category or damage_category, an equipment''s ammo_category); arc bonuses apply to the arc turret'}
+  turret-attack: {line: 'Damage: {turret} {pct}', rule: damage +value for one turret}
+  gun-speed: {line: 'Fire rate: {category} {pct}', rule: fire rate +value for ammo of a category}
+  interceptor-escort-cap: {line: 'Interceptors aloft per bay {n}', rule: interceptors aloft per bay +value (Factorio's follower count)}
+  artillery-range: {line: 'Artillery range {pct}', rule: artillery range +value}
+  monitor-rate: {line: 'Monitor cleaning rate {pct}', rule: a Monitor's cycle advances at satisfaction × (1 + Σ value)}
+  unlock-circuit-network: {line: 'Circuit wires', rule: circuit wires}
+  radar-circuit-relay: {line: 'Radars relay circuit signals to one another', rule: radars relay circuit signals to one another (2.0)}
+  staffing-radius: {line: 'Staffing radius {mult}', rule: university commuting radius × multiplier}
+  liquid-cooling: {line: 'Computing machines take coolant: {fraction} of their heat', rule: computing machines get coolant boxes; the share of heat sent into coolant is fraction}
+  computing-energy: {line: 'Energy of computing machines {pct}', rule: 'adds value to the consumption bonus of entities in the tube, computer, network and cluster classes (not the accelerator class, not the Researcher); with module effects, floored at −80% (ISO)'}
+  cooling-capacity: {line: '{entities} capacity {amount}', rule: 'removal capacity of the listed coolers × Π multiplier × (1 + Σ value): multipliers compound, values add'}
+  mining-with-fluid: {line: 'Drills can mine with a fluid', rule: drills may mine patches that need a fluid}
+  create-ghost-on-entity-death: {line: 'Destroyed buildings leave ghosts', rule: destroyed entities leave ghosts}
+  character-logistic-requests: {line: 'Personal logistic requests', rule: personal logistic requests}
+  character-logistic-trash-slots: {line: 'Trash slots {n}', rule: personal trash slots +value}
+  vehicle-logistics: {line: 'Vehicle logistics', rule: vehicles take logistic requests}
+  unlock-quality: {line: 'Quality tier: {quality}', rule: a quality tier becomes reachable}
+  synthetic-detection: {line: 'Crawlers set synthetic text aside; training no longer slows on it', rule: crawler output × (1 − σ); the model-collapse speed penalty (world.model_collapse) ends}
+  deployment-sigma: {line: 'Synthetic share from Ratings {mult}', rule: σ's increment per Ratings × multiplier}
+  show-model-quality: {line: 'Checkpoint quality is shown', rule: 'quality of checkpoints, controllers, Researchers, payloads and agents is shown, everywhere at once'}
+  hollow-work-free: {line: 'Papers are spent only on research that holds', rule: hollow work no longer consumes papers (papers consumed × (1 − h))}
+  rollback: {line: 'A checkpoint cleans a compromised machine at once', rule: runaways.clean.rollback becomes available}
+  system-cards-per-run: {line: 'System cards per frontier run {pct}', rule: System cards per completed frontier run × (1 + Σ value)}
+  recipe-productivity: {line: '{recipes} productivity {pct}', rule: productivity +value for the listed recipes (each must allow productivity)}
+  hall-mode: {line: 'Research halls gain a mode: output {output} at energy {energy}', rule: 'a hall toggle (GUI or circuit): speed × (1 + output), power × (1 + energy)'}
+  research-queue-auto: {line: 'Researchers fill the research queue', rule: 'R5-gate D10 (04 §5.1): right after a research completes, and otherwise every 60 ticks, while the queue holds fewer than 7 entries and a Researcher is installed, append one entry: the first entry of endgame.takeoff_order that is neither researched nor queued, if its prerequisites are all researched (otherwise nothing: research follows the order). An entry whose prerequisite closure holds an unresearched technology outside the order is passed over, so the queue never waits on what Researchers cannot queue. An infinite technology''s entry is its next level and never runs out. Entries read Queued by: Researcher'}
+  weight-transplant: {line: 'Research halls swap in accelerators of a higher tier', rule: 'a higher-tier accelerator inserted into a full hall replaces its lowest-tier one, which goes to the output (entities.research-hall.extra.upgrade)'}
+  hall-energy: {line: 'Research hall energy {mult}', rule: Research hall power × multiplier (halls only; Sparse inference)}
+  compute-energy-floor: {line: 'Research hall and Researcher energy {mult} per level, down to a floor set by the site''s temperature', rule: 'power × [f + (1 − f) × multiplier^L], f = θ_K / floor_temperature_k of the building''s chunk; halls and the Researcher''s 500 kW'}
+checks:
+  require_sprite: true
+  text_rules: true
+  never_list_exempt_names: [Artificial intelligence]
+  long_item_desc_ok: [researcher]
+citation_rules:
+  build_year: 2026
+  min_age_years: 2
+  era_end: {Prior art: 1945, Automatic computation: 1955, Programming: 1998, Statistical learning: 2011, Deep learning: 2018, Agents: 2023, Takeoff: 2024}
+  formula_ref: 08 §9.3, E §3

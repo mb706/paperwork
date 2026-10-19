@@ -1,0 +1,68 @@
+# World objects (impl J9): things worldgen places and the player may mine or click, but never builds.
+# Town buildings are town-block tiles (tiles.yaml); the Laboratory salvage is defined once, in meta.start.salvage
+# (DECISIONS §33). Sizes are collision footprints in tiles; yields are hand-mining results (ISO amounts, 01 §2).
+- id: tree
+  name: Tree
+  kind: tree
+  size: [1, 1]
+  mining_time: 0.5
+  yields: {wood: 4}
+  collides: true
+  leaf_stages: 4
+  note: no regrowth (ISO); heat strips one leaf stage per 600 s above meta.heat.tree_damage_c; κ per tree in meta.heat.loss
+  sprite: 'ISO trees, by biome (01 §2): conifers in the north, savanna trees in the steppe'
+- id: big-rock
+  name: Big rock
+  kind: rock
+  size: [2, 2]
+  mining_time: 1.5
+  yields: {quartz: 20}
+  collides: true
+  mirrors: big-rock (stone → quartz)
+  sprite: 'ISO big rock, paler, with milky quartz veins'
+- id: huge-rock
+  name: Huge rock
+  kind: rock
+  size: [3, 3]
+  mining_time: 2
+  yields: {quartz: [24, 50], coal: [24, 50]}
+  collides: true
+  mirrors: huge-rock (stone → quartz)
+  sprite: 'ISO huge rock with quartz veins and a coal seam'
+- id: big-sand-rock
+  name: Big sand rock
+  kind: rock
+  size: [2, 2]
+  mining_time: 1
+  yields: {quartz: [19, 25]}
+  collides: true
+  mirrors: big-sand-rock (stone → quartz)
+  sprite: 'ISO sand rock, wind-worn'
+- id: campus
+  name: University
+  kind: campus
+  size: [8, 8]
+  collides: true
+  selectable: true
+  gui: university
+  cosmetic: false
+  note: one per university (01 §5.4), on the footprint edge facing the most buildable land; supplies staff (meta.staffing); name from 08 §10.4
+  sprite: 'quadrangle of brick halls around a lawn, era skin by the field (01 §5.3)'
+- id: exchange-office
+  name: Exchange
+  kind: landmark
+  size: [4, 4]
+  collides: true
+  selectable: true
+  cosmetic: true
+  note: inside the footprint edge nearest its taps; telegraph office, telephone exchange or internet exchange by the field (01 §5.3)
+  sprite: 'telegraph office with a wire mast; later a telephone exchange; later a windowless building with cooling units'
+- id: mine-entrance
+  name: Mine entrance
+  kind: landmark
+  size: [4, 4]
+  collides: true
+  selectable: true
+  cosmetic: true
+  note: marks a records store in an old mine (01 §6.2)
+  sprite: 'timbered adit in a hillside with a steel door and a records sign'

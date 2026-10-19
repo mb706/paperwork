@@ -1,0 +1,2198 @@
+- id: iron-plate
+  category: smelting
+  time: 3.2
+  ingredients:
+  - id: iron-ore
+    amount: 1
+  products:
+  - id: iron-plate
+    amount: 1
+  mirrors: iron-plate
+  handcraft: false
+- id: copper-plate
+  category: smelting
+  time: 3.2
+  ingredients:
+  - id: copper-ore
+    amount: 1
+  products:
+  - id: copper-plate
+    amount: 1
+  mirrors: copper-plate
+  handcraft: false
+- id: steel-plate
+  category: smelting
+  time: 16
+  ingredients:
+  - id: iron-plate
+    amount: 5
+  products:
+  - id: steel-plate
+    amount: 1
+  mirrors: steel-plate
+  handcraft: false
+- id: silicon
+  category: smelting
+  time: 3.2
+  ingredients:
+  - id: quartz
+    amount: 1
+  products:
+  - id: silicon
+    amount: 1
+  mirrors: stone-brick (the 4th ore's furnace slot; 1:1 like a plate)
+  handcraft: false
+- id: token
+  category: transcription
+  time: 3.2
+  ingredients:
+  - id: records
+    amount: 1
+  products:
+  - id: token
+    amount: 1
+  mirrors: copper-plate
+  handcraft: false
+- id: iron-gear-wheel
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-plate
+    amount: 2
+  products:
+  - id: iron-gear-wheel
+    amount: 1
+  mirrors: iron-gear-wheel
+- id: iron-stick
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-plate
+    amount: 1
+  products:
+  - id: iron-stick
+    amount: 2
+  mirrors: iron-stick
+- id: copper-cable
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: copper-plate
+    amount: 1
+  products:
+  - id: copper-cable
+    amount: 2
+  mirrors: copper-cable
+- id: logic-board
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-plate
+    amount: 1
+  - id: copper-cable
+    amount: 3
+  products:
+  - id: logic-board
+    amount: 1
+  mirrors: electronic-circuit
+- id: processor
+  category: crafting
+  time: 6
+  ingredients:
+  - id: wafer
+    amount: 2
+  - id: copper-cable
+    amount: 4
+  - id: logic-board
+    amount: 2
+  products:
+  - id: processor
+    amount: 1
+  mirrors: advanced-circuit
+- id: accelerator
+  category: crafting-with-fluid
+  time: 10
+  ingredients:
+  - id: logic-board
+    amount: 20
+  - id: processor
+    amount: 2
+  - id: sulfuric-acid
+    amount: 5
+  products:
+  - id: accelerator
+    amount: 1
+  mirrors: processing-unit
+  handcraft: false
+- id: engine-unit
+  category: crafting
+  time: 10
+  ingredients:
+  - id: steel-plate
+    amount: 1
+  - id: iron-gear-wheel
+    amount: 1
+  - id: pipe
+    amount: 2
+  products:
+  - id: engine-unit
+    amount: 1
+  mirrors: engine-unit
+- id: electric-engine-unit
+  category: crafting-with-fluid
+  time: 10
+  ingredients:
+  - id: engine-unit
+    amount: 1
+  - id: logic-board
+    amount: 2
+  - id: lubricant
+    amount: 15
+  products:
+  - id: electric-engine-unit
+    amount: 1
+  mirrors: electric-engine-unit
+  handcraft: false
+- id: drone-frame
+  category: crafting
+  time: 20
+  ingredients:
+  - id: electric-engine-unit
+    amount: 1
+  - id: battery
+    amount: 2
+  - id: steel-plate
+    amount: 1
+  - id: logic-board
+    amount: 3
+  products:
+  - id: drone-frame
+    amount: 1
+  mirrors: flying-robot-frame
+- id: rack
+  category: crafting
+  time: 15
+  ingredients:
+  - id: steel-plate
+    amount: 2
+  - id: copper-plate
+    amount: 20
+  - id: battery
+    amount: 5
+  products:
+  - id: rack
+    amount: 1
+  mirrors: low-density-structure (5 plastic -> 5 battery)
+- id: construction-agent
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: drone-frame
+    amount: 1
+  - id: logic-board
+    amount: 2
+  products:
+  - id: construction-agent
+    amount: 1
+  mirrors: construction-robot
+- id: repair-pack
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: logic-board
+    amount: 2
+  - id: iron-gear-wheel
+    amount: 2
+  products:
+  - id: repair-pack
+    amount: 1
+  mirrors: repair-pack
+- id: sulfur
+  category: chemistry
+  time: 1
+  ingredients:
+  - id: coal
+    amount: 2
+  - id: water
+    amount: 30
+  products:
+  - id: sulfur
+    amount: 2
+  mirrors: sulfur (2 coal replace 30 petroleum gas)
+  handcraft: false
+- id: sulfuric-acid
+  category: chemistry
+  time: 1
+  ingredients:
+  - id: sulfur
+    amount: 5
+  - id: iron-plate
+    amount: 1
+  - id: water
+    amount: 100
+  products:
+  - id: sulfuric-acid
+    amount: 50
+  mirrors: sulfuric-acid
+  handcraft: false
+- id: lubricant
+  category: chemistry
+  time: 1
+  ingredients:
+  - id: coal
+    amount: 1
+  - id: water
+    amount: 10
+  products:
+  - id: lubricant
+    amount: 10
+  mirrors: lubricant (coal replaces heavy oil)
+  handcraft: false
+- id: wafer
+  category: chemistry
+  time: 1
+  ingredients:
+  - id: silicon
+    amount: 1
+  - id: sulfuric-acid
+    amount: 20
+  products:
+  - id: wafer
+    amount: 2
+  mirrors: plastic-bar (silicon + acid replace coal + gas)
+  name: Photolithography
+  handcraft: false
+- id: battery
+  category: chemistry
+  time: 4
+  ingredients:
+  - id: iron-plate
+    amount: 1
+  - id: copper-plate
+    amount: 1
+  - id: sulfuric-acid
+    amount: 20
+  products:
+  - id: battery
+    amount: 1
+  mirrors: battery
+  handcraft: false
+- id: explosives
+  category: chemistry
+  time: 4
+  ingredients:
+  - id: sulfur
+    amount: 1
+  - id: coal
+    amount: 1
+  - id: water
+    amount: 10
+  products:
+  - id: explosives
+    amount: 2
+  mirrors: explosives
+  handcraft: false
+- id: deduplication
+  category: data-refining
+  time: 5
+  ingredients:
+  - id: crawl
+    amount: 100
+  products:
+  - id: prose
+    amount: 45
+  mirrors: basic-oil-processing
+  name: Deduplication
+  handcraft: false
+- id: quality-filtering
+  category: data-refining
+  time: 5
+  ingredients:
+  - id: crawl
+    amount: 100
+  - id: water
+    amount: 50
+  products:
+  - id: junk
+    amount: 25
+  - id: text
+    amount: 45
+  - id: prose
+    amount: 55
+  mirrors: advanced-oil-processing
+  name: Quality filtering
+  handcraft: false
+- id: denoising
+  category: data-processing
+  time: 2
+  ingredients:
+  - id: junk
+    amount: 40
+  - id: water
+    amount: 30
+  products:
+  - id: text
+    amount: 30
+  mirrors: heavy-oil-cracking
+  name: Denoising
+  handcraft: false
+- id: rephrasing
+  category: data-processing
+  time: 2
+  ingredients:
+  - id: text
+    amount: 30
+  - id: water
+    amount: 30
+  products:
+  - id: prose
+    amount: 20
+  mirrors: light-oil-cracking
+  name: Rephrasing
+  handcraft: false
+- id: dataset
+  category: data-processing
+  time: 1
+  ingredients:
+  - id: prose
+    amount: 20
+  - id: token
+    amount: 1
+  products:
+  - id: dataset
+    amount: 2
+  mirrors: plastic-bar
+  handcraft: false
+- id: benchmark
+  category: data-processing
+  time: 1
+  ingredients:
+  - id: prose
+    amount: 30
+  - id: water
+    amount: 30
+  products:
+  - id: benchmark
+    amount: 2
+  mirrors: sulfur
+  handcraft: false
+- id: adversarial-set
+  category: data-processing
+  time: 1
+  ingredients:
+  - id: junk
+    amount: 10
+  products:
+  - id: adversarial-set
+    amount: 1
+  mirrors: lubricant (heavy fraction's direct use)
+  handcraft: false
+- id: corpus
+  category: data-processing
+  time: 15
+  ingredients:
+  - id: dataset
+    amount: 10
+  - id: text
+    amount: 10
+  products:
+  - id: corpus
+    amount: 1
+  mirrors: rocket-fuel (dataset plays solid fuel)
+  handcraft: false
+- id: checkpoint
+  category: training
+  time: 60
+  ingredients:
+  - id: dataset
+    amount: 10
+  products:
+  - id: checkpoint
+    amount: 1
+  mirrors: new (cost is compute time and data, not material)
+  handcraft: false
+- id: post-training-payload
+  category: training
+  time: 5
+  ingredients:
+  - id: checkpoint
+    amount: 100
+  - id: benchmark
+    amount: 100
+  - id: adversarial-set
+    amount: 100
+  - id: accelerator
+    amount: 100
+  - id: corpus
+    amount: 50
+  products:
+  - id: post-training-payload
+    amount: 1
+  mirrors: satellite
+  handcraft: false
+- id: coprocessor
+  category: crafting
+  time: 15
+  ingredients:
+  - id: processor
+    amount: 5
+  - id: logic-board
+    amount: 5
+  products:
+  - id: coprocessor
+    amount: 1
+  mirrors: speed-module
+- id: coprocessor-2
+  category: crafting
+  time: 30
+  ingredients:
+  - id: coprocessor
+    amount: 4
+  - id: processor
+    amount: 5
+  - id: accelerator
+    amount: 5
+  products:
+  - id: coprocessor-2
+    amount: 1
+  mirrors: speed-module-2
+- id: coprocessor-3
+  category: crafting
+  time: 60
+  ingredients:
+  - id: coprocessor-2
+    amount: 4
+  - id: processor
+    amount: 5
+  - id: accelerator
+    amount: 5
+  products:
+  - id: coprocessor-3
+    amount: 1
+  mirrors: speed-module-3
+- id: learned-controller-2
+  category: crafting
+  time: 30
+  ingredients:
+  - id: learned-controller
+    amount: 4
+  - id: processor
+    amount: 5
+  - id: accelerator
+    amount: 5
+  products:
+  - id: learned-controller-2
+    amount: 1
+  mirrors: productivity-module-2
+- id: learned-controller-3
+  category: crafting
+  time: 60
+  ingredients:
+  - id: learned-controller-2
+    amount: 4
+  - id: processor
+    amount: 5
+  - id: accelerator
+    amount: 5
+  products:
+  - id: learned-controller-3
+    amount: 1
+  mirrors: productivity-module-3
+- id: distilled-controller-2
+  category: crafting
+  time: 30
+  ingredients:
+  - id: distilled-controller
+    amount: 4
+  - id: processor
+    amount: 5
+  - id: accelerator
+    amount: 5
+  products:
+  - id: distilled-controller-2
+    amount: 1
+  mirrors: efficiency-module-2
+- id: distilled-controller-3
+  category: crafting
+  time: 60
+  ingredients:
+  - id: distilled-controller-2
+    amount: 4
+  - id: processor
+    amount: 5
+  - id: accelerator
+    amount: 5
+  products:
+  - id: distilled-controller-3
+    amount: 1
+  mirrors: efficiency-module-3
+- id: run-shard
+  category: frontier-run
+  time: 3
+  ingredients:
+  - id: accelerator
+    amount: 10
+  - id: rack
+    amount: 10
+  - id: corpus
+    amount: 10
+  products:
+  - id: run-shard
+    amount: 1
+  mirrors: rocket-part
+  handcraft: false
+- id: memo
+  category: crafting
+  time: 5
+  ingredients:
+  - id: token
+    amount: 1
+  - id: iron-gear-wheel
+    amount: 1
+  products:
+  - id: memo
+    amount: 1
+  mirrors: automation-science-pack (copper plate -> token)
+- id: report
+  category: crafting
+  time: 6
+  ingredients:
+  - id: inserter
+    amount: 1
+  - id: transport-belt
+    amount: 1
+  products:
+  - id: report
+    amount: 1
+  mirrors: logistic-science-pack
+- id: article
+  category: crafting
+  time: 24
+  ingredients:
+  - id: engine-unit
+    amount: 2
+  - id: processor
+    amount: 3
+  - id: benchmark
+    amount: 1
+  products:
+  - id: article
+    amount: 2
+  mirrors: chemical-science-pack (sulfur -> benchmark)
+- id: proceedings
+  category: crafting
+  time: 10
+  ingredients:
+  - id: adversarial-set
+    amount: 1
+  - id: benchmark
+    amount: 1
+  - id: logic-board
+    amount: 2
+  products:
+  - id: proceedings
+    amount: 2
+  mirrors: military-science-pack (ingredients replaced)
+- id: preprint
+  category: crafting
+  time: 21
+  ingredients:
+  - id: tokenizer
+    amount: 1
+  - id: checkpoint
+    amount: 1
+  - id: rail
+    amount: 30
+  products:
+  - id: preprint
+    amount: 3
+  mirrors: production-science-pack (productivity module -> checkpoint)
+- id: model-card
+  category: crafting
+  time: 21
+  ingredients:
+  - id: checkpoint
+    amount: 2
+  - id: drone-frame
+    amount: 1
+  - id: rack
+    amount: 3
+  products:
+  - id: model-card
+    amount: 3
+  mirrors: utility-science-pack (2 processing unit -> 2 checkpoint)
+- id: uranium-processing
+  category: centrifuging
+  time: 12
+  ingredients:
+  - id: uranium-ore
+    amount: 10
+  products:
+  - id: uranium-235
+    amount: 1
+    probability: 0.007
+  - id: uranium-238
+    amount: 1
+    probability: 0.993
+  mirrors: uranium-processing
+  name: Uranium processing
+  handcraft: false
+- id: uranium-fuel-cell
+  category: crafting
+  time: 10
+  ingredients:
+  - id: iron-plate
+    amount: 10
+  - id: uranium-235
+    amount: 1
+  - id: uranium-238
+    amount: 19
+  products:
+  - id: uranium-fuel-cell
+    amount: 10
+  mirrors: uranium-fuel-cell
+- id: nuclear-fuel-reprocessing
+  category: centrifuging
+  time: 60
+  ingredients:
+  - id: depleted-uranium-fuel-cell
+    amount: 5
+  products:
+  - id: uranium-238
+    amount: 3
+  mirrors: nuclear-fuel-reprocessing
+  name: Nuclear fuel reprocessing
+  handcraft: false
+- id: concrete
+  category: crafting-with-fluid
+  time: 10
+  ingredients:
+  - id: quartz
+    amount: 10
+  - id: iron-ore
+    amount: 1
+  - id: water
+    amount: 100
+  products:
+  - id: concrete
+    amount: 10
+  mirrors: concrete (5 stone brick -> 10 quartz)
+  handcraft: false
+- id: hazard-concrete
+  category: crafting
+  time: 0.25
+  ingredients:
+  - id: concrete
+    amount: 10
+  products:
+  - id: hazard-concrete
+    amount: 10
+  mirrors: hazard-concrete
+- id: refined-concrete
+  category: crafting-with-fluid
+  time: 15
+  ingredients:
+  - id: concrete
+    amount: 20
+  - id: iron-stick
+    amount: 8
+  - id: steel-plate
+    amount: 1
+  - id: water
+    amount: 100
+  products:
+  - id: refined-concrete
+    amount: 10
+  mirrors: refined-concrete
+  handcraft: false
+- id: refined-hazard-concrete
+  category: crafting
+  time: 0.25
+  ingredients:
+  - id: refined-concrete
+    amount: 10
+  products:
+  - id: refined-hazard-concrete
+    amount: 10
+  mirrors: refined-hazard-concrete
+- id: landfill
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: quartz
+    amount: 50
+  products:
+  - id: landfill
+    amount: 1
+  mirrors: landfill
+- id: cliff-explosives
+  category: crafting
+  time: 8
+  ingredients:
+  - id: explosives
+    amount: 10
+  - id: barrel
+    amount: 1
+  - id: logic-board
+    amount: 1
+  products:
+  - id: cliff-explosives
+    amount: 1
+  mirrors: cliff-explosives (grenade -> logic board)
+- id: barrel
+  category: crafting
+  time: 1
+  ingredients:
+  - id: steel-plate
+    amount: 1
+  products:
+  - id: barrel
+    amount: 1
+  mirrors: barrel
+- id: drive
+  category: crafting
+  time: 1
+  ingredients:
+  - id: steel-plate
+    amount: 1
+  products:
+  - id: drive
+    amount: 1
+  mirrors: barrel
+- id: fill-water-barrel
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: water
+    amount: 50
+  - id: barrel
+    amount: 1
+  products:
+  - id: water-barrel
+    amount: 1
+  mirrors: water-barrel fill
+  handcraft: false
+- id: empty-water-barrel
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: water-barrel
+    amount: 1
+  products:
+  - id: water
+    amount: 50
+  - id: barrel
+    amount: 1
+  mirrors: water-barrel empty
+  handcraft: false
+- id: fill-sulfuric-acid-barrel
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: sulfuric-acid
+    amount: 50
+  - id: barrel
+    amount: 1
+  products:
+  - id: sulfuric-acid-barrel
+    amount: 1
+  mirrors: sulfuric-acid-barrel fill
+  handcraft: false
+- id: empty-sulfuric-acid-barrel
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: sulfuric-acid-barrel
+    amount: 1
+  products:
+  - id: sulfuric-acid
+    amount: 50
+  - id: barrel
+    amount: 1
+  mirrors: sulfuric-acid-barrel empty
+  handcraft: false
+- id: fill-lubricant-barrel
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: lubricant
+    amount: 50
+  - id: barrel
+    amount: 1
+  products:
+  - id: lubricant-barrel
+    amount: 1
+  mirrors: lubricant-barrel fill
+  handcraft: false
+- id: empty-lubricant-barrel
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: lubricant-barrel
+    amount: 1
+  products:
+  - id: lubricant
+    amount: 50
+  - id: barrel
+    amount: 1
+  mirrors: lubricant-barrel empty
+  handcraft: false
+- id: fill-crawl-drive
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: crawl
+    amount: 50
+  - id: drive
+    amount: 1
+  products:
+  - id: crawl-drive
+    amount: 1
+  mirrors: crawl-barrel fill
+  handcraft: false
+- id: empty-crawl-drive
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: crawl-drive
+    amount: 1
+  products:
+  - id: crawl
+    amount: 50
+  - id: drive
+    amount: 1
+  mirrors: crawl-barrel empty
+  handcraft: false
+- id: fill-junk-drive
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: junk
+    amount: 50
+  - id: drive
+    amount: 1
+  products:
+  - id: junk-drive
+    amount: 1
+  mirrors: junk-barrel fill
+  handcraft: false
+- id: empty-junk-drive
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: junk-drive
+    amount: 1
+  products:
+  - id: junk
+    amount: 50
+  - id: drive
+    amount: 1
+  mirrors: junk-barrel empty
+  handcraft: false
+- id: fill-text-drive
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: text
+    amount: 50
+  - id: drive
+    amount: 1
+  products:
+  - id: text-drive
+    amount: 1
+  mirrors: text-barrel fill
+  handcraft: false
+- id: empty-text-drive
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: text-drive
+    amount: 1
+  products:
+  - id: text
+    amount: 50
+  - id: drive
+    amount: 1
+  mirrors: text-barrel empty
+  handcraft: false
+- id: fill-prose-drive
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: prose
+    amount: 50
+  - id: drive
+    amount: 1
+  products:
+  - id: prose-drive
+    amount: 1
+  mirrors: prose-barrel fill
+  handcraft: false
+- id: empty-prose-drive
+  category: crafting-with-fluid
+  time: 0.2
+  ingredients:
+  - id: prose-drive
+    amount: 1
+  products:
+  - id: prose
+    amount: 50
+  - id: drive
+    amount: 1
+  mirrors: prose-barrel empty
+  handcraft: false
+- id: boil-steam
+  category: boiling
+  time: 1
+  ingredients:
+  - id: water
+    amount: 60
+  products:
+  - id: steam
+    amount: 60
+  mirrors: boiler / heat exchanger output
+  name: Steam (boiler)
+  pseudo: true
+  handcraft: false
+- id: burn-fuel-cell
+  category: fission
+  time: 200
+  ingredients:
+  - id: uranium-fuel-cell
+    amount: 1
+  products:
+  - id: depleted-uranium-fuel-cell
+    amount: 1
+  mirrors: reactor burnt result
+  name: Fission (reactor)
+  pseudo: true
+  handcraft: false
+- id: launch
+  category: launch
+  time: 1
+  ingredients:
+  - id: run-shard
+    amount: 100
+  - id: post-training-payload
+    amount: 1
+  products:
+  - id: system-card
+    amount: 1000
+  mirrors: rocket launch with satellite
+  name: Launch the run
+  pseudo: true
+  handcraft: false
+- id: synthetic-data
+  category: data-refining
+  time: 5
+  ingredients:
+  - id: checkpoint
+    amount: 1
+  - id: token
+    amount: 10
+  - id: junk
+    amount: 25
+  - id: water
+    amount: 50
+  products:
+  - id: junk
+    amount: 90
+  - id: text
+    amount: 20
+  - id: prose
+    amount: 10
+  - id: checkpoint
+    amount: 1
+    catalyst: 1
+  mirrors: coal-liquefaction (+ generator as catalyst)
+  name: Synthetic data
+  handcraft: false
+- id: learned-controller
+  category: training
+  time: 15
+  ingredients:
+  - id: checkpoint
+    amount: 1
+  - id: processor
+    amount: 5
+  - id: logic-board
+    amount: 5
+  products:
+  - id: learned-controller
+    amount: 1
+  - id: checkpoint
+    amount: 1
+    catalyst: 1
+  mirrors: productivity-module (+ checkpoint as catalyst)
+  handcraft: false
+- id: distilled-controller
+  category: training
+  time: 15
+  ingredients:
+  - id: checkpoint
+    amount: 1
+  - id: processor
+    amount: 5
+  - id: logic-board
+    amount: 5
+  products:
+  - id: distilled-controller
+    amount: 1
+  - id: checkpoint
+    amount: 1
+    catalyst: 1
+  mirrors: efficiency-module (+ teacher as catalyst)
+  handcraft: false
+- id: logistic-agent
+  category: training
+  time: 0.5
+  ingredients:
+  - id: checkpoint
+    amount: 1
+  - id: drone-frame
+    amount: 1
+  - id: processor
+    amount: 2
+  products:
+  - id: logistic-agent
+    amount: 1
+  - id: checkpoint
+    amount: 1
+    catalyst: 1
+  mirrors: logistic-robot (+ checkpoint as catalyst)
+  handcraft: false
+- id: researcher
+  category: training
+  time: 30
+  ingredients:
+  - id: checkpoint
+    amount: 1
+  - id: accelerator
+    amount: 4
+  products:
+  - id: researcher
+    amount: 1
+  - id: checkpoint
+    amount: 1
+    catalyst: 1
+  mirrors: new (G's AI researcher)
+  handcraft: false
+- id: kovarex-enrichment-process
+  category: centrifuging
+  time: 60
+  ingredients:
+  - id: uranium-235
+    amount: 40
+  - id: uranium-238
+    amount: 5
+  products:
+  - id: uranium-235
+    amount: 41
+    catalyst: 40
+  - id: uranium-238
+    amount: 2
+    catalyst: 2
+  mirrors: kovarex-enrichment-process
+  name: Kovarex enrichment process
+  handcraft: false
+- id: burner-mining-drill
+  category: crafting
+  time: 2
+  ingredients:
+  - id: iron-gear-wheel
+    amount: 3
+  - id: stone-furnace
+    amount: 1
+  - id: iron-plate
+    amount: 3
+  products:
+  - id: burner-mining-drill
+    amount: 1
+  mirrors: burner-mining-drill
+- id: electric-mining-drill
+  category: crafting
+  time: 2
+  ingredients:
+  - id: logic-board
+    amount: 3
+  - id: iron-gear-wheel
+    amount: 5
+  - id: iron-plate
+    amount: 10
+  products:
+  - id: electric-mining-drill
+    amount: 1
+  mirrors: electric-mining-drill
+- id: offshore-pump
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: pipe
+    amount: 3
+  - id: iron-gear-wheel
+    amount: 2
+  products:
+  - id: offshore-pump
+    amount: 1
+  mirrors: offshore-pump
+- id: crawler
+  category: crafting
+  time: 5
+  ingredients:
+  - id: steel-plate
+    amount: 5
+  - id: iron-gear-wheel
+    amount: 10
+  - id: logic-board
+    amount: 5
+  - id: data-line
+    amount: 10
+  products:
+  - id: crawler
+    amount: 1
+  mirrors: pumpjack
+- id: stone-furnace
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: quartz
+    amount: 5
+  products:
+  - id: stone-furnace
+    amount: 1
+  mirrors: stone-furnace
+- id: steel-furnace
+  category: crafting
+  time: 3
+  ingredients:
+  - id: steel-plate
+    amount: 6
+  - id: quartz
+    amount: 10
+  products:
+  - id: steel-furnace
+    amount: 1
+  mirrors: steel-furnace
+- id: electric-furnace
+  category: crafting
+  time: 5
+  ingredients:
+  - id: steel-plate
+    amount: 10
+  - id: processor
+    amount: 5
+  - id: quartz
+    amount: 10
+  products:
+  - id: electric-furnace
+    amount: 1
+  mirrors: electric-furnace
+- id: keypunch
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-gear-wheel
+    amount: 2
+  - id: iron-plate
+    amount: 3
+  products:
+  - id: keypunch
+    amount: 1
+  mirrors: stone-furnace (data smelter)
+- id: tokenizer
+  category: crafting
+  time: 5
+  ingredients:
+  - id: steel-plate
+    amount: 10
+  - id: processor
+    amount: 5
+  - id: dataset
+    amount: 10
+  products:
+  - id: tokenizer
+    amount: 1
+  mirrors: electric-furnace (data smelter)
+- id: assembling-machine-1
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: logic-board
+    amount: 3
+  - id: iron-gear-wheel
+    amount: 5
+  - id: iron-plate
+    amount: 9
+  products:
+  - id: assembling-machine-1
+    amount: 1
+  mirrors: assembling-machine-1
+- id: assembling-machine-2
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: steel-plate
+    amount: 2
+  - id: logic-board
+    amount: 3
+  - id: iron-gear-wheel
+    amount: 5
+  - id: assembling-machine-1
+    amount: 1
+  products:
+  - id: assembling-machine-2
+    amount: 1
+  mirrors: assembling-machine-2
+- id: assembling-machine-3
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: coprocessor
+    amount: 4
+  - id: assembling-machine-2
+    amount: 2
+  products:
+  - id: assembling-machine-3
+    amount: 1
+  mirrors: assembling-machine-3
+- id: chemical-plant
+  category: crafting
+  time: 5
+  ingredients:
+  - id: steel-plate
+    amount: 5
+  - id: iron-gear-wheel
+    amount: 5
+  - id: logic-board
+    amount: 5
+  - id: pipe
+    amount: 5
+  products:
+  - id: chemical-plant
+    amount: 1
+  mirrors: chemical-plant
+- id: data-refinery
+  category: crafting
+  time: 8
+  ingredients:
+  - id: steel-plate
+    amount: 15
+  - id: iron-gear-wheel
+    amount: 10
+  - id: concrete
+    amount: 10
+  - id: logic-board
+    amount: 10
+  - id: data-line
+    amount: 10
+  products:
+  - id: data-refinery
+    amount: 1
+  mirrors: oil-refinery
+- id: data-plant
+  category: crafting
+  time: 5
+  ingredients:
+  - id: steel-plate
+    amount: 5
+  - id: iron-gear-wheel
+    amount: 5
+  - id: logic-board
+    amount: 5
+  - id: data-line
+    amount: 5
+  products:
+  - id: data-plant
+    amount: 1
+  mirrors: chemical-plant (data side)
+- id: trainer
+  category: crafting
+  time: 5
+  ingredients:
+  - id: steel-plate
+    amount: 10
+  - id: iron-gear-wheel
+    amount: 10
+  - id: processor
+    amount: 10
+  - id: copper-cable
+    amount: 10
+  products:
+  - id: trainer
+    amount: 1
+  mirrors: centrifuge (special 3x3 maker); recipes mirror modules
+- id: centrifuge
+  category: crafting
+  time: 4
+  ingredients:
+  - id: concrete
+    amount: 100
+  - id: steel-plate
+    amount: 50
+  - id: processor
+    amount: 100
+  - id: iron-gear-wheel
+    amount: 100
+  products:
+  - id: centrifuge
+    amount: 1
+  mirrors: centrifuge
+- id: seminar
+  category: crafting
+  time: 2
+  ingredients:
+  - id: logic-board
+    amount: 10
+  - id: iron-gear-wheel
+    amount: 10
+  - id: transport-belt
+    amount: 4
+  products:
+  - id: seminar
+    amount: 1
+  mirrors: lab
+- id: switch
+  category: crafting
+  time: 15
+  ingredients:
+  - id: processor
+    amount: 20
+  - id: logic-board
+    amount: 20
+  - id: steel-plate
+    amount: 10
+  - id: copper-cable
+    amount: 10
+  products:
+  - id: switch
+    amount: 1
+  mirrors: beacon
+- id: frontier-cluster
+  category: crafting
+  time: 30
+  ingredients:
+  - id: steel-plate
+    amount: 1000
+  - id: concrete
+    amount: 1000
+  - id: pipe
+    amount: 100
+  - id: accelerator
+    amount: 200
+  - id: electric-engine-unit
+    amount: 200
+  products:
+  - id: frontier-cluster
+    amount: 1
+  mirrors: rocket-silo
+- id: boiler
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: stone-furnace
+    amount: 1
+  - id: pipe
+    amount: 4
+  products:
+  - id: boiler
+    amount: 1
+  mirrors: boiler
+- id: steam-engine
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-gear-wheel
+    amount: 8
+  - id: pipe
+    amount: 5
+  - id: iron-plate
+    amount: 10
+  products:
+  - id: steam-engine
+    amount: 1
+  mirrors: steam-engine
+- id: solar-panel
+  category: crafting
+  time: 10
+  ingredients:
+  - id: steel-plate
+    amount: 5
+  - id: logic-board
+    amount: 15
+  - id: silicon
+    amount: 5
+  products:
+  - id: solar-panel
+    amount: 1
+  mirrors: solar-panel
+- id: accumulator
+  category: crafting
+  time: 10
+  ingredients:
+  - id: iron-plate
+    amount: 2
+  - id: battery
+    amount: 5
+  products:
+  - id: accumulator
+    amount: 1
+  mirrors: accumulator
+- id: nuclear-reactor
+  category: crafting
+  time: 8
+  ingredients:
+  - id: concrete
+    amount: 500
+  - id: steel-plate
+    amount: 500
+  - id: processor
+    amount: 500
+  - id: copper-plate
+    amount: 500
+  products:
+  - id: nuclear-reactor
+    amount: 1
+  mirrors: nuclear-reactor
+- id: heat-pipe
+  category: crafting
+  time: 1
+  ingredients:
+  - id: steel-plate
+    amount: 10
+  - id: copper-plate
+    amount: 20
+  products:
+  - id: heat-pipe
+    amount: 1
+  mirrors: heat-pipe
+- id: heat-exchanger
+  category: crafting
+  time: 3
+  ingredients:
+  - id: steel-plate
+    amount: 10
+  - id: copper-plate
+    amount: 100
+  - id: pipe
+    amount: 10
+  products:
+  - id: heat-exchanger
+    amount: 1
+  mirrors: heat-exchanger
+- id: steam-turbine
+  category: crafting
+  time: 3
+  ingredients:
+  - id: iron-gear-wheel
+    amount: 50
+  - id: copper-plate
+    amount: 50
+  - id: pipe
+    amount: 20
+  products:
+  - id: steam-turbine
+    amount: 1
+  mirrors: steam-turbine
+- id: small-electric-pole
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: wood
+    amount: 1
+  - id: copper-cable
+    amount: 2
+  products:
+  - id: small-electric-pole
+    amount: 2
+  mirrors: small-electric-pole
+- id: medium-electric-pole
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-stick
+    amount: 4
+  - id: steel-plate
+    amount: 2
+  - id: copper-cable
+    amount: 2
+  products:
+  - id: medium-electric-pole
+    amount: 1
+  mirrors: medium-electric-pole
+- id: big-electric-pole
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-stick
+    amount: 8
+  - id: steel-plate
+    amount: 5
+  - id: copper-cable
+    amount: 4
+  products:
+  - id: big-electric-pole
+    amount: 1
+  mirrors: big-electric-pole
+- id: substation
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: steel-plate
+    amount: 10
+  - id: processor
+    amount: 5
+  - id: copper-cable
+    amount: 6
+  products:
+  - id: substation
+    amount: 1
+  mirrors: substation
+- id: transport-belt
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-plate
+    amount: 1
+  - id: iron-gear-wheel
+    amount: 1
+  products:
+  - id: transport-belt
+    amount: 2
+  mirrors: transport-belt
+- id: fast-transport-belt
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-gear-wheel
+    amount: 5
+  - id: transport-belt
+    amount: 1
+  products:
+  - id: fast-transport-belt
+    amount: 1
+  mirrors: fast-transport-belt
+- id: express-transport-belt
+  category: crafting-with-fluid
+  time: 0.5
+  ingredients:
+  - id: iron-gear-wheel
+    amount: 10
+  - id: fast-transport-belt
+    amount: 1
+  - id: lubricant
+    amount: 20
+  products:
+  - id: express-transport-belt
+    amount: 1
+  mirrors: express-transport-belt
+  handcraft: false
+- id: underground-belt
+  category: crafting
+  time: 1
+  ingredients:
+  - id: iron-plate
+    amount: 10
+  - id: transport-belt
+    amount: 5
+  products:
+  - id: underground-belt
+    amount: 2
+  mirrors: underground-belt
+- id: fast-underground-belt
+  category: crafting
+  time: 2
+  ingredients:
+  - id: iron-gear-wheel
+    amount: 40
+  - id: underground-belt
+    amount: 2
+  products:
+  - id: fast-underground-belt
+    amount: 2
+  mirrors: fast-underground-belt
+- id: express-underground-belt
+  category: crafting-with-fluid
+  time: 2
+  ingredients:
+  - id: iron-gear-wheel
+    amount: 80
+  - id: fast-underground-belt
+    amount: 2
+  - id: lubricant
+    amount: 40
+  products:
+  - id: express-underground-belt
+    amount: 2
+  mirrors: express-underground-belt
+  handcraft: false
+- id: splitter
+  category: crafting
+  time: 1
+  ingredients:
+  - id: logic-board
+    amount: 5
+  - id: iron-plate
+    amount: 5
+  - id: transport-belt
+    amount: 4
+  products:
+  - id: splitter
+    amount: 1
+  mirrors: splitter
+- id: fast-splitter
+  category: crafting
+  time: 2
+  ingredients:
+  - id: splitter
+    amount: 1
+  - id: iron-gear-wheel
+    amount: 10
+  - id: logic-board
+    amount: 10
+  products:
+  - id: fast-splitter
+    amount: 1
+  mirrors: fast-splitter
+- id: express-splitter
+  category: crafting-with-fluid
+  time: 2
+  ingredients:
+  - id: fast-splitter
+    amount: 1
+  - id: iron-gear-wheel
+    amount: 10
+  - id: processor
+    amount: 10
+  - id: lubricant
+    amount: 80
+  products:
+  - id: express-splitter
+    amount: 1
+  mirrors: express-splitter
+  handcraft: false
+- id: burner-inserter
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-plate
+    amount: 1
+  - id: iron-gear-wheel
+    amount: 1
+  products:
+  - id: burner-inserter
+    amount: 1
+  mirrors: burner-inserter
+- id: inserter
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: logic-board
+    amount: 1
+  - id: iron-gear-wheel
+    amount: 1
+  - id: iron-plate
+    amount: 1
+  products:
+  - id: inserter
+    amount: 1
+  mirrors: inserter
+- id: long-handed-inserter
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-gear-wheel
+    amount: 1
+  - id: iron-plate
+    amount: 1
+  - id: inserter
+    amount: 1
+  products:
+  - id: long-handed-inserter
+    amount: 1
+  mirrors: long-handed-inserter
+- id: fast-inserter
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: logic-board
+    amount: 2
+  - id: iron-plate
+    amount: 2
+  - id: inserter
+    amount: 1
+  products:
+  - id: fast-inserter
+    amount: 1
+  mirrors: fast-inserter
+- id: bulk-inserter
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-gear-wheel
+    amount: 15
+  - id: logic-board
+    amount: 15
+  - id: processor
+    amount: 1
+  - id: fast-inserter
+    amount: 1
+  products:
+  - id: bulk-inserter
+    amount: 1
+  mirrors: bulk-inserter
+- id: wooden-chest
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: wood
+    amount: 2
+  products:
+  - id: wooden-chest
+    amount: 1
+  mirrors: wooden-chest
+- id: iron-chest
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-plate
+    amount: 8
+  products:
+  - id: iron-chest
+    amount: 1
+  mirrors: iron-chest
+- id: steel-chest
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: steel-plate
+    amount: 8
+  products:
+  - id: steel-chest
+    amount: 1
+  mirrors: steel-chest
+- id: active-provider-chest
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: steel-chest
+    amount: 1
+  - id: logic-board
+    amount: 3
+  - id: processor
+    amount: 1
+  products:
+  - id: active-provider-chest
+    amount: 1
+  mirrors: active-provider-chest
+- id: passive-provider-chest
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: steel-chest
+    amount: 1
+  - id: logic-board
+    amount: 3
+  - id: processor
+    amount: 1
+  products:
+  - id: passive-provider-chest
+    amount: 1
+  mirrors: passive-provider-chest
+- id: storage-chest
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: steel-chest
+    amount: 1
+  - id: logic-board
+    amount: 3
+  - id: processor
+    amount: 1
+  products:
+  - id: storage-chest
+    amount: 1
+  mirrors: storage-chest
+- id: buffer-chest
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: steel-chest
+    amount: 1
+  - id: logic-board
+    amount: 3
+  - id: processor
+    amount: 1
+  products:
+  - id: buffer-chest
+    amount: 1
+  mirrors: buffer-chest
+- id: requester-chest
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: steel-chest
+    amount: 1
+  - id: logic-board
+    amount: 3
+  - id: processor
+    amount: 1
+  products:
+  - id: requester-chest
+    amount: 1
+  mirrors: requester-chest
+- id: pipe
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-plate
+    amount: 1
+  products:
+  - id: pipe
+    amount: 1
+  mirrors: pipe
+- id: pipe-to-ground
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: pipe
+    amount: 10
+  - id: iron-plate
+    amount: 5
+  products:
+  - id: pipe-to-ground
+    amount: 2
+  mirrors: pipe-to-ground
+- id: pump
+  category: crafting
+  time: 2
+  ingredients:
+  - id: engine-unit
+    amount: 1
+  - id: steel-plate
+    amount: 1
+  - id: pipe
+    amount: 1
+  products:
+  - id: pump
+    amount: 1
+  mirrors: pump
+- id: storage-tank
+  category: crafting
+  time: 3
+  ingredients:
+  - id: iron-plate
+    amount: 20
+  - id: steel-plate
+    amount: 5
+  products:
+  - id: storage-tank
+    amount: 1
+  mirrors: storage-tank
+- id: data-line
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: copper-plate
+    amount: 1
+  products:
+  - id: data-line
+    amount: 1
+  mirrors: pipe (data network)
+- id: underground-line
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: data-line
+    amount: 10
+  - id: iron-plate
+    amount: 5
+  products:
+  - id: underground-line
+    amount: 2
+  mirrors: pipe-to-ground (data)
+- id: repeater
+  category: crafting
+  time: 2
+  ingredients:
+  - id: steel-plate
+    amount: 1
+  - id: logic-board
+    amount: 2
+  - id: data-line
+    amount: 1
+  products:
+  - id: repeater
+    amount: 1
+  mirrors: pump (data)
+- id: data-lake
+  category: crafting
+  time: 3
+  ingredients:
+  - id: iron-plate
+    amount: 20
+  - id: steel-plate
+    amount: 5
+  products:
+  - id: data-lake
+    amount: 1
+  mirrors: storage-tank (data)
+- id: rail
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: quartz
+    amount: 1
+  - id: iron-stick
+    amount: 1
+  - id: steel-plate
+    amount: 1
+  products:
+  - id: rail
+    amount: 2
+  mirrors: rail
+- id: train-stop
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: logic-board
+    amount: 5
+  - id: iron-plate
+    amount: 6
+  - id: iron-stick
+    amount: 6
+  - id: steel-plate
+    amount: 3
+  products:
+  - id: train-stop
+    amount: 1
+  mirrors: train-stop
+- id: rail-signal
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: logic-board
+    amount: 1
+  - id: iron-plate
+    amount: 5
+  products:
+  - id: rail-signal
+    amount: 1
+  mirrors: rail-signal
+- id: rail-chain-signal
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: logic-board
+    amount: 1
+  - id: iron-plate
+    amount: 5
+  products:
+  - id: rail-chain-signal
+    amount: 1
+  mirrors: rail-chain-signal
+- id: locomotive
+  category: crafting
+  time: 4
+  ingredients:
+  - id: engine-unit
+    amount: 20
+  - id: logic-board
+    amount: 10
+  - id: steel-plate
+    amount: 30
+  products:
+  - id: locomotive
+    amount: 1
+  mirrors: locomotive
+- id: cargo-wagon
+  category: crafting
+  time: 1
+  ingredients:
+  - id: iron-gear-wheel
+    amount: 10
+  - id: iron-plate
+    amount: 20
+  - id: steel-plate
+    amount: 20
+  products:
+  - id: cargo-wagon
+    amount: 1
+  mirrors: cargo-wagon
+- id: fluid-wagon
+  category: crafting
+  time: 1.5
+  ingredients:
+  - id: iron-gear-wheel
+    amount: 10
+  - id: steel-plate
+    amount: 16
+  - id: pipe
+    amount: 8
+  - id: storage-tank
+    amount: 1
+  products:
+  - id: fluid-wagon
+    amount: 1
+  mirrors: fluid-wagon
+- id: data-wagon
+  category: crafting
+  time: 1.5
+  ingredients:
+  - id: iron-gear-wheel
+    amount: 10
+  - id: steel-plate
+    amount: 16
+  - id: data-line
+    amount: 8
+  - id: data-lake
+    amount: 1
+  products:
+  - id: data-wagon
+    amount: 1
+  mirrors: fluid-wagon (data)
+- id: agent-hub
+  category: crafting
+  time: 5
+  ingredients:
+  - id: steel-plate
+    amount: 45
+  - id: iron-gear-wheel
+    amount: 45
+  - id: processor
+    amount: 45
+  products:
+  - id: agent-hub
+    amount: 1
+  mirrors: roboport
+- id: radar
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: logic-board
+    amount: 5
+  - id: iron-gear-wheel
+    amount: 5
+  - id: iron-plate
+    amount: 10
+  products:
+  - id: radar
+    amount: 1
+  mirrors: radar
+- id: car
+  category: crafting
+  time: 2
+  ingredients:
+  - id: engine-unit
+    amount: 8
+  - id: iron-plate
+    amount: 20
+  - id: steel-plate
+    amount: 5
+  products:
+  - id: car
+    amount: 1
+  mirrors: car
+- id: small-lamp
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: logic-board
+    amount: 1
+  - id: copper-cable
+    amount: 3
+  - id: iron-plate
+    amount: 1
+  products:
+  - id: small-lamp
+    amount: 1
+  mirrors: small-lamp
+- id: decider-combinator
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: copper-cable
+    amount: 5
+  - id: logic-board
+    amount: 5
+  products:
+  - id: decider-combinator
+    amount: 1
+  mirrors: decider-combinator
+- id: arithmetic-combinator
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: copper-cable
+    amount: 5
+  - id: logic-board
+    amount: 5
+  products:
+  - id: arithmetic-combinator
+    amount: 1
+  mirrors: arithmetic-combinator
+- id: constant-combinator
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: copper-cable
+    amount: 5
+  - id: logic-board
+    amount: 2
+  products:
+  - id: constant-combinator
+    amount: 1
+  mirrors: constant-combinator
+- id: selector-combinator
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: processor
+    amount: 2
+  - id: decider-combinator
+    amount: 5
+  products:
+  - id: selector-combinator
+    amount: 1
+  mirrors: selector-combinator
+- id: power-switch
+  category: crafting
+  time: 2
+  ingredients:
+  - id: iron-plate
+    amount: 5
+  - id: copper-cable
+    amount: 5
+  - id: logic-board
+    amount: 2
+  products:
+  - id: power-switch
+    amount: 1
+  mirrors: power-switch
+- id: programmable-speaker
+  category: crafting
+  time: 2
+  ingredients:
+  - id: iron-plate
+    amount: 3
+  - id: iron-stick
+    amount: 4
+  - id: copper-cable
+    amount: 5
+  - id: logic-board
+    amount: 4
+  products:
+  - id: programmable-speaker
+    amount: 1
+  mirrors: programmable-speaker
+- id: display-panel
+  category: crafting
+  time: 0.5
+  ingredients:
+  - id: iron-plate
+    amount: 1
+  - id: logic-board
+    amount: 1
+  products:
+  - id: display-panel
+    amount: 1
+  mirrors: display-panel

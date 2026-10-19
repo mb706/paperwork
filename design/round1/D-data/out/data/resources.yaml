@@ -1,0 +1,66 @@
+- id: iron-ore-patch
+  name: Iron ore
+  kind: solid
+  yields: iron-ore
+  mining_time: 1
+  mirrors: iron-ore
+  autoplace: 'ISO: starting area yes; Factorio frequency, size and richness; richer with distance'
+- id: copper-ore-patch
+  name: Copper ore
+  kind: solid
+  yields: copper-ore
+  mining_time: 1
+  mirrors: copper-ore
+  autoplace: ISO
+- id: coal-patch
+  name: Coal
+  kind: solid
+  yields: coal
+  mining_time: 1
+  mirrors: coal
+  autoplace: ISO
+- id: quartz-patch
+  name: Quartz
+  kind: solid
+  yields: quartz
+  mining_time: 1
+  mirrors: stone
+  autoplace: ISO with stone; sand-coloured patches favour coasts and dry riverbeds
+- id: archive
+  name: Archive
+  kind: solid
+  yields: records
+  mining_time: 1
+  mirrors: 'ore patch (B L3: a town library, or a records store in an old mine)'
+  autoplace: 'at towns (B L3): library stacks on the town edge, 0-1 per town; plus records stores in old mines away from towns. The starting college town has one small archive. Size and richness grow with
+    distance (bigger towns, older collections); finite'
+- id: uranium-ore-patch
+  name: Uranium ore
+  kind: solid
+  yields: uranium-ore
+  mining_time: 2
+  requires_fluid: sulfuric-acid
+  mirrors: uranium-ore
+  autoplace: 'ISO: never in the starting area; 1 sulfuric acid per ore'
+- id: exchange
+  name: Exchange
+  kind: fluid
+  yields: crawl
+  infinite: true
+  min_yield: 0.2
+  mirrors: crude-oil
+  autoplace: 'at towns (B L3): a telegraph office in 1945, an internet exchange later; 1-4 taps per exchange, like an oil cluster. Tappable after Information retrieval. ISO yield constants: 10/s per crawler
+    at 100%, 300 cycles per 1% of yield, floor 20%. The floor is the town''s rate of new writing and may rise with W (B L8); F''s (1 - s) multiplier removes the synthetic share at the well'
+- id: water
+  name: Water
+  kind: offshore
+  yields: water
+  mirrors: water
+  autoplace: ISO lakes and coast
+- id: trees
+  name: Trees
+  kind: solid
+  yields: wood
+  mining_time: 0.5
+  mirrors: tree
+  autoplace: ISO forests; hand-mined; no regrowth

@@ -1,0 +1,973 @@
+# Placeable entities. Heat: every machine emits its energy draw (L4); see meta.heat.
+- id: burner-mining-drill
+  name: Burner mining drill
+  type: mining-drill
+  size: [2, 2]
+  item: burner-mining-drill
+  energy:
+    source: burner
+    kw: 450
+    fuel_categories: [chemical]
+  mining_speed: 0.25
+  module_slots: 0
+  mirrors: burner-mining-drill
+- id: electric-mining-drill
+  name: Electric mining drill
+  type: mining-drill
+  size: [3, 3]
+  item: electric-mining-drill
+  energy: {source: electric, kw: 90}
+  mining_speed: 0.5
+  module_slots: 3
+  mirrors: electric-mining-drill
+- id: offshore-pump
+  name: Offshore pump
+  type: offshore-pump
+  size: [1, 2]
+  item: offshore-pump
+  energy: {source: none, kw: 0}
+  produces: [water]
+  placement: {must_touch: [water, deep-water]}
+  extra: {pumping_per_s: 1200}
+  mirrors: offshore-pump
+- id: crawler
+  name: Crawler
+  type: pumpjack
+  size: [3, 3]
+  item: crawler
+  energy: {source: electric, kw: 90}
+  mining_speed: 1
+  module_slots: 2
+  placement: {must_be_on: exchange}
+  mirrors: pumpjack
+  desc: Placed on an exchange. Pulls whatever passes through.
+- id: stone-furnace
+  name: Stone furnace
+  type: furnace
+  size: [2, 2]
+  item: stone-furnace
+  energy:
+    source: burner
+    kw: 270
+    fuel_categories: [chemical]
+  crafting_speed: 1
+  categories: [smelting]
+  module_slots: 0
+  mirrors: stone-furnace
+- id: steel-furnace
+  name: Steel furnace
+  type: furnace
+  size: [2, 2]
+  item: steel-furnace
+  energy:
+    source: burner
+    kw: 270
+    fuel_categories: [chemical]
+  crafting_speed: 2
+  categories: [smelting]
+  module_slots: 0
+  mirrors: steel-furnace
+- id: electric-furnace
+  name: Electric furnace
+  type: furnace
+  size: [3, 3]
+  item: electric-furnace
+  energy: {source: electric, kw: 180, drain_kw: 6}
+  crafting_speed: 2
+  categories: [smelting]
+  module_slots: 2
+  mirrors: electric-furnace
+- id: keypunch
+  name: Keypunch
+  type: furnace
+  size: [2, 2]
+  item: keypunch
+  energy:
+    source: burner
+    kw: 270
+    fuel_categories: [chemical]
+  crafting_speed: 1
+  categories: [transcription]
+  module_slots: 0
+  mirrors: stone-furnace (data smelter)
+  desc: Transcribes records into tokens, one card at a time. Burns fuel.
+- id: tokenizer
+  name: Tokenizer
+  type: furnace
+  size: [3, 3]
+  item: tokenizer
+  energy: {source: electric, kw: 180, drain_kw: 6}
+  crafting_speed: 2
+  categories: [transcription]
+  module_slots: 2
+  heat: {class: computer, liquid_cooling: true}
+  mirrors: electric-furnace (data smelter)
+- id: assembling-machine-1
+  name: Assembling machine 1
+  type: assembler
+  size: [3, 3]
+  item: assembling-machine-1
+  energy: {source: electric, kw: 75, drain_kw: 2.5}
+  crafting_speed: 0.5
+  categories: [crafting]
+  module_slots: 0
+  mirrors: assembling-machine-1
+  desc: Set by plugboard.
+- id: assembling-machine-2
+  name: Assembling machine 2
+  type: assembler
+  size: [3, 3]
+  item: assembling-machine-2
+  energy: {source: electric, kw: 150, drain_kw: 5}
+  crafting_speed: 0.75
+  categories: [crafting, crafting-with-fluid]
+  module_slots: 2
+  mirrors: assembling-machine-2
+  desc: Its recipe is held in a stored program.
+- id: assembling-machine-3
+  name: Assembling machine 3
+  type: assembler
+  size: [3, 3]
+  item: assembling-machine-3
+  energy: {source: electric, kw: 375, drain_kw: 12.5}
+  crafting_speed: 1.25
+  categories: [crafting, crafting-with-fluid]
+  module_slots: 4
+  mirrors: assembling-machine-3
+  desc: Four controllers working as one.
+- id: chemical-plant
+  name: Chemical plant
+  type: assembler
+  size: [3, 3]
+  item: chemical-plant
+  energy: {source: electric, kw: 210, drain_kw: 7}
+  crafting_speed: 1
+  categories: [chemistry]
+  module_slots: 3
+  mirrors: chemical-plant
+- id: data-refinery
+  name: Data refinery
+  type: assembler
+  size: [5, 5]
+  item: data-refinery
+  energy: {source: electric, kw: 420, drain_kw: 14}
+  crafting_speed: 1
+  categories: [data-refining]
+  module_slots: 3
+  heat: {class: computer, liquid_cooling: true}
+  mirrors: oil-refinery
+- id: data-plant
+  name: Data plant
+  type: assembler
+  size: [3, 3]
+  item: data-plant
+  energy: {source: electric, kw: 210, drain_kw: 7}
+  crafting_speed: 1
+  categories: [data-processing]
+  module_slots: 3
+  heat: {class: computer, liquid_cooling: true}
+  mirrors: chemical-plant (data side)
+- id: trainer
+  name: Trainer
+  type: assembler
+  size: [3, 3]
+  item: trainer
+  energy: {source: electric, kw: 400, drain_kw: 13.333}
+  crafting_speed: 1
+  categories: [training]
+  module_slots: 4
+  heat: {class: cluster, liquid_cooling: true}
+  mirrors: centrifuge (special 3x3 maker); recipes mirror modules
+  desc: Turns datasets into weights. The crafting time is the compute.
+- id: centrifuge
+  name: Centrifuge
+  type: assembler
+  size: [3, 3]
+  item: centrifuge
+  energy: {source: electric, kw: 350, drain_kw: 11.667}
+  crafting_speed: 1
+  categories: [centrifuging]
+  module_slots: 2
+  mirrors: centrifuge
+- id: seminar
+  name: Seminar
+  type: lab
+  size: [3, 3]
+  item: seminar
+  energy: {source: electric, kw: 60}
+  crafting_speed: 1
+  module_slots: 2
+  staff_slots: 1
+  staff_demand: 1
+  heat: {class: accelerator, liquid_cooling: true, while: researcher}
+  mirrors: lab
+  desc: Consumes papers. Needs staff.
+- id: switch
+  name: Switch
+  type: beacon
+  size: [3, 3]
+  item: switch
+  energy: {source: electric, kw: 480}
+  module_slots: 2
+  heat: {class: network, liquid_cooling: true}
+  extra: {distribution_efficiency: 1.5, supply_area: 9x9, profile: 1/sqrt(n), throttle: 'transmitted effects × m, before the 1/√n profile; draw unchanged'}
+  mirrors: beacon
+  desc: Lends its modules to every machine in range. Each additional switch counts for less.
+- id: frontier-cluster
+  name: Frontier cluster
+  type: rocket-silo
+  size: [9, 9]
+  item: frontier-cluster
+  energy: {source: electric, kw: 3990}
+  crafting_speed: 1
+  categories: [frontier-run, launch]
+  module_slots: 4
+  heat: {class: accelerator, liquid_cooling: true}
+  extra: {parts_required: 100, idle_kw: 250, payload: 'post-training-payload, final-report, or none (empty launch)', returns: 1000 system-card + 1 frontier-checkpoint}
+  mirrors: rocket-silo
+  desc: Takes {extra.parts_required} run shards and a payload. Progress is shown as loss.
+- id: boiler
+  name: Boiler
+  type: boiler
+  size: [3, 2]
+  item: boiler
+  energy:
+    source: burner
+    kw: 5400
+    fuel_categories: [chemical]
+  consumes: [water]
+  produces: [steam]
+  heat: {emission: none}
+  extra: {steam_per_s: 60, temp_c: 165, water_per_s: 6}
+  mirrors: boiler
+- id: steam-engine
+  name: Steam engine
+  type: generator
+  size: [3, 5]
+  item: steam-engine
+  energy: {source: none, kw: 0}
+  consumes: [steam]
+  heat: {emission: twice-output}
+  extra: {max_kw: 900}
+  mirrors: steam-engine
+- id: solar-panel
+  name: Solar panel
+  type: solar-panel
+  size: [3, 3]
+  item: solar-panel
+  energy: {source: none, kw: 0}
+  extra: {peak_kw: 60}
+  mirrors: solar-panel
+- id: accumulator
+  name: Accumulator
+  type: accumulator
+  size: [2, 2]
+  item: accumulator
+  energy: {source: none, kw: 0}
+  extra: {capacity_mj: 5, flow_kw: 300}
+  mirrors: accumulator
+- id: nuclear-reactor
+  name: Nuclear reactor
+  type: reactor
+  size: [5, 5]
+  item: nuclear-reactor
+  energy:
+    source: burner
+    kw: 120000
+    fuel_categories: [nuclear]
+  consumes: [uranium-fuel-cell]
+  produces: [depleted-uranium-fuel-cell]
+  heat: {emission: none, waste_heat: true}
+  extra: {heat_mw: 40, neighbor_bonus: 1.0, max_temperature_c: 1000}
+  mirrors: nuclear-reactor
+- id: heat-pipe
+  name: Heat pipe
+  type: heat-pipe
+  size: [1, 1]
+  item: heat-pipe
+  energy: {source: none, kw: 0}
+  mirrors: heat-pipe
+- id: heat-exchanger
+  name: Heat exchanger
+  type: heat-exchanger
+  size: [3, 2]
+  item: heat-exchanger
+  energy: {source: heat, kw: 10000}
+  consumes: [water]
+  produces: [steam]
+  heat: {emission: none}
+  extra: {steam_per_s: 103.09, temp_c: 500, water_per_s: 10.309}
+  mirrors: heat-exchanger
+- id: steam-turbine
+  name: Steam turbine
+  type: generator
+  size: [3, 5]
+  item: steam-turbine
+  energy: {source: none, kw: 0}
+  consumes: [steam]
+  heat: {emission: twice-output}
+  extra: {max_kw: 5820}
+  mirrors: steam-turbine
+- id: small-electric-pole
+  name: Small electric pole
+  type: electric-pole
+  size: [1, 1]
+  item: small-electric-pole
+  energy: {source: none, kw: 0}
+  extra: {wire_reach: 7.5, supply: 5x5}
+  mirrors: small-electric-pole
+- id: medium-electric-pole
+  name: Medium electric pole
+  type: electric-pole
+  size: [1, 1]
+  item: medium-electric-pole
+  energy: {source: none, kw: 0}
+  extra: {wire_reach: 9, supply: 7x7}
+  mirrors: medium-electric-pole
+- id: big-electric-pole
+  name: Big electric pole
+  type: electric-pole
+  size: [2, 2]
+  item: big-electric-pole
+  energy: {source: none, kw: 0}
+  extra: {wire_reach: 32, supply: 4x4}
+  mirrors: big-electric-pole
+- id: substation
+  name: Substation
+  type: electric-pole
+  size: [2, 2]
+  item: substation
+  energy: {source: none, kw: 0}
+  extra: {wire_reach: 18, supply: 18x18}
+  mirrors: substation
+- id: transport-belt
+  name: Transport belt
+  type: belt
+  size: [1, 1]
+  item: transport-belt
+  energy: {source: none, kw: 0}
+  extra: {items_per_s: 15}
+  mirrors: transport-belt
+- id: fast-transport-belt
+  name: Fast transport belt
+  type: belt
+  size: [1, 1]
+  item: fast-transport-belt
+  energy: {source: none, kw: 0}
+  extra: {items_per_s: 30}
+  mirrors: fast-transport-belt
+- id: express-transport-belt
+  name: Express transport belt
+  type: belt
+  size: [1, 1]
+  item: express-transport-belt
+  energy: {source: none, kw: 0}
+  extra: {items_per_s: 45}
+  mirrors: express-transport-belt
+- id: underground-belt
+  name: Underground belt
+  type: underground-belt
+  size: [1, 1]
+  item: underground-belt
+  energy: {source: none, kw: 0}
+  extra: {max_gap: 4}
+  mirrors: underground-belt
+- id: fast-underground-belt
+  name: Fast underground belt
+  type: underground-belt
+  size: [1, 1]
+  item: fast-underground-belt
+  energy: {source: none, kw: 0}
+  extra: {max_gap: 6}
+  mirrors: fast-underground-belt
+- id: express-underground-belt
+  name: Express underground belt
+  type: underground-belt
+  size: [1, 1]
+  item: express-underground-belt
+  energy: {source: none, kw: 0}
+  extra: {max_gap: 8}
+  mirrors: express-underground-belt
+- id: splitter
+  name: Splitter
+  type: splitter
+  size: [2, 1]
+  item: splitter
+  energy: {source: none, kw: 0}
+  mirrors: splitter
+- id: fast-splitter
+  name: Fast splitter
+  type: splitter
+  size: [2, 1]
+  item: fast-splitter
+  energy: {source: none, kw: 0}
+  mirrors: fast-splitter
+- id: express-splitter
+  name: Express splitter
+  type: splitter
+  size: [2, 1]
+  item: express-splitter
+  energy: {source: none, kw: 0}
+  mirrors: express-splitter
+- id: burner-inserter
+  name: Burner inserter
+  type: inserter
+  size: [1, 1]
+  item: burner-inserter
+  energy:
+    source: burner
+    fuel_categories: [chemical]
+    per_movement_kj: 150
+    per_rotation_kj: 150
+  mirrors: burner-inserter
+- id: inserter
+  name: Inserter
+  type: inserter
+  size: [1, 1]
+  item: inserter
+  energy: {source: electric, kw: 13.2, drain_kw: 0.4, per_movement_kj: 5, per_rotation_kj: 5}
+  mirrors: inserter
+- id: long-handed-inserter
+  name: Long-handed inserter
+  type: inserter
+  size: [1, 1]
+  item: long-handed-inserter
+  energy: {source: electric, kw: 20, drain_kw: 0.4, per_movement_kj: 5, per_rotation_kj: 5}
+  mirrors: long-handed-inserter
+- id: fast-inserter
+  name: Fast inserter
+  type: inserter
+  size: [1, 1]
+  item: fast-inserter
+  energy: {source: electric, kw: 46, drain_kw: 0.5, per_movement_kj: 7, per_rotation_kj: 7}
+  mirrors: fast-inserter
+- id: bulk-inserter
+  name: Bulk inserter
+  type: inserter
+  size: [1, 1]
+  item: bulk-inserter
+  energy: {source: electric, kw: 132, drain_kw: 1, per_movement_kj: 20, per_rotation_kj: 20}
+  mirrors: bulk-inserter
+- id: wooden-chest
+  name: File drawer
+  type: chest
+  size: [1, 1]
+  item: wooden-chest
+  energy: {source: none, kw: 0}
+  extra: {slots: 16}
+  mirrors: wooden-chest
+- id: iron-chest
+  name: Iron chest
+  type: chest
+  size: [1, 1]
+  item: iron-chest
+  energy: {source: none, kw: 0}
+  extra: {slots: 32}
+  mirrors: iron-chest
+- id: steel-chest
+  name: Steel chest
+  type: chest
+  size: [1, 1]
+  item: steel-chest
+  energy: {source: none, kw: 0}
+  extra: {slots: 48}
+  mirrors: steel-chest
+- id: active-provider-chest
+  name: Active provider chest
+  type: logistic-chest
+  size: [1, 1]
+  item: active-provider-chest
+  energy: {source: none, kw: 0}
+  mirrors: active-provider-chest
+- id: passive-provider-chest
+  name: Passive provider chest
+  type: logistic-chest
+  size: [1, 1]
+  item: passive-provider-chest
+  energy: {source: none, kw: 0}
+  mirrors: passive-provider-chest
+- id: storage-chest
+  name: Storage chest
+  type: logistic-chest
+  size: [1, 1]
+  item: storage-chest
+  energy: {source: none, kw: 0}
+  mirrors: storage-chest
+- id: buffer-chest
+  name: Buffer chest
+  type: logistic-chest
+  size: [1, 1]
+  item: buffer-chest
+  energy: {source: none, kw: 0}
+  mirrors: buffer-chest
+- id: requester-chest
+  name: Requester chest
+  type: logistic-chest
+  size: [1, 1]
+  item: requester-chest
+  energy: {source: none, kw: 0}
+  mirrors: requester-chest
+- id: pipe
+  name: Pipe
+  type: pipe
+  size: [1, 1]
+  item: pipe
+  energy: {source: none, kw: 0}
+  mirrors: pipe
+- id: pipe-to-ground
+  name: Pipe to ground
+  type: pipe-to-ground
+  size: [1, 1]
+  item: pipe-to-ground
+  energy: {source: none, kw: 0}
+  extra: {max_gap: 9}
+  mirrors: pipe-to-ground
+- id: pump
+  name: Pump
+  type: pump
+  size: [1, 2]
+  item: pump
+  energy: {source: electric, kw: 29, drain_kw: 1}
+  mirrors: pump
+- id: storage-tank
+  name: Storage tank
+  type: storage-tank
+  size: [3, 3]
+  item: storage-tank
+  energy: {source: none, kw: 0}
+  extra: {capacity: 25000}
+  mirrors: storage-tank
+- id: data-line
+  name: Data line
+  type: pipe
+  size: [1, 1]
+  item: data-line
+  energy: {source: none, kw: 0}
+  mirrors: pipe (data network)
+  desc: Carries streams. Never connects to a pipe.
+- id: underground-line
+  name: Underground line
+  type: pipe-to-ground
+  size: [1, 1]
+  item: underground-line
+  energy: {source: none, kw: 0}
+  extra: {max_gap: 9}
+  mirrors: pipe-to-ground (data)
+- id: repeater
+  name: Repeater
+  type: pump
+  size: [1, 2]
+  item: repeater
+  energy: {source: electric, kw: 29, drain_kw: 1}
+  mirrors: pump (data)
+- id: data-lake
+  name: Data lake
+  type: storage-tank
+  size: [3, 3]
+  item: data-lake
+  energy: {source: none, kw: 0}
+  extra: {capacity: 25000}
+  mirrors: storage-tank (data)
+- id: terminal
+  name: Terminal
+  type: other
+  size: [2, 2]
+  item: terminal
+  energy: {source: electric, kw: 30}
+  extra: {fluid_box: one data-line connection (category data), statuses: 'Working, Not linked, No university in range, No power (strings: 08 §8.2)'}
+  mirrors: new (DECISIONS §23d; staffing link, 01 §8)
+  desc: Joins a university to a Seminar network over a data line.
+- id: rail
+  name: Rail
+  type: rail
+  size: [2, 2]
+  item: rail
+  energy: {source: none, kw: 0}
+  mirrors: rail
+- id: train-stop
+  name: Train stop
+  type: train-stop
+  size: [2, 2]
+  item: train-stop
+  energy: {source: none, kw: 0}
+  mirrors: train-stop
+- id: rail-signal
+  name: Rail signal
+  type: rail-signal
+  size: [1, 1]
+  item: rail-signal
+  energy: {source: none, kw: 0}
+  mirrors: rail-signal
+- id: rail-chain-signal
+  name: Rail chain signal
+  type: rail-signal
+  size: [1, 1]
+  item: rail-chain-signal
+  energy: {source: none, kw: 0}
+  mirrors: rail-chain-signal
+- id: locomotive
+  name: Locomotive
+  type: locomotive
+  size: [2, 6]
+  item: locomotive
+  energy:
+    source: burner
+    kw: 1800
+    fuel_categories: [chemical]
+  mirrors: locomotive
+- id: cargo-wagon
+  name: Cargo wagon
+  type: cargo-wagon
+  size: [2, 6]
+  item: cargo-wagon
+  energy: {source: none, kw: 0}
+  extra: {slots: 40}
+  mirrors: cargo-wagon
+- id: fluid-wagon
+  name: Fluid wagon
+  type: fluid-wagon
+  size: [2, 6]
+  item: fluid-wagon
+  energy: {source: none, kw: 0}
+  extra: {capacity: 50000}
+  mirrors: fluid-wagon
+- id: data-wagon
+  name: Data wagon
+  type: fluid-wagon
+  size: [2, 6]
+  item: data-wagon
+  energy: {source: none, kw: 0}
+  extra: {capacity: 50000}
+  mirrors: fluid-wagon (data)
+- id: agent-hub
+  name: Agent hub
+  type: roboport
+  size: [4, 4]
+  item: agent-hub
+  energy: {source: electric, kw: 50}
+  mirrors: roboport
+- id: radar
+  name: Radar
+  type: radar
+  size: [3, 3]
+  item: radar
+  energy: {source: electric, kw: 300}
+  mirrors: radar
+- id: car
+  name: Car
+  type: other
+  size: [2, 3]
+  item: car
+  energy:
+    source: burner
+    kw: 1800
+    fuel_categories: [chemical]
+  mirrors: car
+- id: small-lamp
+  name: Lamp
+  type: lamp
+  size: [1, 1]
+  item: small-lamp
+  energy: {source: electric, kw: 5}
+  mirrors: small-lamp
+- id: decider-combinator
+  name: Decision unit
+  type: combinator
+  size: [1, 2]
+  item: decider-combinator
+  energy: {source: electric, kw: 1}
+  mirrors: decider-combinator
+  desc: Outputs while its conditions hold.
+- id: arithmetic-combinator
+  name: Arithmetic unit
+  type: combinator
+  size: [1, 2]
+  item: arithmetic-combinator
+  energy: {source: electric, kw: 1}
+  mirrors: arithmetic-combinator
+- id: constant-combinator
+  name: Bias unit
+  type: combinator
+  size: [1, 1]
+  item: constant-combinator
+  energy: {source: none, kw: 0}
+  mirrors: constant-combinator
+- id: selector-combinator
+  name: Selector unit
+  type: combinator
+  size: [1, 2]
+  item: selector-combinator
+  energy: {source: electric, kw: 1}
+  mirrors: selector-combinator
+- id: power-switch
+  name: Power switch
+  type: other
+  size: [2, 2]
+  item: power-switch
+  energy: {source: none, kw: 0}
+  mirrors: power-switch
+  desc: Disconnects two networks. {meta.runaways.clean.power_off_s} s without power cleans a compromised machine.
+- id: programmable-speaker
+  name: Programmable speaker
+  type: other
+  size: [1, 1]
+  item: programmable-speaker
+  energy: {source: electric, kw: 2}
+  mirrors: programmable-speaker
+- id: display-panel
+  name: Display panel
+  type: other
+  size: [1, 1]
+  item: display-panel
+  energy: {source: none, kw: 0}
+  mirrors: display-panel
+- id: cooling-tower
+  name: Cooling tower
+  type: cooler
+  size: [3, 3]
+  item: cooling-tower
+  energy: {source: electric, kw: 300}
+  module_slots: 2
+  allowed_effects: [consumption]
+  consumes: [water]
+  heat: {removes_kw: 10000, full_rate_dt_k: 5, water_per_mj: 0.4115}
+  mirrors: 'new (F: active heat sink; Space Age biochamber''s role)'
+  desc: Absorbs heat in its chunk. Consumes water and power.
+- id: dry-cooler
+  name: Dry cooler
+  type: cooler
+  size: [2, 2]
+  item: dry-cooler
+  energy: {source: electric, kw: 200}
+  consumes: [coolant]
+  produces: [coolant]
+  heat: {removes_kw: 20000, coolant_in_min_c: 45, coolant_out_c: 30}
+  mirrors: new (F)
+  desc: Rejects coolant heat into the air of its chunk.
+- id: water-exchanger
+  name: Water exchanger
+  type: cooler
+  size: [3, 3]
+  item: water-exchanger
+  energy: {source: electric, kw: 500}
+  consumes: [coolant]
+  produces: [coolant]
+  heat: {removes_kw: 50000, coolant_in_min_c: 45, coolant_out_c: 30, into: the chunk of the water tile at its pumping position}
+  placement: {must_touch: [water, deep-water]}
+  mirrors: new (F)
+  desc: Rejects coolant heat into the water it touches.
+- id: monitor
+  name: Monitor
+  type: turret
+  size: [2, 2]
+  item: monitor
+  energy: {source: electric, kw: 300}
+  consumes: [evaluation-set]
+  extra: {range: 24, clean_interval_s: 5, ammo: evaluation-set}
+  mirrors: gun-turret (role; the flamethrower turret's tech slot)
+  desc: Cleans one compromised machine in range every {extra.clean_interval_s} s.
+  handbook_note: Runs no learned weights.
+- id: fence
+  name: Fence
+  type: wall
+  size: [1, 1]
+  item: fence
+  energy: {source: none, kw: 0}
+  extra:
+    health: 350
+    resist: {acid: 0.8}
+  mirrors: stone-wall
+  desc: Stops bodies, not signals.
+- id: gate
+  name: Gate
+  type: gate
+  size: [1, 1]
+  item: gate
+  energy: {source: none, kw: 0}
+  extra: {health: 350}
+  mirrors: gate
+- id: gun-turret
+  name: Gun turret
+  type: turret
+  size: [2, 2]
+  item: gun-turret
+  energy: {source: none, kw: 0}
+  consumes: [magazine, ap-magazine, du-magazine]
+  extra: {health: 400, range: 18, shots_per_s: 10, ammo_category: bullet}
+  mirrors: gun-turret
+- id: laser-turret
+  name: Laser turret
+  type: turret
+  size: [2, 2]
+  item: laser-turret
+  energy: {source: electric, kw: 1200}
+  extra: {health: 1000, range: 24, damage: 20, shots_per_s: 1.5, kj_per_shot: 800, ammo_category: laser, note: kw is the draw while firing}
+  mirrors: laser-turret
+- id: arc-turret
+  name: Arc turret
+  type: turret
+  size: [3, 3]
+  item: arc-turret
+  energy: {source: electric, kw: 3000}
+  extra: {range: 30, damage_type: electric, ammo_category: arc, chains: true, note: Space Age Tesla turret values; kw is an estimate to check against the 2.0 data; arc bonuses apply to it (R5-gate D13)}
+  mirrors: tesla-turret (Space Age)
+- id: artillery-turret
+  name: Artillery turret
+  type: turret
+  size: [3, 3]
+  item: artillery-turret
+  energy: {source: none, kw: 0}
+  consumes: [artillery-shell]
+  extra: {health: 2000, range: 224, auto_targets: replicators, ammo_category: artillery-shell}
+  mirrors: artillery-turret
+- id: artillery-wagon
+  name: Artillery wagon
+  type: other
+  size: [2, 6]
+  item: artillery-wagon
+  energy: {source: none, kw: 0}
+  consumes: [artillery-shell]
+  extra: {range: 224, rail_vehicle: true, ammo_category: artillery-shell}
+  mirrors: artillery-wagon
+- id: interceptor-bay
+  name: Interceptor bay
+  type: turret
+  size: [2, 2]
+  item: interceptor-bay
+  energy: {source: electric, kw: 200}
+  consumes: [interceptor, interceptor-2, interceptor-3]
+  extra: {capacity: 20, dispatch_radius: 30, note: kw is the recharge draw; F gives none}
+  mirrors: 'new (F: defender capsules, launched by a building)'
+- id: land-mine
+  name: Land mine
+  type: other
+  size: [1, 1]
+  item: land-mine
+  energy: {source: none, kw: 0}
+  extra: {ammo_category: landmine}
+  mirrors: land-mine
+- id: half-track
+  name: Half-track
+  type: other
+  size: [3, 4]
+  item: half-track
+  energy:
+    source: burner
+    kw: 1800
+    fuel_categories: [chemical]
+  extra:
+    slots: 80
+    weapons: []
+    note: 'no cannon or machine gun: the player never fights (B L14); turrets, artillery and legged agents fire on their own'
+  mirrors: 'tank (unarmed: B L14)'
+- id: legged-agent
+  name: Legged agent
+  type: other
+  size: [3, 3]
+  item: legged-agent
+  energy: {source: none, kw: 0}
+  consumes: [rocket, explosive-rocket, emp-warhead]
+  extra:
+    grid: [10, 6]
+    slots: 80
+    ammo_category: rocket
+    note: power from its equipment grid
+  mirrors: spidertron
+- id: endpoint
+  name: Endpoint
+  type: assembler
+  size: [3, 3]
+  item: endpoint
+  energy: {source: electric, kw: 1000, drain_kw: 33.333}
+  crafting_speed: 1
+  categories: [serving]
+  module_slots: 2
+  heat: {class: cluster, liquid_cooling: true}
+  deploys: true
+  placement: {must_be_on: exchange}
+  extra: {keeps_working_on_closed_exchange: true}
+  mirrors: new (F's deployment building)
+  desc: Serves a checkpoint to a town. Returns ratings.
+- id: research-hall
+  name: Research hall
+  type: assembler
+  size: [7, 7]
+  item: research-hall
+  energy: {source: electric, kw: 5000, priority: interruptible}
+  crafting_speed: 1
+  categories: [research-run]
+  module_slots: 0
+  effect_receiver: {uses_module_effects: false, uses_beacon_effects: false}
+  heat: {class: accelerator, liquid_cooling: true}
+  deploys: true
+  extra:
+    accelerator_slots: 20
+    weights_slots: 1
+    weights_item: frontier-checkpoint
+    tiers:
+    - {item: accelerator, speed: 1, kw: 5000, drain_kw: 166.7}
+    - {item: accelerator-2, speed: 3, kw: 8000, drain_kw: 266.7}
+    - {item: accelerator-3, speed: 8, kw: 12000, drain_kw: 400.0}
+    - {item: accelerator-4, speed: 20, kw: 16000, drain_kw: 533.3}
+    mixed_tiers: speed and draw are the mean over the 20 slots of each loaded tier; the GUI shows the lowest tier
+    runs_when: all accelerator slots and the weights slot are filled (statuses Missing accelerators, with the tooltip line Loaded n / 20, and No weights)
+    loading: inserters and agents insert accelerators and one frontier checkpoint, never remove them; hand transfer works both ways
+    upgrade: 'after weight-transplant an accelerator of a higher tier inserted into a full hall replaces the loaded one of the lowest tier (ties: lowest slot); the old one goes to the output'
+    output_returns_accelerators: true
+    accelerator_quality: ignored; the hall's own quality applies as for any crafting machine; the weights item's quality sets v
+  mirrors: 'new (G: accelerator hall)'
+  desc: The first System card written here closes the loop.
+- id: fusion-reactor
+  name: Fusion reactor
+  type: reactor
+  size: [6, 6]
+  item: fusion-reactor
+  energy:
+    source: burner
+    kw: 300000
+    fuel_categories: [fusion]
+  consumes: [fusion-power-cell]
+  produces: [plasma]
+  heat: {emission: none}
+  extra: {electric_kw: 10000, plasma_per_s: 4, plasma_mw: 100, feeds_generators: 2, neighbor_bonus: 1.0, rule: 'plasma carries plasma_mw / plasma_per_s (25 MJ per unit); each adjacent active reactor multiplies the plasma output by (1 + neighbor_bonus) without more fuel, as in Space Age (R5-gate D12d)'}
+  mirrors: fusion-reactor (Space Age)
+- id: fusion-generator
+  name: Fusion generator
+  type: generator
+  size: [3, 5]
+  item: fusion-generator
+  energy: {source: none, kw: 0}
+  consumes: [plasma]
+  heat: {emission: twice-output}
+  extra: {max_kw: 50000, plasma_per_s: 2}
+  mirrors: fusion-generator (Space Age)
+- id: verifier
+  name: Verifier
+  type: furnace
+  size: [2, 4]
+  item: verifier
+  energy: {source: electric, kw: 180, drain_kw: 6}
+  crafting_speed: 0.5
+  categories: [recycling]
+  module_slots: 4
+  extra: {returns: 0.25, note: every item has a generated recycling recipe (ISO); only scrap's is listed}
+  mirrors: recycler
+  desc: Rejects what fails. Returns {extra.returns:%} of a rejected item's ingredients.
+- id: deployer
+  name: Constructor
+  type: other
+  size: [1, 1]
+  item: deployer
+  energy: {source: none, kw: 0}
+  extra: {holds: one blueprint or blueprint book, circuit: 'deploy blueprint N at X,Y with rotation R; deconstruct or upgrade an area; copy a blueprint', signals: "the Recursive Blueprints mod's deployer chest table (R5-gate D12e)", built_by: construction agents (ghosts)}
+  mirrors: new (Recursive Blueprints' deployer chest; G's Deployer; named Constructor, DECISIONS §19)
+  desc: Builds the blueprint it holds where a circuit signal says.
+- id: area-scanner
+  name: Area scanner
+  type: combinator
+  size: [1, 1]
+  item: area-scanner
+  energy: {source: electric, kw: 50}
+  extra: {reads: 'resources, entities and ghosts in a rectangle set by signals', signals: "the Recursive Blueprints mod's scanner table", rescan: 'when its input signals change, or when a chunk version in its rectangle changes (R5-gate D12e)'}
+  mirrors: new (Recursive Blueprints' scanner)
+  desc: Reports what lies in an area as signals.

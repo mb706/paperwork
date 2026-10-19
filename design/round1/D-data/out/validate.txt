@@ -1,0 +1,14 @@
+== spec: out/data
+items 153, fluids 8, resources 9, recipes 162, entities 81, technologies 57
+research playthrough: 57 techs reachable in 12 waves
+items per tier: memo=41, report=45, article=53, proceedings=2, preprint=9, model-card=6, system-card=5
+total packs consumed by finite research: memo=10480, report=10285, article=8325, proceedings=0, preprint=4475, model-card=1600, system-card=0
+raw cost of 1 memo: iron-ore 2.0, records 1.0
+raw cost of 1 report: iron-ore 5.5, copper-ore 1.5
+raw cost of 1 article: water 112.5, crawl 16.7, iron-ore 12.6, copper-ore 7.5, coal 3.0, quartz 1.5
+raw cost of 1 proceedings (~): crawl 36.7, water 17.5, copper-ore 1.5, iron-ore 1.0
+raw cost of 1 preprint: crawl 148.1, water 116.7, iron-ore 48.2, copper-ore 8.3, quartz 6.7, coal 3.3, records 3.3
+raw cost of 1 model-card: water 401.7, crawl 148.1, copper-ore 28.2, iron-ore 24.3, coal 11.8, records 3.3
+raw cost of 1 system-card (~): water 538.4, crawl 286.2, copper-ore 69.0, iron-ore 44.4, coal 14.9, records 5.8, quartz 2.2
+WARN  item steam: dead end (never consumed, placed, burned, or tagged final)
+== 0 errors, 1 warnings

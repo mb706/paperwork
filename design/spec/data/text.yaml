@@ -1,0 +1,480 @@
+# Engine-readable text (R4-ui; DECISIONS, round-4 ownership additions).
+#
+# The rules, budgets and reasons behind these strings are in spec/08-text.md; the strings live
+# here, once. The data stage loads this file with the others and checks it (SCHEMA.md, text.yaml).
+#
+# Conventions
+# - Strings follow 08: sentence case, US spelling, no "!", no ellipsis, no emoji. *Asterisks* mark
+#   italics (titles of works, and a word used as a word); the UI renders them, nothing else.
+# - Numbers that the data also holds are placeholders (08 P17), resolved by the build:
+#     {heat.tree_damage_c}                 a meta.yaml path
+#     {entity.<id>.<field>}                an object's field; also item., recipe., tile., technology.;
+#                                          `extra.` fields included, e.g. {entity.steam-engine.extra.max_kw}
+#     {a / b}                              the ratio of two such paths, printed as an integer when exact,
+#                                          otherwise to one decimal
+#   A number written in words ("twice", "a third") is allowed only with an `asserts` entry that the
+#   build evaluates against the data: a comparison (==, <, >) of numbers and paths in the placeholder
+#   syntax. A recipe's ingredient or product is addressed by its id (recipe.x.products.prose is its
+#   amount); `cost_ratio` is a multi-level technology's cost ratio between its first two levels.
+#   Achievements may carry `asserts` as well. An achievement's text may restate its own condition's
+#   numbers as digits ("Craft 1,000 Memos by hand."): that is P17's one exemption (DECISIONS §41), and
+#   the validator checks that every such number is one of its condition's values.
+# - `requires` names conditions that must all hold for the string to apply (SCHEMA.md, text.yaml):
+#     map settings: heat, staffing, runaways (Runaways is not Off), hollow-work, race, scooped;
+#     systems that no setting turns off, met when the build contains them: exchanges, quality, agents.
+# - Ids in conditions and targets must exist in the data; the validator checks them.
+
+# ---------------------------------------------------------------- loading tips (08 §7)
+# One or two true sentences; the second, when present, ties the fact to a mechanic.
+tips:
+  - id: eniac-power
+    text: "ENIAC held nearly 18,000 vacuum tubes and drew about 150 kW. One steam engine produces {entity.steam-engine.extra.max_kw} kW."
+    requires: []
+  - id: computer-profession
+    text: "*Computer* was a profession. The first six ENIAC programmers were hired from it."
+    requires: []
+  - id: every-joule
+    text: "Every joule a machine uses ends up as heat in its chunk. Water sheds heat {tile.water.kappa_per_s / tile.grass.kappa_per_s} times as fast as grass."
+    requires: [heat]
+  - id: power-station
+    text: "A thermal power station turns about a third of its fuel into electricity. Steam engines and turbines release the rest as heat in their chunk."
+    requires: [heat]
+    asserts: ["entity.boiler.energy.kw == 3 * entity.boiler.extra.steam_per_s * 30"]   # "a third": 5.4 MW of fuel for 1.8 MW of steam at 30 kJ per unit (DECISIONS §18)
+  - id: north
+    text: "Ambient temperature falls toward the north. A machine there runs further below its thermal limit."
+    requires: [heat]
+  - id: trees
+    text: "Above {heat.tree_damage_c} °C, trees lose their leaves and absorb less heat."
+    requires: [heat]
+  - id: landauer
+    text: "Erasing one bit releases at least kT ln 2 of heat (Landauer, 1961). The bound is lower where it is cold."
+    requires: [heat]
+  - id: staffing-range
+    text: "A university staffs every Seminar within {staffing.radius} tiles of its campus, a range that *Packet switching* and *Web search* extend. Holding a Seminar shows the range."
+    requires: [staffing]
+  - id: staffing-demand
+    text: "A Seminar's staff demand follows the speed its modules and Switches add. Research-speed technologies and productivity add none."
+    requires: [staffing]
+  - id: field-advances
+    text: "The field advances on its own. Each year by which your newest published research passes 1945 adds {meta.world.beta} field-years to it."
+    requires: []
+  - id: romer
+    text: "Papers are consumed. Technologies are not (Romer, 1990)."
+    requires: []
+  - id: bloom
+    text: "Each level of Research productivity costs twice the last. Holding growth constant has taken ever more researchers (Bloom, Jones, Van Reenen & Webb, 2020)."
+    requires: []
+    asserts: ["technology.research-productivity.cost_ratio == 2"]   # "twice the last"
+  - id: muennighoff
+    text: "Up to four passes over the same data are nearly as good as new data; beyond that, returns fall (Muennighoff et al., 2023)."
+    requires: [exchanges]
+  - id: lee-dedup
+    text: "Deduplicated training data gives better models in fewer steps (Lee et al., 2021). Deduplication keeps less than half of the crawl it reads."
+    requires: [exchanges]
+    asserts: ["recipe.deduplication.products.prose < 0.5 * recipe.deduplication.ingredients.crawl"]   # "less than half"
+  - id: exchange-backlog
+    text: "An exchange's first crawl takes the backlog. After that it yields the town's new writing."
+    requires: [exchanges]
+  - id: shumailov
+    text: "Models trained on generated text lose the tails of the distribution (Shumailov et al., 2023). Archives were written before any of it."
+    requires: [exchanges]
+  - id: kaplan
+    text: "Loss falls as a power law in compute, data and parameters (Kaplan et al., 2020). A frontier cluster shows its progress as loss."
+    requires: []
+  - id: binning
+    text: "Dies cut from the same wafer are sold at different speeds. Quality is binning."
+    requires: [quality]
+  - id: holdout
+    text: "A held-out set used to choose between models is no longer held out. A Monitor uses up an evaluation set with every clean."
+    requires: [runaways]
+  - id: agents-blueprints
+    text: "Construction agents build blueprints. A blueprint may contain an agent hub."
+    requires: [agents]
+
+# ---------------------------------------------------------------- tips and tricks (08 §5.3)
+# Functional entries that may address the player (H §3). The first four ship with the slice (a text
+# and a still image); the rest unlock with a technology, as Factorio's do.
+tips_and_tricks:
+  - id: heat
+    title: Heat
+    requires: [heat]
+    unlocked_by: null
+    text: >-
+      Every machine turns the energy it uses into heat in the chunk where it stands. Power plants
+      release their conversion losses at the steam engines and turbines: twice the electricity
+      they make. Heat spreads to neighboring chunks and is lost to the surroundings: fastest over
+      water, then snow, grass, rock and sand, slowest over concrete. Forests help; above
+      {heat.tree_damage_c} °C trees lose their leaves. Turn on Heat in the map to see chunk
+      temperatures; in alt-mode the minimap shows them too. Computing machines slow down above
+      their thermal limit, and their power use does not fall.
+  - id: staff
+    title: Staff
+    requires: [staffing]
+    unlocked_by: null
+    text: >-
+      Seminars need staff. A university supplies staff to every Seminar within {staffing.radius}
+      tiles of its campus (more after *Packet switching* and *Web search*), and its supply grows with
+      the field. A working Seminar needs one staff,
+      more if modules or Switches make it faster; research-speed technologies cost no staff.
+      Seminars in range of the same universities share their staff the way machines share a power
+      network: when demand exceeds supply, they all slow down by the same factor. Hold a Seminar to
+      see each campus's range. A Seminar outside every range shows No staff and does not research.
+  - id: records-and-tokens
+    title: Records and tokens
+    requires: []
+    unlocked_by: null
+    text: >-
+      Memos need tokens, and tokens are transcribed from records. Records come from archives:
+      library stacks at the edges of towns and, farther out, records stores in old mines. Mine an
+      archive like ore, then transcribe the records in a Keypunch, which burns fuel like a furnace.
+      Archives are finite.
+  - id: the-field
+    title: The field
+    requires: []
+    unlocked_by: null
+    text: >-
+      The field is the rest of the world's research, given as a year. It advances on its own, and
+      it advances when your literature does. Towns and their universities grow with it. The
+      technology screen shows your literature, the field and the difference between them.
+  - id: terminals
+    title: Terminals
+    requires: [staffing]
+    unlocked_by: time-sharing
+    text: >-
+      A Terminal inside a campus's range joins that university to every other Terminal on the same
+      data line. Seminars staffed through one Terminal draw on every university the line connects.
+      A data line is a link for the machines on it (Containment).
+  - id: containment
+    title: Containment
+    requires: [runaways]
+    unlocked_by: deep-learning
+    text: >-
+      Every deployment leaks a little. When the Leak reaches 1, the deploying building with the
+      largest share is compromised: it stops working and copies itself to the machines it is linked
+      to. Thirty seconds without power cleans a compromised machine; a power switch whose condition
+      reads its Compromised signal does this by itself. A Monitor cleans machines in its range, one
+      evaluation set each.
+    asserts: ["runaways.clean.power_off_s == 30"]
+  - id: closing-the-loop
+    title: Closing the loop
+    requires: []
+    unlocked_by: automated-research
+    text: >-
+      The first System card written by a Research hall closes the loop. *Model generation* and every
+      other technology paid in System cards alone wait for it. Accelerators that exist at that moment
+      are the overhang; the run report counts them.
+
+# ---------------------------------------------------------------- milestones (07 §15; lines: 08 §8.4)
+# kind: produce (first unit of an item), build (first entity placed by anyone), research (a
+# technology completed), event (a simulation event named by 10 §5.20).
+milestones:
+  - {id: first-memo, kind: produce, target: memo}
+  - {id: first-report, kind: produce, target: report}
+  - {id: first-article, kind: produce, target: article}
+  - {id: first-proceedings, kind: produce, target: proceedings}
+  - {id: first-preprint, kind: produce, target: preprint}
+  - {id: first-model-card, kind: produce, target: model-card}
+  - {id: first-system-card, kind: produce, target: system-card}
+  - {id: first-token, kind: produce, target: token}
+  - {id: first-checkpoint, kind: produce, target: checkpoint}
+  - {id: first-accelerator, kind: produce, target: accelerator}
+  - {id: first-seminar, kind: build, target: seminar}
+  - {id: first-steam-engine, kind: build, target: steam-engine}
+  - {id: first-electric-mining-drill, kind: build, target: electric-mining-drill}
+  - {id: first-assembling-machine-1, kind: build, target: assembling-machine-1}
+  - {id: first-assembling-machine-2, kind: build, target: assembling-machine-2}
+  - {id: first-assembling-machine-3, kind: build, target: assembling-machine-3}
+  - {id: first-solar-panel, kind: build, target: solar-panel}
+  - {id: first-crawler, kind: build, target: crawler}
+  - {id: first-trainer, kind: build, target: trainer}
+  - {id: first-endpoint, kind: build, target: endpoint}
+  - {id: first-frontier-cluster, kind: build, target: frontier-cluster}
+  - {id: first-research-hall, kind: build, target: research-hall}
+  - {id: basic-research, kind: research, target: basic-research}
+  - {id: linear-programming, kind: research, target: linear-programming}
+  - {id: statistical-learning, kind: research, target: statistical-learning}
+  - {id: game-theory, kind: research, target: game-theory}
+  - {id: deep-learning, kind: research, target: deep-learning}
+  - {id: expected-utility, kind: research, target: expected-utility}
+  - {id: in-context-learning, kind: research, target: in-context-learning}
+  - {id: model-generation-25, kind: research, target: model-generation-25}
+  - {id: first-frontier-run, kind: event, target: frontier-run-returned-cards}
+  - {id: loop-closed, kind: event, target: loop-closed}
+  - {id: first-researcher, kind: event, target: researcher-installed}
+  - {id: first-archive-depleted, kind: event, target: archive-depleted}
+  - {id: first-exchange-closed, kind: event, target: exchange-closed}
+
+# ---------------------------------------------------------------- achievements (08 §6)
+# `condition.type` names an entry of the engine's achievement registry (10 §2.4, §5.20); every id
+# in a condition must exist in the data. `text` is the displayed condition; `why` is for reviewers
+# and never displayed (08 P16). `mirrors` is Factorio's achievement in the same slot, if any.
+# arc: early (reachable in the slice's era), mid, late.
+achievements:
+  - id: the-turk
+    name: The Turk
+    text: Craft 1,000 Memos by hand.
+    condition: {type: handcraft-count, item: memo, at_least: 1000}
+    arc: early
+    why: Von Kempelen's chess automaton (1770) had a person inside; the Site's "machine" is so far you.
+  - id: stiglers-law
+    name: Stigler's law
+    text: Research Stored program.
+    condition: {type: research, technology: stored-program}
+    arc: early
+    why: >-
+      The stored-program design is named after von Neumann alone, whose 1945 draft circulated under
+      his name only; Stigler (1980): no discovery is named after its original discoverer. The citation
+      line shows the single name, and must keep doing so: a later P3 pass must not add Eckert and
+      Mauchly, because the citation line is the game's own instance of the law (coherence m20).
+  - id: heat-island
+    name: Heat island
+    text: Raise a chunk 30 K above its ambient temperature.
+    condition: {type: chunk-above-ambient, kelvin: 30}
+    requires: [heat]
+    arc: early
+    why: Local warming from human activity, measured as the overlay measures it.
+  - id: hofstadters-law
+    name: Hofstadter's law
+    text: A technology takes more than ten times as long as the estimate shown when it started.
+    condition: {type: research-overrun, factor: 10}
+    arc: early
+    why: >-
+      "It always takes longer than you expect" (Hofstadter, 1979). It fires only on underestimates,
+      never when research is faster than estimated, as it is during takeoff. The estimate is the
+      research widget's at the tick the technology started; a technology started with no estimate
+      (no research rate) cannot fire it.
+  - id: the-endless-frontier
+    name: The endless frontier
+    text: Build a Seminar 5,000 tiles from the starting position.
+    condition: {type: build-distance, entity: seminar, tiles: 5000}
+    arc: early
+    why: Bush (1945), *Science, the Endless Frontier*; the frontier here is the map, which has no edge.
+  - id: town-and-gown
+    name: Town and gown
+    text: Staff working Seminars from five universities at once.
+    condition: {type: universities-staffing, at_least: 5}
+    requires: [staffing]
+    arc: early
+    why: >-
+      The relation between a university and its town, five times over. Fires on the first tick at
+      which working Seminars, in any networks, draw staff from five distinct universities.
+  - id: station-wagon
+    name: Station wagon
+    text: Drive a car carrying 80 stacks of drives for 1,000 tiles.
+    condition: {type: vehicle-carry-distance, vehicle: car, items: [drive, crawl-drive, junk-drive, text-drive, prose-drive], stacks_at_least: 80, tiles: 1000}
+    arc: mid
+    why: >-
+      The station wagon full of tapes, popularised by Tanenbaum (1988) from earlier sources; its
+      attribution is itself a case of Stigler's law. The car has 80 slots. The distance accumulates
+      while the car holds at least 80 stacks of drives and resets whenever that count falls.
+  - id: sneakernet
+    name: Sneakernet
+    text: Have a train carrying drives complete a path longer than 1,000 tiles.
+    condition: {type: train-carry-path, items: [drive, crawl-drive, junk-drive, text-drive, prose-drive], tiles: 1000}
+    arc: mid
+    mirrors: trans-factorio-express
+    why: Data moved by moving the carrier (B L6).
+  - id: data-wall
+    name: Data wall
+    text: Deplete an archive.
+    condition: {type: resource-depleted, resource: archive}
+    arc: mid
+    why: The data wall is depletion of human-written text; here it is literal.
+  - id: walled-garden
+    name: Walled garden
+    text: An exchange you have tapped closes to crawlers.
+    condition: {type: exchange-closed, tapped: true}
+    requires: [exchanges]
+    arc: mid
+    why: Exchanges close to crawlers as the synthetic share passes their threshold, and stay open to Endpoints (01 §7.5).
+  - id: low-background
+    name: Low-background
+    text: Mine 10,000 records after the synthetic share passes 50%.
+    condition: {type: mine-count-while, resource: archive, at_least: 10000, synthetic_share_above: 0.5}
+    requires: [exchanges]
+    arc: mid
+    why: Low-background steel predates fallout; archives predate generated text, and are worth most once the rest is contaminated.
+  - id: the-curse-of-recursion
+    name: The curse of recursion
+    text: Train a checkpoint while synthetic text slows its Trainer by more than half.
+    condition: {type: craft-while, item: checkpoint, trainer_slowdown_above: 0.5, not_researched: synthetic-detection}
+    requires: [exchanges]
+    arc: mid
+    why: >-
+      Shumailov et al. (2023), *The Curse of Recursion*: training on generated data makes models
+      forget. In a game about recursion, the other kind. Before Synthetic detection a Trainer on a
+      text-trained recipe runs at speed × (1 − synthetic share × crawl share) (03 §2.2; accuracy M4),
+      so the slowdown passes one half exactly when more than half of what the Site trains on is
+      generated text it crawled.
+  - id: tape-out
+    name: Tape-out
+    text: Set a machine's recipe to Accelerator.
+    condition: {type: recipe-set, recipe: accelerator}
+    arc: mid
+    why: Tape-out is the hand-off of a finished chip design to manufacturing.
+  - id: jevons-paradox
+    name: Jevons paradox
+    text: Use more electricity in the hour after your 100th Distilled controller than in the hour before.
+    condition: {type: power-rise-after-install, item: distilled-controller, nth: 100, window_s: 3600}
+    arc: mid
+    why: >-
+      Jevons (1865): efficiency raised total coal use. Measured, not asserted: the mean electricity
+      consumption over the 60 minutes after the 100th installation exceeds the mean over the 60
+      minutes before.
+  - id: headcount
+    name: Headcount
+    text: Have 100 Researchers in staff slots.
+    condition: {type: installed-count, item: researcher, slot: staff, at_least: 100}
+    arc: late
+    why: >-
+      Staff are counted here, literally (B L9), and the item that fills a staff slot is the
+      Researcher. With *Town and gown* (five universities' people) it marks the two ends of the
+      staffing arc (coherence C5).
+  - id: universal-constructor
+    name: Universal constructor
+    text: A Constructor places a blueprint that contains a Constructor.
+    condition: {type: constructor-places, entity: deployer}
+    arc: late
+    why: >-
+      von Neumann (1966): a machine that builds whatever a description specifies, itself included,
+      given its own description. The Constructor reads a blueprint and has agents build it (04 §2.5).
+  - id: man-computer-symbiosis
+    name: Man-computer symbiosis
+    text: Agents have built more entities than you.
+    condition: {type: agents-built-more}
+    requires: [agents]
+    arc: late
+    mirrors: you-are-doing-it-right
+    why: Licklider (1960) expected symbiosis to be an interim before machines alone; this fires at the end of the interim.
+  - id: the-off-switch-game
+    name: The off-switch game
+    text: A power switch cuts power to the compromised machine whose signal opened it.
+    condition: {type: switch-cuts-compromised}
+    requires: [runaways]
+    arc: late
+    why: Hadfield-Menell, Dragan, Abbeel & Russell (2017; preprint 2016) ask when an agent lets itself be switched off; here the machine gets no move.
+  - id: campbells-law
+    name: Campbell's law
+    text: Researcher-staffed Seminars consume 1,000 papers that yield no research.
+    condition: {type: hollow-papers, at_least: 1000}
+    requires: [hollow-work]
+    arc: late
+    why: >-
+      Campbell (1976): an indicator used for decisions corrupts the process it measures. The speed
+      stat counts the hollow work; the progress bar and the Seminar's Yield do not (03 §4).
+  - id: power-wall
+    name: Power wall
+    text: Have 100 computing machines throttled by heat at once.
+    condition: {type: throttled-at-once, at_least: 100}
+    requires: [heat]
+    arc: late
+    why: The power-density limit that ended frequency scaling.
+  - id: it-converged
+    name: It converged
+    text: Complete a frontier run.
+    condition: {type: frontier-run}
+    arc: late
+    mirrors: smoke-me-a-kipper-i-will-be-back-for-breakfast
+    why: A training run's end state. An empty run (no payload) counts.
+  - id: the-last-invention
+    name: The last invention
+    text: Install a Researcher before any machine has been compromised.
+    condition: {type: install-before-compromise, item: researcher}
+    requires: [runaways]
+    arc: late
+    why: >-
+      Good (1965): "the first ultraintelligent machine is the last invention that man need ever make,
+      provided that the machine is docile enough to tell us how to keep it under control." The
+      condition is the proviso, which most quotations omit.
+  - id: hard-takeoff
+    name: Hard takeoff
+    text: Research Model generation 25 within 10 minutes of closing the loop.
+    condition: {type: takeoff-time, at_most_s: 600}
+    arc: late
+    why: Both takeoff speeds get an achievement (H P11).
+  - id: slow-takeoff
+    name: Slow takeoff
+    text: Take more than two hours from closing the loop to Model generation 25.
+    condition: {type: takeoff-time, more_than_s: 7200}
+    arc: late
+    why: As above.
+  - id: no-related-work
+    name: No related work
+    text: Research a technology beyond the literature.
+    condition: {type: research-regime, regime: beyond}
+    arc: late
+    why: The Literature counter stops; the tree does not. Infrastructure technologies cite nothing without being beyond the literature, so they never fire it.
+  - id: exhaustive-search
+    name: Exhaustive search
+    text: Research every finite technology.
+    condition: {type: research-all-finite}
+    arc: late
+    why: Every option tried.
+  - id: the-bitter-lesson
+    name: The bitter lesson
+    text: Win while hand-crafting no more than 111 items.
+    condition: {type: win, handcrafted_at_most: 111}
+    arc: late
+    mirrors: lazy-bastard
+    why: "Sutton (2019): general methods that use computation beat hand-built knowledge."
+  - id: eternity-in-six-hours
+    name: Eternity in six hours
+    text: Win within six hours.
+    condition: {type: win, game_time_at_most_s: 21600}
+    arc: late
+    mirrors: there-is-no-spoon
+    why: >-
+      Armstrong & Sandberg (2013): six hours of the Sun's output launch the expansion, from a swarm
+      built out of Mercury, the expansion's own route. Bent to a clock, as Factorio's There is no
+      spoon is (accuracy §2.5).
+  - id: priority
+    name: Priority
+    text: Win in race mode before the field completes its run.
+    condition: {type: win, race_won: true}
+    requires: [race]
+    arc: late
+    why: >-
+      Priority is what a race in science decides. It needs the race won: the Site's Final-report run
+      completes before the field reaches W = 90 (R5-gate D12c). A victory after the field's run shows the
+      run report again, without the race line, and does not fire it.
+  - id: scooped
+    name: Scooped
+    text: Let 100 Significant results spoil into Baselines.
+    condition: {type: spoil-count, item: significant-result, into: baseline, at_least: 100}
+    requires: [scooped]
+    arc: late
+    why: Being published first by someone else (03 §5).
+
+# ---------------------------------------------------------------- town and institution names (08 §10.4)
+town_names:
+  first_by_climate:     # chosen by the town's ambient θ band (01 §3): cold < 5 °C ≤ temperate < 22 °C ≤ warm
+    cold: [Birch, Spruce, Snow, North, Iron]
+    temperate: [Ash, Elm, Oak, Mill, Stone, Fair, Green, Clear, Maple, Cedar, Glen]
+    warm: [Sand, Cotton, Mesa, Dry, Red Rock]
+  second:               # joined to the first element (Ashford, Millbrook)
+    joined: [ford, field, ton, ville, dale, burg, wood, brook, port, mont, haven, ridge, wick, ley, bury]
+    spaced: [Falls, Springs, Junction]   # two-word forms (Clear Springs, Pine Junction)
+  blocklist:            # rejected and redrawn; also every word of 08 §10.2's never-list
+    exact: [Dartmouth, Princeton, Cambridge, Palo Alto, Berkeley, Pittsburgh, Ithaca, Bletchley, Los Alamos, Oak Ridge, Oakridge, Hanford, Livermore, Redmond, Cupertino, Mountain View, Menlo Park, Armonk, Murray Hill, Sunnyvale, Santa Clara, Aberdeen]
+    containing: [Silicon, Valley]
+  university: {college-town: "{town} College", starting-college: "{town} College", town: "{town} University", city: "{town} University", metropolis: "{town} University"}
+  library: "Library of {town}"
+  records_store: {elements: [Hill, Mine, Quarry], pattern: "{first} {element} records store"}
+  uniqueness:           # R5-gate D1 (08 §10.4, 10 §5.18): unique within 8 town cells, not per map
+    within_cells: 8     # 2,048 tiles
+    redraws: 8
+    suffix: " II"       # then " III", and so on, if that is held too
+    rule: draw a name; reject it while a higher-priority town (the cell-hash priority of the 64-tile footprint rule) within within_cells holds it, and redraw, up to redraws times; then append suffix
+
+# ---------------------------------------------------------------- strings for generated world objects
+# Shown in tooltips and Handbook pages (07 §7, §12). Objects with a data prototype carry their own
+# desc there (the salvage's are in meta.start.salvage).
+world_text:
+  town: {desc: "Town. Not part of the Site."}
+  university:
+    handbook_note: >-
+      Staffs every working Seminar within its commuting radius of the campus ({staffing.radius} tiles at
+      first). Seminars in range of the same universities share its staff, as consumers share a power network.
+  library: {desc: "Records kept by a town."}
+  records_store: {desc: "Records kept in a former mine."}
+  exchange: {desc: "Carries the town's new writing."}

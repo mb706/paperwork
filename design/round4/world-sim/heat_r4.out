@@ -1,0 +1,48 @@
+== Fission, 2 x 2 block: 480 MW electric, 960 MW emitted by 83 turbines (5.82 MW each, 2x)
+  turbines over 3 x 2 chunks (compact layout)
+   T along +x from the block edge chunk (°C): 380 193 104 62 40 28 22 18 16 15
+   first chunk at <= 25 °C (full speed, Accelerator class (25 °C)): 6 chunks from the block edge chunk
+   first chunk at <= 35 °C (full speed, Cluster class (35 °C)): 5 chunks from the block edge chunk
+   first chunk at <= 40 °C (full speed, Computer/Network class (40 °C)): 4 chunks from the block edge chunk
+   peak 431 °C
+  turbines over 4 x 3 chunks (spread layout)
+   T along +x from the block edge chunk (°C): 278 151 85 52 35 25 20 18 16 15
+   first chunk at <= 25 °C (full speed, Accelerator class (25 °C)): 6 chunks from the block edge chunk
+   first chunk at <= 35 °C (full speed, Cluster class (35 °C)): 4 chunks from the block edge chunk
+   first chunk at <= 40 °C (full speed, Computer/Network class (40 °C)): 4 chunks from the block edge chunk
+   peak 330 °C
+  (round 2 rule, for comparison: all 960 MW in the reactor chunk)
+  960 MW in one chunk
+   T along +x from the block edge chunk (°C): 917 389 184 98 58 38 27 21 18 16
+   first chunk at <= 25 °C (full speed, Accelerator class (25 °C)): 7 chunks from the block edge chunk
+   first chunk at <= 35 °C (full speed, Cluster class (35 °C)): 6 chunks from the block edge chunk
+   first chunk at <= 40 °C (full speed, Computer/Network class (40 °C)): 5 chunks from the block edge chunk
+
+== One reactor alone: 40 MW electric, 7 turbines in one chunk, 80 MW emitted
+  one chunk
+   T along +x from the block edge chunk (°C): 89 45 28 21 18 16 15 15 15 14
+   first chunk at <= 25 °C (full speed, Accelerator class (25 °C)): 3 chunks from the block edge chunk
+   first chunk at <= 35 °C (full speed, Cluster class (35 °C)): 2 chunks from the block edge chunk
+   first chunk at <= 40 °C (full speed, Computer/Network class (40 °C)): 2 chunks from the block edge chunk
+
+== Fusion: one reactor, 100 MW electric, two generators in one chunk: 200 MW emitted
+  one chunk
+   T along +x from the block edge chunk (°C): 202 92 49 31 23 19 17 15 15 15
+   first chunk at <= 25 °C (full speed, Accelerator class (25 °C)): 4 chunks from the block edge chunk
+   first chunk at <= 35 °C (full speed, Cluster class (35 °C)): 3 chunks from the block edge chunk
+   first chunk at <= 40 °C (full speed, Computer/Network class (40 °C)): 3 chunks from the block edge chunk
+
+== 20 boilers (36 MW electric): 40 engines over 2 chunks emit 72 MW (= round 2 at the boilers)
+  two chunks
+   T along +x from the block edge chunk (°C): 62 34 23 19 16 15 15 15 15 14
+   first chunk at <= 25 °C (full speed, Accelerator class (25 °C)): 2 chunks from the block edge chunk
+   first chunk at <= 35 °C (full speed, Cluster class (35 °C)): 1 chunks from the block edge chunk
+   first chunk at <= 40 °C (full speed, Computer/Network class (40 °C)): 1 chunks from the block edge chunk
+
+== The 2 x 2 fission block on a lake shore (turbines over 3 x 2 chunks, a 10 x 10-chunk lake around them)
+  lake
+   T along +x from the block edge chunk (°C): 193 71 32 20 17 16 15 15 15 14
+   first chunk at <= 25 °C (full speed, Accelerator class (25 °C)): 3 chunks from the block edge chunk
+   first chunk at <= 35 °C (full speed, Cluster class (35 °C)): 2 chunks from the block edge chunk
+   first chunk at <= 40 °C (full speed, Computer/Network class (40 °C)): 2 chunks from the block edge chunk
+   peak 221 °C

@@ -1,0 +1,4 @@
+- {id: iron-ore-patch, name: Iron ore, kind: solid, yields: iron-ore, mining_time: 1, mirrors: iron-ore}
+- {id: copper-ore-patch, name: Copper ore, kind: solid, yields: copper-ore, mining_time: 1, mirrors: copper-ore}
+- {id: coal-patch, name: Coal, kind: solid, yields: coal, mining_time: 1, mirrors: coal}
+- {id: stone-patch, name: Stone, kind: solid, yields: stone, mining_time: 1, mirrors: stone}

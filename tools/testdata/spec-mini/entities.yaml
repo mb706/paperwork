@@ -1,0 +1,6 @@
+- {id: stone-furnace, name: Stone furnace, type: furnace, size: [2, 2], item: stone-furnace, crafting_speed: 1, categories: [smelting], energy: {source: burner, kw: 90, fuel_categories: [chemical]}, emissions_per_min: 2}
+- {id: burner-mining-drill, name: Burner mining drill, type: mining-drill, size: [2, 2], item: burner-mining-drill, mining_speed: 0.25, energy: {source: burner, kw: 150, fuel_categories: [chemical]}, emissions_per_min: 12}
+- {id: lab, name: Lab, type: lab, size: [3, 3], item: lab, crafting_speed: 1, energy: {source: electric, kw: 60}}
+- {id: assembler-1, name: Assembling machine 1, type: assembler, size: [3, 3], item: assembler-1, crafting_speed: 0.5, categories: [crafting], energy: {source: electric, kw: 75}, emissions_per_min: 4}
+- {id: transport-belt, name: Transport belt, type: belt, size: [1, 1], item: transport-belt, extra: {speed_items_per_s: 15}}
+- {id: inserter, name: Inserter, type: inserter, size: [1, 1], item: inserter, energy: {source: electric, kw: 13.2}}

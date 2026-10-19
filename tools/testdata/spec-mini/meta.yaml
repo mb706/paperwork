@@ -1,0 +1,6 @@
+tiers: [automation-science-pack, logistic-science-pack]
+crafting_categories: [crafting, smelting]
+fuel_categories: [chemical]
+start:
+  inventory: {burner-mining-drill: 1, stone-furnace: 1}
+  recipes: [iron-plate, copper-plate, iron-gear-wheel, copper-cable, electronic-circuit, automation-science-pack, stone-furnace, burner-mining-drill, lab, transport-belt]

@@ -1,0 +1,1082 @@
+- id: burner-mining-drill
+  name: Burner mining drill
+  type: mining-drill
+  size:
+  - 2
+  - 2
+  item: burner-mining-drill
+  energy:
+    source: burner
+    kw: 150
+    fuel_categories:
+    - chemical
+  mirrors: burner-mining-drill
+  mining_speed: 0.25
+  module_slots: 0
+  emissions_per_min: 12
+- id: electric-mining-drill
+  name: Electric mining drill
+  type: mining-drill
+  size:
+  - 3
+  - 3
+  item: electric-mining-drill
+  energy:
+    source: electric
+    kw: 90
+  mirrors: electric-mining-drill
+  mining_speed: 0.5
+  module_slots: 3
+  emissions_per_min: 10
+- id: offshore-pump
+  name: Offshore pump
+  type: offshore-pump
+  size:
+  - 1
+  - 2
+  item: offshore-pump
+  energy:
+    source: none
+    kw: 0
+  mirrors: offshore-pump
+  extra:
+    pumping_per_s: 1200
+- id: crawler
+  name: Crawler
+  type: pumpjack
+  size:
+  - 3
+  - 3
+  item: crawler
+  energy:
+    source: electric
+    kw: 90
+  mirrors: pumpjack
+  mining_speed: 1
+  module_slots: 2
+  emissions_per_min: 10
+  desc: Placed on an exchange. Pulls whatever passes through.
+- id: stone-furnace
+  name: Stone furnace
+  type: furnace
+  size:
+  - 2
+  - 2
+  item: stone-furnace
+  energy:
+    source: burner
+    kw: 90
+    fuel_categories:
+    - chemical
+  mirrors: stone-furnace
+  crafting_speed: 1
+  categories:
+  - smelting
+  module_slots: 0
+  emissions_per_min: 2
+- id: steel-furnace
+  name: Steel furnace
+  type: furnace
+  size:
+  - 2
+  - 2
+  item: steel-furnace
+  energy:
+    source: burner
+    kw: 90
+    fuel_categories:
+    - chemical
+  mirrors: steel-furnace
+  crafting_speed: 2
+  categories:
+  - smelting
+  module_slots: 0
+  emissions_per_min: 4
+- id: electric-furnace
+  name: Electric furnace
+  type: furnace
+  size:
+  - 3
+  - 3
+  item: electric-furnace
+  energy:
+    source: electric
+    kw: 180
+  mirrors: electric-furnace
+  crafting_speed: 2
+  categories:
+  - smelting
+  module_slots: 2
+  emissions_per_min: 1
+- id: keypunch
+  name: Keypunch
+  type: furnace
+  size:
+  - 2
+  - 2
+  item: keypunch
+  energy:
+    source: burner
+    kw: 90
+    fuel_categories:
+    - chemical
+  mirrors: stone-furnace (data smelter)
+  crafting_speed: 1
+  categories:
+  - transcription
+  module_slots: 0
+  emissions_per_min: 2
+  desc: Transcribes records into tokens, one card at a time. Burns fuel.
+- id: tokenizer
+  name: Tokenizer
+  type: furnace
+  size:
+  - 3
+  - 3
+  item: tokenizer
+  energy:
+    source: electric
+    kw: 180
+  mirrors: electric-furnace (data smelter)
+  crafting_speed: 2
+  categories:
+  - transcription
+  module_slots: 2
+  emissions_per_min: 1
+- id: assembling-machine-1
+  name: Assembling machine 1
+  type: assembler
+  size:
+  - 3
+  - 3
+  item: assembling-machine-1
+  energy:
+    source: electric
+    kw: 75
+  mirrors: assembling-machine-1
+  crafting_speed: 0.5
+  categories:
+  - crafting
+  module_slots: 0
+  emissions_per_min: 4
+- id: assembling-machine-2
+  name: Assembling machine 2
+  type: assembler
+  size:
+  - 3
+  - 3
+  item: assembling-machine-2
+  energy:
+    source: electric
+    kw: 150
+  mirrors: assembling-machine-2
+  crafting_speed: 0.75
+  categories:
+  - crafting
+  - crafting-with-fluid
+  module_slots: 2
+  emissions_per_min: 3
+- id: assembling-machine-3
+  name: Assembling machine 3
+  type: assembler
+  size:
+  - 3
+  - 3
+  item: assembling-machine-3
+  energy:
+    source: electric
+    kw: 375
+  mirrors: assembling-machine-3
+  crafting_speed: 1.25
+  categories:
+  - crafting
+  - crafting-with-fluid
+  module_slots: 4
+  emissions_per_min: 2
+- id: chemical-plant
+  name: Chemical plant
+  type: assembler
+  size:
+  - 3
+  - 3
+  item: chemical-plant
+  energy:
+    source: electric
+    kw: 210
+  mirrors: chemical-plant
+  crafting_speed: 1
+  categories:
+  - chemistry
+  module_slots: 3
+  emissions_per_min: 4
+- id: data-refinery
+  name: Data refinery
+  type: assembler
+  size:
+  - 5
+  - 5
+  item: data-refinery
+  energy:
+    source: electric
+    kw: 420
+  mirrors: oil-refinery
+  crafting_speed: 1
+  categories:
+  - data-refining
+  module_slots: 3
+  emissions_per_min: 6
+- id: data-plant
+  name: Data plant
+  type: assembler
+  size:
+  - 3
+  - 3
+  item: data-plant
+  energy:
+    source: electric
+    kw: 210
+  mirrors: chemical-plant (data side)
+  crafting_speed: 1
+  categories:
+  - data-processing
+  module_slots: 3
+  emissions_per_min: 4
+- id: trainer
+  name: Trainer
+  type: assembler
+  size:
+  - 3
+  - 3
+  item: trainer
+  energy:
+    source: electric
+    kw: 400
+  mirrors: centrifuge (special 3x3 maker); recipes mirror modules
+  crafting_speed: 1
+  categories:
+  - training
+  module_slots: 4
+  emissions_per_min: 4
+- id: centrifuge
+  name: Centrifuge
+  type: assembler
+  size:
+  - 3
+  - 3
+  item: centrifuge
+  energy:
+    source: electric
+    kw: 350
+  mirrors: centrifuge
+  crafting_speed: 1
+  categories:
+  - centrifuging
+  module_slots: 2
+  emissions_per_min: 4
+- id: seminar
+  name: Seminar
+  type: lab
+  size:
+  - 3
+  - 3
+  item: seminar
+  energy:
+    source: electric
+    kw: 60
+  mirrors: lab
+  crafting_speed: 1
+  module_slots: 2
+  emissions_per_min: 0
+  desc: Consumes papers. Needs staff.
+- id: switch
+  name: Switch
+  type: beacon
+  size:
+  - 3
+  - 3
+  item: switch
+  energy:
+    source: electric
+    kw: 480
+  mirrors: beacon
+  module_slots: 2
+  extra:
+    distribution_efficiency: 1.5
+    supply_area: 9x9
+    profile: 1/sqrt(n)
+  desc: Lends its modules to every machine in range. Each additional switch counts for less.
+- id: frontier-cluster
+  name: Frontier cluster
+  type: rocket-silo
+  size:
+  - 9
+  - 9
+  item: frontier-cluster
+  energy:
+    source: electric
+    kw: 3990
+  mirrors: rocket-silo
+  crafting_speed: 1
+  categories:
+  - frontier-run
+  - launch
+  module_slots: 4
+  emissions_per_min: 0
+  extra:
+    parts_required: 100
+    idle_kw: 250
+    payload: post-training-payload
+    returns: 1000 system-card
+- id: boiler
+  name: Boiler
+  type: boiler
+  size:
+  - 3
+  - 2
+  item: boiler
+  energy:
+    source: burner
+    kw: 1800
+    fuel_categories:
+    - chemical
+  mirrors: boiler
+  categories:
+  - boiling
+  emissions_per_min: 30
+  extra:
+    steam_per_s: 60
+    temp_c: 165
+- id: steam-engine
+  name: Steam engine
+  type: generator
+  size:
+  - 3
+  - 5
+  item: steam-engine
+  energy:
+    source: none
+    kw: 0
+  mirrors: steam-engine
+  extra:
+    max_kw: 900
+- id: solar-panel
+  name: Solar panel
+  type: solar-panel
+  size:
+  - 3
+  - 3
+  item: solar-panel
+  energy:
+    source: none
+    kw: 0
+  mirrors: solar-panel
+  extra:
+    peak_kw: 60
+- id: accumulator
+  name: Accumulator
+  type: accumulator
+  size:
+  - 2
+  - 2
+  item: accumulator
+  energy:
+    source: none
+    kw: 0
+  mirrors: accumulator
+  extra:
+    capacity_mj: 5
+    flow_kw: 300
+- id: nuclear-reactor
+  name: Nuclear reactor
+  type: reactor
+  size:
+  - 5
+  - 5
+  item: nuclear-reactor
+  energy:
+    source: burner
+    kw: 40000
+    fuel_categories:
+    - chemical
+  mirrors: nuclear-reactor
+  categories:
+  - fission
+  extra:
+    heat_mw: 40
+    neighbour_bonus: +100% per adjacent active reactor
+- id: heat-pipe
+  name: Heat pipe
+  type: heat-pipe
+  size:
+  - 1
+  - 1
+  item: heat-pipe
+  energy:
+    source: none
+    kw: 0
+  mirrors: heat-pipe
+- id: heat-exchanger
+  name: Heat exchanger
+  type: heat-exchanger
+  size:
+  - 3
+  - 2
+  item: heat-exchanger
+  energy:
+    source: heat
+    kw: 10000
+  mirrors: heat-exchanger
+  categories:
+  - boiling
+  extra:
+    steam_per_s: 103.09
+    temp_c: 500
+- id: steam-turbine
+  name: Steam turbine
+  type: generator
+  size:
+  - 3
+  - 5
+  item: steam-turbine
+  energy:
+    source: none
+    kw: 0
+  mirrors: steam-turbine
+  extra:
+    max_kw: 5820
+- id: small-electric-pole
+  name: Small electric pole
+  type: electric-pole
+  size:
+  - 1
+  - 1
+  item: small-electric-pole
+  energy:
+    source: none
+    kw: 0
+  mirrors: small-electric-pole
+  extra:
+    wire_reach: 7.5
+    supply: 5x5
+- id: medium-electric-pole
+  name: Medium electric pole
+  type: electric-pole
+  size:
+  - 1
+  - 1
+  item: medium-electric-pole
+  energy:
+    source: none
+    kw: 0
+  mirrors: medium-electric-pole
+  extra:
+    wire_reach: 9
+    supply: 7x7
+- id: big-electric-pole
+  name: Big electric pole
+  type: electric-pole
+  size:
+  - 2
+  - 2
+  item: big-electric-pole
+  energy:
+    source: none
+    kw: 0
+  mirrors: big-electric-pole
+  extra:
+    wire_reach: 32
+    supply: 4x4
+- id: substation
+  name: Substation
+  type: electric-pole
+  size:
+  - 2
+  - 2
+  item: substation
+  energy:
+    source: none
+    kw: 0
+  mirrors: substation
+  extra:
+    wire_reach: 18
+    supply: 18x18
+- id: transport-belt
+  name: Transport belt
+  type: belt
+  size:
+  - 1
+  - 1
+  item: transport-belt
+  energy:
+    source: none
+    kw: 0
+  mirrors: transport-belt
+  extra:
+    items_per_s: 15
+- id: fast-transport-belt
+  name: Fast transport belt
+  type: belt
+  size:
+  - 1
+  - 1
+  item: fast-transport-belt
+  energy:
+    source: none
+    kw: 0
+  mirrors: fast-transport-belt
+  extra:
+    items_per_s: 30
+- id: express-transport-belt
+  name: Express transport belt
+  type: belt
+  size:
+  - 1
+  - 1
+  item: express-transport-belt
+  energy:
+    source: none
+    kw: 0
+  mirrors: express-transport-belt
+  extra:
+    items_per_s: 45
+- id: underground-belt
+  name: Underground belt
+  type: underground-belt
+  size:
+  - 1
+  - 1
+  item: underground-belt
+  energy:
+    source: none
+    kw: 0
+  mirrors: underground-belt
+  extra:
+    max_gap: 4
+- id: fast-underground-belt
+  name: Fast underground belt
+  type: underground-belt
+  size:
+  - 1
+  - 1
+  item: fast-underground-belt
+  energy:
+    source: none
+    kw: 0
+  mirrors: fast-underground-belt
+  extra:
+    max_gap: 6
+- id: express-underground-belt
+  name: Express underground belt
+  type: underground-belt
+  size:
+  - 1
+  - 1
+  item: express-underground-belt
+  energy:
+    source: none
+    kw: 0
+  mirrors: express-underground-belt
+  extra:
+    max_gap: 8
+- id: splitter
+  name: Splitter
+  type: splitter
+  size:
+  - 2
+  - 1
+  item: splitter
+  energy:
+    source: none
+    kw: 0
+  mirrors: splitter
+- id: fast-splitter
+  name: Fast splitter
+  type: splitter
+  size:
+  - 2
+  - 1
+  item: fast-splitter
+  energy:
+    source: none
+    kw: 0
+  mirrors: fast-splitter
+- id: express-splitter
+  name: Express splitter
+  type: splitter
+  size:
+  - 2
+  - 1
+  item: express-splitter
+  energy:
+    source: none
+    kw: 0
+  mirrors: express-splitter
+- id: burner-inserter
+  name: Burner inserter
+  type: inserter
+  size:
+  - 1
+  - 1
+  item: burner-inserter
+  energy:
+    source: burner
+    kw: 105
+    fuel_categories:
+    - chemical
+  mirrors: burner-inserter
+- id: inserter
+  name: Inserter
+  type: inserter
+  size:
+  - 1
+  - 1
+  item: inserter
+  energy:
+    source: electric
+    kw: 13.2
+  mirrors: inserter
+- id: long-handed-inserter
+  name: Long-handed inserter
+  type: inserter
+  size:
+  - 1
+  - 1
+  item: long-handed-inserter
+  energy:
+    source: electric
+    kw: 20
+  mirrors: long-handed-inserter
+- id: fast-inserter
+  name: Fast inserter
+  type: inserter
+  size:
+  - 1
+  - 1
+  item: fast-inserter
+  energy:
+    source: electric
+    kw: 46
+  mirrors: fast-inserter
+- id: bulk-inserter
+  name: Bulk inserter
+  type: inserter
+  size:
+  - 1
+  - 1
+  item: bulk-inserter
+  energy:
+    source: electric
+    kw: 132
+  mirrors: bulk-inserter
+- id: wooden-chest
+  name: Wooden chest
+  type: chest
+  size:
+  - 1
+  - 1
+  item: wooden-chest
+  energy:
+    source: none
+    kw: 0
+  mirrors: wooden-chest
+  extra:
+    slots: 16
+- id: iron-chest
+  name: Iron chest
+  type: chest
+  size:
+  - 1
+  - 1
+  item: iron-chest
+  energy:
+    source: none
+    kw: 0
+  mirrors: iron-chest
+  extra:
+    slots: 32
+- id: steel-chest
+  name: Steel chest
+  type: chest
+  size:
+  - 1
+  - 1
+  item: steel-chest
+  energy:
+    source: none
+    kw: 0
+  mirrors: steel-chest
+  extra:
+    slots: 48
+- id: active-provider-chest
+  name: Active provider chest
+  type: logistic-chest
+  size:
+  - 1
+  - 1
+  item: active-provider-chest
+  energy:
+    source: none
+    kw: 0
+  mirrors: active-provider-chest
+- id: passive-provider-chest
+  name: Passive provider chest
+  type: logistic-chest
+  size:
+  - 1
+  - 1
+  item: passive-provider-chest
+  energy:
+    source: none
+    kw: 0
+  mirrors: passive-provider-chest
+- id: storage-chest
+  name: Storage chest
+  type: logistic-chest
+  size:
+  - 1
+  - 1
+  item: storage-chest
+  energy:
+    source: none
+    kw: 0
+  mirrors: storage-chest
+- id: buffer-chest
+  name: Buffer chest
+  type: logistic-chest
+  size:
+  - 1
+  - 1
+  item: buffer-chest
+  energy:
+    source: none
+    kw: 0
+  mirrors: buffer-chest
+- id: requester-chest
+  name: Requester chest
+  type: logistic-chest
+  size:
+  - 1
+  - 1
+  item: requester-chest
+  energy:
+    source: none
+    kw: 0
+  mirrors: requester-chest
+- id: pipe
+  name: Pipe
+  type: pipe
+  size:
+  - 1
+  - 1
+  item: pipe
+  energy:
+    source: none
+    kw: 0
+  mirrors: pipe
+- id: pipe-to-ground
+  name: Pipe to ground
+  type: pipe-to-ground
+  size:
+  - 1
+  - 1
+  item: pipe-to-ground
+  energy:
+    source: none
+    kw: 0
+  mirrors: pipe-to-ground
+  extra:
+    max_gap: 9
+- id: pump
+  name: Pump
+  type: pump
+  size:
+  - 1
+  - 2
+  item: pump
+  energy:
+    source: electric
+    kw: 29
+  mirrors: pump
+- id: storage-tank
+  name: Storage tank
+  type: storage-tank
+  size:
+  - 3
+  - 3
+  item: storage-tank
+  energy:
+    source: none
+    kw: 0
+  mirrors: storage-tank
+  extra:
+    capacity: 25000
+- id: data-line
+  name: Data line
+  type: pipe
+  size:
+  - 1
+  - 1
+  item: data-line
+  energy:
+    source: none
+    kw: 0
+  mirrors: pipe (data network)
+- id: underground-line
+  name: Underground line
+  type: pipe-to-ground
+  size:
+  - 1
+  - 1
+  item: underground-line
+  energy:
+    source: none
+    kw: 0
+  mirrors: pipe-to-ground (data)
+  extra:
+    max_gap: 9
+- id: repeater
+  name: Repeater
+  type: pump
+  size:
+  - 1
+  - 2
+  item: repeater
+  energy:
+    source: electric
+    kw: 29
+  mirrors: pump (data)
+- id: data-lake
+  name: Data lake
+  type: storage-tank
+  size:
+  - 3
+  - 3
+  item: data-lake
+  energy:
+    source: none
+    kw: 0
+  mirrors: storage-tank (data)
+  extra:
+    capacity: 25000
+- id: rail
+  name: Rail
+  type: rail
+  size:
+  - 2
+  - 2
+  item: rail
+  energy:
+    source: none
+    kw: 0
+  mirrors: rail
+- id: train-stop
+  name: Train stop
+  type: train-stop
+  size:
+  - 2
+  - 2
+  item: train-stop
+  energy:
+    source: none
+    kw: 0
+  mirrors: train-stop
+- id: rail-signal
+  name: Rail signal
+  type: rail-signal
+  size:
+  - 1
+  - 1
+  item: rail-signal
+  energy:
+    source: none
+    kw: 0
+  mirrors: rail-signal
+- id: rail-chain-signal
+  name: Rail chain signal
+  type: rail-signal
+  size:
+  - 1
+  - 1
+  item: rail-chain-signal
+  energy:
+    source: none
+    kw: 0
+  mirrors: rail-chain-signal
+- id: locomotive
+  name: Locomotive
+  type: locomotive
+  size:
+  - 2
+  - 6
+  item: locomotive
+  energy:
+    source: burner
+    kw: 600
+    fuel_categories:
+    - chemical
+  mirrors: locomotive
+- id: cargo-wagon
+  name: Cargo wagon
+  type: cargo-wagon
+  size:
+  - 2
+  - 6
+  item: cargo-wagon
+  energy:
+    source: none
+    kw: 0
+  mirrors: cargo-wagon
+  extra:
+    slots: 40
+- id: fluid-wagon
+  name: Fluid wagon
+  type: fluid-wagon
+  size:
+  - 2
+  - 6
+  item: fluid-wagon
+  energy:
+    source: none
+    kw: 0
+  mirrors: fluid-wagon
+  extra:
+    capacity: 50000
+- id: data-wagon
+  name: Data wagon
+  type: fluid-wagon
+  size:
+  - 2
+  - 6
+  item: data-wagon
+  energy:
+    source: none
+    kw: 0
+  mirrors: fluid-wagon (data)
+  extra:
+    capacity: 50000
+- id: agent-hub
+  name: Agent hub
+  type: roboport
+  size:
+  - 4
+  - 4
+  item: agent-hub
+  energy:
+    source: electric
+    kw: 50
+  mirrors: roboport
+- id: radar
+  name: Radar
+  type: radar
+  size:
+  - 3
+  - 3
+  item: radar
+  energy:
+    source: electric
+    kw: 300
+  mirrors: radar
+  desc: Surplus from a wartime laboratory.
+- id: car
+  name: Car
+  type: other
+  size:
+  - 2
+  - 3
+  item: car
+  energy:
+    source: burner
+    kw: 600
+    fuel_categories:
+    - chemical
+  mirrors: car
+- id: small-lamp
+  name: Lamp
+  type: lamp
+  size:
+  - 1
+  - 1
+  item: small-lamp
+  energy:
+    source: electric
+    kw: 5
+  mirrors: small-lamp
+- id: decider-combinator
+  name: Threshold unit
+  type: combinator
+  size:
+  - 1
+  - 2
+  item: decider-combinator
+  energy:
+    source: electric
+    kw: 1
+  mirrors: decider-combinator
+  desc: Fires when its weighted inputs cross a threshold.
+- id: arithmetic-combinator
+  name: Arithmetic unit
+  type: combinator
+  size:
+  - 1
+  - 2
+  item: arithmetic-combinator
+  energy:
+    source: electric
+    kw: 1
+  mirrors: arithmetic-combinator
+- id: constant-combinator
+  name: Bias unit
+  type: combinator
+  size:
+  - 1
+  - 1
+  item: constant-combinator
+  energy:
+    source: none
+    kw: 0
+  mirrors: constant-combinator
+  desc: A constant input.
+- id: selector-combinator
+  name: Selector unit
+  type: combinator
+  size:
+  - 1
+  - 2
+  item: selector-combinator
+  energy:
+    source: electric
+    kw: 1
+  mirrors: selector-combinator
+- id: power-switch
+  name: Power switch
+  type: other
+  size:
+  - 2
+  - 2
+  item: power-switch
+  energy:
+    source: none
+    kw: 0
+  mirrors: power-switch
+- id: programmable-speaker
+  name: Programmable speaker
+  type: other
+  size:
+  - 1
+  - 1
+  item: programmable-speaker
+  energy:
+    source: electric
+    kw: 2
+  mirrors: programmable-speaker
+- id: display-panel
+  name: Display panel
+  type: other
+  size:
+  - 1
+  - 1
+  item: display-panel
+  energy:
+    source: none
+    kw: 0
+  mirrors: display-panel

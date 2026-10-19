@@ -1,0 +1,28 @@
+# Build, test and tool output
+node_modules/
+dist/
+.vite/
+coverage/
+playwright-report/
+test-results/
+.playwright-mcp/
+__pycache__/
+*.pyc
+
+# Raw third-party material scraped during the design phase: Factorio wiki pages, Friday Facts,
+# screenshots, the changelog, and Wube's Lua prototype files. It is not ours to publish and
+# no tool reads it. The derived JSON in design/round1/E-data/*.json stays, because
+# tools/render_spec.py compares our pacing against it.
+design/round1/I-data/wiki/
+design/round1/I-data/fff/
+design/round1/I-data/img/
+design/round1/I-data/data/
+design/round1/I-data/*.html
+design/round1/I-data/*.txt
+design/round1/I-data/controls.wiki
+design/round1/I-data/core.cfg
+design/round1/E-data/dl/
+design/round1/E-data/dl2077/
+design/round1/E-data/dlq/
+design/round1/E-data/dlsa/
+design/round1/E-data/luarun/

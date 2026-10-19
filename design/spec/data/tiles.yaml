@@ -1,0 +1,146 @@
+# Tile prototypes (impl B3). κ is the Newton-cooling coefficient of 03 §1.2 (s⁻¹); walking speeds are Factorio 2.0's
+# walking_speed_modifier (ISO). A chunk's κ is the mean over its 1,024 tiles plus its trees (meta.heat.loss).
+- id: grass
+  name: Grass
+  kappa_per_s: 0.005
+  buildable: true
+  walking_speed: 1.0
+  map_color: '#4f6b2b'
+  minable_back: false
+  biome: [temperate, boreal]
+- id: dirt
+  name: Dirt
+  kappa_per_s: 0.005
+  buildable: true
+  walking_speed: 1.0
+  map_color: '#6b5436'
+  minable_back: false
+  biome: [temperate, boreal]
+- id: dry-dirt
+  name: Dry dirt
+  kappa_per_s: 0.003
+  buildable: true
+  walking_speed: 1.0
+  map_color: '#8a6c45'
+  minable_back: false
+  biome: [steppe]
+- id: red-desert
+  name: Red desert
+  kappa_per_s: 0.003
+  buildable: true
+  walking_speed: 1.0
+  map_color: '#94522f'
+  minable_back: false
+  biome: [steppe]
+- id: sand
+  name: Sand
+  kappa_per_s: 0.003
+  buildable: true
+  walking_speed: 1.0
+  map_color: '#b49d63'
+  minable_back: false
+  biome: [desert]
+- id: snow
+  name: Snow
+  kappa_per_s: 0.0075
+  buildable: true
+  walking_speed: 1.0
+  map_color: '#e6ecef'
+  minable_back: false
+  biome: [tundra, boreal]
+- id: ice
+  name: Ice
+  kappa_per_s: 0.0075
+  buildable: true
+  walking_speed: 1.0
+  map_color: '#bcd4e0'
+  minable_back: false
+  biome: [tundra]
+- id: rock-ground
+  name: Rock
+  kappa_per_s: 0.004
+  buildable: true
+  walking_speed: 1.0
+  map_color: '#76746c'
+  minable_back: false
+  biome: [tundra]
+- id: water
+  name: Water
+  kappa_per_s: 0.02
+  buildable: false
+  walking_speed: null
+  map_color: '#33597a'
+  minable_back: false
+  biome: [any]
+- id: deep-water
+  name: Deep water
+  kappa_per_s: 0.02
+  buildable: false
+  walking_speed: null
+  map_color: '#264766'
+  minable_back: false
+  biome: [any]
+- id: landfill
+  name: Landfill
+  kappa_per_s: 0.0015
+  buildable: true
+  walking_speed: 1.0
+  map_color: '#6e5c3e'
+  placed_by: landfill
+  minable_back: false
+  placed_on: [water, deep-water]
+- id: concrete
+  name: Concrete
+  kappa_per_s: 0.0015
+  buildable: true
+  walking_speed: 1.4
+  map_color: '#626262'
+  placed_by: concrete
+  minable_back: true
+- id: hazard-concrete
+  name: Hazard concrete
+  kappa_per_s: 0.0015
+  buildable: true
+  walking_speed: 1.4
+  map_color: '#a8973f'
+  placed_by: hazard-concrete
+  minable_back: true
+- id: refined-concrete
+  name: Refined concrete
+  kappa_per_s: 0.0015
+  buildable: true
+  walking_speed: 1.5
+  map_color: '#4a4a4a'
+  placed_by: refined-concrete
+  minable_back: true
+- id: refined-hazard-concrete
+  name: Refined hazard concrete
+  kappa_per_s: 0.0015
+  buildable: true
+  walking_speed: 1.5
+  map_color: '#968632'
+  placed_by: refined-hazard-concrete
+  minable_back: true
+- id: town-street
+  name: Street
+  kappa_per_s: 0.0015
+  buildable: false
+  walking_speed: 1.0
+  map_color: '#59554d'
+  minable_back: false
+  town: true
+- id: town-block
+  name: Town
+  kappa_per_s: 0.0015
+  buildable: false
+  walking_speed: null
+  map_color: '#7d6a58'
+  minable_back: false
+  town: true
+- id: out-of-map
+  name: Out of map
+  kappa_per_s: null
+  buildable: false
+  walking_speed: null
+  map_color: '#000000'
+  minable_back: false

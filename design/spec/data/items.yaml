@@ -1,0 +1,2083 @@
+# Items and fluids. Schema: SCHEMA.md. Built by R2-D from D's data plus DECISIONS/F/G/A additions.
+- id: wood
+  name: Wood
+  type: item
+  stack: 100
+  tier: memo
+  mirrors: wood
+  sprite: 'ISO (Factorio icon): two crossed brown logs'
+  fuel_value: 6
+  fuel_category: chemical
+  tags: [raw, fuel]
+- id: coal
+  name: Coal
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: coal
+  sprite: 'ISO: heap of black lumps with a dull sheen'
+  fuel_value: 12
+  fuel_category: chemical
+  tags: [raw, fuel]
+- id: iron-ore
+  name: Iron ore
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: iron-ore
+  sprite: 'ISO: blue-grey rock chunks'
+  tags: [raw]
+- id: copper-ore
+  name: Copper ore
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: copper-ore
+  sprite: 'ISO: orange rocks with green flecks'
+  tags: [raw]
+- id: quartz
+  name: Quartz
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: stone
+  sprite: heap of milky-white faceted crystals, faint pink cast; the brightest raw item
+  tags: [raw]
+  desc: Silicon dioxide. Silica is 60% of the continental crust.
+- id: uranium-ore
+  name: Uranium ore
+  type: item
+  stack: 50
+  tier: article
+  mirrors: uranium-ore
+  sprite: 'ISO: dark rock with glowing green specks'
+  tags: [raw]
+- id: records
+  name: Records
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: 'iron-ore (role: a basic ore)'
+  sprite: bundle of yellowed papers tied with a string cross; manila, soft edges
+  tags: [raw]
+  desc: Boxes of records. Finite.
+- id: water
+  name: Water
+  type: fluid
+  tier: memo
+  mirrors: water
+  sprite: 'ISO: mid-blue fluid swatch'
+  heat_capacity_kj_per_k: 0.2
+  tags: [fluid]
+  desc: Boils into steam. In data recipes it is the cooling.
+- id: steam
+  name: Steam
+  type: fluid
+  tier: memo
+  mirrors: steam
+  sprite: 'ISO: white fluid swatch with a faint shimmer'
+  heat_capacity_kj_per_k: 0.2
+  tags: [fluid]
+- id: sulfuric-acid
+  name: Sulfuric acid
+  type: fluid
+  tier: article
+  mirrors: sulfuric-acid
+  sprite: 'ISO: yellow-green fluid swatch'
+  tags: [fluid]
+- id: lubricant
+  name: Lubricant
+  type: fluid
+  tier: article
+  mirrors: lubricant
+  sprite: 'ISO: deep green fluid swatch'
+  tags: [fluid]
+- id: crawl
+  name: Crawl
+  type: fluid
+  tier: article
+  mirrors: crude-oil
+  sprite: near-black with white static speckle
+  tags: [fluid]
+  desc: Raw. Mostly copies.
+- id: junk
+  name: Junk
+  type: fluid
+  tier: article
+  mirrors: heavy-oil
+  sprite: muddy brown-grey
+  tags: [fluid]
+  desc: Not nothing. Can be denoised.
+- id: text
+  name: Text
+  type: fluid
+  tier: article
+  mirrors: light-oil
+  sprite: warm amber
+  tags: [fluid]
+- id: prose
+  name: Prose
+  type: fluid
+  tier: article
+  mirrors: petroleum-gas
+  sprite: pale ice-cyan
+  tags: [fluid]
+- id: iron-plate
+  name: Iron plate
+  type: item
+  stack: 100
+  tier: memo
+  mirrors: iron-plate
+  sprite: 'ISO: two stacked blue-grey plates, bevelled'
+  tags: [intermediate]
+- id: copper-plate
+  name: Copper plate
+  type: item
+  stack: 100
+  tier: memo
+  mirrors: copper-plate
+  sprite: 'ISO: two stacked copper plates, bevelled'
+  tags: [intermediate]
+- id: steel-plate
+  name: Steel plate
+  type: item
+  stack: 100
+  tier: report
+  mirrors: steel-plate
+  sprite: 'ISO: two stacked dark steel plates with a bright edge'
+  tags: [intermediate]
+- id: silicon
+  name: Silicon
+  type: item
+  stack: 100
+  tier: report
+  mirrors: stone-brick (furnace slot) / plastic-bar (bulk role)
+  sprite: dark metallic lump with a blue-violet sheen and sharp facets
+  tags: [intermediate]
+- id: token
+  name: Token
+  type: item
+  stack: 100
+  tier: memo
+  mirrors: copper-plate (role)
+  sprite: short stack of cream punched cards, top-left corner cut, two rows of holes
+  tags: [intermediate]
+  desc: One instance of one type.
+- id: iron-gear-wheel
+  name: Iron gear wheel
+  type: item
+  stack: 100
+  tier: memo
+  mirrors: iron-gear-wheel
+  sprite: 'ISO: grey gear, eight teeth'
+  tags: [intermediate]
+- id: iron-stick
+  name: Iron stick
+  type: item
+  stack: 100
+  tier: memo
+  mirrors: iron-stick
+  sprite: 'ISO: two thin grey rods, crossed'
+  tags: [intermediate]
+- id: copper-cable
+  name: Copper cable
+  type: item
+  stack: 200
+  tier: memo
+  mirrors: copper-cable
+  sprite: 'ISO: loose coil of copper wire'
+  tags: [intermediate]
+- id: logic-board
+  name: Logic board
+  type: item
+  stack: 200
+  tier: memo
+  mirrors: electronic-circuit
+  sprite: small olive-green board carrying one glass vacuum tube (orange filament glow) and three copper traces
+  tags: [intermediate]
+  desc: Gates on a board. Relays, then tubes, then transistors.
+- id: wafer
+  name: Wafer
+  type: item
+  stack: 100
+  tier: article
+  mirrors: plastic-bar
+  sprite: iridescent silver disc etched with a fine grid, flat notch at the bottom
+  tags: [intermediate]
+- id: processor
+  name: Processor
+  type: item
+  stack: 200
+  tier: article
+  mirrors: advanced-circuit
+  sprite: black chip with two rows of silver legs on a small red board
+  tags: [intermediate]
+  desc: Executes stored programs. Binned by clock speed.
+- id: accelerator
+  name: Accelerator
+  type: item
+  stack: 100
+  tier: article
+  mirrors: processing-unit
+  sprite: square package with a gold lid, ringed by four small dark memory stacks, blue rim
+  tags: [intermediate]
+  desc: Multiplies matrices.
+- id: sulfur
+  name: Sulfur
+  type: item
+  stack: 50
+  tier: article
+  mirrors: sulfur
+  sprite: 'ISO: small heap of yellow powder'
+  tags: [intermediate]
+- id: battery
+  name: Battery
+  type: item
+  stack: 200
+  tier: article
+  mirrors: battery
+  sprite: 'ISO: grey cylindrical cell, copper cap, green band'
+  tags: [intermediate]
+- id: explosives
+  name: Explosives
+  type: item
+  stack: 50
+  tier: article
+  mirrors: explosives
+  sprite: 'ISO: bundle of red-wrapped sticks'
+  tags: [intermediate]
+- id: engine-unit
+  name: Engine unit
+  type: item
+  stack: 50
+  tier: report
+  mirrors: engine-unit
+  sprite: 'ISO: grey piston block with a short pipe'
+  tags: [intermediate]
+- id: electric-engine-unit
+  name: Electric engine unit
+  type: item
+  stack: 50
+  tier: article
+  mirrors: electric-engine-unit
+  sprite: 'ISO: engine block with a blue-green motor housing'
+  tags: [intermediate]
+- id: drone-frame
+  name: Drone frame
+  type: item
+  stack: 50
+  tier: article
+  mirrors: flying-robot-frame
+  sprite: X-shaped quadcopter frame, four grey rotor rings, no lights
+  tags: [intermediate]
+  desc: A body. Loaded with a planner or with weights.
+- id: rack
+  name: Rack
+  type: item
+  stack: 50
+  tier: model-card
+  mirrors: low-density-structure
+  sprite: tall black cabinet, front of thin horizontal slats, one copper busbar stripe
+  tags: [intermediate]
+  desc: 19 inches wide, 42 U high. Battery backup.
+- id: dataset
+  name: Dataset
+  type: item
+  stack: 100
+  tier: article
+  mirrors: plastic-bar
+  sprite: one tape reel with an ice-cyan label
+  tags: [intermediate]
+  desc: Deduplicated. Smaller than what went in.
+- id: benchmark
+  name: Benchmark
+  type: item
+  stack: 50
+  tier: article
+  mirrors: sulfur
+  sprite: sealed manila envelope printed with a green grid of check boxes
+  tags: [intermediate]
+  desc: Held out. Used once.
+- id: adversarial-set
+  name: Adversarial set
+  type: item
+  stack: 50
+  tier: proceedings
+  mirrors: lubricant (direct use of the heavy fraction)
+  sprite: manila envelope crossed by a black-and-red hazard stripe
+  tags: [intermediate]
+  desc: Inputs chosen to be answered wrong.
+- id: corpus
+  name: Corpus
+  type: item
+  stack: 20
+  tier: system-card
+  mirrors: rocket-fuel
+  sprite: three wide tape reels stacked, amber banding
+  tags: [intermediate]
+- id: checkpoint
+  name: Checkpoint
+  type: item
+  stack: 50
+  tier: article
+  mirrors: new (catalyst; consumed where Factorio consumes a productivity module)
+  sprite: bare orange hexagon chip, no drive body
+  tags: [intermediate]
+  desc: Weights on a drive. Copying recipes return it.
+- id: coprocessor
+  name: Coprocessor 1
+  type: item
+  stack: 50
+  tier: article
+  mirrors: speed-module
+  sprite: blue module card, one chevron
+  module: {speed: 0.2, consumption: 0.5, quality: -0.01}
+  tags: [module]
+  desc: More arithmetic for the machine's control loop.
+- id: coprocessor-2
+  name: Coprocessor 2
+  type: item
+  stack: 50
+  tier: preprint
+  mirrors: speed-module-2
+  sprite: blue card with heat-sink fins, two chevrons
+  module: {speed: 0.3, consumption: 0.6, quality: -0.015}
+  tags: [module]
+- id: coprocessor-3
+  name: Coprocessor 3
+  type: item
+  stack: 50
+  tier: model-card
+  mirrors: speed-module-3
+  sprite: long blue card with a fan shroud, three chevrons
+  module: {speed: 0.5, consumption: 0.7, quality: -0.025}
+  tags: [module]
+- id: learned-controller
+  name: Learned controller 1
+  type: item
+  stack: 50
+  tier: article
+  mirrors: productivity-module
+  sprite: orange module card, one chevron, small glowing hexagon
+  module: {productivity: 0.04, speed: -0.05, consumption: 0.4}
+  tags: [module]
+  desc: Weights copied from a checkpoint.
+- id: learned-controller-2
+  name: Learned controller 2
+  type: item
+  stack: 50
+  tier: preprint
+  mirrors: productivity-module-2
+  sprite: orange card, two chevrons
+  module: {productivity: 0.06, speed: -0.1, consumption: 0.6}
+  tags: [module]
+- id: learned-controller-3
+  name: Learned controller 3
+  type: item
+  stack: 50
+  tier: model-card
+  mirrors: productivity-module-3
+  sprite: orange card, three chevrons, hexagon with a halo
+  module: {productivity: 0.1, speed: -0.15, consumption: 0.8}
+  tags: [module]
+- id: distilled-controller
+  name: Distilled controller 1
+  type: item
+  stack: 50
+  tier: article
+  mirrors: efficiency-module
+  sprite: green module card, one chevron, small hexagon
+  module: {consumption: -0.3}
+  tags: [module]
+  desc: Most of the teacher at a fraction of the watts.
+- id: distilled-controller-2
+  name: Distilled controller 2
+  type: item
+  stack: 50
+  tier: preprint
+  mirrors: efficiency-module-2
+  sprite: green card, two chevrons
+  module: {consumption: -0.4}
+  tags: [module]
+  desc: A smaller student of the same teacher.
+- id: distilled-controller-3
+  name: Distilled controller 3
+  type: item
+  stack: 50
+  tier: model-card
+  mirrors: efficiency-module-3
+  sprite: green card, three chevrons
+  module: {consumption: -0.5}
+  tags: [module]
+  desc: The smallest student that still passes.
+- id: run-shard
+  name: Run shard
+  type: item
+  stack: 5
+  tier: system-card
+  mirrors: rocket-part
+  sprite: flat translucent slab with a lattice of dots
+  tags: [intermediate]
+  desc: One training step of a hundred.
+- id: post-training-payload
+  name: Post-training payload
+  type: item
+  stack: 1
+  tier: system-card
+  mirrors: satellite
+  sprite: small glass cube holding an orange hexagon, gold base
+  tags: [intermediate]
+  desc: Preference data and a reward model.
+- id: researcher
+  name: Researcher
+  type: item
+  stack: 10
+  tier: system-card
+  mirrors: new (G's AI researcher; B L9)
+  sprite: slim black box with a single orange hexagon and a green status lamp
+  staff:
+    fully_staffs: true
+    kw: 500
+    heat_class: accelerator
+    liquid_cooling: true
+    interruptible: true
+    deploys: true
+    model_tier: 4
+    draws: while the Seminar is working
+    energy_scaled_by: [compute-energy-floor]
+  tags: [staff, final]
+  desc: Staffs a Seminar. Four accelerators and a frontier checkpoint; the checkpoint is returned.
+- id: uranium-235
+  name: Uranium-235
+  type: item
+  stack: 100
+  tier: article
+  mirrors: uranium-235
+  sprite: 'ISO: bright green glowing pellet'
+  tags: [intermediate]
+- id: uranium-238
+  name: Uranium-238
+  type: item
+  stack: 100
+  tier: article
+  mirrors: uranium-238
+  sprite: 'ISO: dull dark-green pellet'
+  tags: [intermediate]
+- id: uranium-fuel-cell
+  name: Uranium fuel cell
+  type: item
+  stack: 50
+  tier: article
+  mirrors: uranium-fuel-cell
+  sprite: 'ISO: steel cylinder with glowing green bands'
+  fuel_value: 24000
+  fuel_category: nuclear
+  tags: [fuel]
+- id: depleted-uranium-fuel-cell
+  name: Depleted uranium fuel cell
+  type: item
+  stack: 50
+  tier: article
+  mirrors: depleted-uranium-fuel-cell
+  sprite: 'ISO: the same cylinder, bands dark'
+  tags: [intermediate]
+- id: concrete
+  name: Concrete
+  type: item
+  stack: 100
+  tier: report
+  mirrors: concrete
+  sprite: 'ISO: grey square tile'
+  places_tile: concrete
+  tags: [intermediate]
+- id: hazard-concrete
+  name: Hazard concrete
+  type: item
+  stack: 100
+  tier: report
+  mirrors: hazard-concrete
+  sprite: 'ISO: concrete tile with yellow-black diagonal stripes'
+  places_tile: hazard-concrete
+  tags: [final]
+- id: refined-concrete
+  name: Refined concrete
+  type: item
+  stack: 100
+  tier: article
+  mirrors: refined-concrete
+  sprite: 'ISO: smooth dark-grey tile'
+  places_tile: refined-concrete
+  tags: [final]
+- id: refined-hazard-concrete
+  name: Refined hazard concrete
+  type: item
+  stack: 100
+  tier: article
+  mirrors: refined-hazard-concrete
+  sprite: 'ISO: smooth dark tile with yellow-black stripes'
+  places_tile: refined-hazard-concrete
+  tags: [final]
+- id: landfill
+  name: Landfill
+  type: item
+  stack: 100
+  tier: report
+  mirrors: landfill
+  sprite: 'ISO: heap of pale sand fill'
+  places_tile: landfill
+  tags: [final]
+  desc: Turns water into ground. The lake's cooling goes with it.
+- id: cliff-explosives
+  name: Cliff explosives
+  type: item
+  stack: 20
+  tier: article
+  mirrors: cliff-explosives
+  sprite: 'ISO: small barrel with a red band and a fuse'
+  tags: [final]
+- id: barrel
+  name: Barrel
+  type: item
+  stack: 10
+  tier: report
+  mirrors: barrel
+  sprite: 'ISO: empty steel barrel'
+  tags: [intermediate]
+- id: drive
+  name: Drive
+  type: item
+  stack: 10
+  tier: report
+  mirrors: barrel (data side)
+  sprite: flat grey cartridge with two visible reels, blank label
+  tags: [intermediate]
+- id: memo
+  name: Memo
+  type: item
+  stack: 200
+  tier: memo
+  mirrors: automation-science-pack
+  sprite: typed sheet with a red header band and a carbon-copy edge
+  tags: [science-pack]
+  desc: Typed, carbon-copied, filed.
+- id: report
+  name: Report
+  type: item
+  stack: 200
+  tier: report
+  mirrors: logistic-science-pack
+  sprite: stapled report, green cover, number in the corner
+  tags: [science-pack]
+  desc: Numbered, bound, mailed on request.
+- id: article
+  name: Article
+  type: item
+  stack: 200
+  tier: article
+  mirrors: chemical-science-pack
+  sprite: two-column page, blue header bar
+  tags: [science-pack]
+  desc: Refereed.
+- id: proceedings
+  name: Proceedings
+  type: item
+  stack: 200
+  tier: proceedings
+  mirrors: military-science-pack
+  sprite: grey bound volume with a red stripe
+  tags: [science-pack]
+  desc: Presented once, then printed.
+- id: preprint
+  name: Preprint
+  type: item
+  stack: 200
+  tier: preprint
+  mirrors: production-science-pack
+  sprite: loose sheets with a purple vertical stamp in the left margin
+  tags: [science-pack]
+  desc: Posted. Not reviewed. Cited.
+- id: model-card
+  name: Model card
+  type: item
+  stack: 200
+  tier: model-card
+  mirrors: utility-science-pack
+  sprite: yellow card printed with a small table
+  tags: [science-pack]
+  desc: States what the model was tested on.
+- id: system-card
+  name: System card
+  type: item
+  stack: 2000
+  tier: system-card
+  mirrors: space-science-pack
+  sprite: white card with a grey table and no author line
+  tags: [science-pack]
+  desc: Not written by anyone.
+- id: repair-pack
+  name: Repair pack
+  type: item
+  stack: 100
+  tier: memo
+  mirrors: repair-pack
+  sprite: 'ISO: grey case with a red wrench'
+  tags: [final]
+- id: construction-agent
+  name: Construction agent
+  type: item
+  stack: 50
+  tier: article
+  mirrors: construction-robot
+  sprite: drone with orange accents
+  tags: [final]
+- id: logistic-agent
+  name: Logistic agent
+  type: item
+  stack: 50
+  tier: article
+  mirrors: logistic-robot
+  sprite: drone with yellow-and-blue accents
+  tags: [final]
+- id: water-barrel
+  name: Water barrel
+  type: item
+  stack: 10
+  tier: report
+  mirrors: water-barrel
+  sprite: steel barrel with a blue band
+  tags: [intermediate]
+- id: sulfuric-acid-barrel
+  name: Sulfuric acid barrel
+  type: item
+  stack: 10
+  tier: report
+  mirrors: sulfuric-acid-barrel
+  sprite: steel barrel with a yellow-green band
+  tags: [intermediate]
+- id: lubricant-barrel
+  name: Lubricant barrel
+  type: item
+  stack: 10
+  tier: report
+  mirrors: lubricant-barrel
+  sprite: steel barrel with a green band
+  tags: [intermediate]
+- id: crawl-drive
+  name: Crawl drive
+  type: item
+  stack: 10
+  tier: article
+  mirrors: barrel (filled)
+  sprite: drive with a near-black band
+  tags: [intermediate]
+- id: junk-drive
+  name: Junk drive
+  type: item
+  stack: 10
+  tier: article
+  mirrors: barrel (filled)
+  sprite: drive with a muddy brown band
+  tags: [intermediate]
+- id: text-drive
+  name: Text drive
+  type: item
+  stack: 10
+  tier: article
+  mirrors: barrel (filled)
+  sprite: drive with an amber band
+  tags: [intermediate]
+- id: prose-drive
+  name: Prose drive
+  type: item
+  stack: 10
+  tier: article
+  mirrors: barrel (filled)
+  sprite: drive with an ice-cyan band
+  tags: [intermediate]
+- id: burner-mining-drill
+  name: Burner mining drill
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: burner-mining-drill
+  sprite: 'ISO: small iron drill with a firebox and a chimney'
+  places: burner-mining-drill
+  tags: [building]
+- id: electric-mining-drill
+  name: Electric mining drill
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: electric-mining-drill
+  sprite: 'ISO: square drill head on a grey frame, cable inlet'
+  places: electric-mining-drill
+  tags: [building]
+- id: offshore-pump
+  name: Offshore pump
+  type: item
+  stack: 20
+  tier: memo
+  mirrors: offshore-pump
+  sprite: 'ISO: pump head on a short pier'
+  places: offshore-pump
+  tags: [building]
+- id: crawler
+  name: Crawler
+  type: item
+  stack: 20
+  tier: report
+  mirrors: pumpjack
+  sprite: lattice mast over a manhole, cable bundle dropping into it
+  places: crawler
+  tags: [building]
+- id: stone-furnace
+  name: Stone furnace
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: stone-furnace
+  sprite: white quartz-block furnace with a glowing mouth (Factorio's stone furnace in quartz)
+  places: stone-furnace
+  tags: [building]
+- id: steel-furnace
+  name: Steel furnace
+  type: item
+  stack: 50
+  tier: report
+  mirrors: steel-furnace
+  sprite: 'ISO: dark steel furnace, orange glow behind a grate'
+  places: steel-furnace
+  tags: [building]
+- id: electric-furnace
+  name: Electric furnace
+  type: item
+  stack: 50
+  tier: article
+  mirrors: electric-furnace
+  sprite: 'ISO: grey box furnace with three electrodes on top'
+  places: electric-furnace
+  tags: [building]
+- id: keypunch
+  name: Keypunch
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: stone-furnace
+  sprite: desk-sized keypunch, card hopper on top, cream and steel-blue
+  places: keypunch
+  tags: [building]
+- id: tokenizer
+  name: Tokenizer
+  type: item
+  stack: 50
+  tier: article
+  mirrors: electric-furnace
+  sprite: low grey cabinet with a page-feed slot and a glowing ribbon of glyphs
+  places: tokenizer
+  tags: [building]
+- id: assembling-machine-1
+  name: Assembling machine 1
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: assembling-machine-1
+  sprite: 'ISO: grey assembler, one crafting arm, no module ports'
+  places: assembling-machine-1
+  tags: [building]
+- id: assembling-machine-2
+  name: Assembling machine 2
+  type: item
+  stack: 50
+  tier: report
+  mirrors: assembling-machine-2
+  sprite: 'ISO: blue assembler with two module ports and a pipe stub'
+  places: assembling-machine-2
+  tags: [building]
+- id: assembling-machine-3
+  name: Assembling machine 3
+  type: item
+  stack: 50
+  tier: preprint
+  mirrors: assembling-machine-3
+  sprite: 'ISO: yellow-trimmed assembler with four module ports'
+  places: assembling-machine-3
+  tags: [building]
+- id: chemical-plant
+  name: Chemical plant
+  type: item
+  stack: 10
+  tier: report
+  mirrors: chemical-plant
+  sprite: 'ISO: plant with two tanks and a pipe crown'
+  places: chemical-plant
+  tags: [building]
+- id: data-refinery
+  name: Data refinery
+  type: item
+  stack: 10
+  tier: report
+  mirrors: oil-refinery
+  sprite: squat 5x5 hall with three stacked tape towers and cooling vents; three cable outlets
+  places: data-refinery
+  tags: [building]
+- id: data-plant
+  name: Data plant
+  type: item
+  stack: 10
+  tier: report
+  mirrors: chemical-plant
+  sprite: 3x3 cabinet block with blinking front panels and two cable ports
+  places: data-plant
+  tags: [building]
+- id: trainer
+  name: Trainer
+  type: item
+  stack: 10
+  tier: article
+  mirrors: centrifuge
+  sprite: 3x3 black cabinet with a loss-curve display that falls while working
+  places: trainer
+  tags: [building]
+- id: centrifuge
+  name: Centrifuge
+  type: item
+  stack: 10
+  tier: article
+  mirrors: centrifuge
+  sprite: 'ISO: three tall green-lit cylinders on a base'
+  places: centrifuge
+  tags: [building]
+- id: seminar
+  name: Seminar
+  type: item
+  stack: 10
+  tier: memo
+  mirrors: lab
+  sprite: Factorio's lab with a long table and chairs under the dome; one extra socket on the side for a staff unit
+  places: seminar
+  tags: [building]
+- id: switch
+  name: Switch
+  type: item
+  stack: 20
+  tier: preprint
+  mirrors: beacon
+  sprite: 3x3 switch cabinet with fan-out cables on all four sides
+  places: switch
+  tags: [building]
+- id: frontier-cluster
+  name: Frontier cluster
+  type: item
+  stack: 1
+  tier: model-card
+  mirrors: rocket-silo
+  sprite: 9x9 hall of racks around a central gantry; progress bar is a falling loss curve
+  places: frontier-cluster
+  tags: [building]
+- id: boiler
+  name: Boiler
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: boiler
+  sprite: 'ISO: brick firebox under a steam drum'
+  places: boiler
+  tags: [building]
+- id: steam-engine
+  name: Steam engine
+  type: item
+  stack: 10
+  tier: memo
+  mirrors: steam-engine
+  sprite: 'ISO: horizontal steam engine with a flywheel'
+  places: steam-engine
+  tags: [building]
+- id: solar-panel
+  name: Solar panel
+  type: item
+  stack: 50
+  tier: report
+  mirrors: solar-panel
+  sprite: dark-blue silicon panel on a frame (ISO)
+  places: solar-panel
+  tags: [building]
+- id: accumulator
+  name: Accumulator
+  type: item
+  stack: 50
+  tier: article
+  mirrors: accumulator
+  sprite: 'ISO: two grey cells on a plinth with a charge lamp'
+  places: accumulator
+  tags: [building]
+- id: nuclear-reactor
+  name: Nuclear reactor
+  type: item
+  stack: 10
+  tier: article
+  mirrors: nuclear-reactor
+  sprite: 'ISO: square reactor block with a glowing core window'
+  places: nuclear-reactor
+  tags: [building]
+- id: heat-pipe
+  name: Heat pipe
+  type: item
+  stack: 50
+  tier: article
+  mirrors: heat-pipe
+  sprite: 'ISO: copper pipe with orange heat glow'
+  places: heat-pipe
+  tags: [building]
+- id: heat-exchanger
+  name: Heat exchanger
+  type: item
+  stack: 50
+  tier: article
+  mirrors: heat-exchanger
+  sprite: 'ISO: horizontal drum with heat-pipe inlet'
+  places: heat-exchanger
+  tags: [building]
+- id: steam-turbine
+  name: Steam turbine
+  type: item
+  stack: 10
+  tier: article
+  mirrors: steam-turbine
+  sprite: 'ISO: long turbine housing with steam inlets'
+  places: steam-turbine
+  tags: [building]
+- id: small-electric-pole
+  name: Small electric pole
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: small-electric-pole
+  sprite: 'ISO: wooden pole with one crossarm'
+  places: small-electric-pole
+  tags: [building]
+- id: medium-electric-pole
+  name: Medium electric pole
+  type: item
+  stack: 50
+  tier: report
+  mirrors: medium-electric-pole
+  sprite: 'ISO: steel lattice pole, red tip'
+  places: medium-electric-pole
+  tags: [building]
+- id: big-electric-pole
+  name: Big electric pole
+  type: item
+  stack: 50
+  tier: report
+  mirrors: big-electric-pole
+  sprite: 'ISO: tall steel lattice tower'
+  places: big-electric-pole
+  tags: [building]
+- id: substation
+  name: Substation
+  type: item
+  stack: 50
+  tier: article
+  mirrors: substation
+  sprite: 'ISO: square steel substation with four insulators'
+  places: substation
+  tags: [building]
+- id: transport-belt
+  name: Transport belt
+  type: item
+  stack: 100
+  tier: memo
+  mirrors: transport-belt
+  sprite: 'ISO: yellow belt segment'
+  places: transport-belt
+  tags: [building]
+- id: fast-transport-belt
+  name: Fast transport belt
+  type: item
+  stack: 100
+  tier: report
+  mirrors: fast-transport-belt
+  sprite: 'ISO: red belt segment'
+  places: fast-transport-belt
+  tags: [building]
+- id: express-transport-belt
+  name: Express transport belt
+  type: item
+  stack: 100
+  tier: preprint
+  mirrors: express-transport-belt
+  sprite: 'ISO: blue belt segment'
+  places: express-transport-belt
+  tags: [building]
+- id: underground-belt
+  name: Underground belt
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: underground-belt
+  sprite: 'ISO: yellow belt entrance ramp'
+  places: underground-belt
+  tags: [building]
+- id: fast-underground-belt
+  name: Fast underground belt
+  type: item
+  stack: 50
+  tier: report
+  mirrors: fast-underground-belt
+  sprite: 'ISO: red belt entrance ramp'
+  places: fast-underground-belt
+  tags: [building]
+- id: express-underground-belt
+  name: Express underground belt
+  type: item
+  stack: 50
+  tier: preprint
+  mirrors: express-underground-belt
+  sprite: 'ISO: blue belt entrance ramp'
+  places: express-underground-belt
+  tags: [building]
+- id: splitter
+  name: Splitter
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: splitter
+  sprite: 'ISO: yellow two-lane splitter'
+  places: splitter
+  tags: [building]
+- id: fast-splitter
+  name: Fast splitter
+  type: item
+  stack: 50
+  tier: report
+  mirrors: fast-splitter
+  sprite: 'ISO: red two-lane splitter'
+  places: fast-splitter
+  tags: [building]
+- id: express-splitter
+  name: Express splitter
+  type: item
+  stack: 50
+  tier: preprint
+  mirrors: express-splitter
+  sprite: 'ISO: blue two-lane splitter'
+  places: express-splitter
+  tags: [building]
+- id: burner-inserter
+  name: Burner inserter
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: burner-inserter
+  sprite: 'ISO: dark arm on a small firebox base'
+  places: burner-inserter
+  tags: [building]
+- id: inserter
+  name: Inserter
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: inserter
+  sprite: 'ISO: yellow arm'
+  places: inserter
+  tags: [building]
+- id: long-handed-inserter
+  name: Long-handed inserter
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: long-handed-inserter
+  sprite: 'ISO: red arm with a long reach'
+  places: long-handed-inserter
+  tags: [building]
+- id: fast-inserter
+  name: Fast inserter
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: fast-inserter
+  sprite: 'ISO: blue arm'
+  places: fast-inserter
+  tags: [building]
+- id: bulk-inserter
+  name: Bulk inserter
+  type: item
+  stack: 50
+  tier: article
+  mirrors: bulk-inserter
+  sprite: 'ISO: green arm with a wide gripper'
+  places: bulk-inserter
+  tags: [building]
+- id: wooden-chest
+  name: File drawer
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: wooden-chest
+  sprite: small wooden filing drawer with a brass label holder (Factorio's wooden chest, as office furniture)
+  places: wooden-chest
+  tags: [building]
+- id: iron-chest
+  name: Iron chest
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: iron-chest
+  sprite: 'ISO: iron chest'
+  places: iron-chest
+  tags: [building]
+- id: steel-chest
+  name: Steel chest
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: steel-chest
+  sprite: 'ISO: steel chest'
+  places: steel-chest
+  tags: [building]
+- id: active-provider-chest
+  name: Active provider chest
+  type: item
+  stack: 50
+  tier: article
+  mirrors: active-provider-chest
+  sprite: 'ISO: steel chest with a purple band'
+  places: active-provider-chest
+  tags: [building]
+- id: passive-provider-chest
+  name: Passive provider chest
+  type: item
+  stack: 50
+  tier: article
+  mirrors: passive-provider-chest
+  sprite: 'ISO: steel chest with a red band'
+  places: passive-provider-chest
+  tags: [building]
+- id: storage-chest
+  name: Storage chest
+  type: item
+  stack: 50
+  tier: article
+  mirrors: storage-chest
+  sprite: 'ISO: steel chest with a yellow band'
+  places: storage-chest
+  tags: [building]
+- id: buffer-chest
+  name: Buffer chest
+  type: item
+  stack: 50
+  tier: article
+  mirrors: buffer-chest
+  sprite: 'ISO: steel chest with a green band'
+  places: buffer-chest
+  tags: [building]
+- id: requester-chest
+  name: Requester chest
+  type: item
+  stack: 50
+  tier: article
+  mirrors: requester-chest
+  sprite: 'ISO: steel chest with a blue band'
+  places: requester-chest
+  tags: [building]
+- id: pipe
+  name: Pipe
+  type: item
+  stack: 100
+  tier: memo
+  mirrors: pipe
+  sprite: 'ISO: grey iron pipe'
+  places: pipe
+  tags: [building]
+- id: pipe-to-ground
+  name: Pipe to ground
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: pipe-to-ground
+  sprite: 'ISO: pipe elbow into the ground'
+  places: pipe-to-ground
+  tags: [building]
+- id: pump
+  name: Pump
+  type: item
+  stack: 50
+  tier: report
+  mirrors: pump
+  sprite: 'ISO: inline pump with an arrow'
+  places: pump
+  tags: [building]
+- id: storage-tank
+  name: Storage tank
+  type: item
+  stack: 50
+  tier: report
+  mirrors: storage-tank
+  sprite: 'ISO: round steel tank on a square base'
+  places: storage-tank
+  tags: [building]
+- id: data-line
+  name: Data line
+  type: item
+  stack: 100
+  tier: report
+  mirrors: pipe
+  sprite: flat black cable in a grey tray; a coloured stripe shows the stream
+  places: data-line
+  tags: [building]
+- id: underground-line
+  name: Underground line
+  type: item
+  stack: 50
+  tier: report
+  mirrors: pipe-to-ground
+  sprite: cable tray dipping into a small concrete duct
+  places: underground-line
+  tags: [building]
+- id: repeater
+  name: Repeater
+  type: item
+  stack: 50
+  tier: report
+  mirrors: pump
+  sprite: small grey box straddling a cable, green arrow lamp
+  places: repeater
+  tags: [building]
+- id: data-lake
+  name: Data lake
+  type: item
+  stack: 50
+  tier: report
+  mirrors: storage-tank
+  sprite: 3x3 vault of tape racks with a fill gauge
+  places: data-lake
+  tags: [building]
+- id: terminal
+  name: Terminal
+  type: item
+  stack: 50
+  tier: report
+  mirrors: 'new (DECISIONS §23d: a time-sharing terminal on a data line)'
+  sprite: teletype terminal on a small steel desk, paper roll on top, one data-line socket at the back
+  places: terminal
+  tags: [building]
+- id: rail
+  name: Rail
+  type: item
+  stack: 100
+  tier: report
+  mirrors: rail
+  sprite: 'ISO: straight rail on quartz ballast'
+  places: rail
+  tags: [building]
+- id: train-stop
+  name: Train stop
+  type: item
+  stack: 10
+  tier: report
+  mirrors: train-stop
+  sprite: 'ISO: station sign on a post'
+  places: train-stop
+  tags: [building]
+- id: rail-signal
+  name: Rail signal
+  type: item
+  stack: 50
+  tier: report
+  mirrors: rail-signal
+  sprite: 'ISO: three-light rail signal'
+  places: rail-signal
+  tags: [building]
+- id: rail-chain-signal
+  name: Rail chain signal
+  type: item
+  stack: 50
+  tier: report
+  mirrors: rail-chain-signal
+  sprite: 'ISO: rail signal with a blue light'
+  places: rail-chain-signal
+  tags: [building]
+- id: locomotive
+  name: Locomotive
+  type: item
+  stack: 5
+  tier: report
+  mirrors: locomotive
+  sprite: 'ISO: diesel-era locomotive in grey'
+  places: locomotive
+  tags: [building]
+- id: cargo-wagon
+  name: Cargo wagon
+  type: item
+  stack: 5
+  tier: report
+  mirrors: cargo-wagon
+  sprite: 'ISO: open-topped cargo wagon'
+  places: cargo-wagon
+  tags: [building]
+- id: fluid-wagon
+  name: Fluid wagon
+  type: item
+  stack: 5
+  tier: report
+  mirrors: fluid-wagon
+  sprite: 'ISO: tank wagon'
+  places: fluid-wagon
+  tags: [building]
+- id: data-wagon
+  name: Data wagon
+  type: item
+  stack: 5
+  tier: report
+  mirrors: fluid-wagon
+  sprite: boxcar lined with drive racks
+  places: data-wagon
+  tags: [building]
+- id: agent-hub
+  name: Agent hub
+  type: item
+  stack: 10
+  tier: article
+  mirrors: roboport
+  sprite: 'Factorio''s roboport: square tower with charging pads, agents docked'
+  places: agent-hub
+  tags: [building]
+- id: radar
+  name: Radar
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: radar
+  sprite: 'ISO: rotating dish on a lattice; wartime green paint'
+  places: radar
+  tags: [building]
+- id: car
+  name: Car
+  type: item
+  stack: 1
+  tier: report
+  mirrors: car
+  sprite: 'ISO: small open car'
+  places: car
+  tags: [building]
+- id: small-lamp
+  name: Lamp
+  type: item
+  stack: 50
+  tier: memo
+  mirrors: small-lamp
+  sprite: 'ISO: lamp in a cage'
+  places: small-lamp
+  tags: [building]
+- id: decider-combinator
+  name: Decision unit
+  type: item
+  stack: 50
+  tier: report
+  mirrors: decider-combinator
+  sprite: ISO decider combinator; the display shows a comparison sign
+  places: decider-combinator
+  tags: [building]
+- id: arithmetic-combinator
+  name: Arithmetic unit
+  type: item
+  stack: 50
+  tier: report
+  mirrors: arithmetic-combinator
+  sprite: ISO arithmetic combinator
+  places: arithmetic-combinator
+  tags: [building]
+- id: constant-combinator
+  name: Bias unit
+  type: item
+  stack: 50
+  tier: report
+  mirrors: constant-combinator
+  sprite: ISO constant combinator
+  places: constant-combinator
+  tags: [building]
+- id: selector-combinator
+  name: Selector unit
+  type: item
+  stack: 50
+  tier: article
+  mirrors: selector-combinator
+  sprite: ISO selector combinator
+  places: selector-combinator
+  tags: [building]
+- id: power-switch
+  name: Power switch
+  type: item
+  stack: 10
+  tier: report
+  mirrors: power-switch
+  sprite: 'ISO: knife switch in a grey box'
+  places: power-switch
+  tags: [building]
+- id: programmable-speaker
+  name: Programmable speaker
+  type: item
+  stack: 10
+  tier: report
+  mirrors: programmable-speaker
+  sprite: 'ISO: horn speaker on a pole'
+  places: programmable-speaker
+  tags: [building]
+- id: display-panel
+  name: Display panel
+  type: item
+  stack: 10
+  tier: report
+  mirrors: display-panel
+  sprite: 'ISO: small panel with one glyph'
+  places: display-panel
+  tags: [building]
+- id: coolant
+  name: Coolant
+  type: fluid
+  tier: article
+  mirrors: 'new (F: liquid-cooling loop; carried like steam, by temperature)'
+  sprite: pale aqua fluid swatch with fine white bubbles
+  default_temperature: 30
+  max_temperature: 50
+  tags: [fluid]
+- id: plasma
+  name: Plasma
+  type: fluid
+  tier: system-card
+  mirrors: fusion-plasma (Space Age)
+  sprite: violet-white glowing fluid swatch
+  default_temperature: 1000000
+  tags: [fluid]
+- id: recorded-run
+  name: Recorded run
+  type: item
+  stack: 50
+  tier: article
+  mirrors: uranium-ore (role in A's loop)
+  sprite: grey drive with a red record dot on the label
+  tags: [intermediate]
+- id: significant-result
+  name: Significant result
+  type: item
+  stack: 100
+  tier: article
+  mirrors: uranium-235 (A's loop)
+  sprite: single sheet with a bright green band across the top
+  spoil: {ticks: 54000, into: baseline, setting: scooped}
+  tags: [intermediate]
+  desc: p < 0.05.
+- id: baseline
+  name: Baseline
+  type: item
+  stack: 100
+  tier: article
+  mirrors: 'new (F: Scooped; H''s Result/Baseline pair)'
+  sprite: the significant-result sheet with its green band grayed
+  tags: [intermediate]
+  desc: Was state of the art.
+- id: null-result
+  name: Null result
+  type: item
+  stack: 100
+  tier: article
+  mirrors: uranium-238 (A's loop)
+  sprite: plain single sheet, no band
+  tags: [intermediate]
+  desc: p ≥ 0.05.
+- id: evaluation-set
+  name: Evaluation set
+  type: item
+  stack: 100
+  tier: proceedings
+  mirrors: grenade (the military pack's slot becomes evaluation; F, L13)
+  sprite: manila envelope with a green check grid and a red wax seal
+  ammo: {category: evaluation, use: 'Monitor: one per compromised machine cleaned'}
+  tags: [ammo]
+  desc: Held-out tasks. A Monitor uses one per clean.
+- id: ratings
+  name: Ratings
+  type: item
+  stack: 100
+  tier: preprint
+  mirrors: 'new (B L16: preference data from deployment)'
+  sprite: stack of slips, each with two short answers and one tick
+  tags: [intermediate]
+  desc: Pairs of answers, one marked better.
+- id: frontier-checkpoint
+  name: Frontier checkpoint
+  type: item
+  stack: 50
+  tier: system-card
+  mirrors: 'new (G: the weights the first frontier run returns)'
+  sprite: bare gold hexagon chip, no drive body
+  tags: [intermediate]
+  desc: Weights a frontier run returned. A copy takes a blank drive.
+- id: final-report
+  name: Final report
+  type: item
+  stack: 1
+  tier: system-card
+  mirrors: satellite (the capstone run's payload; G §5.1)
+  sprite: thick grey cloth folder with a round seal on the cover
+  tags: [intermediate]
+  desc: Due under the charter.
+- id: comparator
+  name: Comparator 1
+  type: item
+  stack: 50
+  tier: report
+  mirrors: quality-module
+  sprite: white module card, one chevron, a small dial gauge
+  module: {quality: 0.01, speed: -0.05}
+  tags: [module]
+  desc: Checks each output; some pass a grade higher.
+- id: comparator-2
+  name: Comparator 2
+  type: item
+  stack: 50
+  tier: article
+  mirrors: quality-module-2
+  sprite: white module card, two chevrons, dial gauge
+  module: {quality: 0.02, speed: -0.05}
+  tags: [module]
+- id: comparator-3
+  name: Comparator 3
+  type: item
+  stack: 50
+  tier: preprint
+  mirrors: quality-module-3
+  sprite: white module card, three chevrons, gauge with a halo
+  module: {quality: 0.025, speed: -0.05}
+  tags: [module]
+- id: accelerator-2
+  name: Accelerator 2
+  type: item
+  stack: 100
+  tier: system-card
+  mirrors: 'new (G: hall tier 2)'
+  sprite: gold-lid package grown to the edge of a wafer, blue rim
+  tags: [intermediate, installed]
+- id: accelerator-3
+  name: Accelerator 3
+  type: item
+  stack: 100
+  tier: system-card
+  mirrors: 'new (G: hall tier 3)'
+  sprite: gold-lid package with a thin orange fibre loop at one edge
+  tags: [intermediate, installed]
+- id: accelerator-4
+  name: Accelerator 4
+  type: item
+  stack: 100
+  tier: system-card
+  mirrors: 'new (G: hall tier 4)'
+  sprite: gold-lid package with a faint mirrored grid and no fins
+  tags: [installed]
+- id: fusion-power-cell
+  name: Fusion power cell
+  type: item
+  stack: 50
+  tier: system-card
+  mirrors: fusion-power-cell (Space Age)
+  sprite: white cylinder with violet bands
+  fuel_value: 120000
+  fuel_category: fusion
+  tags: [fuel]
+- id: scrap
+  name: Scrap
+  type: item
+  stack: 50
+  tier: preprint
+  mirrors: scrap (Space Age)
+  sprite: tangle of boards, cable ends and bent steel
+  tags: [raw]
+- id: coolant-barrel
+  name: Coolant barrel
+  type: item
+  stack: 10
+  tier: article
+  mirrors: barrel (filled)
+  sprite: steel barrel with a pale aqua band
+  tags: [intermediate]
+- id: magazine
+  name: Magazine
+  type: item
+  stack: 200
+  tier: memo
+  mirrors: firearm-magazine
+  sprite: 'ISO: yellow box magazine'
+  ammo:
+    category: bullet
+    rounds: 10
+    damage: {physical: 5}
+  tags: [ammo]
+- id: ap-magazine
+  name: AP magazine
+  type: item
+  stack: 200
+  tier: report
+  mirrors: piercing-rounds-magazine
+  sprite: 'ISO: magazine with red-tipped rounds'
+  ammo:
+    category: bullet
+    rounds: 10
+    damage: {physical: 8}
+  tags: [ammo]
+- id: du-magazine
+  name: DU magazine
+  type: item
+  stack: 200
+  tier: model-card
+  mirrors: uranium-rounds-magazine
+  sprite: 'ISO: magazine with green-tipped rounds'
+  ammo:
+    category: bullet
+    rounds: 10
+    damage: {physical: 24}
+  tags: [ammo]
+- id: rocket
+  name: Rocket
+  type: item
+  stack: 200
+  tier: proceedings
+  mirrors: rocket
+  sprite: 'ISO: grey rocket'
+  ammo: {category: rocket, stats: ISO}
+  tags: [ammo]
+- id: explosive-rocket
+  name: Explosive rocket
+  type: item
+  stack: 200
+  tier: proceedings
+  mirrors: explosive-rocket
+  sprite: 'ISO: rocket with a red warhead'
+  ammo: {category: rocket, stats: ISO}
+  tags: [ammo]
+- id: emp-warhead
+  name: EMP warhead
+  type: item
+  stack: 10
+  tier: model-card
+  mirrors: atomic-bomb
+  sprite: rocket body with a copper coil band
+  ammo: {category: rocket, damage_type: electric, stats: atomic bomb's radius; electric damage}
+  tags: [ammo]
+- id: artillery-shell
+  name: Artillery shell
+  type: item
+  stack: 1
+  tier: model-card
+  mirrors: artillery-shell
+  sprite: 'ISO: long shell with a red band'
+  ammo: {category: artillery-shell, stats: ISO}
+  tags: [ammo]
+- id: interceptor
+  name: Interceptor 1
+  type: item
+  stack: 100
+  tier: proceedings
+  mirrors: defender-capsule
+  sprite: small grey drone with one orange lens
+  ammo: {category: interceptor, damage_category: bullet, stats: ISO defender}
+  tags: [ammo]
+- id: interceptor-2
+  name: Interceptor 2
+  type: item
+  stack: 100
+  tier: proceedings
+  mirrors: distractor-capsule
+  sprite: grey drone with a flashing beacon
+  ammo: {category: interceptor, damage_category: laser, stats: ISO distractor}
+  tags: [ammo]
+- id: interceptor-3
+  name: Interceptor 3
+  type: item
+  stack: 100
+  tier: model-card
+  mirrors: destroyer-capsule
+  sprite: dark drone with a twin emitter
+  ammo: {category: interceptor, damage_category: beam, stats: ISO destroyer}
+  tags: [ammo]
+- id: heavy-armor
+  name: Heavy armor
+  type: item
+  stack: 1
+  tier: memo
+  mirrors: heavy-armor
+  sprite: 'ISO: dark plated vest'
+  armor: {grid: null}
+  tags: [armor, final]
+- id: modular-suit
+  name: Modular suit
+  type: item
+  stack: 1
+  tier: report
+  mirrors: modular-armor
+  sprite: ISO modular armor in grey
+  armor:
+    grid: [5, 5]
+  tags: [armor, final]
+- id: powered-suit
+  name: Powered suit
+  type: item
+  stack: 1
+  tier: article
+  mirrors: power-armor
+  sprite: ISO power armor in grey
+  armor:
+    grid: [7, 7]
+  tags: [armor, final]
+- id: powered-suit-2
+  name: Powered suit 2
+  type: item
+  stack: 1
+  tier: model-card
+  mirrors: power-armor-mk2
+  sprite: ISO power armor MK2 in grey
+  armor:
+    grid: [10, 10]
+  tags: [armor, final]
+- id: portable-solar-panel
+  name: Portable solar panel
+  type: item
+  stack: 20
+  tier: report
+  mirrors: solar-panel-equipment
+  sprite: 'ISO: small blue panel tile'
+  equipment:
+    size: [1, 1]
+    kw: 30
+  tags: [equipment]
+- id: night-vision
+  name: Night vision
+  type: item
+  stack: 20
+  tier: report
+  mirrors: night-vision-equipment
+  sprite: 'ISO: goggles tile'
+  equipment:
+    size: [2, 2]
+    kw: 10
+  tags: [equipment]
+- id: belt-immunity
+  name: Belt immunity
+  type: item
+  stack: 20
+  tier: report
+  mirrors: belt-immunity-equipment
+  sprite: 'ISO: boot-sole tile'
+  equipment:
+    size: [1, 1]
+    kw: 100
+  tags: [equipment]
+- id: personal-battery
+  name: Personal battery
+  type: item
+  stack: 20
+  tier: report
+  mirrors: battery-equipment
+  sprite: 'ISO: cell tile'
+  equipment:
+    size: [1, 2]
+    mj: 20
+  tags: [equipment]
+- id: personal-battery-2
+  name: Personal battery 2
+  type: item
+  stack: 20
+  tier: article
+  mirrors: battery-mk2-equipment
+  sprite: 'ISO: cell tile, two bands'
+  equipment:
+    size: [1, 2]
+    mj: 100
+  tags: [equipment]
+- id: personal-assistant
+  name: Personal assistant
+  type: item
+  stack: 20
+  tier: article
+  mirrors: personal-roboport-equipment
+  sprite: 'ISO: small hub tile with one pad'
+  equipment:
+    size: [2, 2]
+    stats: ISO
+  tags: [equipment]
+- id: personal-assistant-2
+  name: Personal assistant 2
+  type: item
+  stack: 20
+  tier: model-card
+  mirrors: personal-roboport-mk2-equipment
+  sprite: 'ISO: hub tile with two pads'
+  equipment:
+    size: [2, 2]
+    stats: ISO
+  tags: [equipment]
+- id: energy-shield
+  name: Energy shield
+  type: item
+  stack: 20
+  tier: proceedings
+  mirrors: energy-shield-equipment
+  sprite: 'ISO: shield tile'
+  equipment:
+    size: [2, 2]
+    shield: 50
+  tags: [equipment]
+- id: energy-shield-2
+  name: Energy shield 2
+  type: item
+  stack: 20
+  tier: proceedings
+  mirrors: energy-shield-mk2-equipment
+  sprite: 'ISO: shield tile, two rings'
+  equipment:
+    size: [2, 2]
+    shield: 150
+  tags: [equipment]
+- id: personal-laser-defense
+  name: Personal laser defense
+  type: item
+  stack: 20
+  tier: proceedings
+  mirrors: personal-laser-defense-equipment
+  sprite: 'ISO: lens tile'
+  equipment:
+    size: [2, 2]
+    stats: ISO
+    ammo_category: laser
+  tags: [equipment]
+- id: discharge-defense
+  name: Discharge defense
+  type: item
+  stack: 20
+  tier: proceedings
+  mirrors: discharge-defense-equipment
+  sprite: 'ISO: coil tile'
+  equipment:
+    size: [2, 2]
+    stats: ISO
+    ammo_category: electric
+  tags: [equipment]
+- id: exoskeleton
+  name: Exoskeleton
+  type: item
+  stack: 20
+  tier: article
+  mirrors: exoskeleton-equipment
+  sprite: 'ISO: leg-frame tile'
+  equipment:
+    size: [2, 4]
+    kw: 200
+  tags: [equipment]
+- id: portable-reactor
+  name: Portable reactor
+  type: item
+  stack: 20
+  tier: model-card
+  mirrors: fission-reactor-equipment
+  sprite: 'ISO: reactor tile with green glow'
+  equipment:
+    size: [4, 4]
+    kw: 750
+  tags: [equipment]
+- id: cooling-tower
+  name: Cooling tower
+  type: item
+  stack: 20
+  tier: report
+  mirrors: 'new (F: active heat sink)'
+  sprite: squat 3x3 hyperbolic tower trailing white vapor; grey concrete
+  places: cooling-tower
+  tags: [building]
+- id: dry-cooler
+  name: Dry cooler
+  type: item
+  stack: 20
+  tier: article
+  mirrors: new (F)
+  sprite: 2x2 box of finned coils with two fans on top
+  places: dry-cooler
+  tags: [building]
+- id: water-exchanger
+  name: Water exchanger
+  type: item
+  stack: 20
+  tier: article
+  mirrors: new (F)
+  sprite: 3x3 pier-mounted plate exchanger with pipes into the water
+  places: water-exchanger
+  tags: [building]
+- id: monitor
+  name: Monitor
+  type: item
+  stack: 20
+  tier: proceedings
+  mirrors: flamethrower-turret (slot)
+  sprite: 2x2 grey console on a pedestal, one camera eye, a slot for envelopes
+  places: monitor
+  tags: [building]
+- id: fence
+  name: Fence
+  type: item
+  stack: 100
+  tier: memo
+  mirrors: stone-wall
+  sprite: chain-link panel between two steel posts
+  places: fence
+  tags: [building]
+- id: gate
+  name: Gate
+  type: item
+  stack: 50
+  tier: report
+  mirrors: gate
+  sprite: chain-link gate on rollers, yellow-black edge
+  places: gate
+  tags: [building]
+- id: gun-turret
+  name: Gun turret
+  type: item
+  stack: 10
+  tier: memo
+  mirrors: gun-turret
+  sprite: ISO gun turret in grey-green
+  places: gun-turret
+  tags: [building]
+- id: laser-turret
+  name: Laser turret
+  type: item
+  stack: 50
+  tier: proceedings
+  mirrors: laser-turret
+  sprite: ISO laser turret
+  places: laser-turret
+  tags: [building]
+- id: arc-turret
+  name: Arc turret
+  type: item
+  stack: 10
+  tier: preprint
+  mirrors: tesla-turret (Space Age)
+  sprite: 3x3 coil tower with a ring of insulators
+  places: arc-turret
+  tags: [building]
+- id: artillery-turret
+  name: Artillery turret
+  type: item
+  stack: 10
+  tier: model-card
+  mirrors: artillery-turret
+  sprite: ISO artillery turret
+  places: artillery-turret
+  tags: [building]
+- id: artillery-wagon
+  name: Artillery wagon
+  type: item
+  stack: 5
+  tier: model-card
+  mirrors: artillery-wagon
+  sprite: ISO artillery wagon
+  places: artillery-wagon
+  tags: [building]
+- id: interceptor-bay
+  name: Interceptor bay
+  type: item
+  stack: 10
+  tier: proceedings
+  mirrors: 'new (F: defender capsules launched by a building)'
+  sprite: 2x2 squat hangar with a launch hatch and drone racks
+  places: interceptor-bay
+  tags: [building]
+- id: land-mine
+  name: Land mine
+  type: item
+  stack: 100
+  tier: proceedings
+  mirrors: land-mine
+  sprite: ISO land mine
+  places: land-mine
+  tags: [building]
+- id: half-track
+  name: Half-track
+  type: item
+  stack: 1
+  tier: proceedings
+  mirrors: 'tank (unarmed: B L14)'
+  sprite: 'grey half-track: wheels in front, tracks behind, an open cargo bed, no turret'
+  places: half-track
+  tags: [building]
+- id: legged-agent
+  name: Legged agent
+  type: item
+  stack: 1
+  tier: model-card
+  mirrors: spidertron
+  sprite: six-legged frame around a black body with one orange hexagon lamp
+  places: legged-agent
+  tags: [building]
+- id: research-hall
+  name: Research hall
+  type: item
+  stack: 10
+  tier: system-card
+  mirrors: 'new (G: accelerator hall)'
+  sprite: 7x7 windowless hall with rows of racks and a loss-curve display over the door
+  places: research-hall
+  tags: [building]
+- id: endpoint
+  name: Endpoint
+  type: item
+  stack: 10
+  tier: preprint
+  mirrors: 'new (F: deployment building)'
+  sprite: 3x3 cabinet on an exchange tap, a cable mast and a status board of request counters
+  places: endpoint
+  tags: [building]
+- id: fusion-reactor
+  name: Fusion reactor
+  type: item
+  stack: 1
+  tier: system-card
+  mirrors: fusion-reactor (Space Age)
+  sprite: 6x6 torus housing ringed with magnet coils, violet glow
+  places: fusion-reactor
+  tags: [building]
+- id: fusion-generator
+  name: Fusion generator
+  type: item
+  stack: 10
+  tier: system-card
+  mirrors: fusion-generator (Space Age)
+  sprite: 3x5 generator hall fed by a plasma line
+  places: fusion-generator
+  tags: [building]
+- id: verifier
+  name: Verifier
+  type: item
+  stack: 20
+  tier: preprint
+  mirrors: recycler
+  sprite: 2x4 conveyor-fed inspection machine with a reject chute
+  places: verifier
+  tags: [building]
+- id: deployer
+  name: Constructor
+  type: item
+  stack: 50
+  tier: system-card
+  mirrors: new (Recursive Blueprints' deployer; G's Deployer)
+  sprite: steel chest with a blueprint slot and a red circuit lamp
+  places: deployer
+  tags: [building]
+- id: area-scanner
+  name: Area scanner
+  type: item
+  stack: 50
+  tier: system-card
+  mirrors: new (Recursive Blueprints' scanner)
+  sprite: small dish on a combinator body
+  places: area-scanner
+  tags: [building]

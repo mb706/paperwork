@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "/home/mewse/.local/bin/node",
+      "args": [
+        "/home/mewse/.local/lib/node_modules/@playwright/mcp/cli.js",
+        "--headless",
+        "--browser", "chromium",
+        "--executable-path", "/home/mewse/.local/opt/chrome-current/chrome",
+        "--isolated",
+        "--viewport-size", "1280x720",
+        "--output-dir", "/home/mewse/browsergame/.playwright-mcp"
+      ]
+    }
+  }
+}

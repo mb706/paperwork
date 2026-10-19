@@ -1,0 +1,58 @@
+tiers:
+- memo
+- report
+- article
+- proceedings
+- preprint
+- model-card
+- system-card
+crafting_categories:
+- boiling
+- centrifuging
+- chemistry
+- crafting
+- crafting-with-fluid
+- data-processing
+- data-refining
+- fission
+- frontier-run
+- launch
+- smelting
+- training
+- transcription
+fuel_categories:
+- chemical
+- nuclear
+start:
+  inventory:
+    burner-mining-drill: 1
+    stone-furnace: 1
+    iron-plate: 8
+  recipes:
+  - iron-plate
+  - copper-plate
+  - token
+  - iron-gear-wheel
+  - iron-stick
+  - copper-cable
+  - logic-board
+  - repair-pack
+  - memo
+  - boil-steam
+  - burner-mining-drill
+  - electric-mining-drill
+  - offshore-pump
+  - stone-furnace
+  - keypunch
+  - seminar
+  - boiler
+  - steam-engine
+  - small-electric-pole
+  - transport-belt
+  - burner-inserter
+  - inserter
+  - wooden-chest
+  - iron-chest
+  - pipe
+  - pipe-to-ground
+  - radar

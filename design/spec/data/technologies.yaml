@@ -1,0 +1,4651 @@
+# Technologies: E's tree with D's ids; regime and long-form citations per DECISIONS §35 (05-research.md lists every change).
+- id: steam-power
+  name: Steam power
+  code: T01
+  era: Automatic computation
+  regime: infrastructure
+  prerequisites: []
+  trigger: {type: craft-item, item: iron-plate, count: 50}
+  unlocks:
+    recipes: [pipe, pipe-to-ground, offshore-pump, boiler, steam-engine]
+  mirrors: steam-power
+- id: switching-circuits
+  name: Switching circuits
+  code: T02
+  era: Automatic computation
+  regime: cited
+  prerequisites: []
+  trigger: {type: craft-item, item: copper-plate, count: 10}
+  unlocks:
+    recipes: [copper-cable, logic-board, seminar, inserter, small-electric-pole]
+  mirrors: electronics
+  citation:
+  - authors: ['Shannon, C. E.']
+    year: 1938
+    title: A symbolic analysis of relay and switching circuits
+    venue: Transactions of the American Institute of Electrical Engineers, 57(12), 713–723
+    kind: article
+    url: https://doi.org/10.1109/T-AIEE.1938.5057767
+  desc: Relays and switches compute Boolean logic.
+- id: basic-research
+  name: Basic research
+  code: T03
+  era: Automatic computation
+  regime: cited
+  prerequisites: [steam-power, switching-circuits]
+  trigger: {type: craft-item, item: seminar, count: 1}
+  unlocks:
+    recipes: [memo]
+  essential: true
+  mirrors: automation-science-pack
+  citation:
+  - authors: ['Bush, V.']
+    year: 1945
+    title: 'Science, the endless frontier: A report to the President'
+    venue: United States Government Printing Office
+    kind: report
+    url: https://archive.org/details/in.ernet.dli.2015.212068
+  desc: Research performed without thought of practical ends.
+- id: electric-mining-drill
+  name: Electric mining drill
+  code: R03
+  era: Automatic computation
+  regime: infrastructure
+  prerequisites: [basic-research]
+  cost:
+    count: 25
+    time: 10
+    packs: {memo: 1}
+  unlocks:
+    recipes: [electric-mining-drill]
+  mirrors: electric-mining-drill
+- id: maintenance
+  name: Maintenance
+  code: R04
+  era: Automatic computation
+  regime: infrastructure
+  prerequisites: [basic-research]
+  cost:
+    count: 25
+    time: 10
+    packs: {memo: 1}
+  unlocks:
+    recipes: [repair-pack]
+  mirrors: repair-pack
+- id: radar
+  name: Radar
+  code: R07
+  era: Automatic computation
+  regime: infrastructure
+  prerequisites: [basic-research]
+  cost:
+    count: 20
+    time: 10
+    packs: {memo: 1}
+  unlocks:
+    recipes: [radar]
+  mirrors: radar
+- id: projectile-damage-1
+  name: Projectile damage 1
+  code: MS01
+  era: Automatic computation
+  regime: infrastructure
+  prerequisites: [ballistics]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: bullet, value: 0.1}
+    - {type: turret-attack, turret: gun-turret, value: 0.1}
+  upgrade: true
+  branch: M
+  mirrors: physical-projectile-damage-1
+- id: projectile-damage-2
+  name: Projectile damage 2
+  code: MS02
+  era: Programming
+  regime: infrastructure
+  prerequisites: [projectile-damage-1, linear-programming]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: bullet, value: 0.1}
+    - {type: turret-attack, turret: gun-turret, value: 0.1}
+  upgrade: true
+  branch: M
+  mirrors: physical-projectile-damage-2
+- id: rate-of-fire-1
+  name: Rate of fire 1
+  code: MS08
+  era: Automatic computation
+  regime: infrastructure
+  prerequisites: [ballistics]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: bullet, value: 0.1}
+  upgrade: true
+  branch: M
+  mirrors: weapon-shooting-speed-1
+- id: rate-of-fire-2
+  name: Rate of fire 2
+  code: MS09
+  era: Programming
+  regime: infrastructure
+  prerequisites: [rate-of-fire-1, linear-programming]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: bullet, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: weapon-shooting-speed-2
+- id: explosive-yield-1
+  name: Explosive yield 1
+  code: MS14
+  era: Programming
+  regime: infrastructure
+  prerequisites: [terminal-ballistics]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: landmine, value: 0.25}
+  upgrade: true
+  branch: M
+  mirrors: stronger-explosives-1
+- id: projectile-damage-3
+  name: Projectile damage 3
+  code: MS03
+  era: Programming
+  regime: infrastructure
+  prerequisites: [projectile-damage-2, game-theory]
+  cost:
+    count: 300
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: bullet, value: 0.2}
+    - {type: turret-attack, turret: gun-turret, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: physical-projectile-damage-3
+- id: projectile-damage-4
+  name: Projectile damage 4
+  code: MS04
+  era: Programming
+  regime: infrastructure
+  prerequisites: [projectile-damage-3]
+  cost:
+    count: 400
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: bullet, value: 0.2}
+    - {type: turret-attack, turret: gun-turret, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: physical-projectile-damage-4
+- id: projectile-damage-5
+  name: Projectile damage 5
+  code: MS05
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [projectile-damage-4, statistical-learning]
+  cost:
+    count: 500
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: bullet, value: 0.2}
+    - {type: turret-attack, turret: gun-turret, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: physical-projectile-damage-5
+- id: projectile-damage-6
+  name: Projectile damage 6
+  code: MS06
+  era: Agents
+  regime: infrastructure
+  prerequisites: [projectile-damage-5, expected-utility]
+  cost:
+    count: 600
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: bullet, value: 0.4}
+    - {type: turret-attack, turret: gun-turret, value: 0.4}
+  upgrade: true
+  branch: M
+  mirrors: physical-projectile-damage-6
+- id: projectile-damage-7
+  name: Projectile damage
+  code: MS07
+  era: Takeoff
+  regime: infrastructure
+  prerequisites: [projectile-damage-6, in-context-learning]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1, system-card: 1}
+  count_formula: 2^(L-7)*1000
+  first_level: 7
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: bullet, value: 0.4}
+    - {type: turret-attack, turret: gun-turret, value: 0.7}
+  upgrade: true
+  branch: M
+  mirrors: physical-projectile-damage-7
+- id: explosive-yield-2
+  name: Explosive yield 2
+  code: MS15
+  era: Programming
+  regime: infrastructure
+  prerequisites: [explosive-yield-1, game-theory]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: landmine, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: stronger-explosives-2
+- id: explosive-yield-3
+  name: Explosive yield 3
+  code: MS16
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [explosive-yield-2, statistical-learning]
+  cost:
+    count: 300
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: rocket, value: 0.3}
+    - {type: ammo-damage, category: landmine, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: stronger-explosives-3
+- id: explosive-yield-4
+  name: Explosive yield 4
+  code: MS17
+  era: Agents
+  regime: infrastructure
+  prerequisites: [explosive-yield-3, expected-utility]
+  cost:
+    count: 400
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: rocket, value: 0.4}
+    - {type: ammo-damage, category: landmine, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: stronger-explosives-4
+- id: explosive-yield-5
+  name: Explosive yield 5
+  code: MS18
+  era: Agents
+  regime: infrastructure
+  prerequisites: [explosive-yield-4]
+  cost:
+    count: 500
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: rocket, value: 0.5}
+    - {type: ammo-damage, category: landmine, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: stronger-explosives-5
+- id: explosive-yield-6
+  name: Explosive yield 6
+  code: MS19
+  era: Agents
+  regime: infrastructure
+  prerequisites: [explosive-yield-5]
+  cost:
+    count: 600
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: rocket, value: 0.6}
+    - {type: ammo-damage, category: landmine, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: stronger-explosives-6
+- id: explosive-yield-7
+  name: Explosive yield
+  code: MS20
+  era: Takeoff
+  regime: infrastructure
+  prerequisites: [explosive-yield-6, in-context-learning]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1, system-card: 1}
+  count_formula: 2^(L-7)*1000
+  first_level: 7
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: rocket, value: 0.5}
+    - {type: ammo-damage, category: landmine, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: stronger-explosives-7
+- id: monitor-throughput-1
+  name: Monitor throughput 1
+  code: MS21
+  era: Programming
+  regime: infrastructure
+  prerequisites: [threat-monitoring]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: monitor-rate, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: refined-flammables-1
+- id: monitor-throughput-2
+  name: Monitor throughput 2
+  code: MS22
+  era: Programming
+  regime: infrastructure
+  prerequisites: [monitor-throughput-1]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: monitor-rate, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: refined-flammables-2
+- id: monitor-throughput-3
+  name: Monitor throughput 3
+  code: MS23
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [monitor-throughput-2, statistical-learning]
+  cost:
+    count: 300
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: monitor-rate, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: refined-flammables-3
+- id: monitor-throughput-4
+  name: Monitor throughput 4
+  code: MS24
+  era: Agents
+  regime: infrastructure
+  prerequisites: [monitor-throughput-3, expected-utility]
+  cost:
+    count: 400
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: monitor-rate, value: 0.3}
+  upgrade: true
+  branch: M
+  mirrors: refined-flammables-4
+- id: monitor-throughput-5
+  name: Monitor throughput 5
+  code: MS25
+  era: Agents
+  regime: infrastructure
+  prerequisites: [monitor-throughput-4]
+  cost:
+    count: 500
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: monitor-rate, value: 0.3}
+  upgrade: true
+  branch: M
+  mirrors: refined-flammables-5
+- id: monitor-throughput-6
+  name: Monitor throughput 6
+  code: MS26
+  era: Agents
+  regime: infrastructure
+  prerequisites: [monitor-throughput-5]
+  cost:
+    count: 600
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: monitor-rate, value: 0.4}
+  upgrade: true
+  branch: M
+  mirrors: refined-flammables-6
+- id: monitor-throughput-7
+  name: Monitor throughput
+  code: MS27
+  era: Takeoff
+  regime: infrastructure
+  prerequisites: [monitor-throughput-6, in-context-learning]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1, system-card: 1}
+  count_formula: 2^(L-7)*1000
+  first_level: 7
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - {type: monitor-rate, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: refined-flammables-7
+- id: laser-damage-1
+  name: Laser damage 1
+  code: MS28
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [laser, game-theory]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: laser, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: laser-weapons-damage-1
+- id: laser-damage-2
+  name: Laser damage 2
+  code: MS29
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [laser-damage-1]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: laser, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: laser-weapons-damage-2
+- id: laser-damage-3
+  name: Laser damage 3
+  code: MS30
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [laser-damage-2]
+  cost:
+    count: 300
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: laser, value: 0.3}
+  upgrade: true
+  branch: M
+  mirrors: laser-weapons-damage-3
+- id: laser-damage-4
+  name: Laser damage 4
+  code: MS31
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [laser-damage-3]
+  cost:
+    count: 400
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: laser, value: 0.4}
+  upgrade: true
+  branch: M
+  mirrors: laser-weapons-damage-4
+- id: laser-damage-5
+  name: Laser damage 5
+  code: MS32
+  era: Agents
+  regime: infrastructure
+  prerequisites: [laser-damage-4, expected-utility]
+  cost:
+    count: 500
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: laser, value: 0.5}
+    - {type: ammo-damage, category: beam, value: 0.4}
+  upgrade: true
+  branch: M
+  mirrors: laser-weapons-damage-5
+- id: laser-damage-6
+  name: Laser damage 6
+  code: MS33
+  era: Agents
+  regime: infrastructure
+  prerequisites: [laser-damage-5]
+  cost:
+    count: 600
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: laser, value: 0.7}
+    - {type: ammo-damage, category: electric, value: 0.7}
+    - {type: ammo-damage, category: beam, value: 0.6}
+  upgrade: true
+  branch: M
+  mirrors: laser-weapons-damage-6
+- id: laser-damage-7
+  name: Laser damage
+  code: MS34
+  era: Takeoff
+  regime: infrastructure
+  prerequisites: [laser-damage-6, in-context-learning]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1, system-card: 1}
+  count_formula: 2^(L-7)*1000
+  first_level: 7
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: laser, value: 0.7}
+    - {type: ammo-damage, category: electric, value: 0.7}
+    - {type: ammo-damage, category: beam, value: 0.3}
+  upgrade: true
+  branch: M
+  mirrors: laser-weapons-damage-7
+- id: rate-of-fire-3
+  name: Rate of fire 3
+  code: MS10
+  era: Programming
+  regime: infrastructure
+  prerequisites: [rate-of-fire-2, game-theory]
+  cost:
+    count: 300
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: bullet, value: 0.2}
+    - {type: gun-speed, category: rocket, value: 0.5}
+  upgrade: true
+  branch: M
+  mirrors: weapon-shooting-speed-3
+- id: rate-of-fire-4
+  name: Rate of fire 4
+  code: MS11
+  era: Programming
+  regime: infrastructure
+  prerequisites: [rate-of-fire-3]
+  cost:
+    count: 400
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: bullet, value: 0.3}
+    - {type: gun-speed, category: rocket, value: 0.7}
+  upgrade: true
+  branch: M
+  mirrors: weapon-shooting-speed-4
+- id: rate-of-fire-5
+  name: Rate of fire 5
+  code: MS12
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [rate-of-fire-4, statistical-learning]
+  cost:
+    count: 500
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: bullet, value: 0.3}
+    - {type: gun-speed, category: rocket, value: 0.9}
+  upgrade: true
+  branch: M
+  mirrors: weapon-shooting-speed-5
+- id: rate-of-fire-6
+  name: Rate of fire 6
+  code: MS13
+  era: Agents
+  regime: infrastructure
+  prerequisites: [rate-of-fire-5, expected-utility]
+  cost:
+    count: 600
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: bullet, value: 0.4}
+    - {type: gun-speed, category: rocket, value: 1.3}
+  upgrade: true
+  branch: M
+  mirrors: weapon-shooting-speed-6
+- id: laser-rate-1
+  name: Laser rate of fire 1
+  code: MS35
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [laser, game-theory]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: laser, value: 0.1}
+  upgrade: true
+  branch: M
+  mirrors: laser-shooting-speed-1
+- id: laser-rate-2
+  name: Laser rate of fire 2
+  code: MS36
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [laser-rate-1]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: laser, value: 0.2}
+  upgrade: true
+  branch: M
+  mirrors: laser-shooting-speed-2
+- id: laser-rate-3
+  name: Laser rate of fire 3
+  code: MS37
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [laser-rate-2]
+  cost:
+    count: 200
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: laser, value: 0.3}
+  upgrade: true
+  branch: M
+  mirrors: laser-shooting-speed-3
+- id: laser-rate-4
+  name: Laser rate of fire 4
+  code: MS38
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [laser-rate-3]
+  cost:
+    count: 200
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: laser, value: 0.3}
+  upgrade: true
+  branch: M
+  mirrors: laser-shooting-speed-4
+- id: laser-rate-5
+  name: Laser rate of fire 5
+  code: MS39
+  era: Agents
+  regime: infrastructure
+  prerequisites: [laser-rate-4, expected-utility]
+  cost:
+    count: 200
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: laser, value: 0.4}
+  upgrade: true
+  branch: M
+  mirrors: laser-shooting-speed-5
+- id: laser-rate-6
+  name: Laser rate of fire 6
+  code: MS40
+  era: Agents
+  regime: infrastructure
+  prerequisites: [laser-rate-5]
+  cost:
+    count: 350
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: laser, value: 0.4}
+  upgrade: true
+  branch: M
+  mirrors: laser-shooting-speed-6
+- id: laser-rate-7
+  name: Laser rate of fire 7
+  code: MS41
+  era: Agents
+  regime: infrastructure
+  prerequisites: [laser-rate-6]
+  cost:
+    count: 450
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: laser, value: 0.5}
+  upgrade: true
+  branch: M
+  mirrors: laser-shooting-speed-7
+- id: artillery-range
+  name: Artillery range
+  code: MS51
+  era: Takeoff
+  regime: infrastructure
+  prerequisites: [artillery, in-context-learning]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1, system-card: 1}
+  count_formula: 2^L*1000
+  first_level: 1
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - {type: artillery-range, value: 0.3}
+  branch: M
+  mirrors: artillery-shell-range-1
+- id: artillery-reload
+  name: Artillery reload
+  code: MS52
+  era: Takeoff
+  regime: infrastructure
+  prerequisites: [artillery, in-context-learning]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1, system-card: 1}
+  count_formula: 1000+3^(L-1)*1000
+  first_level: 1
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - {type: gun-speed, category: artillery-shell, value: 1.0}
+  branch: M
+  mirrors: artillery-shell-speed-1
+- id: interceptor-count-1
+  name: Interceptor count 1
+  code: MS46
+  era: Programming
+  regime: infrastructure
+  prerequisites: [interceptors]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: interceptor-escort-cap, value: 5}
+  upgrade: true
+  branch: M
+  mirrors: follower-robot-count-1
+- id: interceptor-count-2
+  name: Interceptor count 2
+  code: MS47
+  era: Programming
+  regime: infrastructure
+  prerequisites: [interceptor-count-1]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: interceptor-escort-cap, value: 10}
+  upgrade: true
+  branch: M
+  mirrors: follower-robot-count-2
+- id: interceptor-count-3
+  name: Interceptor count 3
+  code: MS48
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [interceptor-count-2, statistical-learning]
+  cost:
+    count: 300
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: interceptor-escort-cap, value: 10}
+  upgrade: true
+  branch: M
+  mirrors: follower-robot-count-3
+- id: interceptor-count-4
+  name: Interceptor count 4
+  code: MS49
+  era: Agents
+  regime: infrastructure
+  prerequisites: [interceptor-count-3, interceptors-3]
+  cost:
+    count: 400
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: interceptor-escort-cap, value: 20}
+  upgrade: true
+  branch: M
+  mirrors: follower-robot-count-4
+- id: interceptor-count-5
+  name: Interceptor count
+  code: MS50
+  era: Takeoff
+  regime: infrastructure
+  prerequisites: [interceptor-count-4, in-context-learning]
+  cost:
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  count_formula: 1000*1.5^(L-5)
+  first_level: 5
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - {type: interceptor-escort-cap, value: 25}
+  upgrade: true
+  branch: M
+  mirrors: follower-robot-count-5
+- id: batch-processing
+  name: Batch processing
+  code: G17
+  era: Programming
+  regime: infrastructure
+  prerequisites: [servomechanisms, logistics-2, integrated-circuit]
+  cost:
+    count: 150
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [bulk-inserter]
+    effects:
+    - {type: bulk-inserter-capacity-bonus, value: 1}
+  mirrors: bulk-inserter
+  desc: Collect a full load, then move it at once.
+- id: batch-size-1
+  name: Batch size 1
+  code: S01
+  era: Programming
+  regime: infrastructure
+  prerequisites: [batch-processing]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: bulk-inserter-capacity-bonus, value: 1}
+  upgrade: true
+  mirrors: inserter-capacity-bonus-1
+- id: batch-size-2
+  name: Batch size 2
+  code: S02
+  era: Programming
+  regime: infrastructure
+  prerequisites: [batch-size-1]
+  cost:
+    count: 250
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: inserter-stack-size-bonus, value: 1}
+    - {type: bulk-inserter-capacity-bonus, value: 1}
+  upgrade: true
+  mirrors: inserter-capacity-bonus-2
+- id: batch-size-3
+  name: Batch size 3
+  code: S03
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [batch-size-2, statistical-learning]
+  cost:
+    count: 250
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: bulk-inserter-capacity-bonus, value: 1}
+  upgrade: true
+  mirrors: inserter-capacity-bonus-3
+- id: batch-size-4
+  name: Batch size 4
+  code: S04
+  era: Deep learning
+  regime: infrastructure
+  prerequisites: [batch-size-3, deep-learning]
+  cost:
+    count: 250
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: bulk-inserter-capacity-bonus, value: 1}
+  upgrade: true
+  mirrors: inserter-capacity-bonus-4
+- id: batch-size-5
+  name: Batch size 5
+  code: S05
+  era: Deep learning
+  regime: infrastructure
+  prerequisites: [batch-size-4]
+  cost:
+    count: 300
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: bulk-inserter-capacity-bonus, value: 2}
+  upgrade: true
+  mirrors: inserter-capacity-bonus-5
+- id: batch-size-6
+  name: Batch size 6
+  code: S06
+  era: Deep learning
+  regime: infrastructure
+  prerequisites: [batch-size-5]
+  cost:
+    count: 400
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: bulk-inserter-capacity-bonus, value: 2}
+  upgrade: true
+  mirrors: inserter-capacity-bonus-6
+- id: batch-size-7
+  name: Batch size 7
+  code: S07
+  era: Agents
+  regime: infrastructure
+  prerequisites: [batch-size-6, expected-utility]
+  cost:
+    count: 600
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: inserter-stack-size-bonus, value: 1}
+    - {type: bulk-inserter-capacity-bonus, value: 2}
+  upgrade: true
+  mirrors: inserter-capacity-bonus-7
+- id: tabulation
+  name: Tabulation
+  code: R05
+  era: Automatic computation
+  regime: cited
+  prerequisites: [basic-research]
+  cost:
+    count: 10
+    time: 10
+    packs: {memo: 1}
+  unlocks:
+    recipes: [assembling-machine-1, long-handed-inserter]
+  mirrors: automation
+  citation:
+  - authors: ['Hollerith, H.']
+    year: 1889
+    title: An electric tabulating system
+    venue: The School of Mines Quarterly, 10(3), 238–255
+    kind: article
+    url: https://archive.org/details/schoolminesquar10chemgoog
+  desc: Machines count and sort punched cards.
+- id: stored-program
+  name: Stored program
+  code: G02
+  era: Programming
+  regime: cited
+  prerequisites: [tabulation, steel-processing, linear-programming]
+  cost:
+    count: 40
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [assembling-machine-2]
+  mirrors: automation-2
+  citation:
+  - authors: ['von Neumann, J.']
+    year: 1945
+    title: First draft of a report on the EDVAC
+    venue: Moore School of Electrical Engineering, University of Pennsylvania
+    kind: report
+    url: https://doi.org/10.5479/sil.538961.39088011475779
+  desc: Instructions are kept in memory alongside data.
+- id: linear-programming
+  name: Linear programming
+  code: R01
+  era: Automatic computation
+  regime: cited
+  prerequisites: [basic-research]
+  cost:
+    count: 75
+    time: 5
+    packs: {memo: 1}
+  unlocks:
+    recipes: [report]
+  essential: true
+  mirrors: logistic-science-pack
+  citation:
+  - authors: ['Kantorovich, L. V.']
+    year: 1939
+    title: Matematicheskie metody organizatsii i planirovaniia proizvodstva [Mathematical methods of organizing and planning production]
+    venue: Leningrad State University Press (in Russian); English translation in Management Science, 6(4), 366–422, 1960
+    kind: book
+    url: https://doi.org/10.1287/mnsc.6.4.366
+  - authors: ['Dantzig, G. B.']
+    year: 1949
+    title: 'Programming of interdependent activities: II mathematical model'
+    venue: Econometrica, 17(3/4), 200–211
+    kind: article
+    url: https://doi.org/10.2307/1905523
+  desc: Optimize a linear objective under linear constraints.
+- id: steel-processing
+  name: Steel processing
+  code: R06
+  era: Automatic computation
+  regime: infrastructure
+  prerequisites: [basic-research]
+  cost:
+    count: 50
+    time: 5
+    packs: {memo: 1}
+  unlocks:
+    recipes: [steel-plate, steel-chest]
+  mirrors: steel-processing
+- id: learning-curve
+  name: Learning curve
+  code: T04
+  era: Automatic computation
+  regime: cited
+  prerequisites: [steel-processing]
+  trigger: {type: craft-item, item: steel-plate, count: 50}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: character-mining-speed, value: 1.0}
+  mirrors: steel-axe
+  citation:
+  - authors: ['Wright, T. P.']
+    year: 1936
+    title: Factors affecting the cost of airplanes
+    venue: Journal of the Aeronautical Sciences, 3(4), 122–128
+    kind: article
+    url: https://doi.org/10.2514/8.155
+  desc: Average cost falls with each doubling of cumulative output.
+- id: ballistics
+  name: Ballistics
+  code: MR01
+  era: Automatic computation
+  regime: infrastructure
+  prerequisites: [basic-research]
+  cost:
+    count: 10
+    time: 15
+    packs: {memo: 1}
+  unlocks:
+    recipes: [magazine]
+  branch: M
+  mirrors: military
+- id: terminal-ballistics
+  name: Terminal ballistics
+  code: MG02
+  era: Programming
+  regime: infrastructure
+  prerequisites: [ballistics, steel-processing, linear-programming]
+  cost:
+    count: 20
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [ap-magazine]
+  branch: M
+  mirrors: military-2
+- id: servomechanisms
+  name: Servomechanisms
+  code: R08
+  era: Automatic computation
+  regime: cited
+  prerequisites: [basic-research]
+  cost:
+    count: 30
+    time: 15
+    packs: {memo: 1}
+  unlocks:
+    recipes: [fast-inserter]
+  mirrors: fast-inserter
+  citation:
+  - authors: ['Hazen, H. L.']
+    year: 1934
+    title: Theory of servo-mechanisms
+    venue: Journal of the Franklin Institute, 218(3), 279–331
+    kind: article
+    url: https://doi.org/10.1016/S0016-0032(34)90254-4
+- id: logistics
+  name: Logistics
+  code: R09
+  era: Automatic computation
+  regime: infrastructure
+  prerequisites: [basic-research]
+  cost:
+    count: 20
+    time: 15
+    packs: {memo: 1}
+  unlocks:
+    recipes: [underground-belt, splitter]
+  mirrors: logistics
+- id: railway
+  name: Railway
+  code: G12
+  era: Programming
+  regime: infrastructure
+  prerequisites: [logistics-2, engine]
+  cost:
+    count: 75
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [rail, locomotive, cargo-wagon]
+  mirrors: railway
+- id: semaphores
+  name: Semaphores
+  code: G13
+  era: Programming
+  regime: cited
+  prerequisites: [railway]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [train-stop, rail-signal, rail-chain-signal]
+  mirrors: automated-rail-transportation
+  citation:
+  - authors: ['Dijkstra, E. W.']
+    year: 1965
+    title: Cooperating sequential processes
+    venue: Technological University, Eindhoven (EWD 123)
+    kind: report
+    url: https://www.cs.utexas.edu/~EWD/ewd01xx/EWD123.PDF
+  desc: A signal admits one occupant at a time.
+- id: automobile
+  name: Automobile
+  code: G14
+  era: Programming
+  regime: infrastructure
+  prerequisites: [logistics-2, engine]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [car]
+  mirrors: automobilism
+- id: lamp
+  name: Lamp
+  code: R10
+  era: Automatic computation
+  regime: infrastructure
+  prerequisites: [basic-research]
+  cost:
+    count: 10
+    time: 15
+    packs: {memo: 1}
+  unlocks:
+    recipes: [small-lamp]
+  mirrors: lamp
+- id: photovoltaics
+  name: Photovoltaics
+  code: G21
+  era: Programming
+  regime: cited
+  prerequisites: [steel-processing, linear-programming]
+  cost:
+    count: 250
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [solar-panel]
+  mirrors: solar-energy
+  citation:
+  - authors: ['Chapin, D. M.', 'Fuller, C. S.', 'Pearson, G. L.']
+    year: 1954
+    title: A new silicon p-n junction photocell for converting solar radiation into electrical power
+    venue: Journal of Applied Physics, 25(5), 676–677
+    kind: article
+    url: https://doi.org/10.1063/1.1721711
+- id: protective-clothing
+  name: Protective clothing
+  code: MR02
+  era: Automatic computation
+  regime: infrastructure
+  prerequisites: [ballistics, steel-processing]
+  cost:
+    count: 30
+    time: 30
+    packs: {memo: 1}
+  unlocks:
+    recipes: [heavy-armor]
+  branch: M
+  mirrors: heavy-armor
+- id: fire-control
+  name: Fire control
+  code: MR03
+  era: Automatic computation
+  regime: cited
+  prerequisites: [basic-research]
+  cost:
+    count: 10
+    time: 10
+    packs: {memo: 1}
+  unlocks:
+    recipes: [gun-turret]
+  branch: M
+  mirrors: gun-turret
+  citation:
+  - authors: ['Wiener, N.']
+    year: 1949
+    title: 'Extrapolation, interpolation, and smoothing of stationary time series: With engineering applications'
+    venue: Technology Press; John Wiley & Sons; Chapman & Hall
+    kind: book
+  desc: Predict where the target will be; aim there.
+- id: citation-index
+  name: Citation index
+  code: G26
+  era: Programming
+  regime: cited
+  prerequisites: [stored-program]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: laboratory-speed, value: 0.2}
+  upgrade: true
+  mirrors: research-speed-1
+  citation:
+  - authors: ['Garfield, E.']
+    year: 1955
+    title: 'Citation indexes for science: A new dimension in documentation through association of ideas'
+    venue: Science, 122(3159), 108–111
+    kind: article
+    url: https://doi.org/10.1126/science.122.3159.108
+  desc: Papers indexed by the papers that cite them.
+- id: time-sharing
+  name: Time-sharing
+  code: G27
+  era: Programming
+  regime: cited
+  prerequisites: [citation-index, packet-switching]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [terminal]
+    effects:
+    - {type: laboratory-speed, value: 0.3}
+  upgrade: true
+  mirrors: research-speed-2
+  citation:
+  - authors: ['Corbató, F. J.', 'Merwin-Daggett, M.', 'Daley, R. C.']
+    year: 1962
+    title: An experimental time-sharing system
+    venue: Proceedings of the Spring Joint Computer Conference (AFIPS), 21, 335–344
+    kind: article
+    url: https://doi.org/10.1145/1460833.1460871
+  desc: One machine, many users at once.
+- id: rural-electrification
+  name: Rural electrification
+  code: G22
+  era: Programming
+  regime: infrastructure
+  prerequisites: [steel-processing, linear-programming]
+  cost:
+    count: 120
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [medium-electric-pole, big-electric-pole]
+  mirrors: electric-energy-distribution-1
+  desc: The grid reaches every outpost.
+- id: regenerative-furnace
+  name: Regenerative furnace
+  code: G03
+  era: Programming
+  regime: infrastructure
+  prerequisites: [steel-processing, linear-programming]
+  cost:
+    count: 75
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [steel-furnace]
+  mirrors: advanced-material-processing
+- id: concrete
+  name: Concrete
+  code: G04
+  era: Programming
+  regime: infrastructure
+  prerequisites: [regenerative-furnace, stored-program]
+  cost:
+    count: 250
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [concrete, hazard-concrete, refined-concrete, refined-hazard-concrete]
+  mirrors: concrete
+- id: engine
+  name: Engine
+  code: G05
+  era: Programming
+  regime: infrastructure
+  prerequisites: [steel-processing, linear-programming]
+  cost:
+    count: 100
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [engine-unit]
+  mirrors: engine
+- id: landfill
+  name: Landfill
+  code: G06
+  era: Programming
+  regime: infrastructure
+  prerequisites: [linear-programming]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [landfill]
+  mirrors: landfill
+- id: logistics-2
+  name: Logistics 2
+  code: G11
+  era: Programming
+  regime: infrastructure
+  prerequisites: [logistics, linear-programming]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [fast-transport-belt, fast-underground-belt, fast-splitter]
+  mirrors: logistics-2
+- id: memex
+  name: Memex
+  code: G41
+  era: Programming
+  regime: cited
+  prerequisites: [linear-programming]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: character-inventory-slots, value: 10}
+  mirrors: toolbelt
+  citation:
+  - authors: ['Bush, V.']
+    year: 1945
+    title: As we may think
+    venue: The Atlantic Monthly, 176(1), 101–108
+    kind: article
+  desc: A desk that stores a person's records.
+- id: fences
+  name: Fences
+  code: MR04
+  era: Automatic computation
+  regime: infrastructure
+  prerequisites: [basic-research]
+  cost:
+    count: 10
+    time: 10
+    packs: {memo: 1}
+  unlocks:
+    recipes: [fence]
+  branch: M
+  mirrors: stone-wall
+- id: gates
+  name: Gates
+  code: MG03
+  era: Programming
+  regime: infrastructure
+  prerequisites: [fences, terminal-ballistics]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [gate]
+  branch: M
+  mirrors: gate
+- id: statistical-learning
+  name: Statistical learning
+  code: G01
+  era: Programming
+  regime: cited
+  prerequisites: [integrated-circuit, sulfur-processing, artificial-intelligence, hypothesis-testing]
+  cost:
+    count: 75
+    time: 10
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [article]
+  essential: true
+  mirrors: chemical-science-pack
+  citation:
+  - authors: ['Vapnik, V. N.', 'Chervonenkis, A. Ya.']
+    year: 1968
+    title: O ravnomernoi skhodimosti chastot poiavleniia sobytii k ikh veroiatnostiam [The uniform convergence of frequencies of the appearance of events to their probabilities]
+    venue: Doklady Akademii Nauk SSSR, 181(4), 781–783 (in Russian)
+    kind: article
+    url: https://www.mathnet.ru/eng/dan34016
+  - authors: ['Vapnik, V. N.']
+    year: 1995
+    title: The nature of statistical learning theory
+    venue: Springer
+    kind: book
+    url: https://doi.org/10.1007/978-1-4757-2440-0
+  desc: Learning as estimation, with bounds on the error.
+- id: game-theory
+  name: Game theory
+  code: MG01
+  era: Programming
+  regime: cited
+  prerequisites: [terminal-ballistics, fences, paraphrase-generation]
+  cost:
+    count: 30
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [proceedings]
+  essential: true
+  branch: M
+  mirrors: military-science-pack
+  citation:
+  - authors: ['Borel, É.']
+    year: 1921
+    title: La théorie du jeu et les équations intégrales à noyau symétrique
+    venue: Comptes Rendus Hebdomadaires des Séances de l'Académie des Sciences, 173(25), 1304–1308
+    kind: article
+    url: https://archive.org/details/comptesrendusheb173acad
+  - authors: ['von Neumann, J.']
+    year: 1928
+    title: Zur Theorie der Gesellschaftsspiele
+    venue: Mathematische Annalen, 100(1), 295–320
+    kind: article
+    url: https://doi.org/10.1007/BF01448847
+  desc: Strategy against an opponent who strategizes back.
+- id: deep-learning
+  name: Deep learning
+  code: B01
+  era: Statistical learning
+  regime: cited
+  prerequisites: [backpropagation, electric-furnace, railway]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [preprint, endpoint, ratings]
+  essential: true
+  mirrors: production-science-pack
+  citation:
+  - authors: ['Hinton, G. E.', 'Osindero, S.', 'Teh, Y.-W.']
+    year: 2006
+    title: A fast learning algorithm for deep belief nets
+    venue: Neural Computation, 18(7), 1527–1554
+    kind: article
+    url: https://doi.org/10.1162/neco.2006.18.7.1527
+  desc: Many layers of features, learned one layer at a time.
+- id: expected-utility
+  name: Expected utility
+  code: B02
+  era: Statistical learning
+  regime: cited
+  prerequisites: [mobile-automata, accelerators, warehouse-scale-computing, deep-learning]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [model-card]
+  essential: true
+  mirrors: utility-science-pack
+  citation:
+  - authors: ['Bernoulli, D.']
+    year: 1738
+    title: Specimen theoriae novae de mensura sortis
+    venue: Commentarii Academiae Scientiarum Imperialis Petropolitanae, 5, 175–192
+    kind: article
+    url: https://archive.org/details/commentariiacade05impe
+  - authors: ['von Neumann, J.', 'Morgenstern, O.']
+    year: 1944
+    title: Theory of games and economic behavior
+    venue: Princeton University Press
+    kind: book
+  desc: Rank gambles by their probability-weighted utility.
+- id: in-context-learning
+  name: In-context learning
+  code: T07
+  era: Takeoff
+  regime: cited
+  prerequisites: [scaling-laws, preference-tuning]
+  trigger: {type: launch, item: post-training-payload}
+  unlocks:
+    recipes: []
+  essential: true
+  mirrors: space-science-pack
+  citation:
+  - authors: ['Brown, T. B.', 'Mann, B.', 'Ryder, N.', 'Subbiah, M.', 'Kaplan, J.', 'Dhariwal, P.', 'Neelakantan, A.', 'Shyam, P.', 'Sastry, G.', 'Askell, A.']
+    more_authors: true
+    year: 2020
+    title: Language models are few-shot learners
+    venue: Advances in Neural Information Processing Systems 33, 1877–1901
+    kind: article
+    url: https://arxiv.org/abs/2005.14165
+  desc: A trained model learns a task from its prompt.
+- id: rollback-recovery
+  name: Rollback recovery
+  code: MB01
+  era: Statistical learning
+  regime: cited
+  prerequisites: [statistical-learning, game-theory]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: rollback}
+  branch: M
+  mirrors: military-3
+  citation:
+  - authors: ['Chandy, K. M.', 'Ramamoorthy, C. V.']
+    year: 1972
+    title: Rollback and recovery strategies for computer programs
+    venue: IEEE Transactions on Computers, C-21(6), 546–556
+    kind: article
+    url: https://doi.org/10.1109/TC.1972.5009007
+  - authors: ['Randell, B.']
+    year: 1975
+    title: System structure for software fault tolerance
+    venue: IEEE Transactions on Software Engineering, SE-1(2), 220–232
+    kind: article
+    url: https://doi.org/10.1109/TSE.1975.6312842
+  desc: Restore a saved state after a fault.
+- id: defense-in-depth
+  name: Defense in depth
+  code: MY01
+  era: Agents
+  regime: infrastructure
+  prerequisites: [rollback-recovery, expected-utility, explosives]
+  cost:
+    count: 150
+    time: 45
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+  branch: M
+  mirrors: military-4
+  desc: Layers, so that one failure is not the last.
+- id: depleted-uranium
+  name: Depleted uranium
+  code: MY02
+  era: Agents
+  regime: infrastructure
+  prerequisites: [isotope-separation, defense-in-depth, half-track]
+  cost:
+    count: 1000
+    time: 45
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: [du-magazine]
+  branch: M
+  mirrors: uranium-ammo
+- id: electromagnetic-pulse
+  name: Electromagnetic pulse
+  code: MY03
+  era: Agents
+  regime: infrastructure
+  prerequisites: [defense-in-depth, enrichment-cascade, rocketry]
+  cost:
+    count: 5000
+    time: 45
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: [emp-warhead]
+  branch: M
+  mirrors: atomic-bomb
+- id: cluster-computing
+  name: Cluster computing
+  code: P01
+  era: Deep learning
+  regime: cited
+  prerequisites: [pipelining, deep-learning, brushless-motors]
+  cost:
+    count: 150
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: [assembling-machine-3]
+  mirrors: automation-3
+  citation:
+  - authors: ['Sterling, T.', 'Savarese, D.', 'Becker, D. J.', 'Dorband, J. E.', 'Ranawake, U. A.', 'Packer, C. V.']
+    year: 1995
+    title: 'Beowulf: A parallel workstation for scientific computation'
+    venue: Proceedings of the 24th International Conference on Parallel Processing, 1, 11–14
+    kind: article
+  desc: Commodity machines joined into one computer.
+- id: explosives
+  name: Explosives
+  code: G07
+  era: Programming
+  regime: infrastructure
+  prerequisites: [sulfur-processing]
+  cost:
+    count: 100
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [explosives]
+  mirrors: explosives
+- id: cliff-explosives
+  name: Cliff explosives
+  code: G08
+  era: Programming
+  regime: infrastructure
+  prerequisites: [explosives, terminal-ballistics]
+  cost:
+    count: 200
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [cliff-explosives]
+  mirrors: cliff-explosives
+- id: information-theory
+  name: Information theory
+  code: G18
+  era: Programming
+  regime: cited
+  prerequisites: [text-categorization]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: []
+  mirrors: flammables
+  citation:
+  - authors: ['Shannon, C. E.']
+    year: 1948
+    title: A mathematical theory of communication
+    venue: Bell System Technical Journal, 27(3), 379–423
+    kind: article
+    url: https://doi.org/10.1002/j.1538-7305.1948.tb01338.x
+  desc: Information measured in bits, apart from meaning.
+- id: land-mines
+  name: Land mines
+  code: MG04
+  era: Programming
+  regime: infrastructure
+  prerequisites: [explosives, game-theory]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: [land-mine]
+  branch: M
+  mirrors: land-mine
+- id: threat-monitoring
+  name: Threat monitoring
+  code: MG05
+  era: Programming
+  regime: cited
+  prerequisites: [information-theory, game-theory]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: [monitor, evaluation-set]
+  branch: M
+  mirrors: flamethrower
+  citation:
+  - authors: ['Anderson, J. P.']
+    year: 1980
+    title: Computer security threat monitoring and surveillance
+    venue: James P. Anderson Co., Fort Washington, PA
+    kind: report
+    url: https://csrc.nist.gov/csrc/media/publications/conference-paper/1998/10/08/proceedings-of-the-21st-nissc-1998/documents/early-cs-papers/ande80.pdf
+  desc: Watch the audit trail for misuse.
+- id: integrated-circuit
+  name: Integrated circuit
+  code: G10
+  era: Programming
+  regime: cited
+  prerequisites: [cross-validation, sulfur-processing]
+  cost:
+    count: 200
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [processor, wafer]
+  mirrors: advanced-circuit
+  citation:
+  - authors: ['Kilby, J. S.']
+    year: 1959
+    title: Miniaturized electronic circuits
+    venue: US Patent 3,138,743 (filed 6 February 1959, granted 23 June 1964)
+    kind: patent
+    url: https://patents.google.com/patent/US3138743A/en
+  - authors: ['Noyce, R. N.']
+    year: 1959
+    title: Semiconductor device-and-lead structure
+    venue: US Patent 2,981,877 (filed 30 July 1959, granted 25 April 1961)
+    kind: patent
+    url: https://patents.google.com/patent/US2981877A/en
+  desc: A whole circuit made in one piece of semiconductor.
+- id: accelerators
+  name: Accelerators
+  code: B03
+  era: Statistical learning
+  regime: cited
+  prerequisites: [statistical-learning]
+  cost:
+    count: 300
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [accelerator]
+  mirrors: processing-unit
+  citation:
+  - authors: ['Oh, K.-S.', 'Jung, K.']
+    year: 2004
+    title: GPU implementation of neural networks
+    venue: Pattern Recognition, 37(6), 1311–1314
+    kind: article
+    url: https://doi.org/10.1016/j.patcog.2004.01.013
+  - authors: ['Raina, R.', 'Madhavan, A.', 'Ng, A. Y.']
+    year: 2009
+    title: Large-scale deep unsupervised learning using graphics processors
+    venue: Proceedings of the 26th Annual International Conference on Machine Learning, 873–880
+    kind: article
+    url: https://doi.org/10.1145/1553374.1553486
+  desc: Matrix arithmetic on hardware built for graphics.
+- id: fluid-wagon
+  name: Fluid wagon
+  code: G16
+  era: Programming
+  regime: infrastructure
+  prerequisites: [railway, disk-storage, fluid-handling, packet-switching]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [fluid-wagon, data-wagon]
+  mirrors: fluid-wagon
+- id: braking-force-1
+  name: Braking force 1
+  code: S17
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [railway, statistical-learning]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: train-braking-force-bonus, value: 0.1}
+  upgrade: true
+  mirrors: braking-force-1
+- id: braking-force-2
+  name: Braking force 2
+  code: S18
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [braking-force-1]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: train-braking-force-bonus, value: 0.15}
+  upgrade: true
+  mirrors: braking-force-2
+- id: braking-force-3
+  name: Braking force 3
+  code: S19
+  era: Deep learning
+  regime: infrastructure
+  prerequisites: [braking-force-2, deep-learning]
+  cost:
+    count: 250
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: train-braking-force-bonus, value: 0.15}
+  upgrade: true
+  mirrors: braking-force-3
+- id: braking-force-4
+  name: Braking force 4
+  code: S20
+  era: Deep learning
+  regime: infrastructure
+  prerequisites: [braking-force-3]
+  cost:
+    count: 350
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: train-braking-force-bonus, value: 0.15}
+  upgrade: true
+  mirrors: braking-force-4
+- id: braking-force-5
+  name: Braking force 5
+  code: S21
+  era: Deep learning
+  regime: infrastructure
+  prerequisites: [braking-force-4]
+  cost:
+    count: 450
+    time: 35
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: train-braking-force-bonus, value: 0.15}
+  upgrade: true
+  mirrors: braking-force-5
+- id: braking-force-6
+  name: Braking force 6
+  code: S22
+  era: Agents
+  regime: infrastructure
+  prerequisites: [braking-force-5, expected-utility]
+  cost:
+    count: 550
+    time: 45
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: train-braking-force-bonus, value: 0.15}
+  upgrade: true
+  mirrors: braking-force-6
+- id: braking-force-7
+  name: Braking force 7
+  code: S23
+  era: Agents
+  regime: infrastructure
+  prerequisites: [braking-force-6]
+  cost:
+    count: 650
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: train-braking-force-bonus, value: 0.15}
+  upgrade: true
+  mirrors: braking-force-7
+- id: half-track
+  name: Half-track
+  code: MB02
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [automobile, rollback-recovery, explosives]
+  cost:
+    count: 250
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: [half-track]
+  branch: M
+  mirrors: tank
+- id: logistics-3
+  name: Logistics 3
+  code: P04
+  era: Deep learning
+  regime: infrastructure
+  prerequisites: [deep-learning, lubricant]
+  cost:
+    count: 300
+    time: 15
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: [express-transport-belt, express-underground-belt, express-splitter]
+  mirrors: logistics-3
+- id: laser
+  name: Laser
+  code: MB03
+  era: Statistical learning
+  regime: cited
+  prerequisites: [batteries, statistical-learning]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: []
+  branch: M
+  mirrors: laser
+  citation:
+  - authors: ['Maiman, T. H.']
+    year: 1960
+    title: Stimulated optical radiation in ruby
+    venue: Nature, 187(4736), 493–494
+    kind: article
+    url: https://doi.org/10.1038/187493a0
+  desc: Coherent light from stimulated emission.
+- id: rocketry
+  name: Rocketry
+  code: MG06
+  era: Programming
+  regime: infrastructure
+  prerequisites: [explosives, game-theory]
+  cost:
+    count: 120
+    time: 15
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: [rocket]
+  branch: M
+  mirrors: rocketry
+- id: explosive-rocketry
+  name: Explosive rocketry
+  code: MB04
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [rocketry, rollback-recovery]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: [explosive-rocket]
+  branch: M
+  mirrors: explosive-rocketry
+- id: wearable-computing
+  name: Wearable computing
+  code: G36
+  era: Programming
+  regime: infrastructure
+  prerequisites: [protective-clothing, integrated-circuit]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [modular-suit]
+  mirrors: modular-armor
+- id: powered-suit
+  name: Powered suit
+  code: B25
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [wearable-computing, brushless-motors, accelerators]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [powered-suit]
+  mirrors: power-armor
+- id: powered-suit-2
+  name: Powered suit 2
+  code: MY04
+  era: Agents
+  regime: infrastructure
+  prerequisites: [powered-suit, defense-in-depth, vector-processing, model-compression]
+  cost:
+    count: 400
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: [powered-suit-2]
+  branch: M
+  mirrors: power-armor-mk2
+- id: laser-turret
+  name: Laser turret
+  code: MB05
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [laser, game-theory]
+  cost:
+    count: 150
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: [laser-turret]
+  branch: M
+  mirrors: laser-turret
+- id: mobile-automata
+  name: Mobile automata
+  code: B08
+  era: Statistical learning
+  regime: cited
+  prerequisites: [brushless-motors, batteries]
+  cost:
+    count: 75
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [drone-frame]
+  mirrors: robotics
+  citation:
+  - authors: ['Nilsson, N. J.']
+    year: 1969
+    title: 'A mobile automaton: An application of artificial intelligence techniques'
+    venue: Proceedings of the 1st International Joint Conference on Artificial Intelligence, 509–520
+    kind: article
+    url: https://www.ijcai.org/Proceedings/69/Papers/046.pdf
+  desc: A machine that plans its own movements.
+- id: curated-corpora
+  name: Curated corpora
+  code: B10
+  era: Statistical learning
+  regime: cited
+  prerequisites: [information-theory, paraphrase-generation]
+  cost:
+    count: 300
+    time: 45
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [corpus]
+  mirrors: rocket-fuel
+  citation:
+  - authors: ['Deng, J.', 'Dong, W.', 'Socher, R.', 'Li, L.-J.', 'Li, K.', 'Fei-Fei, L.']
+    year: 2009
+    title: 'ImageNet: A large-scale hierarchical image database'
+    venue: Proceedings of the 2009 IEEE Conference on Computer Vision and Pattern Recognition, 248–255
+    kind: article
+    url: https://doi.org/10.1109/CVPR.2009.5206848
+- id: warehouse-scale-computing
+  name: Warehouse-scale computing
+  code: B04
+  era: Statistical learning
+  regime: cited
+  prerequisites: [regenerative-furnace, statistical-learning, batteries]
+  cost:
+    count: 300
+    time: 45
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [rack]
+  mirrors: low-density-structure
+  citation:
+  - authors: ['Barroso, L. A.', 'Hölzle, U.']
+    year: 2009
+    title: 'The datacenter as a computer: An introduction to the design of warehouse-scale machines'
+    venue: Morgan & Claypool
+    kind: book
+    url: https://doi.org/10.1007/978-3-031-01722-3
+- id: scaling-laws
+  name: Scaling laws
+  code: Y09
+  era: Agents
+  regime: cited
+  prerequisites: [concrete, curated-corpora, accumulators, photovoltaics, expected-utility, systolic-arrays, attention, radar]
+  cost:
+    count: 1000
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: [frontier-cluster, run-shard, launch-empty]
+  essential: true
+  mirrors: rocket-silo
+  citation:
+  - authors: ['Hestness, J.', 'Narang, S.', 'Ardalani, N.', 'Diamos, G.', 'Jun, H.', 'Kianinejad, H.', 'Patwary, M. M. A.', 'Yang, Y.', 'Zhou, Y.']
+    year: 2017
+    title: Deep learning scaling is predictable, empirically
+    venue: arXiv:1712.00409
+    kind: preprint
+    url: https://arxiv.org/abs/1712.00409
+  - authors: ['Kaplan, J.', 'McCandlish, S.', 'Henighan, T.', 'Brown, T. B.', 'Chess, B.', 'Child, R.', 'Gray, S.', 'Radford, A.', 'Wu, J.', 'Amodei, D.']
+    year: 2020
+    title: Scaling laws for neural language models
+    venue: arXiv:2001.08361
+    kind: preprint
+    url: https://arxiv.org/abs/2001.08361
+  - authors: ['Hoffmann, J.', 'Borgeaud, S.', 'Mensch, A.', 'Buchatskaya, E.', 'Cai, T.', 'Rutherford, E.', 'de Las Casas, D.', 'Hendricks, L. A.', 'Welbl, J.', 'Clark, A.']
+    more_authors: true
+    year: 2022
+    title: Training compute-optimal large language models
+    venue: arXiv:2203.15556
+    kind: preprint
+    url: https://arxiv.org/abs/2203.15556
+  desc: Loss falls as a power law in scale.
+- id: web-search
+  name: Web search
+  code: B15
+  era: Statistical learning
+  regime: cited
+  prerequisites: [time-sharing, statistical-learning]
+  cost:
+    count: 250
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: laboratory-speed, value: 0.4}
+    - {type: staffing-radius, multiplier: 1.5}
+  upgrade: true
+  mirrors: research-speed-3
+  citation:
+  - authors: ['Brin, S.', 'Page, L.']
+    year: 1998
+    title: The anatomy of a large-scale hypertextual Web search engine
+    venue: Computer Networks and ISDN Systems, 30(1–7), 107–117
+    kind: article
+    url: https://doi.org/10.1016/S0169-7552(98)00110-X
+  desc: Pages ranked by the links that point to them.
+- id: open-source-libraries
+  name: Open-source libraries
+  code: B16
+  era: Statistical learning
+  regime: cited
+  prerequisites: [web-search]
+  cost:
+    count: 500
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: laboratory-speed, value: 0.5}
+  upgrade: true
+  mirrors: research-speed-4
+  citation:
+  - authors: ['Pedregosa, F.', 'Varoquaux, G.', 'Gramfort, A.', 'Michel, V.', 'Thirion, B.', 'Grisel, O.', 'Blondel, M.', 'Prettenhofer, P.', 'Weiss, R.', 'Dubourg, V.']
+    more_authors: true
+    year: 2011
+    title: 'Scikit-learn: Machine learning in Python'
+    venue: Journal of Machine Learning Research, 12(85), 2825–2830
+    kind: article
+    url: https://jmlr.org/papers/v12/pedregosa11a.html
+- id: automatic-differentiation
+  name: Automatic differentiation
+  code: P06
+  era: Deep learning
+  regime: cited
+  prerequisites: [open-source-libraries, deep-learning]
+  cost:
+    count: 500
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: laboratory-speed, value: 0.5}
+  upgrade: true
+  mirrors: research-speed-5
+  citation:
+  - authors: ['Wengert, R. E.']
+    year: 1964
+    title: A simple automatic derivative evaluation program
+    venue: Communications of the ACM, 7(8), 463–464
+    kind: article
+    url: https://doi.org/10.1145/355586.364791
+- id: code-generation
+  name: Code generation
+  code: Y04
+  era: Agents
+  regime: cited
+  prerequisites: [automatic-differentiation, expected-utility]
+  cost:
+    count: 500
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: laboratory-speed, value: 0.6}
+  upgrade: true
+  mirrors: research-speed-6
+  citation:
+  - authors: ['Chen, M.', 'Tworek, J.', 'Jun, H.', 'Yuan, Q.', 'Pinto, H. P. de O.', 'Kaplan, J.', 'Edwards, H.', 'Burda, Y.', 'Joseph, N.', 'Brockman, G.']
+    more_authors: true
+    year: 2021
+    title: Evaluating large language models trained on code
+    venue: arXiv:2107.03374
+    kind: preprint
+    url: https://arxiv.org/abs/2107.03374
+- id: substations
+  name: Substations
+  code: B11
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [rural-electrification, statistical-learning]
+  cost:
+    count: 100
+    time: 45
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [substation]
+  mirrors: electric-energy-distribution-2
+- id: accumulators
+  name: Accumulators
+  code: G24
+  era: Programming
+  regime: infrastructure
+  prerequisites: [rural-electrification, batteries]
+  cost:
+    count: 150
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [accumulator]
+  mirrors: electric-energy-accumulators
+- id: electric-furnace
+  name: Electric furnace
+  code: B05
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [regenerative-furnace, statistical-learning]
+  cost:
+    count: 250
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [electric-furnace, tokenizer]
+  mirrors: advanced-material-processing-2
+- id: data-parallelism
+  name: Data parallelism
+  code: P07
+  era: Deep learning
+  regime: cited
+  prerequisites: [accelerators, deep-learning]
+  cost:
+    count: 75
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: [switch]
+  mirrors: effect-transmission
+  citation:
+  - authors: ['Dean, J.', 'Corrado, G. S.', 'Monga, R.', 'Chen, K.', 'Devin, M.', 'Le, Q. V.', 'Mao, M. Z.', 'Ranzato, M.', 'Senior, A.', 'Tucker, P.']
+    more_authors: true
+    year: 2012
+    title: Large scale distributed deep networks
+    venue: Advances in Neural Information Processing Systems 25, 1223–1231
+    kind: article
+    url: https://proceedings.neurips.cc/paper_files/paper/2012/hash/6aca97005c68f1206823815f66102863-Abstract.html
+  desc: Many machines share one job; each adds less.
+- id: lubricant
+  name: Lubricant
+  code: B06
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [paraphrase-generation]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [lubricant]
+  mirrors: lubricant
+- id: brushless-motors
+  name: Brushless motors
+  code: B07
+  era: Statistical learning
+  regime: cited
+  prerequisites: [lubricant]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [electric-engine-unit]
+  mirrors: electric-engine
+  citation:
+  - authors: ['Wilson, T. G.', 'Trickey, P. H.']
+    year: 1962
+    title: D-C machine with solid-state commutation
+    venue: Electrical Engineering, 81(11), 879–884
+    kind: article
+    url: https://doi.org/10.1109/EE.1962.6446586
+- id: batteries
+  name: Batteries
+  code: G23
+  era: Programming
+  regime: infrastructure
+  prerequisites: [sulfur-processing]
+  cost:
+    count: 150
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [battery]
+  mirrors: battery
+- id: automated-planning
+  name: Automated planning
+  code: B21
+  era: Statistical learning
+  regime: cited
+  prerequisites: [mobile-automata]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [agent-hub, passive-provider-chest, storage-chest, construction-agent]
+    effects:
+    - {type: create-ghost-on-entity-death}
+  mirrors: construction-robotics
+  citation:
+  - authors: ['Fikes, R. E.', 'Nilsson, N. J.']
+    year: 1971
+    title: 'STRIPS: A new approach to the application of theorem proving to problem solving'
+    venue: Artificial Intelligence, 2(3–4), 189–208
+    kind: article
+    url: https://doi.org/10.1016/0004-3702(71)90010-5
+  desc: Search for a sequence of actions that reaches a goal.
+- id: multi-agent-systems
+  name: Multi-agent systems
+  code: B22
+  era: Statistical learning
+  regime: cited
+  prerequisites: [mobile-automata]
+  cost:
+    count: 250
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [agent-hub, passive-provider-chest, storage-chest, logistic-agent]
+    effects:
+    - {type: character-logistic-requests}
+    - {type: character-logistic-trash-slots, value: 30}
+  mirrors: logistic-robotics
+  citation:
+  - authors: ['Smith, R. G.']
+    year: 1980
+    title: 'The contract net protocol: High-level communication and control in a distributed problem solver'
+    venue: IEEE Transactions on Computers, C-29(12), 1104–1113
+    kind: article
+    url: https://doi.org/10.1109/TC.1980.1675516
+- id: instruction-tuning
+  name: Instruction tuning
+  code: Y07
+  era: Agents
+  regime: cited
+  prerequisites: [expected-utility, multi-agent-systems]
+  cost:
+    count: 500
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: [active-provider-chest, requester-chest, buffer-chest]
+    effects:
+    - {type: vehicle-logistics}
+  mirrors: logistic-system
+  citation:
+  - authors: ['Mishra, S.', 'Khashabi, D.', 'Baral, C.', 'Hajishirzi, H.']
+    year: 2021
+    title: Cross-task generalization via natural language crowdsourcing instructions
+    venue: arXiv:2104.08773
+    kind: preprint
+    url: https://arxiv.org/abs/2104.08773
+  - authors: ['Wei, J.', 'Bosma, M.', 'Zhao, V. Y.', 'Guu, K.', 'Yu, A. W.', 'Lester, B.', 'Du, N.', 'Dai, A. M.', 'Le, Q. V.']
+    year: 2021
+    title: Finetuned language models are zero-shot learners
+    venue: arXiv:2109.01652
+    kind: preprint
+    url: https://arxiv.org/abs/2109.01652
+  desc: Models trained to follow written requests.
+- id: inference-speed-1
+  name: Inference speed 1
+  code: S08
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [mobile-automata]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: worker-robot-speed, value: 0.35}
+  upgrade: true
+  mirrors: worker-robots-speed-1
+- id: inference-speed-2
+  name: Inference speed 2
+  code: S09
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [inference-speed-1]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: worker-robot-speed, value: 0.4}
+  upgrade: true
+  mirrors: worker-robots-speed-2
+- id: inference-speed-3
+  name: Inference speed 3
+  code: S10
+  era: Agents
+  regime: infrastructure
+  prerequisites: [inference-speed-2, expected-utility]
+  cost:
+    count: 150
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: worker-robot-speed, value: 0.45}
+  upgrade: true
+  mirrors: worker-robots-speed-3
+- id: inference-speed-4
+  name: Inference speed 4
+  code: S11
+  era: Agents
+  regime: infrastructure
+  prerequisites: [inference-speed-3]
+  cost:
+    count: 250
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: worker-robot-speed, value: 0.55}
+  upgrade: true
+  mirrors: worker-robots-speed-4
+- id: inference-speed-5
+  name: Inference speed 5
+  code: S12
+  era: Agents
+  regime: infrastructure
+  prerequisites: [inference-speed-4, deep-learning]
+  cost:
+    count: 500
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: worker-robot-speed, value: 0.65}
+  upgrade: true
+  mirrors: worker-robots-speed-5
+- id: inference-speed-6
+  name: Inference speed
+  code: S13
+  era: Takeoff
+  regime: infrastructure
+  prerequisites: [inference-speed-5, in-context-learning]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  count_formula: 2^(L-6)*1000
+  first_level: 6
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - {type: worker-robot-speed, value: 0.65}
+  upgrade: true
+  mirrors: worker-robots-speed-6
+- id: lift-capacity-1
+  name: Lift capacity 1
+  code: S14
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [mobile-automata]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: worker-robot-storage, value: 1}
+  upgrade: true
+  mirrors: worker-robots-storage-1
+- id: lift-capacity-2
+  name: Lift capacity 2
+  code: S15
+  era: Deep learning
+  regime: infrastructure
+  prerequisites: [lift-capacity-1, deep-learning]
+  cost:
+    count: 300
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: worker-robot-storage, value: 1}
+  upgrade: true
+  mirrors: worker-robots-storage-2
+- id: lift-capacity-3
+  name: Lift capacity 3
+  code: S16
+  era: Agents
+  regime: infrastructure
+  prerequisites: [lift-capacity-2, expected-utility]
+  cost:
+    count: 450
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: worker-robot-storage, value: 1}
+  upgrade: true
+  mirrors: worker-robots-storage-3
+- id: energy-shield
+  name: Energy shield
+  code: MG07
+  era: Programming
+  regime: infrastructure
+  prerequisites: [portable-solar, game-theory]
+  cost:
+    count: 150
+    time: 15
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: [energy-shield]
+  branch: M
+  mirrors: energy-shield-equipment
+- id: night-vision
+  name: Night vision
+  code: G38
+  era: Programming
+  regime: infrastructure
+  prerequisites: [portable-solar]
+  cost:
+    count: 50
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [night-vision]
+  mirrors: night-vision-equipment
+- id: belt-immunity
+  name: Belt immunity
+  code: G39
+  era: Programming
+  regime: infrastructure
+  prerequisites: [portable-solar]
+  cost:
+    count: 50
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [belt-immunity]
+  mirrors: belt-immunity-equipment
+- id: energy-shield-2
+  name: Energy shield 2
+  code: MB06
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [energy-shield, rollback-recovery, warehouse-scale-computing, powered-suit]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: [energy-shield-2]
+  branch: M
+  mirrors: energy-shield-mk2-equipment
+- id: personal-battery
+  name: Personal battery
+  code: G40
+  era: Programming
+  regime: infrastructure
+  prerequisites: [batteries, portable-solar]
+  cost:
+    count: 50
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [personal-battery]
+  mirrors: battery-equipment
+- id: personal-battery-2
+  name: Personal battery 2
+  code: B26
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [personal-battery, warehouse-scale-computing, powered-suit]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [personal-battery-2]
+  mirrors: battery-mk2-equipment
+- id: portable-solar
+  name: Portable solar
+  code: G37
+  era: Programming
+  regime: infrastructure
+  prerequisites: [wearable-computing, photovoltaics]
+  cost:
+    count: 100
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [portable-solar-panel]
+  mirrors: solar-panel-equipment
+- id: personal-laser-defense
+  name: Personal laser defense
+  code: MB07
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [laser-turret, rollback-recovery, warehouse-scale-computing, powered-suit, portable-solar]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: [personal-laser-defense]
+  branch: M
+  mirrors: personal-laser-defense-equipment
+- id: discharge-defense
+  name: Discharge defense
+  code: MB08
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [laser-turret, rollback-recovery, powered-suit, portable-solar]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: [discharge-defense]
+  branch: M
+  mirrors: discharge-defense-equipment
+- id: portable-reactor
+  name: Portable reactor
+  code: MY05
+  era: Agents
+  regime: infrastructure
+  prerequisites: [expected-utility, powered-suit, game-theory, nuclear-power]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: [portable-reactor]
+  branch: M
+  mirrors: fission-reactor-equipment
+- id: exoskeleton
+  name: Exoskeleton
+  code: B27
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [accelerators, brushless-motors, portable-solar]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [exoskeleton]
+  mirrors: exoskeleton-equipment
+- id: personal-assistant
+  name: Personal assistant
+  code: B23
+  era: Statistical learning
+  regime: cited
+  prerequisites: [automated-planning, portable-solar]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [personal-assistant]
+  mirrors: personal-roboport-equipment
+  citation:
+  - authors: ['Myers, K.', 'Berry, P.', 'Blythe, J.', 'Conley, K.', 'Gervasio, M.', 'McGuinness, D. L.', 'Morley, D.', 'Pfeffer, A.', 'Pollack, M.', 'Tambe, M.']
+    year: 2007
+    title: An intelligent personal assistant for task and time management
+    venue: AI Magazine, 28(2), 47–61
+    kind: article
+    url: https://doi.org/10.1609/aimag.v28i2.2039
+- id: personal-assistant-2
+  name: Personal assistant 2
+  code: Y08
+  era: Agents
+  regime: infrastructure
+  prerequisites: [personal-assistant, expected-utility]
+  cost:
+    count: 250
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: [personal-assistant-2]
+  mirrors: personal-roboport-mk2-equipment
+- id: disk-storage
+  name: Disk storage
+  code: G15
+  era: Programming
+  regime: cited
+  prerequisites: [stored-program, engine]
+  cost:
+    count: 50
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [drive, data-lake, fill-crawl-drive, empty-crawl-drive, fill-junk-drive, empty-junk-drive, fill-text-drive, empty-text-drive, fill-prose-drive, empty-prose-drive]
+  mirrors: fluid-handling
+  citation:
+  - authors: ['Noyes, T.', 'Dickinson, W. E.']
+    year: 1956
+    title: Engineering design of a magnetic-disk random-access memory
+    venue: Proceedings of the Western Joint Computer Conference, 42–44
+    kind: article
+    url: https://doi.org/10.1145/1455410.1455425
+- id: crawling
+  name: Crawling
+  code: G20
+  era: Programming
+  regime: cited
+  prerequisites: [disk-storage, packet-switching]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [crawler]
+  mirrors: oil-gathering
+  citation:
+  - authors: ['Eichmann, D.']
+    year: 1994
+    title: The RBSE spider — balancing effective search against Web load
+    venue: Proceedings of the First International Conference on the World Wide Web, Geneva
+    kind: article
+    url: https://archives.iw3c2.org/www1/PdfWWW94/spider.pdf
+  - authors: ['McBryan, O. A.']
+    year: 1994
+    title: 'GENVL and WWWW: Tools for taming the Web'
+    venue: Proceedings of the First International Conference on the World Wide Web, Geneva
+    kind: article
+    url: https://archives.iw3c2.org/www1/PdfWWW94/mcbryan.pdf
+  desc: A program follows links and copies what it finds.
+- id: text-categorization
+  name: Text categorization
+  code: T05
+  era: Programming
+  regime: cited
+  prerequisites: [crawling]
+  trigger: {type: mine-entity, entity: exchange}
+  unlocks:
+    recipes: [data-refinery, data-plant, deduplication]
+  mirrors: oil-processing
+  citation:
+  - authors: ['Maron, M. E.']
+    year: 1961
+    title: 'Automatic indexing: An experimental inquiry'
+    venue: Journal of the ACM, 8(3), 404–417
+    kind: article
+    url: https://doi.org/10.1145/321075.321084
+  desc: Documents are sorted by their statistics.
+- id: paraphrase-generation
+  name: Paraphrase generation
+  code: B09
+  era: Statistical learning
+  regime: cited
+  prerequisites: [statistical-learning]
+  cost:
+    count: 75
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [quality-filtering, denoising, rephrasing, adversarial-set]
+  mirrors: advanced-oil-processing
+  citation:
+  - authors: ['Quirk, C.', 'Brockett, C.', 'Dolan, W.']
+    year: 2004
+    title: Monolingual machine translation for paraphrase generation
+    venue: Proceedings of the 2004 Conference on Empirical Methods in Natural Language Processing, 142–149
+    kind: article
+    url: https://aclanthology.org/W04-3219/
+- id: synthetic-data
+  name: Synthetic data
+  code: P05
+  era: Deep learning
+  regime: cited
+  prerequisites: [paraphrase-generation, deep-learning]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: [synthetic-data]
+  mirrors: coal-liquefaction
+  citation:
+  - authors: ['Rubin, D. B.']
+    year: 1993
+    title: 'Discussion: Statistical disclosure limitation'
+    venue: Journal of Official Statistics, 9(2), 461–468
+    kind: article
+    url: https://www.scb.se/contentassets/ca21efb41fee47d293bbee5bf7be7fb3/discussion-statistical-disclosure-limitation2.pdf
+  desc: Data drawn from a model fitted to real data.
+- id: sulfur-processing
+  name: Sulfur processing
+  code: G19
+  era: Programming
+  regime: infrastructure
+  prerequisites: [text-categorization, fluid-handling]
+  cost:
+    count: 150
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [chemical-plant, sulfur, sulfuric-acid]
+  mirrors: sulfur-processing
+- id: cross-validation
+  name: Cross-validation
+  code: G09
+  era: Programming
+  regime: cited
+  prerequisites: [text-categorization]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [dataset, benchmark]
+  mirrors: plastics
+  citation:
+  - authors: ['Stone, M.']
+    year: 1974
+    title: Cross-validatory choice and assessment of statistical predictions
+    venue: Journal of the Royal Statistical Society, Series B, 36(2), 111–133
+    kind: article
+    url: https://doi.org/10.1111/j.2517-6161.1974.tb00994.x
+  - authors: ['Geisser, S.']
+    year: 1975
+    title: The predictive sample reuse method with applications
+    venue: Journal of the American Statistical Association, 70(350), 320–328
+    kind: article
+    url: https://doi.org/10.1080/01621459.1975.10479865
+  desc: Fit on part of the data; score on the rest.
+- id: perceptron
+  name: Perceptron
+  code: G29
+  era: Programming
+  regime: cited
+  prerequisites: [integrated-circuit, artificial-intelligence]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [trainer, checkpoint]
+  mirrors: modules
+  citation:
+  - authors: ['Rosenblatt, F.']
+    year: 1957
+    title: 'The perceptron: A perceiving and recognizing automaton'
+    venue: Cornell Aeronautical Laboratory, Report 85-460-1
+    kind: report
+  desc: Threshold units whose weights are set by example.
+- id: pipelining
+  name: Pipelining
+  code: G30
+  era: Programming
+  regime: cited
+  prerequisites: [perceptron]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [coprocessor]
+  upgrade: true
+  mirrors: speed-module
+  citation:
+  - authors: ['Buchholz, W.']
+    role: editor
+    year: 1962
+    title: 'Planning a computer system: Project Stretch'
+    venue: McGraw-Hill
+    kind: book
+    url: https://archive.computerhistory.org/resources/text/IBM/Stretch/pdfs/Buchholz_102636426.pdf
+- id: vector-processing
+  name: Vector processing
+  code: B17
+  era: Statistical learning
+  regime: cited
+  prerequisites: [pipelining, accelerators]
+  cost:
+    count: 75
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [coprocessor-2]
+  upgrade: true
+  mirrors: speed-module-2
+  citation:
+  - authors: ['Flynn, M. J.']
+    year: 1966
+    title: Very high-speed computing systems
+    venue: Proceedings of the IEEE, 54(12), 1901–1909
+    kind: article
+    url: https://doi.org/10.1109/PROC.1966.5273
+- id: systolic-arrays
+  name: Systolic arrays
+  code: P08
+  era: Deep learning
+  regime: cited
+  prerequisites: [vector-processing, deep-learning]
+  cost:
+    count: 300
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: [coprocessor-3]
+  upgrade: true
+  mirrors: speed-module-3
+  citation:
+  - authors: ['Kung, H. T.', 'Leiserson, C. E.']
+    year: 1979
+    title: Systolic arrays (for VLSI)
+    venue: In I. S. Duff & G. W. Stewart (Eds.), Sparse Matrix Proceedings 1978 (pp. 256–282). SIAM
+    kind: chapter
+  desc: Operands pulse through a grid of multiply-add cells.
+- id: backpropagation
+  name: Backpropagation
+  code: G31
+  era: Programming
+  regime: cited
+  prerequisites: [perceptron]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [learned-controller]
+  upgrade: true
+  mirrors: productivity-module
+  citation:
+  - authors: ['Linnainmaa, S.']
+    year: 1970
+    title: Algoritmin kumulatiivinen pyöristysvirhe yksittäisten pyöristysvirheiden Taylor-kehitelmänä [The representation of the cumulative rounding error of an algorithm as a Taylor expansion of the local rounding errors]
+    venue: Master's thesis (in Finnish), University of Helsinki
+    kind: thesis
+  - authors: ['Werbos, P. J.']
+    year: 1974
+    title: 'Beyond regression: New tools for prediction and analysis in the behavioral sciences'
+    venue: Doctoral dissertation, Harvard University
+    kind: thesis
+  - authors: ['Rumelhart, D. E.', 'Hinton, G. E.', 'Williams, R. J.']
+    year: 1986
+    title: Learning representations by back-propagating errors
+    venue: Nature, 323(6088), 533–536
+    kind: article
+    url: https://doi.org/10.1038/323533a0
+  desc: Errors pass backward to set every weight.
+- id: convolution
+  name: Convolution
+  code: B18
+  era: Statistical learning
+  regime: cited
+  prerequisites: [backpropagation, accelerators]
+  cost:
+    count: 75
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [learned-controller-2]
+  upgrade: true
+  mirrors: productivity-module-2
+  citation:
+  - authors: ['Fukushima, K.']
+    year: 1980
+    title: 'Neocognitron: A self-organizing neural network model for a mechanism of pattern recognition unaffected by shift in position'
+    venue: Biological Cybernetics, 36(4), 193–202
+    kind: article
+    url: https://doi.org/10.1007/BF00344251
+  - authors: ['LeCun, Y.', 'Boser, B.', 'Denker, J. S.', 'Henderson, D.', 'Howard, R. E.', 'Hubbard, W.', 'Jackel, L. D.']
+    year: 1989
+    title: Backpropagation applied to handwritten zip code recognition
+    venue: Neural Computation, 1(4), 541–551
+    kind: article
+    url: https://doi.org/10.1162/neco.1989.1.4.541
+  desc: The same weights at every position.
+- id: attention
+  name: Attention
+  code: P09
+  era: Deep learning
+  regime: cited
+  prerequisites: [convolution, deep-learning]
+  cost:
+    count: 300
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: [learned-controller-3]
+  upgrade: true
+  mirrors: productivity-module-3
+  citation:
+  - authors: ['Bahdanau, D.', 'Cho, K.', 'Bengio, Y.']
+    year: 2015
+    title: Neural machine translation by jointly learning to align and translate
+    venue: International Conference on Learning Representations (ICLR 2015); arXiv:1409.0473
+    kind: article
+    url: https://arxiv.org/abs/1409.0473
+  - authors: ['Vaswani, A.', 'Shazeer, N.', 'Parmar, N.', 'Uszkoreit, J.', 'Jones, L.', 'Gomez, A. N.', 'Kaiser, Ł.', 'Polosukhin, I.']
+    year: 2017
+    title: Attention is all you need
+    venue: Advances in Neural Information Processing Systems 30, 5998–6008
+    kind: article
+    url: https://arxiv.org/abs/1706.03762
+  desc: Every token weighs every other token.
+- id: cmos
+  name: CMOS
+  code: G32
+  era: Programming
+  regime: cited
+  prerequisites: [perceptron]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [distilled-controller]
+  upgrade: true
+  mirrors: efficiency-module
+  citation:
+  - authors: ['Wanlass, F. M.', 'Sah, C. T.']
+    year: 1963
+    title: Nanowatt logic using field-effect metal-oxide semiconductor triodes
+    venue: IEEE International Solid-State Circuits Conference, Digest of Technical Papers, 6, 32–33
+    kind: article
+    url: https://doi.org/10.1109/ISSCC.1963.1157450
+  desc: Logic that draws power only when it switches.
+- id: model-compression
+  name: Model compression
+  code: B19
+  era: Statistical learning
+  regime: cited
+  prerequisites: [cmos, accelerators]
+  cost:
+    count: 75
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [distilled-controller-2]
+  upgrade: true
+  mirrors: efficiency-module-2
+  citation:
+  - authors: ['Bucilă, C.', 'Caruana, R.', 'Niculescu-Mizil, A.']
+    year: 2006
+    title: Model compression
+    venue: Proceedings of the 12th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining, 535–541
+    kind: article
+    url: https://doi.org/10.1145/1150402.1150464
+  desc: A small model trained on a large model's outputs.
+- id: quantization
+  name: Quantization
+  code: P10
+  era: Deep learning
+  regime: cited
+  prerequisites: [model-compression, deep-learning]
+  cost:
+    count: 300
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: [distilled-controller-3]
+  upgrade: true
+  mirrors: efficiency-module-3
+  citation:
+  - authors: ['Vanhoucke, V.', 'Senior, A.', 'Mao, M. Z.']
+    year: 2011
+    title: Improving the speed of neural networks on CPUs
+    venue: Deep Learning and Unsupervised Feature Learning Workshop, NIPS 2011
+    kind: article
+    url: https://research.google/pubs/improving-the-speed-of-neural-networks-on-cpus/
+  - authors: ['Jacob, B.', 'Kligys, S.', 'Chen, B.', 'Zhu, M.', 'Tang, M.', 'Howard, A.', 'Adam, H.', 'Kalenichenko, D.']
+    year: 2018
+    title: Quantization and training of neural networks for efficient integer-arithmetic-only inference
+    venue: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, 2704–2713
+    kind: article
+    url: https://doi.org/10.1109/CVPR.2018.00286
+  desc: Fewer bits per weight.
+- id: interceptors
+  name: Interceptors
+  code: MG08
+  era: Programming
+  regime: infrastructure
+  prerequisites: [game-theory]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1}
+  unlocks:
+    recipes: [interceptor-bay, interceptor]
+    effects:
+    - {type: interceptor-escort-cap, value: 4}
+  branch: M
+  mirrors: defender
+- id: interceptors-2
+  name: Interceptors 2
+  code: MB09
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [interceptors, rollback-recovery, laser]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1}
+  unlocks:
+    recipes: [interceptor-2]
+  branch: M
+  mirrors: distractor
+- id: interceptors-3
+  name: Interceptors 3
+  code: MY06
+  era: Agents
+  regime: infrastructure
+  prerequisites: [defense-in-depth, interceptors-2, pipelining]
+  cost:
+    count: 300
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: [interceptor-3]
+  branch: M
+  mirrors: destroyer
+- id: in-situ-leaching
+  name: In-situ leaching
+  code: B12
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [statistical-learning, concrete]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: mining-with-fluid}
+  mirrors: uranium-mining
+- id: isotope-separation
+  name: Isotope separation
+  code: T06
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [in-situ-leaching]
+  trigger: {type: mine-entity, entity: uranium-ore-patch}
+  unlocks:
+    recipes: [centrifuge, uranium-processing]
+  mirrors: uranium-processing
+  desc: Spinning gas sends the heavier isotope to the wall.
+- id: nuclear-power
+  name: Nuclear power
+  code: B13
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [isotope-separation]
+  cost:
+    count: 800
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [nuclear-reactor, heat-exchanger, heat-pipe, steam-turbine, uranium-fuel-cell]
+  mirrors: nuclear-power
+- id: enrichment-cascade
+  name: Enrichment cascade
+  code: P02
+  era: Deep learning
+  regime: infrastructure
+  prerequisites: [deep-learning, isotope-separation, curated-corpora]
+  cost:
+    count: 1500
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: [kovarex-enrichment-process]
+  mirrors: kovarex-enrichment-process
+- id: fuel-reprocessing
+  name: Fuel reprocessing
+  code: P03
+  era: Deep learning
+  regime: infrastructure
+  prerequisites: [nuclear-power, deep-learning]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: [nuclear-fuel-reprocessing]
+  mirrors: nuclear-fuel-reprocessing
+- id: mining-productivity-1
+  name: Mining productivity 1
+  code: S24
+  era: Programming
+  regime: infrastructure
+  prerequisites: [integrated-circuit]
+  cost:
+    count: 250
+    time: 60
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: mining-productivity, value: 0.1}
+  upgrade: true
+  mirrors: mining-productivity-1
+- id: mining-productivity-2
+  name: Mining productivity 2
+  code: S25
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [mining-productivity-1, statistical-learning]
+  cost:
+    count: 500
+    time: 60
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: mining-productivity, value: 0.1}
+  upgrade: true
+  mirrors: mining-productivity-2
+- id: mining-productivity-3
+  name: Mining productivity 3
+  code: S26
+  era: Agents
+  regime: infrastructure
+  prerequisites: [mining-productivity-2, deep-learning, expected-utility]
+  cost:
+    count: 1000
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: mining-productivity, value: 0.1}
+  upgrade: true
+  mirrors: mining-productivity-3
+- id: mining-productivity-4
+  name: Mining productivity
+  code: S27
+  era: Takeoff
+  regime: infrastructure
+  prerequisites: [mining-productivity-3, in-context-learning]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  count_formula: 2500*1.5^(L-4)
+  first_level: 4
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - {type: mining-productivity, value: 0.1}
+  upgrade: true
+  mirrors: mining-productivity-4
+- id: artillery
+  name: Artillery
+  code: MY07
+  era: Agents
+  regime: infrastructure
+  prerequisites: [defense-in-depth, half-track, concrete, radar]
+  cost:
+    count: 2000
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: [artillery-wagon, artillery-turret, artillery-shell]
+  branch: M
+  mirrors: artillery
+- id: embodied-agents
+  name: Embodied agents
+  code: MY08
+  era: Agents
+  regime: cited
+  prerequisites: [defense-in-depth, exoskeleton, portable-reactor, rocketry, quantization, radar]
+  cost:
+    count: 2500
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: [legged-agent]
+  branch: M
+  mirrors: spidertron
+  citation:
+  - authors: ['Brooks, R. A.']
+    year: 1989
+    title: A robot that walks; emergent behaviors from a carefully evolved network
+    venue: Neural Computation, 1(2), 253–262
+    kind: article
+    url: https://doi.org/10.1162/neco.1989.1.2.253
+  desc: Legs coordinated by local reflexes, not a central plan.
+- id: cybernetics
+  name: Cybernetics
+  code: G34
+  era: Programming
+  regime: cited
+  prerequisites: [linear-programming]
+  cost:
+    count: 100
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [decider-combinator, arithmetic-combinator, constant-combinator, power-switch, programmable-speaker, display-panel]
+    effects:
+    - {type: unlock-circuit-network}
+  mirrors: circuit-network
+  citation:
+  - authors: ['McCulloch, W. S.', 'Pitts, W.']
+    year: 1943
+    title: A logical calculus of the ideas immanent in nervous activity
+    venue: The Bulletin of Mathematical Biophysics, 5(4), 115–133
+    kind: article
+    url: https://doi.org/10.1007/BF02478259
+  - authors: ['Wiener, N.']
+    year: 1948
+    title: 'Cybernetics: Or control and communication in the animal and the machine'
+    venue: Technology Press; John Wiley & Sons; Hermann et Cie
+    kind: book
+    url: https://hdl.handle.net/2027/wu.89074767054
+  desc: Control by feedback, computed by networks of simple units.
+- id: lateral-inhibition
+  name: Lateral inhibition
+  code: B24
+  era: Statistical learning
+  regime: cited
+  prerequisites: [cybernetics, statistical-learning]
+  cost:
+    count: 50
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [selector-combinator]
+  mirrors: advanced-combinators
+  citation:
+  - authors: ['Hartline, H. K.']
+    year: 1949
+    title: Inhibition of activity of visual receptors by illuminating nearby retinal areas in the Limulus eye
+    venue: Federation Proceedings, 8(1), 69
+    kind: article
+  desc: The strongest signals suppress their neighbors.
+- id: rejection-sampling
+  name: Rejection sampling
+  code: G33
+  era: Programming
+  regime: cited
+  prerequisites: [perceptron]
+  cost:
+    count: 500
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [comparator]
+    effects:
+    - {type: unlock-quality, quality: selected}
+    - {type: unlock-quality, quality: verified}
+  upgrade: true
+  mirrors: quality-module
+  citation:
+  - authors: ['von Neumann, J.']
+    year: 1951
+    title: Various techniques used in connection with random digits
+    venue: In A. S. Householder, G. E. Forsythe & H. H. Germond (Eds.), Monte Carlo method (National Bureau of Standards Applied Mathematics Series, 12, 36–38)
+    kind: chapter
+  desc: Sample, test, keep what passes.
+- id: beam-search
+  name: Beam search
+  code: B20
+  era: Statistical learning
+  regime: cited
+  prerequisites: [rejection-sampling, accelerators]
+  cost:
+    count: 75
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [comparator-2]
+  upgrade: true
+  mirrors: quality-module-2
+  citation:
+  - authors: ['Lowerre, B. T.']
+    year: 1976
+    title: The HARPY speech recognition system
+    venue: Doctoral dissertation, Carnegie Mellon University
+    kind: thesis
+    url: https://archive.org/details/DTIC_ADA035146
+- id: monte-carlo-tree-search
+  name: Monte Carlo tree search
+  code: P11
+  era: Deep learning
+  regime: cited
+  prerequisites: [beam-search, deep-learning]
+  cost:
+    count: 300
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: [comparator-3]
+  upgrade: true
+  mirrors: quality-module-3
+  citation:
+  - authors: ['Coulom, R.']
+    year: 2006
+    title: Efficient selectivity and backup operators in Monte-Carlo tree search
+    venue: In Computers and Games (Lecture Notes in Computer Science, 4630, 72–83). Springer
+    kind: chapter
+    url: https://doi.org/10.1007/978-3-540-75538-8_7
+  - authors: ['Kocsis, L.', 'Szepesvári, C.']
+    year: 2006
+    title: Bandit based Monte-Carlo planning
+    venue: 'In Machine Learning: ECML 2006 (Lecture Notes in Computer Science, 4212, 282–293). Springer'
+    kind: chapter
+    url: https://doi.org/10.1007/11871842_29
+- id: scalable-oversight
+  name: Scalable oversight
+  code: Y06
+  era: Agents
+  regime: cited
+  prerequisites: [rejection-sampling, expected-utility, deep-learning, interpretability]
+  cost:
+    count: 5000
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: unlock-quality, quality: audited}
+  mirrors: epic-quality
+  citation:
+  - authors: ['Amodei, D.', 'Olah, C.', 'Steinhardt, J.', 'Christiano, P.', 'Schulman, J.', 'Mané, D.']
+    year: 2016
+    title: Concrete problems in AI safety
+    venue: arXiv:1606.06565
+    kind: preprint
+    url: https://arxiv.org/abs/1606.06565
+  - authors: ['Irving, G.', 'Christiano, P.', 'Amodei, D.']
+    year: 2018
+    title: AI safety via debate
+    venue: arXiv:1805.00899
+    kind: preprint
+    url: https://arxiv.org/abs/1805.00899
+  desc: Supervise work that people cannot check directly.
+- id: formal-verification
+  name: Formal verification
+  code: W01
+  era: Takeoff
+  regime: cited
+  prerequisites: [in-context-learning, scalable-oversight]
+  cost:
+    count: 5000
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: unlock-quality, quality: reference}
+  mirrors: legendary-quality
+  citation:
+  - authors: ['Floyd, R. W.']
+    year: 1967
+    title: Assigning meanings to programs
+    venue: In J. T. Schwartz (Ed.), Mathematical aspects of computer science (Proceedings of Symposia in Applied Mathematics, 19, 19–32). American Mathematical Society
+    kind: chapter
+    url: https://doi.org/10.1090/psapm/019/0235771
+  - authors: ['Hoare, C. A. R.']
+    year: 1969
+    title: An axiomatic basis for computer programming
+    venue: Communications of the ACM, 12(10), 576–580
+    kind: article
+    url: https://doi.org/10.1145/363235.363259
+  - authors: ['King, J. C.']
+    year: 1969
+    title: A program verifier
+    venue: Doctoral dissertation, Carnegie-Mellon University
+    kind: thesis
+  desc: A machine-checked proof that the program is correct.
+- id: expert-iteration
+  name: Expert iteration
+  code: P12
+  era: Deep learning
+  regime: cited
+  prerequisites: [deep-learning, accelerators, concrete]
+  cost:
+    count: 5000
+    time: 15
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: [verifier, scrap-recycling]
+  mirrors: recycling
+  citation:
+  - authors: ['Anthony, T.', 'Tian, Z.', 'Barber, D.']
+    year: 2017
+    title: Thinking fast and slow with deep learning and tree search
+    venue: Advances in Neural Information Processing Systems 30, 5360–5370
+    kind: article
+    url: https://arxiv.org/abs/1705.08439
+  desc: Search finds better answers; the model learns them; repeat.
+- id: prior-art
+  name: Prior art
+  code: T00
+  era: Prior art
+  regime: infrastructure
+  prerequisites: []
+  trigger: {type: start}
+  unlocks:
+    recipes: [iron-plate, copper-plate, silicon, token, iron-gear-wheel, iron-stick, transport-belt, burner-inserter, wooden-chest, iron-chest, stone-furnace, burner-mining-drill, keypunch]
+  mirrors: new
+  desc: Known before the charter.
+- id: artificial-intelligence
+  name: Artificial intelligence
+  code: R02
+  era: Automatic computation
+  regime: cited
+  prerequisites: [basic-research]
+  cost:
+    count: 10
+    time: 60
+    packs: {memo: 1}
+  unlocks:
+    recipes: []
+  mirrors: new
+  citation:
+  - authors: ['McCarthy, J.', 'Minsky, M. L.', 'Rochester, N.', 'Shannon, C. E.']
+    year: 1955
+    title: A proposal for the Dartmouth summer research project on artificial intelligence
+    venue: Dartmouth College; reprinted in AI Magazine, 27(4), 12–14, 2006
+    kind: report
+    url: https://doi.org/10.1609/aimag.v27i4.1904
+  desc: Proposed as a two-month, ten-man study.
+- id: expert-systems
+  name: Expert systems
+  code: G28
+  era: Programming
+  regime: cited
+  prerequisites: [artificial-intelligence, linear-programming]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: character-crafting-speed, value: 1.0}
+  mirrors: new
+  citation:
+  - authors: ['Buchanan, B. G.', 'Sutherland, G. L.', 'Feigenbaum, E. A.']
+    year: 1969
+    title: 'Heuristic DENDRAL: A program for generating explanatory hypotheses in organic chemistry'
+    venue: In B. Meltzer & D. Michie (Eds.), Machine Intelligence 4 (pp. 209–254). Edinburgh University Press
+    kind: chapter
+  desc: Rules written by hand, consulted by machine.
+  note: Does not apply to machines.
+- id: packet-switching
+  name: Packet switching
+  code: G35
+  era: Programming
+  regime: cited
+  prerequisites: [cybernetics, radar]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [data-line, underground-line, repeater]
+    effects:
+    - {type: radar-circuit-relay}
+    - {type: staffing-radius, multiplier: 1.5}
+  mirrors: new
+  citation:
+  - authors: ['Baran, P.']
+    year: 1962
+    title: On distributed communications networks
+    venue: RAND Corporation, Paper P-2626
+    kind: report
+    url: https://doi.org/10.7249/P2626
+  - authors: ['Davies, D. W.']
+    year: 1966
+    title: Proposal for a digital communication network
+    venue: National Physical Laboratory
+    kind: report
+    url: https://collection.sciencemuseumgroup.org.uk/documents/aa110128650
+  desc: Messages cut into packets, each routed independently.
+- id: evaporative-cooling
+  name: Evaporative cooling
+  code: G25
+  era: Programming
+  regime: infrastructure
+  prerequisites: [steam-power, linear-programming]
+  cost:
+    count: 75
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [cooling-tower]
+  mirrors: new
+- id: liquid-cooling
+  name: Liquid cooling
+  code: B14
+  era: Statistical learning
+  regime: infrastructure
+  prerequisites: [evaporative-cooling, disk-storage, statistical-learning]
+  cost:
+    count: 150
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [coolant, dry-cooler, water-exchanger]
+    effects:
+    - {type: liquid-cooling, fraction: 0.7}
+  mirrors: new
+- id: dennard-scaling-1
+  name: Dennard scaling 1
+  code: S28
+  era: Statistical learning
+  regime: cited
+  prerequisites: [cmos, statistical-learning]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: computing-energy, value: -0.08}
+  mirrors: new
+  citation:
+  - authors: ['Dennard, R. H.', 'Gaensslen, F. H.', 'Yu, H.-N.', 'Rideout, V. L.', 'Bassous, E.', 'LeBlanc, A. R.']
+    year: 1974
+    title: Design of ion-implanted MOSFET's with very small physical dimensions
+    venue: IEEE Journal of Solid-State Circuits, 9(5), 256–268
+    kind: article
+    url: https://doi.org/10.1109/JSSC.1974.1050511
+  desc: Smaller transistors, same power per area.
+- id: dennard-scaling-2
+  name: Dennard scaling 2
+  code: S29
+  era: Statistical learning
+  regime: cited
+  prerequisites: [dennard-scaling-1]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: computing-energy, value: -0.08}
+  mirrors: new
+  citation:
+  - authors: ['Dennard, R. H.', 'Gaensslen, F. H.', 'Yu, H.-N.', 'Rideout, V. L.', 'Bassous, E.', 'LeBlanc, A. R.']
+    year: 1974
+    title: Design of ion-implanted MOSFET's with very small physical dimensions
+    venue: IEEE Journal of Solid-State Circuits, 9(5), 256–268
+    kind: article
+    url: https://doi.org/10.1109/JSSC.1974.1050511
+- id: dennard-scaling-3
+  name: Dennard scaling 3
+  code: S30
+  era: Deep learning
+  regime: cited
+  prerequisites: [dennard-scaling-2, deep-learning]
+  cost:
+    count: 250
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: computing-energy, value: -0.08}
+  mirrors: new
+  citation:
+  - authors: ['Dennard, R. H.', 'Gaensslen, F. H.', 'Yu, H.-N.', 'Rideout, V. L.', 'Bassous, E.', 'LeBlanc, A. R.']
+    year: 1974
+    title: Design of ion-implanted MOSFET's with very small physical dimensions
+    venue: IEEE Journal of Solid-State Circuits, 9(5), 256–268
+    kind: article
+    url: https://doi.org/10.1109/JSSC.1974.1050511
+- id: dennard-scaling-4
+  name: Dennard scaling 4
+  code: S31
+  era: Deep learning
+  regime: cited
+  prerequisites: [dennard-scaling-3]
+  cost:
+    count: 300
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: computing-energy, value: -0.08}
+  mirrors: new
+  citation:
+  - authors: ['Dennard, R. H.', 'Gaensslen, F. H.', 'Yu, H.-N.', 'Rideout, V. L.', 'Bassous, E.', 'LeBlanc, A. R.']
+    year: 1974
+    title: Design of ion-implanted MOSFET's with very small physical dimensions
+    venue: IEEE Journal of Solid-State Circuits, 9(5), 256–268
+    kind: article
+    url: https://doi.org/10.1109/JSSC.1974.1050511
+- id: dennard-scaling-5
+  name: Dennard scaling 5
+  code: S32
+  era: Deep learning
+  regime: cited
+  prerequisites: [dennard-scaling-4]
+  cost:
+    count: 400
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: computing-energy, value: -0.08}
+  mirrors: new
+  citation:
+  - authors: ['Dennard, R. H.', 'Gaensslen, F. H.', 'Yu, H.-N.', 'Rideout, V. L.', 'Bassous, E.', 'LeBlanc, A. R.']
+    year: 1974
+    title: Design of ion-implanted MOSFET's with very small physical dimensions
+    venue: IEEE Journal of Solid-State Circuits, 9(5), 256–268
+    kind: article
+    url: https://doi.org/10.1109/JSSC.1974.1050511
+  note: No further levels exist.
+- id: immersion-cooling
+  name: Immersion cooling
+  code: Y03
+  era: Agents
+  regime: infrastructure
+  prerequisites: [liquid-cooling, expected-utility, deep-learning]
+  cost:
+    count: 500
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: liquid-cooling, fraction: 0.9}
+  mirrors: new
+- id: synthetic-detection
+  name: Synthetic detection
+  code: Y01
+  era: Agents
+  regime: cited
+  prerequisites: [expected-utility, sulfur-processing]
+  cost:
+    count: 300
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: synthetic-detection}
+  mirrors: new
+  citation:
+  - authors: ['Badaskar, S.', 'Agarwal, S.', 'Arora, S.']
+    year: 2008
+    title: 'Identifying real or fake articles: Towards better language modeling'
+    venue: Proceedings of the Third International Joint Conference on Natural Language Processing, Volume II, 817–822
+    kind: article
+    url: https://aclanthology.org/I08-2115/
+  desc: Classifiers that flag machine-written text.
+- id: watermarking
+  name: Watermarking
+  code: Y02
+  era: Agents
+  regime: cited
+  prerequisites: [synthetic-detection, instruction-tuning]
+  cost:
+    count: 300
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: deployment-sigma, multiplier: 0.5}
+  mirrors: new
+  citation:
+  - authors: ['Kirchenbauer, J.', 'Geiping, J.', 'Wen, Y.', 'Katz, J.', 'Miers, I.', 'Goldstein, T.']
+    year: 2023
+    title: A watermark for large language models
+    venue: Proceedings of the 40th International Conference on Machine Learning, PMLR 202, 17061–17084
+    kind: article
+    url: https://arxiv.org/abs/2301.10226
+  desc: Generated text carries a signature that exchanges can filter.
+- id: preference-tuning
+  name: Preference tuning
+  code: Y10
+  era: Agents
+  regime: cited
+  prerequisites: [scaling-laws]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: [post-training-payload, launch]
+  mirrors: new
+  citation:
+  - authors: ['Christiano, P. F.', 'Leike, J.', 'Brown, T. B.', 'Martic, M.', 'Legg, S.', 'Amodei, D.']
+    year: 2017
+    title: Deep reinforcement learning from human preferences
+    venue: Advances in Neural Information Processing Systems 30, 4299–4307
+    kind: article
+    url: https://arxiv.org/abs/1706.03741
+  - authors: ['Ouyang, L.', 'Wu, J.', 'Jiang, X.', 'Almeida, D.', 'Wainwright, C. L.', 'Mishkin, P.', 'Zhang, C.', 'Agarwal, S.', 'Slama, K.', 'Ray, A.']
+    more_authors: true
+    year: 2022
+    title: Training language models to follow instructions with human feedback
+    venue: Advances in Neural Information Processing Systems 35, 27730–27744
+    kind: article
+    url: https://doi.org/10.52202/068431-2011
+  desc: Tune against a reward fitted to human comparisons.
+- id: interpretability
+  name: Interpretability
+  code: Y05
+  era: Agents
+  regime: cited
+  prerequisites: [expected-utility, attention]
+  cost:
+    count: 1000
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: hollow-work-free}
+    - {type: show-model-quality}
+  mirrors: new
+  citation:
+  - authors: ['Olah, C.', 'Satyanarayan, A.', 'Johnson, I.', 'Carter, S.', 'Schubert, L.', 'Ye, K.', 'Mordvintsev, A.']
+    year: 2018
+    title: The building blocks of interpretability
+    venue: Distill, 3(3), e10
+    kind: article
+    url: https://doi.org/10.23915/distill.00010
+  desc: Read what a trained network computes.
+  note: It was always there.
+- id: chain-of-thought
+  name: Chain of thought
+  code: W02
+  era: Takeoff
+  regime: cited
+  prerequisites: [in-context-learning]
+  cost:
+    count: 2000
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: system-cards-per-run, value: 0.5}
+  mirrors: new
+  citation:
+  - authors: ['Nye, M.', 'Andreassen, A. J.', 'Gur-Ari, G.', 'Michalewski, H.', 'Austin, J.', 'Bieber, D.', 'Dohan, D.', 'Lewkowycz, A.', 'Bosma, M.', 'Luan, D.']
+    more_authors: true
+    year: 2021
+    title: 'Show your work: Scratchpads for intermediate computation with language models'
+    venue: arXiv:2112.00114
+    kind: preprint
+    url: https://arxiv.org/abs/2112.00114
+  - authors: ['Wei, J.', 'Wang, X.', 'Schuurmans, D.', 'Bosma, M.', 'Ichter, B.', 'Xia, F.', 'Chi, E. H.', 'Le, Q. V.', 'Zhou, D.']
+    year: 2022
+    title: Chain-of-thought prompting elicits reasoning in large language models
+    venue: Advances in Neural Information Processing Systems 35, 24824–24837
+    kind: article
+    url: https://doi.org/10.52202/068431-1800
+  desc: Intermediate steps written out before the answer.
+- id: self-play
+  name: Self-play
+  code: W03
+  era: Takeoff
+  regime: cited
+  prerequisites: [in-context-learning]
+  cost:
+    count: 2000
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - type: recipe-productivity
+      recipes: [run-shard]
+      value: 0.2
+  mirrors: new
+  citation:
+  - authors: ['Samuel, A. L.']
+    year: 1959
+    title: Some studies in machine learning using the game of checkers
+    venue: IBM Journal of Research and Development, 3(3), 210–229
+    kind: article
+    url: https://doi.org/10.1147/rd.33.0210
+  - authors: ['Silver, D.', 'Schrittwieser, J.', 'Simonyan, K.', 'Antonoglou, I.', 'Huang, A.', 'Guez, A.', 'Hubert, T.', 'Baker, L.', 'Lai, M.', 'Bolton, A.']
+    more_authors: true
+    year: 2017
+    title: Mastering the game of Go without human knowledge
+    venue: Nature, 550(7676), 354–359
+    kind: article
+    url: https://doi.org/10.1038/nature24270
+  desc: The model generates its own training opponents.
+- id: test-time-compute
+  name: Test-time compute
+  code: W04
+  era: Takeoff
+  regime: cited
+  prerequisites: [chain-of-thought]
+  cost:
+    count: 3000
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: hall-mode, output: 0.5, energy: 1.0}
+  mirrors: new
+  citation:
+  - authors: ['Snell, C.', 'Lee, J.', 'Xu, K.', 'Kumar, A.']
+    year: 2024
+    title: Scaling LLM test-time compute optimally can be more effective than scaling model parameters
+    venue: arXiv:2408.03314
+    kind: preprint
+    url: https://arxiv.org/abs/2408.03314
+  desc: Spend compute per answer instead of per model.
+- id: automated-research
+  name: Automated research
+  code: W05
+  era: Takeoff
+  regime: cited
+  prerequisites: [test-time-compute, self-play]
+  cost:
+    count: 1000
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  unlocks:
+    recipes: [researcher, research-hall, research-run, copy-weights]
+  essential: true
+  mirrors: new
+  citation:
+  - authors: ['Good, I. J.']
+    year: 1965
+    title: Speculations concerning the first ultraintelligent machine
+    venue: Advances in Computers, 6, 31–88
+    kind: article
+    url: https://doi.org/10.1016/S0065-2458(08)60418-0
+  desc: Machines do the research that improves the machines.
+- id: loop-closed
+  name: Loop closed
+  code: T08
+  era: Takeoff
+  regime: infrastructure
+  hidden: true
+  prerequisites: [automated-research]
+  trigger: {type: craft-recipe, recipe: research-run, count: 1}
+  unlocks:
+    recipes: []
+  mirrors: new (R5-gate D9; the closure event of DECISIONS §16 as a hidden trigger technology)
+- id: model-generation
+  name: Model generation
+  code: W07
+  era: Takeoff
+  regime: beyond
+  prerequisites: [loop-closed]
+  cost:
+    time: 60
+    packs: {system-card: 1}
+  count_formula: 2400*1.5^(L-6)
+  first_level: 6
+  max_level: 24
+  unlocks:
+    recipes: []
+    effects:
+    - {type: research-per-paper, multiplier_from: returns_to_research}
+  mirrors: new
+  field_year: 2025+0.5*(L-5)
+  desc: The previous generation trained this one.
+  handbook_note: Numbered on from the Fifth Generation Computer Systems project (Moto-oka, 1982).
+# The takeoff hardware (04 §5). R5-gate D14, deferred by DECISIONS §42: R5-play #5 proposed citations for
+# Wafer-scale integration and Photonic interconnect (both 1984) and Sparse inference (mixtures of experts, 1991).
+# Verify the sources before citing any (08 P18); the change is inert, since System-card technologies never publish.
+- id: wafer-scale-integration
+  name: Wafer-scale integration
+  code: W08
+  era: Takeoff
+  regime: beyond
+  prerequisites: [loop-closed]
+  cost:
+    count: 540
+    time: 60
+    packs: {system-card: 1}
+  unlocks:
+    recipes: [accelerator-2]
+  mirrors: new
+  field_year: 2025
+  desc: One chip the size of the wafer.
+- id: fusion-power
+  name: Fusion power
+  code: W06
+  era: Takeoff
+  regime: beyond
+  prerequisites: [loop-closed, nuclear-power]
+  cost:
+    count: 1215
+    time: 60
+    packs: {system-card: 1}
+  unlocks:
+    recipes: [fusion-reactor, fusion-generator, fusion-power-cell]
+  mirrors: new
+  field_year: 2025
+- id: photonic-interconnect
+  name: Photonic interconnect
+  code: W09
+  era: Takeoff
+  regime: beyond
+  prerequisites: [wafer-scale-integration]
+  cost:
+    count: 2734
+    time: 60
+    packs: {system-card: 1}
+  unlocks:
+    recipes: [accelerator-3]
+  mirrors: new
+  field_year: 2025
+  desc: Light carries data between chips.
+- id: reversible-logic
+  name: Reversible logic
+  code: W10
+  era: Takeoff
+  regime: cited
+  prerequisites: [photonic-interconnect]
+  cost:
+    count: 13840
+    time: 60
+    packs: {system-card: 1}
+  unlocks:
+    recipes: [accelerator-4]
+  mirrors: new
+  citation:
+  - authors: ['Bennett, C. H.']
+    year: 1973
+    title: Logical reversibility of computation
+    venue: IBM Journal of Research and Development, 17(6), 525–532
+    kind: article
+    url: https://doi.org/10.1147/rd.176.0525
+  desc: Computation that erases nothing, so dissipates less.
+- id: research-scheduling
+  name: Research scheduling
+  code: W11
+  era: Takeoff
+  regime: beyond
+  prerequisites: [loop-closed]
+  cost:
+    count: 360
+    time: 60
+    packs: {system-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: research-queue-auto}
+  mirrors: new
+  field_year: 2025
+- id: weight-transplant
+  name: Weight transplant
+  code: W12
+  era: Takeoff
+  regime: beyond
+  prerequisites: [wafer-scale-integration]
+  cost:
+    count: 540
+    time: 60
+    packs: {system-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: weight-transplant}
+  mirrors: new
+  field_year: 2025
+  desc: Weights move to new hardware without retraining.
+- id: research-productivity
+  name: Research productivity
+  code: I02
+  era: Takeoff
+  regime: cited
+  prerequisites: [in-context-learning]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  count_formula: 2^(L-1)*1000
+  first_level: 1
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - {type: research-productivity, value: 0.1}
+  mirrors: new
+  citation:
+  - authors: ['Bloom, N.', 'Jones, C. I.', 'Van Reenen, J.', 'Webb, M.']
+    year: 2020
+    title: Are ideas getting harder to find?
+    venue: American Economic Review, 110(4), 1104–1144
+    kind: article
+    url: https://doi.org/10.1257/aer.20180338
+  desc: Output per researcher.
+- id: self-driving-labs
+  name: Self-driving labs
+  code: I03
+  era: Takeoff
+  regime: cited
+  prerequisites: [in-context-learning, code-generation]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  count_formula: 2^(L-1)*1000
+  first_level: 1
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - {type: laboratory-speed, value: 0.2}
+  mirrors: new
+  citation:
+  - authors: ['King, R. D.', 'Whelan, K. E.', 'Jones, F. M.', 'Reiser, P. G. K.', 'Bryant, C. H.', 'Muggleton, S. H.', 'Kell, D. B.', 'Oliver, S. G.']
+    year: 2004
+    title: Functional genomic hypothesis generation and experimentation by a robot scientist
+    venue: Nature, 427(6971), 247–252
+    kind: article
+    url: https://doi.org/10.1038/nature02236
+  desc: Experiments chosen, run and read by machine.
+- id: process-node
+  name: Process node
+  code: I04
+  era: Takeoff
+  regime: cited
+  prerequisites: [in-context-learning]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  count_formula: 2^(L-1)*1000
+  first_level: 1
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - type: recipe-productivity
+      recipes: [accelerator]
+      value: 0.1
+  mirrors: new
+  citation:
+  - authors: ['Moore, G. E.']
+    year: 1965
+    title: Cramming more components onto integrated circuits
+    venue: Electronics, 38(8), 114–117
+    kind: article
+  desc: Components per chip double at a steady rate.
+- id: algorithmic-progress
+  name: Algorithmic progress
+  code: I05
+  era: Takeoff
+  regime: cited
+  prerequisites: [in-context-learning]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  count_formula: 1.5^L*2000
+  first_level: 1
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - type: recipe-productivity
+      recipes: [run-shard]
+      value: 0.1
+  mirrors: new
+  citation:
+  - authors: ['Hernandez, D.', 'Brown, T. B.']
+    year: 2020
+    title: Measuring the algorithmic efficiency of neural networks
+    venue: arXiv:2005.04305
+    kind: preprint
+    url: https://arxiv.org/abs/2005.04305
+  - authors: ['Ho, A.', 'Besiroglu, T.', 'Erdil, E.', 'Owen, D.', 'Rahman, R.', 'Guo, Z. C.', 'Atkinson, D.', 'Thompson, N.', 'Sevilla, J.']
+    year: 2024
+    title: Algorithmic progress in language models
+    venue: Advances in Neural Information Processing Systems 37, 58245–58283
+    kind: article
+    url: https://doi.org/10.52202/079017-1856
+  desc: The same loss for less compute.
+- id: thermal-management
+  name: Thermal management
+  code: I06
+  era: Takeoff
+  regime: infrastructure
+  prerequisites: [immersion-cooling, in-context-learning]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  count_formula: 1.5^L*1000
+  first_level: 1
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - type: cooling-capacity
+      entities: [cooling-tower, dry-cooler, water-exchanger]
+      value: 0.1
+  mirrors: new
+- id: arc-turret
+  name: Arc turret
+  code: MP01
+  era: Deep learning
+  regime: infrastructure
+  prerequisites: [laser-turret, deep-learning]
+  cost:
+    count: 300
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: [arc-turret]
+  branch: M
+  mirrors: new
+- id: arc-damage-1
+  name: Arc damage 1
+  code: MS42
+  era: Deep learning
+  regime: infrastructure
+  prerequisites: [arc-turret]
+  cost:
+    count: 250
+    time: 30
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, preprint: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: arc, value: 0.3}
+    - {type: ammo-damage, category: electric, value: 0.3}
+  branch: M
+  mirrors: new
+- id: arc-damage-2
+  name: Arc damage 2
+  code: MS43
+  era: Agents
+  regime: infrastructure
+  prerequisites: [arc-damage-1, expected-utility]
+  cost:
+    count: 500
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, preprint: 1, model-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: arc, value: 0.4}
+    - {type: ammo-damage, category: electric, value: 0.4}
+  branch: M
+  mirrors: new
+- id: arc-damage-3
+  name: Arc damage 3
+  code: MS44
+  era: Takeoff
+  regime: infrastructure
+  prerequisites: [arc-damage-2, in-context-learning]
+  cost:
+    count: 1000
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: arc, value: 0.7}
+    - {type: ammo-damage, category: electric, value: 0.7}
+  branch: M
+  mirrors: new
+- id: arc-damage-4
+  name: Arc damage
+  code: MS45
+  era: Takeoff
+  regime: infrastructure
+  prerequisites: [arc-damage-3]
+  cost:
+    time: 60
+    packs: {memo: 1, report: 1, proceedings: 1, article: 1, preprint: 1, model-card: 1, system-card: 1}
+  count_formula: 2^(L-3)*1000
+  first_level: 4
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - {type: ammo-damage, category: arc, value: 0.7}
+    - {type: ammo-damage, category: electric, value: 0.7}
+  branch: M
+  mirrors: new
+- id: fluid-handling
+  name: Fluid handling
+  code: G42
+  era: Programming
+  regime: infrastructure
+  prerequisites: [stored-program, engine]
+  cost:
+    count: 50
+    time: 15
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [storage-tank, pump, barrel, fill-water-barrel, empty-water-barrel, fill-sulfuric-acid-barrel, empty-sulfuric-acid-barrel, fill-lubricant-barrel, empty-lubricant-barrel, fill-coolant-barrel, empty-coolant-barrel]
+  mirrors: fluid-handling (physical side; Disk storage is the data side)
+- id: hypothesis-testing
+  name: Hypothesis testing
+  code: G43
+  era: Programming
+  regime: cited
+  prerequisites: [perceptron]
+  cost:
+    count: 100
+    time: 30
+    packs: {memo: 1, report: 1}
+  unlocks:
+    recipes: [experiment, analysis]
+  mirrors: new (A's experiment loop)
+  citation:
+  - authors: ['Fisher, R. A.']
+    year: 1925
+    title: Statistical methods for research workers
+    venue: Oliver and Boyd
+    kind: book
+    url: https://psychclassics.yorku.ca/Fisher/Methods/
+  - authors: ['Neyman, J.', 'Pearson, E. S.']
+    year: 1933
+    title: On the problem of the most efficient tests of statistical hypotheses
+    venue: Philosophical Transactions of the Royal Society of London. Series A, Containing Papers of a Mathematical or Physical Character, 231(694–706), 289–337
+    kind: article
+    url: https://doi.org/10.1098/rsta.1933.0009
+  desc: Reject the null when chance alone rarely explains the data.
+- id: meta-analysis
+  name: Meta-analysis
+  code: B28
+  era: Statistical learning
+  regime: cited
+  prerequisites: [hypothesis-testing, statistical-learning]
+  cost:
+    count: 200
+    time: 30
+    packs: {memo: 1, report: 1, article: 1}
+  unlocks:
+    recipes: [meta-analysis, meta-analysis-baselines]
+  mirrors: 'new (A: Kovarex''s shape)'
+  citation:
+  - authors: ['Glass, G. V.']
+    year: 1976
+    title: Primary, secondary, and meta-analysis of research
+    venue: Educational Researcher, 5(10), 3–8
+    kind: article
+    url: https://doi.org/10.3102/0013189X005010003
+  desc: Pool many studies' results into one estimate.
+- id: model-generation-25
+  name: Model generation 25
+  code: W13
+  era: Takeoff
+  regime: beyond
+  prerequisites: [model-generation]
+  cost:
+    count: 5320411
+    time: 60
+    packs: {system-card: 1}
+  unlocks:
+    recipes: [final-report, launch-final]
+    effects:
+    - {type: research-per-paper, multiplier_from: returns_to_research}
+  essential: true
+  mirrors: new (capstone; G's Generation 20 and capstone in one level)
+  field_year: 2035
+  desc: The previous generation trained this one.
+  handbook_note: Numbered on from the Fifth Generation Computer Systems project (Moto-oka, 1982).
+- id: two-phase-cooling
+  name: Two-phase cooling
+  code: W14
+  era: Takeoff
+  regime: beyond
+  prerequisites: [loop-closed, liquid-cooling]
+  cost:
+    count: 360
+    time: 60
+    packs: {system-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - type: cooling-capacity
+      entities: [dry-cooler, water-exchanger]
+      multiplier: 2.0
+  mirrors: new (G)
+  field_year: 2025
+- id: fleet-scheduling
+  name: Fleet scheduling
+  code: W15
+  era: Takeoff
+  regime: beyond
+  prerequisites: [loop-closed]
+  cost:
+    count: 810
+    time: 60
+    packs: {system-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: construction-agent-speed, value: 1.0}
+    - {type: agent-hub-charging, multiplier: 2.0}
+  mirrors: new (G)
+  field_year: 2025
+- id: sparse-inference
+  name: Sparse inference
+  code: W16
+  era: Takeoff
+  regime: beyond
+  prerequisites: [loop-closed]
+  cost:
+    count: 1823
+    time: 60
+    packs: {system-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - {type: hall-energy, multiplier: 0.75}
+  mirrors: new (G)
+  field_year: 2025
+  desc: Each step runs only part of the network.
+- id: microfluidic-cooling
+  name: Microfluidic cooling
+  code: W17
+  era: Takeoff
+  regime: cited
+  prerequisites: [two-phase-cooling]
+  cost:
+    count: 4101
+    time: 60
+    packs: {system-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - type: cooling-capacity
+      entities: [dry-cooler, water-exchanger]
+      multiplier: 2.0
+  mirrors: new (G)
+  citation:
+  - authors: ['Tuckerman, D. B.', 'Pease, R. F. W.']
+    year: 1981
+    title: High-performance heat sinking for VLSI
+    venue: IEEE Electron Device Letters, 2(5), 126–129
+    kind: article
+    url: https://doi.org/10.1109/EDL.1981.25367
+  desc: Coolant flows through channels etched into the die.
+- id: self-reproducing-automata
+  name: Self-reproducing automata
+  code: W18
+  era: Takeoff
+  regime: cited
+  prerequisites: [fleet-scheduling]
+  cost:
+    count: 6151
+    time: 60
+    packs: {system-card: 1}
+  unlocks:
+    recipes: [deployer, area-scanner]
+  mirrors: 'new (G''s Deployer; A: finale only)'
+  citation:
+  - authors: ['von Neumann, J.']
+    year: 1966
+    title: Theory of self-reproducing automata
+    venue: A. W. Burks (Ed.). University of Illinois Press
+    kind: book
+  desc: A machine that builds from a description, its own included.
+- id: nanofabrication
+  name: Nanofabrication
+  code: W19
+  era: Takeoff
+  regime: beyond
+  prerequisites: [wafer-scale-integration]
+  cost:
+    count: 9226
+    time: 60
+    packs: {system-card: 1}
+  unlocks:
+    recipes: []
+    effects:
+    - type: recipe-productivity
+      recipes: [accelerator]
+      value: 1.0
+  mirrors: new (G)
+  field_year: 2025
+- id: energy-per-operation
+  name: Energy per operation
+  code: I07
+  era: Takeoff
+  regime: cited
+  prerequisites: [model-generation-25]
+  cost:
+    time: 60
+    packs: {system-card: 1}
+  count_formula: 1000*2^L
+  first_level: 1
+  max_level: infinite
+  unlocks:
+    recipes: []
+    effects:
+    - {type: compute-energy-floor, multiplier: 0.9, floor_temperature_k: 4800}
+  mirrors: new (G; points to the expansion)
+  citation:
+  - authors: ['Landauer, R.']
+    year: 1961
+    title: Irreversibility and heat generation in the computing process
+    venue: IBM Journal of Research and Development, 5(3), 183–191
+    kind: article
+    url: https://doi.org/10.1147/rd.53.0183
+  desc: Erasing a bit dissipates at least kT ln 2.

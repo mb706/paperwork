@@ -1,0 +1,71 @@
+FAIL  C01  Boiler and heat exchanger state their water consumption (data, not a removed pseudo-recipe)
+        boiler.extra = {'steam_per_s': 60, 'temp_c': 165}
+        heat-exchanger.extra = {'steam_per_s': 103.09, 'temp_c': 500}
+        10 §5.8/G11 assume 1 water : 10 steam; 09 §2.3 names `boil-steam`; 02 §9 #7 removed it
+FAIL  C02  Salvage contents match 01 §9 / 09 §4 (6 pieces × 5 iron plates; crate: 1 radar, 10 logic boards, 20 cables)
+        meta.start.salvage = {'entity': "Radar laboratory salvage (Factorio's crash-site wreck; B §4.1). Mined by hand like a wreck piece.", 'contents': {'iron-plate': 20, 'iron-gear-wheel': 10, 'copper-cable': 20, 'logic-board': 8}}
+FAIL  C03  Salvage display name is "Laboratory salvage" (00 §9 #12, 08 §10.4)
+        meta: "Radar laboratory salvage (Factorio's crash-site wreck; B §4.1). Mined by hand like a wreck piece."
+        10 §5.18 stage 10 says "The Rad Lab salvage"
+FAIL  C04  Tile prototypes exist (ids, κ, buildable, walking speed, map colour, placed-by item)
+        no tiles.yaml and no meta.tiles; concrete, hazard-concrete and landfill items have no `places` field; meta.heat.loss.kappa_per_s is keyed by terrain class
+FAIL  C05  World objects have prototypes (trees, rocks, wreck pieces, crate, town buildings, campus)
+        none in data; yields are "ISO" prose (01 §2, §9)
+FAIL  C06  Every technology states its citation regime (cited | infrastructure | beyond; 08 §9.3)
+        250 of 250 technologies lack `regime`; E-data/tree.json had it (L/H/F)
+FAIL  C07  Cited technologies carry structured long-form citations (08 §9.2–§9.3)
+        only a short `citation` string exists; the References block, Handbook references and credits (09 §6, §9) cannot be generated
+FAIL  C08  W model parameters are data (v₀, β, lag, Y_pub start, world σ term; 01 §12, 01 §13)
+        missing: ['v0', 'beta', 'publication_lag_s', 'y_pub_start', 'world_sigma_per_field_year']
+        01 §13 and 10 App. B call the block `meta.world`; the data calls it `world_text`
+FAIL  C09  08 text placeholders resolve ({heat.tree_damage_c}, {staffing.radius})
+        data has heat.loss.tree_damage_above_c and staffing.radius_tiles
+FAIL  C10  Ambient θ at spawn: one range everywhere (01 §3, §9 and 09 §4 say 11–17 °C)
+        meta.heat.ambient = 'θ from −15 °C (far north) to 35 °C (far south); spawn 10–18 °C (B L2)'
+FAIL  C11  09 lists the DECISIONS §17 veteran tools as IN the slice
+        09 §6 "Not in the slice: smart belt dragging, fast-replace, copy and paste ..., undo and redo" and 09 §7.2 defers F1–F3, F7, F13, F16, F17, F24; 10 §12 M1a includes them
+FAIL  C12  09 and 10 name the same reference machine
+        09 §8: 2022 i5-1240P/Iris Xe 16 GB; 10 §11: 2019–2020 UHD 620 8 GB ("2022" is the target)
+FAIL  C13  10 §11 quotes 09 §8 correctly (tick ≤ 1 ms, heap ≤ 150 MB, stall ≤ 100 ms)
+        10 §11 says 09 §8 includes "tick ≤ 4 ms mean, ≤ 8 ms p99, heap ≤ 1 GB, stall ≤ 50 ms, download ≤ 60 MB"; none of these are in 09 §8
+FAIL  C14  Heat golden reference script is the one 03 §1.6 names (calib3.py, C = 20 MJ/K)
+        10 G15 cites round1/F-data/heatsim2.py (C = 100 MJ/K, κ 0.001–0.002); 03 §1.6 cites calib3.py
+FAIL  C15  Research-hall leak tier agrees (03 §3.1 and 10 §5.17: tier 4)
+        meta.runaways.model_tier.research-hall = 'min(4, 1 + floor((L − 5)/5)) at Model generation level L (G)'
+        02 Objection 9 asks 03 to confirm; leak_est.py used tier 4
+FAIL  C16  Verifier ladder: data and 10 §5.16 pick the same Comparator ("lowest" vs "highest")
+        meta: A quality roll cannot lift an output more than one tier above the lowest-tier Comparator in the machine (tier k verifies tier k+1; A §5.1). Without Comparators there is no roll.
+        10 §5.16: "maximum output tier = 1 + the highest verifier tier"
+FAIL  C17  Rollback consumes a checkpoint or a frontier checkpoint (03 §3.4)
+        meta.runaways.clean.rollback = {'consumes': 'checkpoint', 'after': 'rollback-recovery'}
+FAIL  C18  Escape path agrees with 03 §3.6 (logistic agents required for the agent-hub path)
+        meta.runaways.escape_path = 'an agent hub whose area covers the machine, or a data line to an exchange (Wild only)'
+FAIL  C19  enemies.yaml runaway targets list all four links of 03 §3.3 and both controller kinds
+        targets: "computing machines and machines holding a Learned controller on the same data network or in the same Switch's range; circuit wires never carry it"
+FAIL  C20  Endpoint tier text matches its recipe (no frontier checkpoint can be served)
+        endpoint.extra.model_tier = "its checkpoint's: 1/2/3 after Deep learning/Attention/Instruction tuning; 4 for a frontier checkpoint"
+        serving recipes: ['ratings'] (checkpoint only; 03 §9 #3: tier 1–3)
+FAIL  C21  Reactor emission in 10 matches DECISIONS §18a (2 × heat passed on)
+        10 §5.7 says reactors emit "fuel energy in minus heat out"; data: nuclear-reactor emission twice-output
+FAIL  C22  Dennard scaling is an energy cut everywhere (03 §1.4, data), not a T* offset
+        10 §5.12 lists "T* offsets (Dennard)" among effects
+FAIL  C23  Sparse inference scope agrees (04 §5: Research halls only; meta.effects.hall-energy: halls and Researchers)
+        meta.effects.hall-energy = 'energy of Research halls and Researchers × multiplier'
+        04 §5 #12 and §3.1 apply it to halls only
+FAIL  C24  Weight transplant means the same thing in 04 and the data
+        meta: 'a Research hall keeps its weights when its accelerators change'
+        04 §2.3: without it loaded accelerators cannot be swapped; with it higher tiers swap in place
+FAIL  C25  Product rules: one mechanism (10 §5.5 registry `world-text-mix` vs data `amounts_by_j` expressions)
+        10 §5.5: "There is no expression language in the data"; recipes deduplication and quality-filtering carry expression strings
+FAIL  C26  SCHEMA heat.emission vocabulary matches the data (conversion, twice-output, none)
+        SCHEMA: `emission: loss` with `loss_factor: 2`; data: conversion / twice-output / none
+FAIL  C27  Research-per-paper multiplier follows the world setting, not a literal 2.0
+        model-generation and model-generation-25 carry multiplier: 2.0 with a note "m = 1.5^r"
+FAIL  C28  Staff slot rules allow rollback delivery (03 §3.4 / 07 §10.4) or rollback avoids the slot
+        07 §6.2: staff slot accepts only staff items and inserters never insert; 03 §3.4: a frontier checkpoint goes in "through ... the Seminar's staff slot", by inserter or agent
+FAIL  C29  Scooped availability agrees (00 §6, 03 §5: opt-in setting, forced on in Race)
+        06 §3.3: "the base game's single spoiling item is Scooped's, and only in Race"
+FAIL  C30  Exchange resource has no min_yield, or the floor rule says it is ignored (01 §13)
+        resources.exchange.min_yield = 0.2
+
+0 passed, 30 failed

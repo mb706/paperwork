@@ -1,0 +1,31 @@
+== A. Backtick ids in spec prose that are not data ids
+  09-vertical-slice.md:94: `boil-steam`
+  09-vertical-slice.md:113: `electric-mining`
+  10-architecture.md:710: `world-text-mix`
+  10-architecture.md:2056: `boil-steam`
+  (42 further UI/tooling ids ignored as non-data)
+
+== B. Unknown kebab tokens inside YAML values
+  cannon-shell <- ['meta.effects.ammo-damage']
+  flamethrower-damage <- ['meta.effects.monitor-rate']
+  lowest-tier <- ['meta.quality.verifier_rule']
+
+== C. 09 slice manifest against the final data
+  missing technology id: electric-mining
+  missing recipe id: boil-steam (09 §2.3 and the manifest "plus boil-steam"; 02 §9 #7 says it was removed)
+  closure: concrete unlocks refined-concrete; outside the filter: products ['refined-concrete'], ingredients []
+  closure: concrete unlocks refined-hazard-concrete; outside the filter: products ['refined-hazard-concrete'], ingredients ['refined-concrete']
+  closure: resource exchange yields crawl, not in the filter (hand-mining or a drill would create an unknown item)
+  closure: resource uranium-ore-patch yields uranium-ore, not in the filter (hand-mining or a drill would create an unknown item)
+  Prior art unlocks differ: only in data ['iron-stick', 'silicon'], only in 09 []
+  09 §2.5 `prior-art` unlocks: 09 ['burner-inserter', 'burner-mining-drill', 'copper-plate', 'iron-chest', 'iron-gear-wheel', 'iron-plate', 'keypunch', 'stone-furnace', 'token', 'transport-belt', 'wooden-chest'] vs data ['burner-inserter', 'burner-mining-drill', 'copper-plate', 'iron-chest', 'iron-gear-wheel', 'iron-plate', 'iron-stick', 'keypunch', 'silicon', 'stone-furnace', 'token', 'transport-belt', 'wooden-chest']
+  09 §2.5 row `electric-mining`: no such technology
+  09 §2.5 `concrete` unlocks: 09 ['concrete', 'hazard-concrete'] vs data ['concrete', 'hazard-concrete', 'refined-concrete', 'refined-hazard-concrete']
+  09 §2.5 `photovoltaics` unlocks: 09 ['silicon', 'solar-panel'] vs data ['solar-panel']
+  09 §2.5 `rural-electrification` unlocks: 09 ['big-electric-pole', 'iron-stick', 'medium-electric-pole'] vs data ['big-electric-pole', 'medium-electric-pole']
+
+== D. 08 placeholders
+  08 placeholder {heat.tree_damage_c} does not resolve to a data path
+  08 placeholder {staffing.radius} does not resolve to a data path
+
+== E. Chapter section references: 411 checked, 0 dangling

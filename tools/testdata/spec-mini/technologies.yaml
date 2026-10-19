@@ -1,0 +1,4 @@
+- {id: automation, name: Automation, prerequisites: [], cost: {count: 10, time: 10, packs: {automation-science-pack: 1}}, unlocks: {recipes: [assembler-1]}}
+- {id: logistics, name: Logistics, prerequisites: [], cost: {count: 20, time: 15, packs: {automation-science-pack: 1}}, unlocks: {recipes: []}}
+- {id: electronics, name: Electronics, prerequisites: [automation], cost: {count: 30, time: 15, packs: {automation-science-pack: 1}}, unlocks: {recipes: [inserter]}}
+- {id: logistic-science-pack, name: Logistic science pack, prerequisites: [logistics, electronics], cost: {count: 75, time: 5, packs: {automation-science-pack: 1}}, unlocks: {recipes: [logistic-science-pack]}}

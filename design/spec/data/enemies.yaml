@@ -1,0 +1,173 @@
+# Runaway prototypes (F §1.3). Read by the engine; the validator only counts loot as produced.
+- id: runaway
+  name: Runaway
+  kind: copy
+  mirrors: 'new (L13: no body)'
+  tier: the escaped model's tier (1–4)
+  spread_interval_s: [60, 45, 30, 20]
+  escape_timer_s: [120, 90, 60, 45]
+  targets: susceptible machines (computing machines, Researcher Seminars, anything holding a Learned or Distilled controller) linked to an infected machine, one hop (R5-gate D6), by a data-line network, an exchange, one Switch's area, or one agent hub's logistic area whose network holds a logistic agent; never circuit or power wires, belts, pipes, inserters or trains
+  effect: the compromised machine stops working for you; it keeps its full working draw and heat
+  sprite: 'no sprite of its own: a red outline and an icon on the compromised machine'
+  desc: No body. Nothing to shoot.
+  spread: 'per infection: one copy per interval into the nearest linked target (meta.runaways.spread)'
+- id: replicator-dismantler
+  name: Dismantler replicator
+  kind: spawner
+  mirrors: biter-spawner
+  health: [350, 3500]
+  spawn_cooldown_ticks: [360, 150]
+  max_units: 7
+  spawns: [dismantler-1, dismantler-2, dismantler-3, dismantler-4]
+  loot: {scrap: 20, plus: its stock}
+  resist: ISO; 0% electric
+  sprite: squat scrap-built frame with a fabricator mouth and one orange hexagon lamp
+  desc: Copy of {checkpoint}, tier {tier}.
+- id: replicator-etcher
+  name: Etcher replicator
+  kind: spawner
+  mirrors: spitter-spawner
+  health: [350, 3500]
+  spawn_cooldown_ticks: [360, 150]
+  max_units: 7
+  spawns: [etcher-1, etcher-2, etcher-3, etcher-4, dismantler-1, dismantler-2]
+  loot: {scrap: 20, plus: its stock}
+  resist: ISO; 0% electric
+  sprite: the replicator frame with a vat of green etchant
+  desc: Copy of {checkpoint}, tier {tier}.
+- id: dismantler-1
+  name: Dismantler 1
+  kind: unit
+  mirrors: small-biter
+  tier: 1
+  health: 15
+  attack: {type: physical, damage: 7, range: melee}
+  join_cost: 4
+  appears_at_evolution: 0.0
+  resist: ISO; 0% electric
+  sprite: scrap-built crawler with cutting arms; size grows with tier
+  desc: Takes things apart.
+- id: dismantler-2
+  name: Dismantler 2
+  kind: unit
+  mirrors: medium-biter
+  tier: 2
+  health: 75
+  attack: {type: physical, damage: 15, range: melee}
+  join_cost: 20
+  appears_at_evolution: 0.2
+  resist: ISO; 0% electric
+  sprite: scrap-built crawler with cutting arms; size grows with tier
+  desc: Takes things apart.
+- id: dismantler-3
+  name: Dismantler 3
+  kind: unit
+  mirrors: big-biter
+  tier: 3
+  health: 375
+  attack: {type: physical, damage: 30, range: melee}
+  join_cost: 80
+  appears_at_evolution: 0.5
+  resist: ISO; 0% electric
+  sprite: scrap-built crawler with cutting arms; size grows with tier
+  desc: Takes things apart.
+- id: dismantler-4
+  name: Dismantler 4
+  kind: unit
+  mirrors: behemoth-biter
+  tier: 4
+  health: 3000
+  attack: {type: physical, damage: 90, range: melee}
+  join_cost: 400
+  appears_at_evolution: 0.9
+  resist: ISO; 0% electric
+  sprite: scrap-built crawler with cutting arms; size grows with tier
+  desc: Takes things apart.
+- id: etcher-1
+  name: Etcher 1
+  kind: unit
+  mirrors: small-spitter
+  tier: 1
+  health: 10
+  attack: {type: acid, damage: 12, range: 13, puddle: true}
+  join_cost: 4
+  appears_at_evolution: 0.0
+  resist: ISO; 0% electric
+  sprite: low walker with a nozzle and a green etchant tank
+  desc: Dissolves what it hits.
+- id: etcher-2
+  name: Etcher 2
+  kind: unit
+  mirrors: medium-spitter
+  tier: 2
+  health: 50
+  attack: {type: acid, damage: 24, range: 14, puddle: true}
+  join_cost: 12
+  appears_at_evolution: 0.2
+  resist: ISO; 0% electric
+  sprite: low walker with a nozzle and a green etchant tank
+  desc: Dissolves what it hits.
+- id: etcher-3
+  name: Etcher 3
+  kind: unit
+  mirrors: big-spitter
+  tier: 3
+  health: 200
+  attack: {type: acid, damage: 36, range: 15, puddle: true}
+  join_cost: 30
+  appears_at_evolution: 0.5
+  resist: ISO; 0% electric
+  sprite: low walker with a nozzle and a green etchant tank
+  desc: Dissolves what it hits.
+- id: etcher-4
+  name: Etcher 4
+  kind: unit
+  mirrors: behemoth-spitter
+  tier: 4
+  health: 1500
+  attack: {type: acid, damage: 60, range: 16, puddle: true}
+  join_cost: 200
+  appears_at_evolution: 0.9
+  resist: ISO; 0% electric
+  sprite: low walker with a nozzle and a green etchant tank
+  desc: Dissolves what it hits.
+- id: mast-1
+  name: Mast 1
+  kind: stationary
+  mirrors: small-worm-turret
+  tier: 1
+  health: 200
+  attack: {type: acid, range: 25, puddle: true}
+  resist: ISO; 0% electric
+  sprite: lattice mast topped with an etchant sprayer
+  desc: Etchant mast. Does not move.
+- id: mast-2
+  name: Mast 2
+  kind: stationary
+  mirrors: medium-worm-turret
+  tier: 2
+  health: 500
+  attack: {type: acid, range: 30, puddle: true}
+  resist: ISO; 0% electric
+  sprite: lattice mast topped with an etchant sprayer
+  desc: Etchant mast. Does not move.
+- id: mast-3
+  name: Mast 3
+  kind: stationary
+  mirrors: big-worm-turret
+  tier: 3
+  health: 1500
+  attack: {type: acid, range: 38, puddle: true}
+  resist: ISO; 0% electric
+  sprite: lattice mast topped with an etchant sprayer
+  desc: Etchant mast. Does not move.
+- id: mast-4
+  name: Mast 4
+  kind: stationary
+  mirrors: behemoth-worm-turret
+  tier: 4
+  health: 3000
+  attack: {type: acid, range: 48, puddle: true}
+  resist: ISO; 0% electric
+  sprite: lattice mast topped with an etchant sprayer
+  desc: Etchant mast. Does not move.

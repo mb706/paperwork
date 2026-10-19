@@ -1,0 +1,5 @@
+layouts: 5000, failures after 8 retries: 0 (0.000%); mean tries 1.15
+spawn -> iron patch centre: median 36, 90th pct 64, max 84 tiles
+spawn -> farthest starting patch: median 68, 90th pct 76, max 86
+largest patch-to-patch centre distance: median 83, 90th pct 90
+round 2 for comparison: patches 30-140 tiles from spawn in any direction; 41% of seeds had none inside coverage (R3-fun)

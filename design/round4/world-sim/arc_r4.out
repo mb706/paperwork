@@ -1,0 +1,53 @@
+
+### 6-h competent profile (Terminal college at 1.94 h); v0 2.0
+  1 h                   1.00 h  W   7.00  Field 1951  Literature 1955  j 0.30  staff(start+college)  18.7
+  3 h                   3.00 h  W  38.48  Field 1983  Literature 2011  j 0.30  staff(start+college)  40.0
+  Memo end              0.53 h  W   1.63  Field 1946  Literature 1955  j 0.30  staff(start+college)  13.6
+  Report end            2.38 h  W  29.67  Field 1974  Literature 1995  j 0.30  staff(start+college)  40.0
+  Article end           3.43 h  W  40.00  Field 1984  Literature 2011  j 0.30  staff(start+college)  40.0
+  Preprint end          4.58 h  W  45.50  Field 1990  Literature 2018  j 0.30  staff(start+college)  40.0
+  Model card end        6.38 h  W  51.17  Field 1996  Literature 2023  j 0.33  staff(start+college)  40.0
+  first run             6.88 h  W  52.67  Field 1997  Literature 2023  j 0.35  staff(start+college)  40.0
+  white lab time done   7.34 h  W  54.01  Field 1999  Literature 2024  j 0.38  staff(start+college)  40.0
+  closure               9.38 h  W  58.07  Field 2003  Literature 2024  j 0.44  staff(start+college)  40.0
+  capstone             10.21 h  W  59.74  Field 2004  Literature 2024  j 0.46  staff(start+college)  40.0
+  victory              10.46 h  W  60.24  Field 2005  Literature 2024  j 0.47  staff(start+college)  40.0
+
+### 8-h competent profile (Terminal college at 2.48 h); v0 2.0
+  1 h                   1.00 h  W   7.00  Field 1951  Literature 1955  j 0.30  staff(start+college)  18.7
+  3 h                   3.00 h  W  31.00  Field 1976  Literature 1995  j 0.30  staff(start+college)  40.0
+  Memo end              0.70 h  W   2.20  Field 1947  Literature 1955  j 0.30  staff(start+college)  14.1
+  Report end            3.09 h  W  31.33  Field 1976  Literature 1995  j 0.30  staff(start+college)  40.0
+  Article end           4.52 h  W  42.00  Field 1986  Literature 2011  j 0.30  staff(start+college)  40.0
+  Preprint end          6.07 h  W  48.50  Field 1993  Literature 2018  j 0.30  staff(start+college)  40.0
+  Model card end        8.47 h  W  55.64  Field 2000  Literature 2023  j 0.40  staff(start+college)  40.0
+  first run             8.97 h  W  57.00  Field 2001  Literature 2023  j 0.42  staff(start+college)  40.0
+  white lab time done   9.75 h  W  58.70  Field 2003  Literature 2024  j 0.45  staff(start+college)  40.0
+  closure              11.47 h  W  62.15  Field 2007  Literature 2024  j 0.49  staff(start+college)  40.0
+  capstone             12.30 h  W  63.81  Field 2008  Literature 2024  j 0.51  staff(start+college)  40.0
+  victory              12.55 h  W  64.31  Field 2009  Literature 2024  j 0.52  staff(start+college)  40.0
+
+### 12-h competent profile (Terminal college at 3.57 h); v0 2.0
+  1 h                   1.00 h  W   3.33  Field 1948  Literature 1949  j 0.30  staff(start+college)  15.2
+  3 h                   3.00 h  W  21.00  Field 1966  Literature 1975  j 0.30  staff(start+college)  24.0
+  Memo end              1.05 h  W   3.33  Field 1948  Literature 1955  j 0.30  staff(start+college)  15.2
+  Report end            4.63 h  W  34.33  Field 1979  Literature 1995  j 0.30  staff(start+college)  40.0
+  Article end           6.78 h  W  46.67  Field 1991  Literature 2011  j 0.30  staff(start+college)  40.0
+  Preprint end          9.11 h  W  54.83  Field 1999  Literature 2018  j 0.39  staff(start+college)  40.0
+  Model card end       12.71 h  W  63.83  Field 2008  Literature 2023  j 0.51  staff(start+college)  40.0
+  first run            13.21 h  W  65.33  Field 2010  Literature 2023  j 0.53  staff(start+college)  40.0
+  white lab time done  14.62 h  W  68.55  Field 2013  Literature 2024  j 0.55  staff(start+college)  40.0
+  closure              15.71 h  W  70.72  Field 2015  Literature 2024  j 0.55  staff(start+college)  40.0
+  capstone             16.54 h  W  72.39  Field 2017  Literature 2024  j 0.55  staff(start+college)  40.0
+  victory              16.79 h  W  72.89  Field 2017  Literature 2024  j 0.55  staff(start+college)  40.0
+
+Race (publication saturated, +39.5): W = 80 at 40.5/v0 h; W = 90 at (40.5 + 1.738)/v0 h
+  v0 2.0: W 80 at 20.2 h, W 90 at 21.1 h
+  v0 2.9: W 80 at 14.0 h, W 90 at 14.6 h
+  v0 3.4: W 80 at 11.9 h, W 90 at 12.4 h
+
+sigma (a = 2e-4; with Watermarking all along in parentheses):
+  path only                                first run 0.08 (0.04)  closure 0.38 (0.24)
+  main yellow without Scalable oversight   first run 0.34 (0.21)  closure 0.50 (0.34)
+  whole main yellow                        first run 0.43 (0.29)  closure 0.55 (0.40)
+  incl. Branch M                           first run 0.62 (0.48)  closure 0.67 (0.53)

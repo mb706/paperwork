@@ -1,0 +1,17 @@
+import re,sys,html
+s=open(sys.argv[1],encoding='utf-8',errors='ignore').read()
+# try to isolate main content
+m=re.search(r'(<h2.*)<footer',s,re.S)
+if m: s=m.group(1)
+s=re.sub(r'<script.*?</script>','',s,flags=re.S)
+s=re.sub(r'<style.*?</style>','',s,flags=re.S)
+s=re.sub(r'<(img)[^>]*?(alt|src)="([^"]*)"[^>]*>',lambda m:f'[img:{m.group(3)}]',s)
+s=re.sub(r'<br\s*/?>','\n',s)
+s=re.sub(r'</(p|div|h\d|li|tr|ul|ol)>','\n',s)
+s=re.sub(r'<li[^>]*>','\n- ',s)
+s=re.sub(r'<h(\d)[^>]*>',lambda m:'\n'+'#'*int(m.group(1))+' ',s)
+s=re.sub(r'<[^>]+>','',s)
+s=html.unescape(s)
+s=re.sub(r'[ \t]+',' ',s)
+s=re.sub(r'\n\s*\n+','\n\n',s)
+print(s.strip())

@@ -1,0 +1,7257 @@
+{
+ "steam_power": {
+  "id": "steam_power",
+  "name": "Steam power",
+  "mirrors": "Steam power",
+  "fid": "steam-power",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "R",
+  "pre": [],
+  "cost": [
+   "trigger",
+   "Craft 50 Iron plate"
+  ],
+  "unlocks": [
+   "Pipe",
+   "Pipe to ground",
+   "Offshore pump",
+   "Boiler",
+   "Steam engine"
+  ],
+  "defn": "Boiling water drives the generator.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "switching_circuits": {
+  "id": "switching_circuits",
+  "name": "Switching circuits",
+  "mirrors": "Electronics",
+  "fid": "electronics",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "R",
+  "pre": [],
+  "cost": [
+   "trigger",
+   "Craft 10 Copper plate"
+  ],
+  "unlocks": [
+   "Copper cable",
+   "Logic board",
+   "Seminar",
+   "Inserter",
+   "Small electric pole"
+  ],
+  "defn": "Relays and tubes compute Boolean logic.",
+  "cite": "Shannon, 1938",
+  "year": 1938,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "basic_research": {
+  "id": "basic_research",
+  "name": "Basic research",
+  "mirrors": "Automation science pack",
+  "fid": "automation-science-pack",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "R",
+  "pre": [
+   "steam_power",
+   "switching_circuits"
+  ],
+  "cost": [
+   "trigger",
+   "Craft 1 Seminar"
+  ],
+  "unlocks": [
+   "Memo"
+  ],
+  "defn": "Research performed without thought of practical ends.",
+  "cite": "Bush, 1945",
+  "year": 1945,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": true,
+  "upgrade": false
+ },
+ "electric_mining": {
+  "id": "electric_mining",
+  "name": "Electric mining drill",
+  "mirrors": "Electric mining drill",
+  "fid": "electric-mining-drill",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "R",
+  "pre": [
+   "basic_research"
+  ],
+  "cost": [
+   25,
+   "R",
+   10
+  ],
+  "unlocks": [
+   "Electric mining drill"
+  ],
+  "defn": "Drills powered from the grid.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "maintenance": {
+  "id": "maintenance",
+  "name": "Maintenance",
+  "mirrors": "Repair pack",
+  "fid": "repair-pack",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "R",
+  "pre": [
+   "basic_research"
+  ],
+  "cost": [
+   25,
+   "R",
+   10
+  ],
+  "unlocks": [
+   "Repair kit"
+  ],
+  "defn": "Replace the failing part before the machine stops.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "radar": {
+  "id": "radar",
+  "name": "Radar",
+  "mirrors": "Radar",
+  "fid": "radar",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "R",
+  "pre": [
+   "basic_research"
+  ],
+  "cost": [
+   20,
+   "R",
+   10
+  ],
+  "unlocks": [
+   "Radar"
+  ],
+  "defn": "Pulsed microwaves locate distant objects.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "projectile_damage_1": {
+  "id": "projectile_damage_1",
+  "name": "Projectile damage 1",
+  "mirrors": "Physical projectile damage 1",
+  "fid": "physical-projectile-damage-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "R",
+  "pre": [
+   "ballistics"
+  ],
+  "cost": [
+   100,
+   "R",
+   30
+  ],
+  "unlocks": [
+   "Damage: magazine +10%, gun turret +10%"
+  ],
+  "defn": "Harder-hitting rounds.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "projectile_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "projectile_damage_2": {
+  "id": "projectile_damage_2",
+  "name": "Projectile damage 2",
+  "mirrors": "Physical projectile damage 2",
+  "fid": "physical-projectile-damage-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "projectile_damage_1",
+   "linear_programming"
+  ],
+  "cost": [
+   200,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Damage: magazine +10%, gun turret +10%"
+  ],
+  "defn": "Harder-hitting rounds.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "projectile_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "rate_of_fire_1": {
+  "id": "rate_of_fire_1",
+  "name": "Rate of fire 1",
+  "mirrors": "Weapon shooting speed 1",
+  "fid": "weapon-shooting-speed-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "R",
+  "pre": [
+   "ballistics"
+  ],
+  "cost": [
+   100,
+   "R",
+   30
+  ],
+  "unlocks": [
+   "Fire rate: magazine +10%"
+  ],
+  "defn": "Faster cycling.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "rate_of_fire",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "rate_of_fire_2": {
+  "id": "rate_of_fire_2",
+  "name": "Rate of fire 2",
+  "mirrors": "Weapon shooting speed 2",
+  "fid": "weapon-shooting-speed-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "rate_of_fire_1",
+   "linear_programming"
+  ],
+  "cost": [
+   200,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Fire rate: magazine +20%"
+  ],
+  "defn": "Faster cycling.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "rate_of_fire",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "explosive_yield_1": {
+  "id": "explosive_yield_1",
+  "name": "Explosive yield 1",
+  "mirrors": "Stronger explosives 1",
+  "fid": "stronger-explosives-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "penetration_testing"
+  ],
+  "cost": [
+   100,
+   "RG",
+   30
+  ],
+  "unlocks": [],
+  "defn": "Stronger charges.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "explosive_yield",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "projectile_damage_3": {
+  "id": "projectile_damage_3",
+  "name": "Projectile damage 3",
+  "mirrors": "Physical projectile damage 3",
+  "fid": "physical-projectile-damage-3",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "projectile_damage_2",
+   "game_theory"
+  ],
+  "cost": [
+   300,
+   "RGM",
+   60
+  ],
+  "unlocks": [
+   "Damage: magazine +20%, gun turret +20%"
+  ],
+  "defn": "Harder-hitting rounds.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "projectile_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "projectile_damage_4": {
+  "id": "projectile_damage_4",
+  "name": "Projectile damage 4",
+  "mirrors": "Physical projectile damage 4",
+  "fid": "physical-projectile-damage-4",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "projectile_damage_3"
+  ],
+  "cost": [
+   400,
+   "RGM",
+   60
+  ],
+  "unlocks": [
+   "Damage: magazine +20%, gun turret +20%"
+  ],
+  "defn": "Harder-hitting rounds.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "projectile_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "projectile_damage_5": {
+  "id": "projectile_damage_5",
+  "name": "Projectile damage 5",
+  "mirrors": "Physical projectile damage 5",
+  "fid": "physical-projectile-damage-5",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "projectile_damage_4",
+   "statistical_learning"
+  ],
+  "cost": [
+   500,
+   "RGMB",
+   60
+  ],
+  "unlocks": [
+   "Damage: magazine +20%, gun turret +20%, cannon shell +90%"
+  ],
+  "defn": "Harder-hitting rounds.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "projectile_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "projectile_damage_6": {
+  "id": "projectile_damage_6",
+  "name": "Projectile damage 6",
+  "mirrors": "Physical projectile damage 6",
+  "fid": "physical-projectile-damage-6",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "projectile_damage_5",
+   "expected_utility"
+  ],
+  "cost": [
+   600,
+   "RGMBY",
+   60
+  ],
+  "unlocks": [
+   "Damage: magazine +40%, gun turret +40%, cannon shell +130%"
+  ],
+  "defn": "Harder-hitting rounds.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "projectile_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "projectile_damage_7": {
+  "id": "projectile_damage_7",
+  "name": "Projectile damage 7+",
+  "mirrors": "Physical projectile damage 7",
+  "fid": "physical-projectile-damage-7",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "W",
+  "pre": [
+   "projectile_damage_6",
+   "in_context_learning"
+  ],
+  "cost": [
+   "formula",
+   "2^(L−7)×1000",
+   "RGMBYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Damage: magazine +40%, gun turret +70%, cannon shell +100%"
+  ],
+  "defn": "Harder-hitting rounds.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "projectile_damage",
+  "infinite": true,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "explosive_yield_2": {
+  "id": "explosive_yield_2",
+  "name": "Explosive yield 2",
+  "mirrors": "Stronger explosives 2",
+  "fid": "stronger-explosives-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "explosive_yield_1",
+   "game_theory"
+  ],
+  "cost": [
+   200,
+   "RGM",
+   30
+  ],
+  "unlocks": [
+   "Damage: land mine +20%"
+  ],
+  "defn": "Stronger charges.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "explosive_yield",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "explosive_yield_3": {
+  "id": "explosive_yield_3",
+  "name": "Explosive yield 3",
+  "mirrors": "Stronger explosives 3",
+  "fid": "stronger-explosives-3",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "explosive_yield_2",
+   "statistical_learning"
+  ],
+  "cost": [
+   300,
+   "RGMB",
+   60
+  ],
+  "unlocks": [
+   "Damage: rocket +30%, land mine +20%"
+  ],
+  "defn": "Stronger charges.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "explosive_yield",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "explosive_yield_4": {
+  "id": "explosive_yield_4",
+  "name": "Explosive yield 4",
+  "mirrors": "Stronger explosives 4",
+  "fid": "stronger-explosives-4",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "explosive_yield_3",
+   "expected_utility"
+  ],
+  "cost": [
+   400,
+   "RGMBY",
+   60
+  ],
+  "unlocks": [
+   "Damage: rocket +40%, land mine +20%"
+  ],
+  "defn": "Stronger charges.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "explosive_yield",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "explosive_yield_5": {
+  "id": "explosive_yield_5",
+  "name": "Explosive yield 5",
+  "mirrors": "Stronger explosives 5",
+  "fid": "stronger-explosives-5",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "explosive_yield_4"
+  ],
+  "cost": [
+   500,
+   "RGMBY",
+   60
+  ],
+  "unlocks": [
+   "Damage: rocket +50%, land mine +20%"
+  ],
+  "defn": "Stronger charges.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "explosive_yield",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "explosive_yield_6": {
+  "id": "explosive_yield_6",
+  "name": "Explosive yield 6",
+  "mirrors": "Stronger explosives 6",
+  "fid": "stronger-explosives-6",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "explosive_yield_5"
+  ],
+  "cost": [
+   600,
+   "RGMBY",
+   60
+  ],
+  "unlocks": [
+   "Damage: rocket +60%, land mine +20%"
+  ],
+  "defn": "Stronger charges.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "explosive_yield",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "explosive_yield_7": {
+  "id": "explosive_yield_7",
+  "name": "Explosive yield 7+",
+  "mirrors": "Stronger explosives 7",
+  "fid": "stronger-explosives-7",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "W",
+  "pre": [
+   "explosive_yield_6",
+   "in_context_learning"
+  ],
+  "cost": [
+   "formula",
+   "2^(L−7)×1000",
+   "RGMBYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Damage: rocket +50%, land mine +20%"
+  ],
+  "defn": "Stronger charges.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "explosive_yield",
+  "infinite": true,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "monitor_throughput_1": {
+  "id": "monitor_throughput_1",
+  "name": "Monitor throughput 1",
+  "mirrors": "Refined flammables 1",
+  "fid": "refined-flammables-1",
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "reference_monitor"
+  ],
+  "cost": [
+   100,
+   "RGM",
+   30
+  ],
+  "unlocks": [
+   "Monitor cleaning rate +20%"
+  ],
+  "defn": "Monitors clean faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "monitor_throughput",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "monitor_throughput_2": {
+  "id": "monitor_throughput_2",
+  "name": "Monitor throughput 2",
+  "mirrors": "Refined flammables 2",
+  "fid": "refined-flammables-2",
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "monitor_throughput_1"
+  ],
+  "cost": [
+   200,
+   "RGM",
+   30
+  ],
+  "unlocks": [
+   "Monitor cleaning rate +20%"
+  ],
+  "defn": "Monitors clean faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "monitor_throughput",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "monitor_throughput_3": {
+  "id": "monitor_throughput_3",
+  "name": "Monitor throughput 3",
+  "mirrors": "Refined flammables 3",
+  "fid": "refined-flammables-3",
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "monitor_throughput_2",
+   "statistical_learning"
+  ],
+  "cost": [
+   300,
+   "RGMB",
+   60
+  ],
+  "unlocks": [
+   "Monitor cleaning rate +20%"
+  ],
+  "defn": "Monitors clean faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "monitor_throughput",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "monitor_throughput_4": {
+  "id": "monitor_throughput_4",
+  "name": "Monitor throughput 4",
+  "mirrors": "Refined flammables 4",
+  "fid": "refined-flammables-4",
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "monitor_throughput_3",
+   "expected_utility"
+  ],
+  "cost": [
+   400,
+   "RGMBY",
+   60
+  ],
+  "unlocks": [
+   "Monitor cleaning rate +30%"
+  ],
+  "defn": "Monitors clean faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "monitor_throughput",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "monitor_throughput_5": {
+  "id": "monitor_throughput_5",
+  "name": "Monitor throughput 5",
+  "mirrors": "Refined flammables 5",
+  "fid": "refined-flammables-5",
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "monitor_throughput_4"
+  ],
+  "cost": [
+   500,
+   "RGMBY",
+   60
+  ],
+  "unlocks": [
+   "Monitor cleaning rate +30%"
+  ],
+  "defn": "Monitors clean faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "monitor_throughput",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "monitor_throughput_6": {
+  "id": "monitor_throughput_6",
+  "name": "Monitor throughput 6",
+  "mirrors": "Refined flammables 6",
+  "fid": "refined-flammables-6",
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "monitor_throughput_5"
+  ],
+  "cost": [
+   600,
+   "RGMBY",
+   60
+  ],
+  "unlocks": [
+   "Monitor cleaning rate +40%"
+  ],
+  "defn": "Monitors clean faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "monitor_throughput",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "monitor_throughput_7": {
+  "id": "monitor_throughput_7",
+  "name": "Monitor throughput 7+",
+  "mirrors": "Refined flammables 7",
+  "fid": "refined-flammables-7",
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "W",
+  "pre": [
+   "monitor_throughput_6",
+   "in_context_learning"
+  ],
+  "cost": [
+   "formula",
+   "2^(L−7)×1000",
+   "RGMBYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Monitor cleaning rate +20%"
+  ],
+  "defn": "Monitors clean faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "monitor_throughput",
+  "infinite": true,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_damage_1": {
+  "id": "laser_damage_1",
+  "name": "Laser damage 1",
+  "mirrors": "Laser weapons damage 1",
+  "fid": "laser-weapons-damage-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "laser",
+   "game_theory"
+  ],
+  "cost": [
+   100,
+   "RGMB",
+   30
+  ],
+  "unlocks": [
+   "Damage: laser +20%"
+  ],
+  "defn": "Lasers hit harder.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_damage_2": {
+  "id": "laser_damage_2",
+  "name": "Laser damage 2",
+  "mirrors": "Laser weapons damage 2",
+  "fid": "laser-weapons-damage-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "laser_damage_1"
+  ],
+  "cost": [
+   200,
+   "RGMB",
+   30
+  ],
+  "unlocks": [
+   "Damage: laser +20%"
+  ],
+  "defn": "Lasers hit harder.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_damage_3": {
+  "id": "laser_damage_3",
+  "name": "Laser damage 3",
+  "mirrors": "Laser weapons damage 3",
+  "fid": "laser-weapons-damage-3",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "laser_damage_2"
+  ],
+  "cost": [
+   300,
+   "RGMB",
+   60
+  ],
+  "unlocks": [
+   "Damage: laser +30%"
+  ],
+  "defn": "Lasers hit harder.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_damage_4": {
+  "id": "laser_damage_4",
+  "name": "Laser damage 4",
+  "mirrors": "Laser weapons damage 4",
+  "fid": "laser-weapons-damage-4",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "laser_damage_3"
+  ],
+  "cost": [
+   400,
+   "RGMB",
+   60
+  ],
+  "unlocks": [
+   "Damage: laser +40%"
+  ],
+  "defn": "Lasers hit harder.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_damage_5": {
+  "id": "laser_damage_5",
+  "name": "Laser damage 5",
+  "mirrors": "Laser weapons damage 5",
+  "fid": "laser-weapons-damage-5",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "laser_damage_4",
+   "expected_utility"
+  ],
+  "cost": [
+   500,
+   "RGMBY",
+   60
+  ],
+  "unlocks": [
+   "Damage: laser +50%, laser beam +40%"
+  ],
+  "defn": "Lasers hit harder.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_damage_6": {
+  "id": "laser_damage_6",
+  "name": "Laser damage 6",
+  "mirrors": "Laser weapons damage 6",
+  "fid": "laser-weapons-damage-6",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "laser_damage_5"
+  ],
+  "cost": [
+   600,
+   "RGMBY",
+   60
+  ],
+  "unlocks": [
+   "Damage: laser +70%, discharge +70%, laser beam +60%"
+  ],
+  "defn": "Lasers hit harder.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_damage_7": {
+  "id": "laser_damage_7",
+  "name": "Laser damage 7+",
+  "mirrors": "Laser weapons damage 7",
+  "fid": "laser-weapons-damage-7",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "W",
+  "pre": [
+   "laser_damage_6",
+   "in_context_learning"
+  ],
+  "cost": [
+   "formula",
+   "2^(L−7)×1000",
+   "RGMBYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Damage: laser +70%, discharge +70%, laser beam +30%"
+  ],
+  "defn": "Lasers hit harder.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_damage",
+  "infinite": true,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "rate_of_fire_3": {
+  "id": "rate_of_fire_3",
+  "name": "Rate of fire 3",
+  "mirrors": "Weapon shooting speed 3",
+  "fid": "weapon-shooting-speed-3",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "rate_of_fire_2",
+   "game_theory"
+  ],
+  "cost": [
+   300,
+   "RGM",
+   60
+  ],
+  "unlocks": [
+   "Fire rate: magazine +20%, rocket +50%"
+  ],
+  "defn": "Faster cycling.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "rate_of_fire",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "rate_of_fire_4": {
+  "id": "rate_of_fire_4",
+  "name": "Rate of fire 4",
+  "mirrors": "Weapon shooting speed 4",
+  "fid": "weapon-shooting-speed-4",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "rate_of_fire_3"
+  ],
+  "cost": [
+   400,
+   "RGM",
+   60
+  ],
+  "unlocks": [
+   "Fire rate: magazine +30%, rocket +70%"
+  ],
+  "defn": "Faster cycling.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "rate_of_fire",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "rate_of_fire_5": {
+  "id": "rate_of_fire_5",
+  "name": "Rate of fire 5",
+  "mirrors": "Weapon shooting speed 5",
+  "fid": "weapon-shooting-speed-5",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "rate_of_fire_4",
+   "statistical_learning"
+  ],
+  "cost": [
+   500,
+   "RGMB",
+   60
+  ],
+  "unlocks": [
+   "Fire rate: magazine +30%, cannon shell +80%, rocket +90%"
+  ],
+  "defn": "Faster cycling.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "rate_of_fire",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "rate_of_fire_6": {
+  "id": "rate_of_fire_6",
+  "name": "Rate of fire 6",
+  "mirrors": "Weapon shooting speed 6",
+  "fid": "weapon-shooting-speed-6",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "rate_of_fire_5",
+   "expected_utility"
+  ],
+  "cost": [
+   600,
+   "RGMBY",
+   60
+  ],
+  "unlocks": [
+   "Fire rate: magazine +40%, cannon shell +150%, rocket +130%"
+  ],
+  "defn": "Faster cycling.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "rate_of_fire",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_rate_1": {
+  "id": "laser_rate_1",
+  "name": "Laser rate of fire 1",
+  "mirrors": "Laser shooting speed 1",
+  "fid": "laser-shooting-speed-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "laser",
+   "game_theory"
+  ],
+  "cost": [
+   50,
+   "RGMB",
+   30
+  ],
+  "unlocks": [
+   "Fire rate: laser +10%"
+  ],
+  "defn": "Lasers fire faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_rate",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_rate_2": {
+  "id": "laser_rate_2",
+  "name": "Laser rate of fire 2",
+  "mirrors": "Laser shooting speed 2",
+  "fid": "laser-shooting-speed-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "laser_rate_1"
+  ],
+  "cost": [
+   100,
+   "RGMB",
+   30
+  ],
+  "unlocks": [
+   "Fire rate: laser +20%"
+  ],
+  "defn": "Lasers fire faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_rate",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_rate_3": {
+  "id": "laser_rate_3",
+  "name": "Laser rate of fire 3",
+  "mirrors": "Laser shooting speed 3",
+  "fid": "laser-shooting-speed-3",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "laser_rate_2"
+  ],
+  "cost": [
+   200,
+   "RGMB",
+   60
+  ],
+  "unlocks": [
+   "Fire rate: laser +30%"
+  ],
+  "defn": "Lasers fire faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_rate",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_rate_4": {
+  "id": "laser_rate_4",
+  "name": "Laser rate of fire 4",
+  "mirrors": "Laser shooting speed 4",
+  "fid": "laser-shooting-speed-4",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "laser_rate_3"
+  ],
+  "cost": [
+   200,
+   "RGMB",
+   60
+  ],
+  "unlocks": [
+   "Fire rate: laser +30%"
+  ],
+  "defn": "Lasers fire faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_rate",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_rate_5": {
+  "id": "laser_rate_5",
+  "name": "Laser rate of fire 5",
+  "mirrors": "Laser shooting speed 5",
+  "fid": "laser-shooting-speed-5",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "laser_rate_4",
+   "expected_utility"
+  ],
+  "cost": [
+   200,
+   "RGMBY",
+   60
+  ],
+  "unlocks": [
+   "Fire rate: laser +40%"
+  ],
+  "defn": "Lasers fire faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_rate",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_rate_6": {
+  "id": "laser_rate_6",
+  "name": "Laser rate of fire 6",
+  "mirrors": "Laser shooting speed 6",
+  "fid": "laser-shooting-speed-6",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "laser_rate_5"
+  ],
+  "cost": [
+   350,
+   "RGMBY",
+   60
+  ],
+  "unlocks": [
+   "Fire rate: laser +40%"
+  ],
+  "defn": "Lasers fire faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_rate",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "laser_rate_7": {
+  "id": "laser_rate_7",
+  "name": "Laser rate of fire 7",
+  "mirrors": "Laser shooting speed 7",
+  "fid": "laser-shooting-speed-7",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "laser_rate_6"
+  ],
+  "cost": [
+   450,
+   "RGMBY",
+   60
+  ],
+  "unlocks": [
+   "Fire rate: laser +50%"
+  ],
+  "defn": "Lasers fire faster.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "laser_rate",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "artillery_range": {
+  "id": "artillery_range",
+  "name": "Artillery range",
+  "mirrors": "Artillery shell range 1",
+  "fid": "artillery-shell-range-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "W",
+  "pre": [
+   "artillery",
+   "in_context_learning"
+  ],
+  "cost": [
+   "formula",
+   "2^L×1000",
+   "RGMBYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Artillery range +30%"
+  ],
+  "defn": "Shells reach farther.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "artillery",
+  "infinite": true,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "artillery_reload": {
+  "id": "artillery_reload",
+  "name": "Artillery reload",
+  "mirrors": "Artillery shell speed 1",
+  "fid": "artillery-shell-speed-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "W",
+  "pre": [
+   "artillery",
+   "in_context_learning"
+  ],
+  "cost": [
+   "formula",
+   "1000+3^(L−1)×1000",
+   "RGMBYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Fire rate: artillery shell +100%"
+  ],
+  "defn": "Shells fire sooner.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "artillery",
+  "infinite": true,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "interceptor_count_1": {
+  "id": "interceptor_count_1",
+  "name": "Interceptor count 1",
+  "mirrors": "Follower robot count 1",
+  "fid": "follower-robot-count-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "interceptors"
+  ],
+  "cost": [
+   100,
+   "RGM",
+   30
+  ],
+  "unlocks": [
+   "Escort cap +5"
+  ],
+  "defn": "More interceptors in the air.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "interceptor_count",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "interceptor_count_2": {
+  "id": "interceptor_count_2",
+  "name": "Interceptor count 2",
+  "mirrors": "Follower robot count 2",
+  "fid": "follower-robot-count-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "interceptor_count_1"
+  ],
+  "cost": [
+   200,
+   "RGM",
+   30
+  ],
+  "unlocks": [
+   "Escort cap +10"
+  ],
+  "defn": "More interceptors in the air.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "interceptor_count",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "interceptor_count_3": {
+  "id": "interceptor_count_3",
+  "name": "Interceptor count 3",
+  "mirrors": "Follower robot count 3",
+  "fid": "follower-robot-count-3",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "interceptor_count_2",
+   "statistical_learning"
+  ],
+  "cost": [
+   300,
+   "RGMB",
+   30
+  ],
+  "unlocks": [
+   "Escort cap +10"
+  ],
+  "defn": "More interceptors in the air.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "interceptor_count",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "interceptor_count_4": {
+  "id": "interceptor_count_4",
+  "name": "Interceptor count 4",
+  "mirrors": "Follower robot count 4",
+  "fid": "follower-robot-count-4",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "interceptor_count_3",
+   "interceptors_3"
+  ],
+  "cost": [
+   400,
+   "RGMBY",
+   30
+  ],
+  "unlocks": [
+   "Escort cap +20"
+  ],
+  "defn": "More interceptors in the air.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "interceptor_count",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "interceptor_count_5": {
+  "id": "interceptor_count_5",
+  "name": "Interceptor count 5+",
+  "mirrors": "Follower robot count 5",
+  "fid": "follower-robot-count-5",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "W",
+  "pre": [
+   "interceptor_count_4",
+   "in_context_learning"
+  ],
+  "cost": [
+   "formula",
+   "1000×(L−4)",
+   "RGMBPYW",
+   30,
+   "∞"
+  ],
+  "unlocks": [
+   "Escort cap +25"
+  ],
+  "defn": "More interceptors in the air.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "interceptor_count",
+  "infinite": true,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "batch_processing": {
+  "id": "batch_processing",
+  "name": "Batch processing",
+  "mirrors": "Bulk inserter",
+  "fid": "bulk-inserter",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "servomechanisms",
+   "logistics_2",
+   "integrated_circuit"
+  ],
+  "cost": [
+   150,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Bulk inserter",
+   "Bulk inserter capacity +1"
+  ],
+  "defn": "Collect a full load, then move it at once.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "batch_size_1": {
+  "id": "batch_size_1",
+  "name": "Batch size 1",
+  "mirrors": "Inserter capacity bonus 1",
+  "fid": "inserter-capacity-bonus-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "batch_processing"
+  ],
+  "cost": [
+   200,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Bulk inserter capacity +1"
+  ],
+  "defn": "Larger hands per swing.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "batch_size",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "batch_size_2": {
+  "id": "batch_size_2",
+  "name": "Batch size 2",
+  "mirrors": "Inserter capacity bonus 2",
+  "fid": "inserter-capacity-bonus-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "batch_size_1"
+  ],
+  "cost": [
+   250,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Inserter capacity +1",
+   "Bulk inserter capacity +1"
+  ],
+  "defn": "Larger hands per swing.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "batch_size",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "batch_size_3": {
+  "id": "batch_size_3",
+  "name": "Batch size 3",
+  "mirrors": "Inserter capacity bonus 3",
+  "fid": "inserter-capacity-bonus-3",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "batch_size_2",
+   "statistical_learning"
+  ],
+  "cost": [
+   250,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Bulk inserter capacity +1"
+  ],
+  "defn": "Larger hands per swing.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "batch_size",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "batch_size_4": {
+  "id": "batch_size_4",
+  "name": "Batch size 4",
+  "mirrors": "Inserter capacity bonus 4",
+  "fid": "inserter-capacity-bonus-4",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "P",
+  "pre": [
+   "batch_size_3",
+   "deep_learning"
+  ],
+  "cost": [
+   250,
+   "RGBP",
+   30
+  ],
+  "unlocks": [
+   "Bulk inserter capacity +1"
+  ],
+  "defn": "Larger hands per swing.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "batch_size",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "batch_size_5": {
+  "id": "batch_size_5",
+  "name": "Batch size 5",
+  "mirrors": "Inserter capacity bonus 5",
+  "fid": "inserter-capacity-bonus-5",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "P",
+  "pre": [
+   "batch_size_4"
+  ],
+  "cost": [
+   300,
+   "RGBP",
+   30
+  ],
+  "unlocks": [
+   "Bulk inserter capacity +2"
+  ],
+  "defn": "Larger hands per swing.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "batch_size",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "batch_size_6": {
+  "id": "batch_size_6",
+  "name": "Batch size 6",
+  "mirrors": "Inserter capacity bonus 6",
+  "fid": "inserter-capacity-bonus-6",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "P",
+  "pre": [
+   "batch_size_5"
+  ],
+  "cost": [
+   400,
+   "RGBP",
+   30
+  ],
+  "unlocks": [
+   "Bulk inserter capacity +2"
+  ],
+  "defn": "Larger hands per swing.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "batch_size",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "batch_size_7": {
+  "id": "batch_size_7",
+  "name": "Batch size 7",
+  "mirrors": "Inserter capacity bonus 7",
+  "fid": "inserter-capacity-bonus-7",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "batch_size_6",
+   "expected_utility"
+  ],
+  "cost": [
+   600,
+   "RGBPY",
+   30
+  ],
+  "unlocks": [
+   "Inserter capacity +1",
+   "Bulk inserter capacity +2"
+  ],
+  "defn": "Larger hands per swing.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "batch_size",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "tabulation": {
+  "id": "tabulation",
+  "name": "Tabulation",
+  "mirrors": "Automation",
+  "fid": "automation",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "R",
+  "pre": [
+   "basic_research"
+  ],
+  "cost": [
+   10,
+   "R",
+   10
+  ],
+  "unlocks": [
+   "Tabulator",
+   "Long-handed inserter"
+  ],
+  "defn": "Machines count and sort punched cards.",
+  "cite": "Hollerith, 1890",
+  "year": 1890,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "stored_program": {
+  "id": "stored_program",
+  "name": "Stored program",
+  "mirrors": "Automation 2",
+  "fid": "automation-2",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "tabulation",
+   "steel_processing",
+   "linear_programming"
+  ],
+  "cost": [
+   40,
+   "RG",
+   15
+  ],
+  "unlocks": [
+   "Computer"
+  ],
+  "defn": "Instructions are kept in memory alongside data.",
+  "cite": "von Neumann, 1945",
+  "year": 1945,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "linear_programming": {
+  "id": "linear_programming",
+  "name": "Linear programming",
+  "mirrors": "Logistic science pack",
+  "fid": "logistic-science-pack",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "R",
+  "pre": [
+   "basic_research"
+  ],
+  "cost": [
+   75,
+   "R",
+   5
+  ],
+  "unlocks": [
+   "Report"
+  ],
+  "defn": "Optimize a linear objective under linear constraints.",
+  "cite": "Kantorovich, 1939; Dantzig, 1947",
+  "year": 1947,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": true,
+  "upgrade": false
+ },
+ "steel_processing": {
+  "id": "steel_processing",
+  "name": "Steel processing",
+  "mirrors": "Steel processing",
+  "fid": "steel-processing",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "R",
+  "pre": [
+   "basic_research"
+  ],
+  "cost": [
+   50,
+   "R",
+   5
+  ],
+  "unlocks": [
+   "Steel plate",
+   "Memory bank"
+  ],
+  "defn": "Iron, refined again in the furnace.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "learning_curve": {
+  "id": "learning_curve",
+  "name": "Learning curve",
+  "mirrors": "Steel axe",
+  "fid": "steel-axe",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "R",
+  "pre": [
+   "steel_processing"
+  ],
+  "cost": [
+   "trigger",
+   "Craft 50 Steel plate"
+  ],
+  "unlocks": [
+   "Manual mining speed +100%"
+  ],
+  "defn": "Unit cost falls with each doubling of output.",
+  "cite": "Wright, 1936",
+  "year": 1936,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "ballistics": {
+  "id": "ballistics",
+  "name": "Ballistics",
+  "mirrors": "Military",
+  "fid": "military",
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "R",
+  "pre": [
+   "basic_research"
+  ],
+  "cost": [
+   10,
+   "R",
+   15
+  ],
+  "unlocks": [
+   "Magazine"
+  ],
+  "defn": "Projectiles, aimed and fed by machine.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": "No handheld weapons, so no pistol or SMG; magazines feed gun turrets only.",
+  "essential": false,
+  "upgrade": false
+ },
+ "penetration_testing": {
+  "id": "penetration_testing",
+  "name": "Penetration testing",
+  "mirrors": "Military 2",
+  "fid": "military-2",
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "ballistics",
+   "steel_processing",
+   "linear_programming"
+  ],
+  "cost": [
+   20,
+   "RG",
+   15
+  ],
+  "unlocks": [
+   "AP magazine",
+   "Evaluation set (F: takes the grenade's slot)"
+  ],
+  "defn": "Attack your own system to find what fails.",
+  "cite": "Linde, 1975",
+  "year": 1975,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": "F: Proceedings needs Evaluation sets; the grenade is gone, so D re-recipes cliff explosives.",
+  "essential": false,
+  "upgrade": false
+ },
+ "servomechanisms": {
+  "id": "servomechanisms",
+  "name": "Servomechanisms",
+  "mirrors": "Fast inserter",
+  "fid": "fast-inserter",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "R",
+  "pre": [
+   "basic_research"
+  ],
+  "cost": [
+   30,
+   "R",
+   15
+  ],
+  "unlocks": [
+   "Fast inserter"
+  ],
+  "defn": "Feedback control of position and speed.",
+  "cite": "Hazen, 1934",
+  "year": 1934,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "logistics": {
+  "id": "logistics",
+  "name": "Logistics",
+  "mirrors": "Logistics",
+  "fid": "logistics",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "R",
+  "pre": [
+   "basic_research"
+  ],
+  "cost": [
+   20,
+   "R",
+   15
+  ],
+  "unlocks": [
+   "Underground belt",
+   "Splitter"
+  ],
+  "defn": "Belts that cross under and divide.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "railway": {
+  "id": "railway",
+  "name": "Railway",
+  "mirrors": "Railway",
+  "fid": "railway",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "logistics_2",
+   "engine"
+  ],
+  "cost": [
+   75,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Rail",
+   "Locomotive",
+   "Cargo wagon",
+   "Iron stick"
+  ],
+  "defn": "Steel wheels on steel rails.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "semaphores": {
+  "id": "semaphores",
+  "name": "Semaphores",
+  "mirrors": "Automated rail transportation",
+  "fid": "automated-rail-transportation",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "railway"
+  ],
+  "cost": [
+   200,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Train stop",
+   "Rail signal",
+   "Chain signal"
+  ],
+  "defn": "A signal admits one occupant at a time.",
+  "cite": "Dijkstra, 1965",
+  "year": 1965,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "automobile": {
+  "id": "automobile",
+  "name": "Automobile",
+  "mirrors": "Automobilism",
+  "fid": "automobilism",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "logistics_2",
+   "engine"
+  ],
+  "cost": [
+   100,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Car"
+  ],
+  "defn": "Personal transport between outposts.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "lamp": {
+  "id": "lamp",
+  "name": "Lamp",
+  "mirrors": "Lamp",
+  "fid": "lamp",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "R",
+  "pre": [
+   "basic_research"
+  ],
+  "cost": [
+   10,
+   "R",
+   15
+  ],
+  "unlocks": [
+   "Lamp"
+  ],
+  "defn": "Electric light.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "photovoltaics": {
+  "id": "photovoltaics",
+  "name": "Photovoltaics",
+  "mirrors": "Solar energy",
+  "fid": "solar-energy",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "steel_processing",
+   "linear_programming"
+  ],
+  "cost": [
+   250,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Solar panel"
+  ],
+  "defn": "Silicon junctions turn light into current.",
+  "cite": "Chapin, Fuller & Pearson, 1954",
+  "year": 1954,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "protective_clothing": {
+  "id": "protective_clothing",
+  "name": "Protective clothing",
+  "mirrors": "Heavy armor",
+  "fid": "heavy-armor",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "R",
+  "pre": [
+   "ballistics",
+   "steel_processing"
+  ],
+  "cost": [
+   30,
+   "R",
+   30
+  ],
+  "unlocks": [
+   "Heavy armor"
+  ],
+  "defn": "Layers that absorb damage.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "fire_control": {
+  "id": "fire_control",
+  "name": "Fire control",
+  "mirrors": "Gun turret",
+  "fid": "gun-turret",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "R",
+  "pre": [
+   "basic_research"
+  ],
+  "cost": [
+   10,
+   "R",
+   10
+  ],
+  "unlocks": [
+   "Gun turret"
+  ],
+  "defn": "Predict where the target will be; aim there.",
+  "cite": "Wiener, 1949",
+  "year": 1949,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "citation_index": {
+  "id": "citation_index",
+  "name": "Citation index",
+  "mirrors": "Research speed 1",
+  "fid": "research-speed-1",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "stored_program"
+  ],
+  "cost": [
+   100,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Lab speed +20%"
+  ],
+  "defn": "Papers indexed by the papers that cite them.",
+  "cite": "Garfield, 1955",
+  "year": 1955,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "time_sharing": {
+  "id": "time_sharing",
+  "name": "Time-sharing",
+  "mirrors": "Research speed 2",
+  "fid": "research-speed-2",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "citation_index"
+  ],
+  "cost": [
+   200,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Lab speed +30%"
+  ],
+  "defn": "One machine, many users at once.",
+  "cite": "Corbató, Merwin-Daggett & Daley, 1962",
+  "year": 1962,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "rural_electrification": {
+  "id": "rural_electrification",
+  "name": "Rural electrification",
+  "mirrors": "Electric energy distribution 1",
+  "fid": "electric-energy-distribution-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "steel_processing",
+   "linear_programming"
+  ],
+  "cost": [
+   120,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Medium electric pole",
+   "Big electric pole",
+   "Iron stick"
+  ],
+  "defn": "The grid reaches every outpost.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "zone_refining": {
+  "id": "zone_refining",
+  "name": "Zone refining",
+  "mirrors": "Advanced material processing",
+  "fid": "advanced-material-processing",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "steel_processing",
+   "linear_programming"
+  ],
+  "cost": [
+   75,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Steel furnace"
+  ],
+  "defn": "A molten zone sweeps impurities to one end.",
+  "cite": "Pfann, 1952",
+  "year": 1952,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "concrete": {
+  "id": "concrete",
+  "name": "Concrete",
+  "mirrors": "Concrete",
+  "fid": "concrete",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "zone_refining",
+   "stored_program"
+  ],
+  "cost": [
+   250,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Concrete",
+   "Hazard concrete",
+   "Refined concrete",
+   "Refined hazard concrete",
+   "Iron stick"
+  ],
+  "defn": "Floors for heavy machines.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "engine": {
+  "id": "engine",
+  "name": "Engine",
+  "mirrors": "Engine",
+  "fid": "engine",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "steel_processing",
+   "linear_programming"
+  ],
+  "cost": [
+   100,
+   "RG",
+   15
+  ],
+  "unlocks": [
+   "Engine unit"
+  ],
+  "defn": "Pistons turn a shaft.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "landfill": {
+  "id": "landfill",
+  "name": "Landfill",
+  "mirrors": "Landfill",
+  "fid": "landfill",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "linear_programming"
+  ],
+  "cost": [
+   50,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Landfill"
+  ],
+  "defn": "Stone fills water.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "logistics_2": {
+  "id": "logistics_2",
+  "name": "Logistics 2",
+  "mirrors": "Logistics 2",
+  "fid": "logistics-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "logistics",
+   "linear_programming"
+  ],
+  "cost": [
+   200,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Fast belt",
+   "Fast underground belt",
+   "Fast splitter"
+  ],
+  "defn": "Belts at 30 items per second.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "memex": {
+  "id": "memex",
+  "name": "Memex",
+  "mirrors": "Toolbelt",
+  "fid": "toolbelt",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "linear_programming"
+  ],
+  "cost": [
+   100,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Inventory +10 slots"
+  ],
+  "defn": "A desk that stores a person's records.",
+  "cite": "Bush, 1945",
+  "year": 1945,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "fences": {
+  "id": "fences",
+  "name": "Fences",
+  "mirrors": "Stone wall",
+  "fid": "stone-wall",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "R",
+  "pre": [
+   "basic_research"
+  ],
+  "cost": [
+   10,
+   "R",
+   10
+  ],
+  "unlocks": [
+   "Fence"
+  ],
+  "defn": "A barrier around the site.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "gates": {
+  "id": "gates",
+  "name": "Gates",
+  "mirrors": "Gate",
+  "fid": "gate",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "fences",
+   "penetration_testing"
+  ],
+  "cost": [
+   100,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Gate"
+  ],
+  "defn": "A fence that opens.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "statistical_learning": {
+  "id": "statistical_learning",
+  "name": "Statistical learning",
+  "mirrors": "Chemical science pack",
+  "fid": "chemical-science-pack",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "integrated_circuit",
+   "spam_filtering",
+   "artificial_intelligence"
+  ],
+  "cost": [
+   75,
+   "RG",
+   10
+  ],
+  "unlocks": [
+   "Article"
+  ],
+  "defn": "Learning as estimation, with bounds on the error.",
+  "cite": "Vapnik & Chervonenkis, 1971; Vapnik, 1995",
+  "year": 1995,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": true,
+  "upgrade": false
+ },
+ "game_theory": {
+  "id": "game_theory",
+  "name": "Game theory",
+  "mirrors": "Military science pack",
+  "fid": "military-science-pack",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "penetration_testing",
+   "fences"
+  ],
+  "cost": [
+   30,
+   "RG",
+   15
+  ],
+  "unlocks": [
+   "Proceedings"
+  ],
+  "defn": "Strategy against an opponent who strategizes back.",
+  "cite": "von Neumann, 1928",
+  "year": 1928,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": true,
+  "upgrade": false
+ },
+ "deep_learning": {
+  "id": "deep_learning",
+  "name": "Deep learning",
+  "mirrors": "Production science pack",
+  "fid": "production-science-pack",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "backpropagation",
+   "electric_furnace",
+   "railway"
+  ],
+  "cost": [
+   100,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Preprint"
+  ],
+  "defn": "Many layers, trained end to end.",
+  "cite": "Hinton, Osindero & Teh, 2006",
+  "year": 2006,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": true,
+  "upgrade": false
+ },
+ "expected_utility": {
+  "id": "expected_utility",
+  "name": "Expected utility",
+  "mirrors": "Utility science pack",
+  "fid": "utility-science-pack",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "mobile_robotics",
+   "accelerators",
+   "memory_wall"
+  ],
+  "cost": [
+   100,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Model card"
+  ],
+  "defn": "Rank outcomes by probability-weighted utility.",
+  "cite": "Bernoulli, 1738; von Neumann & Morgenstern, 1944",
+  "year": 1944,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": true,
+  "upgrade": false
+ },
+ "in_context_learning": {
+  "id": "in_context_learning",
+  "name": "In-context learning",
+  "mirrors": "Space science pack",
+  "fid": "space-science-pack",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "W",
+  "pre": [
+   "scaling_laws",
+   "preference_tuning"
+  ],
+  "cost": [
+   "trigger",
+   "Complete a frontier run carrying a Post-training payload"
+  ],
+  "unlocks": [
+   "System card (each completed frontier run with a payload returns 1,000)"
+  ],
+  "defn": "A trained model learns a task from its prompt.",
+  "cite": "Brown et al., 2020",
+  "year": 2020,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": true,
+  "upgrade": false
+ },
+ "rollback_recovery": {
+  "id": "rollback_recovery",
+  "name": "Rollback recovery",
+  "mirrors": "Military 3",
+  "fid": "military-3",
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "statistical_learning",
+   "game_theory"
+  ],
+  "cost": [
+   100,
+   "RGMB",
+   30
+  ],
+  "unlocks": [
+   "Rollback: consume one Checkpoint copy to clean a compromised machine at once (F)"
+  ],
+  "defn": "Restore a saved state after a fault.",
+  "cite": "Randell, 1975",
+  "year": 1975,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": "Capsules dropped: nothing is thrown.",
+  "essential": false,
+  "upgrade": false
+ },
+ "defense_in_depth": {
+  "id": "defense_in_depth",
+  "name": "Defense in depth",
+  "mirrors": "Military 4",
+  "fid": "military-4",
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "rollback_recovery",
+   "expected_utility",
+   "explosives"
+  ],
+  "cost": [
+   150,
+   "RGMBY",
+   45
+  ],
+  "unlocks": [
+   "— (gateway)"
+  ],
+  "defn": "Layers, so that one failure is not the last.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "depleted_uranium": {
+  "id": "depleted_uranium",
+  "name": "Depleted uranium",
+  "mirrors": "Uranium ammo",
+  "fid": "uranium-ammo",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "isotope_separation",
+   "defense_in_depth",
+   "tank"
+  ],
+  "cost": [
+   1000,
+   "RGMBY",
+   45
+  ],
+  "unlocks": [
+   "DU magazine",
+   "DU cannon shell",
+   "Explosive DU cannon shell"
+  ],
+  "defn": "Dense metal left over from enrichment.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "electromagnetic_pulse": {
+  "id": "electromagnetic_pulse",
+  "name": "Electromagnetic pulse",
+  "mirrors": "Atomic bomb",
+  "fid": "atomic-bomb",
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "defense_in_depth",
+   "enrichment_cascade",
+   "rocketry"
+  ],
+  "cost": [
+   5000,
+   "RGMBPY",
+   45
+  ],
+  "unlocks": [
+   "EMP warhead"
+  ],
+  "defn": "A burst that destroys unshielded electronics.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": "Ferals have 0% electric resistance (F); delivered by artillery or Legged agents.",
+  "essential": false,
+  "upgrade": false
+ },
+ "cluster_computing": {
+  "id": "cluster_computing",
+  "name": "Cluster computing",
+  "mirrors": "Automation 3",
+  "fid": "automation-3",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "P",
+  "pre": [
+   "pipelining",
+   "deep_learning",
+   "brushless_motors"
+  ],
+  "cost": [
+   150,
+   "RGBP",
+   60
+  ],
+  "unlocks": [
+   "Cluster"
+  ],
+  "defn": "Commodity machines joined into one computer.",
+  "cite": "Sterling et al., 1995",
+  "year": 1995,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "explosives": {
+  "id": "explosives",
+  "name": "Explosives",
+  "mirrors": "Explosives",
+  "fid": "explosives",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "spam_filtering"
+  ],
+  "cost": [
+   100,
+   "RG",
+   15
+  ],
+  "unlocks": [
+   "Explosives"
+  ],
+  "defn": "Stored energy, released at once.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "cliff_explosives": {
+  "id": "cliff_explosives",
+  "name": "Cliff explosives",
+  "mirrors": "Cliff explosives",
+  "fid": "cliff-explosives",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "explosives",
+   "penetration_testing"
+  ],
+  "cost": [
+   200,
+   "RG",
+   15
+  ],
+  "unlocks": [
+   "Cliff explosives",
+   "Cliff removal"
+  ],
+  "defn": "Removes cliffs.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "information_theory": {
+  "id": "information_theory",
+  "name": "Information theory",
+  "mirrors": "Flammables",
+  "fid": "flammables",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "text_categorization"
+  ],
+  "cost": [
+   50,
+   "RG",
+   30
+  ],
+  "unlocks": [],
+  "defn": "A message is a number of bits.",
+  "cite": "Shannon, 1948",
+  "year": 1948,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "land_mines": {
+  "id": "land_mines",
+  "name": "Land mines",
+  "mirrors": "Land mine",
+  "fid": "land-mine",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "explosives",
+   "game_theory"
+  ],
+  "cost": [
+   100,
+   "RGM",
+   30
+  ],
+  "unlocks": [
+   "Land mine"
+  ],
+  "defn": "Charges that wait.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "reference_monitor": {
+  "id": "reference_monitor",
+  "name": "Reference monitor",
+  "mirrors": "Flamethrower",
+  "fid": "flamethrower",
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "information_theory",
+   "game_theory"
+  ],
+  "cost": [
+   50,
+   "RGM",
+   30
+  ],
+  "unlocks": [
+   "Monitor"
+  ],
+  "defn": "A mechanism that checks every access.",
+  "cite": "Anderson, 1972",
+  "year": 1972,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": "F: cleans a compromised machine every 5 s, consuming an Evaluation set. Takes the flamethrower's slot (no combustible fluid: the crawl is text).",
+  "essential": false,
+  "upgrade": false
+ },
+ "integrated_circuit": {
+  "id": "integrated_circuit",
+  "name": "Integrated circuit",
+  "mirrors": "Advanced circuit",
+  "fid": "advanced-circuit",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "synthetics"
+  ],
+  "cost": [
+   200,
+   "RG",
+   15
+  ],
+  "unlocks": [
+   "Processor"
+  ],
+  "defn": "Many transistors on one die.",
+  "cite": "Kilby, 1958; Noyce, 1959",
+  "year": 1959,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "accelerators": {
+  "id": "accelerators",
+  "name": "Accelerators",
+  "mirrors": "Processing unit",
+  "fid": "processing-unit",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "statistical_learning"
+  ],
+  "cost": [
+   300,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Accelerator"
+  ],
+  "defn": "Matrix arithmetic on hardware built for graphics.",
+  "cite": "Raina, Madhavan & Ng, 2009",
+  "year": 2009,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "fluid_wagon": {
+  "id": "fluid_wagon",
+  "name": "Fluid wagon",
+  "mirrors": "Fluid wagon",
+  "fid": "fluid-wagon",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "railway",
+   "disk_storage"
+  ],
+  "cost": [
+   200,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Fluid wagon"
+  ],
+  "defn": "A tank on rails.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "braking_force_1": {
+  "id": "braking_force_1",
+  "name": "Braking force 1",
+  "mirrors": "Braking force 1",
+  "fid": "braking-force-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "railway",
+   "statistical_learning"
+  ],
+  "cost": [
+   100,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Braking force +10%"
+  ],
+  "defn": "Trains stop in less track.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "braking_force",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "braking_force_2": {
+  "id": "braking_force_2",
+  "name": "Braking force 2",
+  "mirrors": "Braking force 2",
+  "fid": "braking-force-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "braking_force_1"
+  ],
+  "cost": [
+   200,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Braking force +15%"
+  ],
+  "defn": "Trains stop in less track.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "braking_force",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "braking_force_3": {
+  "id": "braking_force_3",
+  "name": "Braking force 3",
+  "mirrors": "Braking force 3",
+  "fid": "braking-force-3",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "P",
+  "pre": [
+   "braking_force_2",
+   "deep_learning"
+  ],
+  "cost": [
+   250,
+   "RGBP",
+   30
+  ],
+  "unlocks": [
+   "Braking force +15%"
+  ],
+  "defn": "Trains stop in less track.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "braking_force",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "braking_force_4": {
+  "id": "braking_force_4",
+  "name": "Braking force 4",
+  "mirrors": "Braking force 4",
+  "fid": "braking-force-4",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "P",
+  "pre": [
+   "braking_force_3"
+  ],
+  "cost": [
+   350,
+   "RGBP",
+   30
+  ],
+  "unlocks": [
+   "Braking force +15%"
+  ],
+  "defn": "Trains stop in less track.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "braking_force",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "braking_force_5": {
+  "id": "braking_force_5",
+  "name": "Braking force 5",
+  "mirrors": "Braking force 5",
+  "fid": "braking-force-5",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "P",
+  "pre": [
+   "braking_force_4"
+  ],
+  "cost": [
+   450,
+   "RGBP",
+   35
+  ],
+  "unlocks": [
+   "Braking force +15%"
+  ],
+  "defn": "Trains stop in less track.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "braking_force",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "braking_force_6": {
+  "id": "braking_force_6",
+  "name": "Braking force 6",
+  "mirrors": "Braking force 6",
+  "fid": "braking-force-6",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "braking_force_5",
+   "expected_utility"
+  ],
+  "cost": [
+   550,
+   "RGBPY",
+   45
+  ],
+  "unlocks": [
+   "Braking force +15%"
+  ],
+  "defn": "Trains stop in less track.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "braking_force",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "braking_force_7": {
+  "id": "braking_force_7",
+  "name": "Braking force 7",
+  "mirrors": "Braking force 7",
+  "fid": "braking-force-7",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "braking_force_6"
+  ],
+  "cost": [
+   650,
+   "RGBPY",
+   60
+  ],
+  "unlocks": [
+   "Braking force +15%"
+  ],
+  "defn": "Trains stop in less track.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "braking_force",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "tank": {
+  "id": "tank",
+  "name": "Tank",
+  "mirrors": "Tank",
+  "fid": "tank",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "automobile",
+   "rollback_recovery",
+   "explosives"
+  ],
+  "cost": [
+   250,
+   "RGMB",
+   30
+  ],
+  "unlocks": [
+   "Tank",
+   "Cannon shell",
+   "Explosive cannon shell"
+  ],
+  "defn": "An armored tracked vehicle.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": "Vehicle-mounted cannon; F to confirm against 'no handheld weapons'.",
+  "essential": false,
+  "upgrade": false
+ },
+ "logistics_3": {
+  "id": "logistics_3",
+  "name": "Logistics 3",
+  "mirrors": "Logistics 3",
+  "fid": "logistics-3",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "P",
+  "pre": [
+   "deep_learning",
+   "lubricant"
+  ],
+  "cost": [
+   300,
+   "RGBP",
+   15
+  ],
+  "unlocks": [
+   "Express belt",
+   "Express underground belt",
+   "Express splitter"
+  ],
+  "defn": "Belts at 45 items per second.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "laser": {
+  "id": "laser",
+  "name": "Laser",
+  "mirrors": "Laser",
+  "fid": "laser",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "batteries",
+   "statistical_learning"
+  ],
+  "cost": [
+   100,
+   "RGB",
+   30
+  ],
+  "unlocks": [],
+  "defn": "Coherent light from stimulated emission.",
+  "cite": "Maiman, 1960",
+  "year": 1960,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "rocketry": {
+  "id": "rocketry",
+  "name": "Rocketry",
+  "mirrors": "Rocketry",
+  "fid": "rocketry",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "explosives",
+   "information_theory",
+   "game_theory"
+  ],
+  "cost": [
+   120,
+   "RGM",
+   15
+  ],
+  "unlocks": [
+   "Rocket"
+  ],
+  "defn": "Self-propelled projectiles.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": "Fired by Legged agents; no rocket launcher.",
+  "essential": false,
+  "upgrade": false
+ },
+ "explosive_rocketry": {
+  "id": "explosive_rocketry",
+  "name": "Explosive rocketry",
+  "mirrors": "Explosive rocketry",
+  "fid": "explosive-rocketry",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "rocketry",
+   "rollback_recovery"
+  ],
+  "cost": [
+   100,
+   "RGMB",
+   30
+  ],
+  "unlocks": [
+   "Explosive rocket"
+  ],
+  "defn": "Rockets with an explosive payload.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "wearable_computing": {
+  "id": "wearable_computing",
+  "name": "Wearable computing",
+  "mirrors": "Modular armor",
+  "fid": "modular-armor",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "protective_clothing",
+   "integrated_circuit"
+  ],
+  "cost": [
+   100,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Modular suit"
+  ],
+  "defn": "A computer worn on the body.",
+  "cite": "Thorp, 1998",
+  "year": 1998,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "powered_suit": {
+  "id": "powered_suit",
+  "name": "Powered suit",
+  "mirrors": "Power armor",
+  "fid": "power-armor",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "wearable_computing",
+   "brushless_motors",
+   "accelerators"
+  ],
+  "cost": [
+   200,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Powered suit"
+  ],
+  "defn": "A suit with its own motors.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "powered_suit_2": {
+  "id": "powered_suit_2",
+  "name": "Powered suit 2",
+  "mirrors": "Power armor MK2",
+  "fid": "power-armor-mk2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "powered_suit",
+   "defense_in_depth",
+   "vector_processing",
+   "model_compression"
+  ],
+  "cost": [
+   400,
+   "RGMBY",
+   30
+  ],
+  "unlocks": [
+   "Powered suit 2"
+  ],
+  "defn": "The largest equipment grid.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "laser_turret": {
+  "id": "laser_turret",
+  "name": "Laser turret",
+  "mirrors": "Laser turret",
+  "fid": "laser-turret",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "laser",
+   "game_theory"
+  ],
+  "cost": [
+   150,
+   "RGMB",
+   30
+  ],
+  "unlocks": [
+   "Laser turret"
+  ],
+  "defn": "A turret that fires on electricity.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "mobile_robotics": {
+  "id": "mobile_robotics",
+  "name": "Mobile robotics",
+  "mirrors": "Robotics",
+  "fid": "robotics",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "brushless_motors",
+   "batteries"
+  ],
+  "cost": [
+   75,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Drone frame"
+  ],
+  "defn": "A robot that plans its own movements.",
+  "cite": "Nilsson, 1969",
+  "year": 1969,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "curated_corpora": {
+  "id": "curated_corpora",
+  "name": "Curated corpora",
+  "mirrors": "Rocket fuel",
+  "fid": "rocket-fuel",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "information_theory",
+   "paraphrase_generation"
+  ],
+  "cost": [
+   300,
+   "RGB",
+   45
+  ],
+  "unlocks": [
+   "Curated corpus"
+  ],
+  "defn": "Data selected, cleaned and labelled for training.",
+  "cite": "Deng et al., 2009",
+  "year": 2009,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "memory_wall": {
+  "id": "memory_wall",
+  "name": "Memory wall",
+  "mirrors": "Low density structure",
+  "fid": "low-density-structure",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "zone_refining",
+   "statistical_learning"
+  ],
+  "cost": [
+   300,
+   "RGB",
+   45
+  ],
+  "unlocks": [
+   "Memory stack"
+  ],
+  "defn": "Processors outpace memory; bandwidth becomes the limit.",
+  "cite": "Wulf & McKee, 1995",
+  "year": 1995,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "scaling_laws": {
+  "id": "scaling_laws",
+  "name": "Scaling laws",
+  "mirrors": "Rocket silo",
+  "fid": "rocket-silo",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "Y",
+  "pre": [
+   "concrete",
+   "curated_corpora",
+   "accumulators",
+   "photovoltaics",
+   "expected_utility",
+   "systolic_arrays",
+   "attention",
+   "radar"
+  ],
+  "cost": [
+   1000,
+   "RGBPY",
+   60
+  ],
+  "unlocks": [
+   "Frontier cluster",
+   "Run shard"
+  ],
+  "defn": "Loss falls as a power law in scale.",
+  "cite": "Kaplan et al., 2020; Hoffmann et al., 2022",
+  "year": 2022,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": "Satellite moved to Preference tuning; cargo landing pad omitted (no platforms in base).",
+  "essential": true,
+  "upgrade": false
+ },
+ "web_search": {
+  "id": "web_search",
+  "name": "Web search",
+  "mirrors": "Research speed 3",
+  "fid": "research-speed-3",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "time_sharing",
+   "statistical_learning"
+  ],
+  "cost": [
+   250,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Lab speed +40%"
+  ],
+  "defn": "Pages ranked by the links that point to them.",
+  "cite": "Brin & Page, 1998",
+  "year": 1998,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "open_source_libraries": {
+  "id": "open_source_libraries",
+  "name": "Open-source libraries",
+  "mirrors": "Research speed 4",
+  "fid": "research-speed-4",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "web_search"
+  ],
+  "cost": [
+   500,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Lab speed +50%"
+  ],
+  "defn": "Shared, reviewed implementations of standard methods.",
+  "cite": "Pedregosa et al., 2011",
+  "year": 2011,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "automatic_differentiation": {
+  "id": "automatic_differentiation",
+  "name": "Automatic differentiation",
+  "mirrors": "Research speed 5",
+  "fid": "research-speed-5",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "P",
+  "pre": [
+   "open_source_libraries",
+   "deep_learning"
+  ],
+  "cost": [
+   500,
+   "RGBP",
+   30
+  ],
+  "unlocks": [
+   "Lab speed +50%"
+  ],
+  "defn": "Exact derivatives of any program, computed mechanically.",
+  "cite": "Wengert, 1964",
+  "year": 1964,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "code_generation": {
+  "id": "code_generation",
+  "name": "Code generation",
+  "mirrors": "Research speed 6",
+  "fid": "research-speed-6",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "Y",
+  "pre": [
+   "automatic_differentiation",
+   "expected_utility"
+  ],
+  "cost": [
+   500,
+   "RGBPY",
+   30
+  ],
+  "unlocks": [
+   "Lab speed +60%"
+  ],
+  "defn": "Models write the experiment code.",
+  "cite": "Chen et al., 2021",
+  "year": 2021,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "substations": {
+  "id": "substations",
+  "name": "Substations",
+  "mirrors": "Electric energy distribution 2",
+  "fid": "electric-energy-distribution-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "rural_electrification",
+   "statistical_learning"
+  ],
+  "cost": [
+   100,
+   "RGB",
+   45
+  ],
+  "unlocks": [
+   "Substation"
+  ],
+  "defn": "Power for a whole block.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "accumulators": {
+  "id": "accumulators",
+  "name": "Accumulators",
+  "mirrors": "Electric energy accumulators",
+  "fid": "electric-energy-accumulators",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "rural_electrification",
+   "batteries"
+  ],
+  "cost": [
+   150,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Accumulator"
+  ],
+  "defn": "Store current for the night.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "electric_furnace": {
+  "id": "electric_furnace",
+  "name": "Electric furnace",
+  "mirrors": "Advanced material processing 2",
+  "fid": "advanced-material-processing-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "zone_refining",
+   "statistical_learning"
+  ],
+  "cost": [
+   250,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Electric furnace"
+  ],
+  "defn": "Smelting by electricity.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "data_parallelism": {
+  "id": "data_parallelism",
+  "name": "Data parallelism",
+  "mirrors": "Effect transmission",
+  "fid": "effect-transmission",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "P",
+  "pre": [
+   "accelerators",
+   "deep_learning"
+  ],
+  "cost": [
+   75,
+   "RGBP",
+   30
+  ],
+  "unlocks": [
+   "Switch"
+  ],
+  "defn": "Many accelerators share one job; each adds less.",
+  "cite": "Dean et al., 2012",
+  "year": 2012,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "lubricant": {
+  "id": "lubricant",
+  "name": "Lubricant",
+  "mirrors": "Lubricant",
+  "fid": "lubricant",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "paraphrase_generation"
+  ],
+  "cost": [
+   50,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Lubricant"
+  ],
+  "defn": "Less friction, less wear.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "brushless_motors": {
+  "id": "brushless_motors",
+  "name": "Brushless motors",
+  "mirrors": "Electric engine",
+  "fid": "electric-engine",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "lubricant"
+  ],
+  "cost": [
+   50,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Electric engine unit"
+  ],
+  "defn": "Commutation by electronics instead of brushes.",
+  "cite": "Wilson & Trickey, 1962",
+  "year": 1962,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "batteries": {
+  "id": "batteries",
+  "name": "Batteries",
+  "mirrors": "Battery",
+  "fid": "battery",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "spam_filtering"
+  ],
+  "cost": [
+   150,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Battery"
+  ],
+  "defn": "Charge stored chemically.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "automated_planning": {
+  "id": "automated_planning",
+  "name": "Automated planning",
+  "mirrors": "Construction robotics",
+  "fid": "construction-robotics",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "mobile_robotics"
+  ],
+  "cost": [
+   100,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Agent hub",
+   "Passive provider chest",
+   "Storage chest",
+   "Construction agent",
+   "Ghosts of destroyed entities"
+  ],
+  "defn": "Search for a sequence of actions that reaches a goal.",
+  "cite": "Fikes & Nilsson, 1971",
+  "year": 1971,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "multi_agent_systems": {
+  "id": "multi_agent_systems",
+  "name": "Multi-agent systems",
+  "mirrors": "Logistic robotics",
+  "fid": "logistic-robotics",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "mobile_robotics"
+  ],
+  "cost": [
+   250,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Agent hub",
+   "Passive provider chest",
+   "Storage chest",
+   "Logistic agent",
+   "Personal logistic requests",
+   "30 trash slots"
+  ],
+  "defn": "Agents bid for tasks and coordinate deliveries.",
+  "cite": "Smith, 1980",
+  "year": 1980,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "instruction_tuning": {
+  "id": "instruction_tuning",
+  "name": "Instruction tuning",
+  "mirrors": "Logistic system",
+  "fid": "logistic-system",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "Y",
+  "pre": [
+   "expected_utility",
+   "multi_agent_systems"
+  ],
+  "cost": [
+   500,
+   "RGBY",
+   30
+  ],
+  "unlocks": [
+   "Active provider chest",
+   "Requester chest",
+   "Buffer chest",
+   "Vehicle logistics"
+  ],
+  "defn": "Models trained to follow written requests.",
+  "cite": "Wei et al., 2022",
+  "year": 2022,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "inference_speed_1": {
+  "id": "inference_speed_1",
+  "name": "Inference speed 1",
+  "mirrors": "Worker robots speed 1",
+  "fid": "worker-robots-speed-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "mobile_robotics"
+  ],
+  "cost": [
+   50,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Agent speed +35%"
+  ],
+  "defn": "Agents act sooner.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "inference_speed",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "inference_speed_2": {
+  "id": "inference_speed_2",
+  "name": "Inference speed 2",
+  "mirrors": "Worker robots speed 2",
+  "fid": "worker-robots-speed-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "inference_speed_1"
+  ],
+  "cost": [
+   100,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Agent speed +40%"
+  ],
+  "defn": "Agents act sooner.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "inference_speed",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "inference_speed_3": {
+  "id": "inference_speed_3",
+  "name": "Inference speed 3",
+  "mirrors": "Worker robots speed 3",
+  "fid": "worker-robots-speed-3",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "inference_speed_2",
+   "expected_utility"
+  ],
+  "cost": [
+   150,
+   "RGBY",
+   60
+  ],
+  "unlocks": [
+   "Agent speed +45%"
+  ],
+  "defn": "Agents act sooner.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "inference_speed",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "inference_speed_4": {
+  "id": "inference_speed_4",
+  "name": "Inference speed 4",
+  "mirrors": "Worker robots speed 4",
+  "fid": "worker-robots-speed-4",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "inference_speed_3"
+  ],
+  "cost": [
+   250,
+   "RGBY",
+   60
+  ],
+  "unlocks": [
+   "Agent speed +55%"
+  ],
+  "defn": "Agents act sooner.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "inference_speed",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "inference_speed_5": {
+  "id": "inference_speed_5",
+  "name": "Inference speed 5",
+  "mirrors": "Worker robots speed 5",
+  "fid": "worker-robots-speed-5",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "inference_speed_4",
+   "deep_learning"
+  ],
+  "cost": [
+   500,
+   "RGBPY",
+   60
+  ],
+  "unlocks": [
+   "Agent speed +65%"
+  ],
+  "defn": "Agents act sooner.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "inference_speed",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "inference_speed_6": {
+  "id": "inference_speed_6",
+  "name": "Inference speed 6+",
+  "mirrors": "Worker robots speed 6",
+  "fid": "worker-robots-speed-6",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "W",
+  "pre": [
+   "inference_speed_5",
+   "in_context_learning"
+  ],
+  "cost": [
+   "formula",
+   "2^(L−6)×1000",
+   "RGBPYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Agent speed +65%"
+  ],
+  "defn": "Agents act sooner.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "inference_speed",
+  "infinite": true,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "context_length_1": {
+  "id": "context_length_1",
+  "name": "Context length 1",
+  "mirrors": "Worker robots storage 1",
+  "fid": "worker-robots-storage-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "mobile_robotics"
+  ],
+  "cost": [
+   200,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Agent cargo +1"
+  ],
+  "defn": "Agents carry more per trip.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "context_length",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "context_length_2": {
+  "id": "context_length_2",
+  "name": "Context length 2",
+  "mirrors": "Worker robots storage 2",
+  "fid": "worker-robots-storage-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "P",
+  "pre": [
+   "context_length_1",
+   "deep_learning"
+  ],
+  "cost": [
+   300,
+   "RGBP",
+   60
+  ],
+  "unlocks": [
+   "Agent cargo +1"
+  ],
+  "defn": "Agents carry more per trip.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "context_length",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "context_length_3": {
+  "id": "context_length_3",
+  "name": "Context length 3",
+  "mirrors": "Worker robots storage 3",
+  "fid": "worker-robots-storage-3",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "context_length_2",
+   "expected_utility"
+  ],
+  "cost": [
+   450,
+   "RGBPY",
+   60
+  ],
+  "unlocks": [
+   "Agent cargo +1"
+  ],
+  "defn": "Agents carry more per trip.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "context_length",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "energy_shield": {
+  "id": "energy_shield",
+  "name": "Energy shield",
+  "mirrors": "Energy shield equipment",
+  "fid": "energy-shield-equipment",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "portable_solar",
+   "game_theory"
+  ],
+  "cost": [
+   150,
+   "RGM",
+   15
+  ],
+  "unlocks": [
+   "Energy shield"
+  ],
+  "defn": "A field that absorbs damage.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "night_vision": {
+  "id": "night_vision",
+  "name": "Night vision",
+  "mirrors": "Night vision equipment",
+  "fid": "night-vision-equipment",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "portable_solar"
+  ],
+  "cost": [
+   50,
+   "RG",
+   15
+  ],
+  "unlocks": [
+   "Night vision"
+  ],
+  "defn": "Amplified starlight.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "belt_immunity": {
+  "id": "belt_immunity",
+  "name": "Belt immunity",
+  "mirrors": "Belt immunity equipment",
+  "fid": "belt-immunity-equipment",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "portable_solar"
+  ],
+  "cost": [
+   50,
+   "RG",
+   15
+  ],
+  "unlocks": [
+   "Belt immunity equipment"
+  ],
+  "defn": "Belts no longer carry you.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "energy_shield_2": {
+  "id": "energy_shield_2",
+  "name": "Energy shield 2",
+  "mirrors": "Energy shield MK2 equipment",
+  "fid": "energy-shield-mk2-equipment",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "energy_shield",
+   "rollback_recovery",
+   "memory_wall",
+   "powered_suit"
+  ],
+  "cost": [
+   200,
+   "RGMB",
+   30
+  ],
+  "unlocks": [
+   "Energy shield 2"
+  ],
+  "defn": "A stronger field.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "personal_battery": {
+  "id": "personal_battery",
+  "name": "Personal battery",
+  "mirrors": "Battery equipment",
+  "fid": "battery-equipment",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "batteries",
+   "portable_solar"
+  ],
+  "cost": [
+   50,
+   "RG",
+   15
+  ],
+  "unlocks": [
+   "Personal battery"
+  ],
+  "defn": "Stored charge for the suit.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "personal_battery_2": {
+  "id": "personal_battery_2",
+  "name": "Personal battery 2",
+  "mirrors": "Battery MK2 equipment",
+  "fid": "battery-mk2-equipment",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "personal_battery",
+   "memory_wall",
+   "powered_suit"
+  ],
+  "cost": [
+   100,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Personal battery 2"
+  ],
+  "defn": "More stored charge.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "portable_solar": {
+  "id": "portable_solar",
+  "name": "Portable solar",
+  "mirrors": "Solar panel equipment",
+  "fid": "solar-panel-equipment",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "wearable_computing",
+   "photovoltaics"
+  ],
+  "cost": [
+   100,
+   "RG",
+   15
+  ],
+  "unlocks": [
+   "Portable solar panel"
+  ],
+  "defn": "A solar cell for the suit.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "personal_laser_defense": {
+  "id": "personal_laser_defense",
+  "name": "Personal laser defense",
+  "mirrors": "Personal laser defense equipment",
+  "fid": "personal-laser-defense-equipment",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "laser_turret",
+   "rollback_recovery",
+   "memory_wall",
+   "powered_suit",
+   "portable_solar"
+  ],
+  "cost": [
+   100,
+   "RGMB",
+   30
+  ],
+  "unlocks": [
+   "Personal laser defense"
+  ],
+  "defn": "A laser turret worn on the suit.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "discharge_defense": {
+  "id": "discharge_defense",
+  "name": "Discharge defense",
+  "mirrors": "Discharge defense equipment",
+  "fid": "discharge-defense-equipment",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "laser_turret",
+   "rollback_recovery",
+   "powered_suit",
+   "portable_solar"
+  ],
+  "cost": [
+   100,
+   "RGMB",
+   30
+  ],
+  "unlocks": [
+   "Discharge defense"
+  ],
+  "defn": "A discharge that throws back everything nearby.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "portable_reactor": {
+  "id": "portable_reactor",
+  "name": "Portable reactor",
+  "mirrors": "Fission reactor equipment",
+  "fid": "fission-reactor-equipment",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "expected_utility",
+   "powered_suit",
+   "game_theory",
+   "nuclear_power"
+  ],
+  "cost": [
+   200,
+   "RGMBY",
+   30
+  ],
+  "unlocks": [
+   "Portable reactor"
+  ],
+  "defn": "A fission reactor for the suit.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "exoskeleton": {
+  "id": "exoskeleton",
+  "name": "Exoskeleton",
+  "mirrors": "Exoskeleton equipment",
+  "fid": "exoskeleton-equipment",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "accelerators",
+   "brushless_motors",
+   "portable_solar"
+  ],
+  "cost": [
+   50,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Exoskeleton"
+  ],
+  "defn": "Motors that move your legs.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "personal_assistant": {
+  "id": "personal_assistant",
+  "name": "Personal assistant",
+  "mirrors": "Personal roboport equipment",
+  "fid": "personal-roboport-equipment",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "automated_planning",
+   "portable_solar"
+  ],
+  "cost": [
+   50,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Personal assistant"
+  ],
+  "defn": "Agents that follow you and build what you mark.",
+  "cite": "Myers et al., 2007",
+  "year": 2007,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "personal_assistant_2": {
+  "id": "personal_assistant_2",
+  "name": "Personal assistant 2",
+  "mirrors": "Personal roboport MK2 equipment",
+  "fid": "personal-roboport-mk2-equipment",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "personal_assistant",
+   "expected_utility"
+  ],
+  "cost": [
+   250,
+   "RGBY",
+   30
+  ],
+  "unlocks": [
+   "Personal assistant 2"
+  ],
+  "defn": "More agents, more range.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "disk_storage": {
+  "id": "disk_storage",
+  "name": "Disk storage",
+  "mirrors": "Fluid handling",
+  "fid": "fluid-handling",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "stored_program",
+   "engine"
+  ],
+  "cost": [
+   50,
+   "RG",
+   15
+  ],
+  "unlocks": [
+   "Data lake",
+   "Pump",
+   "Drive"
+  ],
+  "defn": "Random-access storage on spinning platters.",
+  "cite": "Noyes & Dickinson, 1956",
+  "year": 1956,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "crawling": {
+  "id": "crawling",
+  "name": "Crawling",
+  "mirrors": "Oil gathering",
+  "fid": "oil-gathering",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "disk_storage",
+   "packet_switching"
+  ],
+  "cost": [
+   100,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Crawler"
+  ],
+  "defn": "A program follows links and copies what it finds.",
+  "cite": "Koster, 1994",
+  "year": 1994,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "text_categorization": {
+  "id": "text_categorization",
+  "name": "Text categorization",
+  "mirrors": "Oil processing",
+  "fid": "oil-processing",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "crawling"
+  ],
+  "cost": [
+   "trigger",
+   "Mine Crawl"
+  ],
+  "unlocks": [
+   "Data refinery",
+   "Trainer",
+   "Basic refining",
+   "Solid fuel (from junk)"
+  ],
+  "defn": "Documents are sorted by their statistics.",
+  "cite": "Cavnar & Trenkle, 1994",
+  "year": 1994,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "paraphrase_generation": {
+  "id": "paraphrase_generation",
+  "name": "Paraphrase generation",
+  "mirrors": "Advanced oil processing",
+  "fid": "advanced-oil-processing",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "statistical_learning"
+  ],
+  "cost": [
+   75,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Advanced refining",
+   "Heavy-fraction cracking",
+   "Light-fraction cracking",
+   "Solid fuel (from code)",
+   "Solid fuel (from prose)"
+  ],
+  "defn": "A model rewrites text in other words.",
+  "cite": "Quirk, Brockett & Dolan, 2004",
+  "year": 2004,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "mass_digitization": {
+  "id": "mass_digitization",
+  "name": "Mass digitization",
+  "mirrors": "Coal liquefaction",
+  "fid": "coal-liquefaction",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "P",
+  "pre": [
+   "paraphrase_generation",
+   "deep_learning"
+  ],
+  "cost": [
+   200,
+   "RGBP",
+   30
+  ],
+  "unlocks": [
+   "Liquefaction"
+  ],
+  "defn": "Whole libraries scanned and converted to text.",
+  "cite": "Michel et al., 2011",
+  "year": 2011,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "spam_filtering": {
+  "id": "spam_filtering",
+  "name": "Spam filtering",
+  "mirrors": "Sulfur processing",
+  "fid": "sulfur-processing",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "text_categorization"
+  ],
+  "cost": [
+   150,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Sulfuric acid",
+   "Label"
+  ],
+  "defn": "Unwanted messages are flagged by probability.",
+  "cite": "Sahami et al., 1998",
+  "year": 1998,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "synthetics": {
+  "id": "synthetics",
+  "name": "Synthetics",
+  "mirrors": "Plastics",
+  "fid": "plastics",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "text_categorization"
+  ],
+  "cost": [
+   200,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Plastic"
+  ],
+  "defn": "Made, not mined.",
+  "cite": "Rubin, 1993",
+  "year": 1993,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "perceptron": {
+  "id": "perceptron",
+  "name": "Perceptron",
+  "mirrors": "Modules",
+  "fid": "modules",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "integrated_circuit",
+   "artificial_intelligence"
+  ],
+  "cost": [
+   100,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Module slots (gateway; Weights if D defines it)"
+  ],
+  "defn": "Threshold units whose weights are set by example.",
+  "cite": "Rosenblatt, 1958",
+  "year": 1958,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "pipelining": {
+  "id": "pipelining",
+  "name": "Pipelining",
+  "mirrors": "Speed module",
+  "fid": "speed-module",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "perceptron"
+  ],
+  "cost": [
+   50,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Speed module 1"
+  ],
+  "defn": "Overlap the stages of successive instructions.",
+  "cite": "Buchholz, 1962",
+  "year": 1962,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "vector_processing": {
+  "id": "vector_processing",
+  "name": "Vector processing",
+  "mirrors": "Speed module 2",
+  "fid": "speed-module-2",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "pipelining",
+   "accelerators"
+  ],
+  "cost": [
+   75,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Speed module 2"
+  ],
+  "defn": "One instruction applied to many operands.",
+  "cite": "Flynn, 1966",
+  "year": 1966,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "systolic_arrays": {
+  "id": "systolic_arrays",
+  "name": "Systolic arrays",
+  "mirrors": "Speed module 3",
+  "fid": "speed-module-3",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "P",
+  "pre": [
+   "vector_processing",
+   "deep_learning"
+  ],
+  "cost": [
+   300,
+   "RGBP",
+   60
+  ],
+  "unlocks": [
+   "Speed module 3"
+  ],
+  "defn": "Operands pulse through a grid of multiply-add cells.",
+  "cite": "Kung & Leiserson, 1978",
+  "year": 1978,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "backpropagation": {
+  "id": "backpropagation",
+  "name": "Backpropagation",
+  "mirrors": "Productivity module",
+  "fid": "productivity-module",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "perceptron"
+  ],
+  "cost": [
+   50,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Productivity module 1"
+  ],
+  "defn": "Errors pass backward to set every weight.",
+  "cite": "Linnainmaa, 1970; Werbos, 1974; Rumelhart, Hinton & Williams, 1986",
+  "year": 1986,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "convolution": {
+  "id": "convolution",
+  "name": "Convolution",
+  "mirrors": "Productivity module 2",
+  "fid": "productivity-module-2",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "backpropagation",
+   "accelerators"
+  ],
+  "cost": [
+   75,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Productivity module 2"
+  ],
+  "defn": "The same weights at every position.",
+  "cite": "Fukushima, 1980; LeCun et al., 1989",
+  "year": 1989,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "attention": {
+  "id": "attention",
+  "name": "Attention",
+  "mirrors": "Productivity module 3",
+  "fid": "productivity-module-3",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "P",
+  "pre": [
+   "convolution",
+   "deep_learning"
+  ],
+  "cost": [
+   300,
+   "RGBP",
+   60
+  ],
+  "unlocks": [
+   "Productivity module 3"
+  ],
+  "defn": "Every token weighs every other token.",
+  "cite": "Bahdanau, Cho & Bengio, 2015; Vaswani et al., 2017",
+  "year": 2017,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "cmos": {
+  "id": "cmos",
+  "name": "CMOS",
+  "mirrors": "Efficiency module",
+  "fid": "efficiency-module",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "perceptron"
+  ],
+  "cost": [
+   50,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Efficiency module 1"
+  ],
+  "defn": "Logic that draws power only when it switches.",
+  "cite": "Wanlass & Sah, 1963",
+  "year": 1963,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "model_compression": {
+  "id": "model_compression",
+  "name": "Model compression",
+  "mirrors": "Efficiency module 2",
+  "fid": "efficiency-module-2",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "cmos",
+   "accelerators"
+  ],
+  "cost": [
+   75,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Efficiency module 2"
+  ],
+  "defn": "A small model trained on a large model's outputs.",
+  "cite": "Buciluǎ, Caruana & Niculescu-Mizil, 2006",
+  "year": 2006,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "quantization": {
+  "id": "quantization",
+  "name": "Quantization",
+  "mirrors": "Efficiency module 3",
+  "fid": "efficiency-module-3",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "P",
+  "pre": [
+   "model_compression",
+   "deep_learning"
+  ],
+  "cost": [
+   300,
+   "RGBP",
+   60
+  ],
+  "unlocks": [
+   "Efficiency module 3"
+  ],
+  "defn": "Fewer bits per weight.",
+  "cite": "Jacob et al., 2018",
+  "year": 2018,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "interceptors": {
+  "id": "interceptors",
+  "name": "Interceptors",
+  "mirrors": "Defender",
+  "fid": "defender",
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "game_theory"
+  ],
+  "cost": [
+   100,
+   "RGM",
+   30
+  ],
+  "unlocks": [
+   "Interceptor bay",
+   "Interceptor 1",
+   "Interceptor count +4"
+  ],
+  "defn": "Drones launched from a bay at intruders.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": "F: launched by a building, never thrown.",
+  "essential": false,
+  "upgrade": false
+ },
+ "interceptors_2": {
+  "id": "interceptors_2",
+  "name": "Interceptors 2",
+  "mirrors": "Distractor",
+  "fid": "distractor",
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "interceptors",
+   "rollback_recovery",
+   "laser"
+  ],
+  "cost": [
+   200,
+   "RGMB",
+   30
+  ],
+  "unlocks": [
+   "Interceptor 2"
+  ],
+  "defn": "Decoy interceptors that draw attacks.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "interceptors_3": {
+  "id": "interceptors_3",
+  "name": "Interceptors 3",
+  "mirrors": "Destroyer",
+  "fid": "destroyer",
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "defense_in_depth",
+   "interceptors_2",
+   "pipelining"
+  ],
+  "cost": [
+   300,
+   "RGMBY",
+   30
+  ],
+  "unlocks": [
+   "Interceptor 3"
+  ],
+  "defn": "Interceptors that seek intruders out.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "in_situ_leaching": {
+  "id": "in_situ_leaching",
+  "name": "In-situ leaching",
+  "mirrors": "Uranium mining",
+  "fid": "uranium-mining",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "statistical_learning",
+   "concrete"
+  ],
+  "cost": [
+   100,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Mining with fluid"
+  ],
+  "defn": "Acid pumped through the ore body dissolves the metal.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "isotope_separation": {
+  "id": "isotope_separation",
+  "name": "Isotope separation",
+  "mirrors": "Uranium processing",
+  "fid": "uranium-processing",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "in_situ_leaching"
+  ],
+  "cost": [
+   "trigger",
+   "Mine uranium ore"
+  ],
+  "unlocks": [
+   "Centrifuge",
+   "Uranium processing"
+  ],
+  "defn": "Spin out the lighter isotope.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "nuclear_power": {
+  "id": "nuclear_power",
+  "name": "Nuclear power",
+  "mirrors": "Nuclear power",
+  "fid": "nuclear-power",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "isotope_separation"
+  ],
+  "cost": [
+   800,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Nuclear reactor",
+   "Heat exchanger",
+   "Heat pipe",
+   "Steam turbine",
+   "Uranium fuel cell"
+  ],
+  "defn": "Fission heat raises steam.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "enrichment_cascade": {
+  "id": "enrichment_cascade",
+  "name": "Enrichment cascade",
+  "mirrors": "Kovarex enrichment process",
+  "fid": "kovarex-enrichment-process",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "P",
+  "pre": [
+   "deep_learning",
+   "isotope_separation",
+   "curated_corpora"
+  ],
+  "cost": [
+   1500,
+   "RGBP",
+   30
+  ],
+  "unlocks": [
+   "Enrichment cascade",
+   "Nuclear fuel"
+  ],
+  "defn": "Recirculate the enriched stream.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "fuel_reprocessing": {
+  "id": "fuel_reprocessing",
+  "name": "Fuel reprocessing",
+  "mirrors": "Nuclear fuel reprocessing",
+  "fid": "nuclear-fuel-reprocessing",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "P",
+  "pre": [
+   "nuclear_power",
+   "deep_learning"
+  ],
+  "cost": [
+   50,
+   "RGBP",
+   30
+  ],
+  "unlocks": [
+   "Fuel reprocessing"
+  ],
+  "defn": "Recover uranium from spent cells.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "mining_productivity_1": {
+  "id": "mining_productivity_1",
+  "name": "Mining productivity 1",
+  "mirrors": "Mining productivity 1",
+  "fid": "mining-productivity-1",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "integrated_circuit"
+  ],
+  "cost": [
+   250,
+   "RG",
+   60
+  ],
+  "unlocks": [
+   "Mining productivity +10%"
+  ],
+  "defn": "More from every deposit.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "mining_productivity",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "mining_productivity_2": {
+  "id": "mining_productivity_2",
+  "name": "Mining productivity 2",
+  "mirrors": "Mining productivity 2",
+  "fid": "mining-productivity-2",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "mining_productivity_1",
+   "statistical_learning"
+  ],
+  "cost": [
+   500,
+   "RGB",
+   60
+  ],
+  "unlocks": [
+   "Mining productivity +10%"
+  ],
+  "defn": "More from every deposit.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "mining_productivity",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "mining_productivity_3": {
+  "id": "mining_productivity_3",
+  "name": "Mining productivity 3",
+  "mirrors": "Mining productivity 3",
+  "fid": "mining-productivity-3",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "mining_productivity_2",
+   "deep_learning",
+   "expected_utility"
+  ],
+  "cost": [
+   1000,
+   "RGBPY",
+   60
+  ],
+  "unlocks": [
+   "Mining productivity +10%"
+  ],
+  "defn": "More from every deposit.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "mining_productivity",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "mining_productivity_4": {
+  "id": "mining_productivity_4",
+  "name": "Mining productivity 4+",
+  "mirrors": "Mining productivity 4",
+  "fid": "mining-productivity-4",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "W",
+  "pre": [
+   "mining_productivity_3",
+   "in_context_learning"
+  ],
+  "cost": [
+   "formula",
+   "2500×(L − 3)",
+   "RGBPYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Mining productivity +10%"
+  ],
+  "defn": "More from every deposit.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": "mining_productivity",
+  "infinite": true,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "artillery": {
+  "id": "artillery",
+  "name": "Artillery",
+  "mirrors": "Artillery",
+  "fid": "artillery",
+  "tag": "ISO",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "defense_in_depth",
+   "tank",
+   "concrete",
+   "radar"
+  ],
+  "cost": [
+   2000,
+   "RGMBY",
+   30
+  ],
+  "unlocks": [
+   "Artillery wagon",
+   "Artillery turret",
+   "Artillery shell"
+  ],
+  "defn": "Guns that outrange anything that walks.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "embodied_agents": {
+  "id": "embodied_agents",
+  "name": "Embodied agents",
+  "mirrors": "Spidertron",
+  "fid": "spidertron",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "Y",
+  "pre": [
+   "defense_in_depth",
+   "exoskeleton",
+   "portable_reactor",
+   "rocketry",
+   "quantization",
+   "radar"
+  ],
+  "cost": [
+   2500,
+   "RGMBPY",
+   30
+  ],
+  "unlocks": [
+   "Legged agent"
+  ],
+  "defn": "An agent with legs, remotely directed.",
+  "cite": "Brooks, 1991",
+  "year": 1991,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "cybernetics": {
+  "id": "cybernetics",
+  "name": "Cybernetics",
+  "mirrors": "Circuit network",
+  "fid": "circuit-network",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "linear_programming"
+  ],
+  "cost": [
+   100,
+   "RG",
+   15
+  ],
+  "unlocks": [
+   "Circuit wires",
+   "Arithmetic combinator",
+   "Decider combinator",
+   "Constant combinator",
+   "Power switch",
+   "Programmable speaker",
+   "Display panel",
+   "Iron stick"
+  ],
+  "defn": "Control by feedback; a decider is a threshold unit.",
+  "cite": "McCulloch & Pitts, 1943; Wiener, 1948",
+  "year": 1948,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "lateral_inhibition": {
+  "id": "lateral_inhibition",
+  "name": "Lateral inhibition",
+  "mirrors": "Advanced combinators",
+  "fid": "advanced-combinators",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "cybernetics",
+   "statistical_learning"
+  ],
+  "cost": [
+   50,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Selector combinator"
+  ],
+  "defn": "The strongest signals suppress their neighbours.",
+  "cite": "Hartline, 1949",
+  "year": 1949,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "rejection_sampling": {
+  "id": "rejection_sampling",
+  "name": "Rejection sampling",
+  "mirrors": "Quality module",
+  "fid": "quality-module",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "perceptron"
+  ],
+  "cost": [
+   500,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Quality module 1",
+   "Quality tier Selected",
+   "Quality tier Verified"
+  ],
+  "defn": "Sample, test, keep what passes.",
+  "cite": "von Neumann, 1951",
+  "year": 1951,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "beam_search": {
+  "id": "beam_search",
+  "name": "Beam search",
+  "mirrors": "Quality module 2",
+  "fid": "quality-module-2",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "rejection_sampling",
+   "accelerators"
+  ],
+  "cost": [
+   75,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Quality module 2"
+  ],
+  "defn": "Keep the best few partial answers at each step.",
+  "cite": "Lowerre, 1976",
+  "year": 1976,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "tree_search": {
+  "id": "tree_search",
+  "name": "Monte Carlo tree search",
+  "mirrors": "Quality module 3",
+  "fid": "quality-module-3",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "P",
+  "pre": [
+   "beam_search",
+   "deep_learning"
+  ],
+  "cost": [
+   300,
+   "RGBP",
+   60
+  ],
+  "unlocks": [
+   "Quality module 3"
+  ],
+  "defn": "Simulate many continuations; expand the most promising.",
+  "cite": "Coulom, 2006; Kocsis & Szepesvári, 2006",
+  "year": 2006,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": true
+ },
+ "scalable_oversight": {
+  "id": "scalable_oversight",
+  "name": "Scalable oversight",
+  "mirrors": "Epic quality",
+  "fid": "epic-quality",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "Y",
+  "pre": [
+   "rejection_sampling",
+   "expected_utility",
+   "deep_learning",
+   "interpretability"
+  ],
+  "cost": [
+   5000,
+   "RGBPY",
+   60
+  ],
+  "unlocks": [
+   "Quality tier Audited"
+  ],
+  "defn": "Supervise work that people cannot check directly.",
+  "cite": "Amodei et al., 2016; Irving, Christiano & Amodei, 2018",
+  "year": 2018,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "formal_verification": {
+  "id": "formal_verification",
+  "name": "Formal verification",
+  "mirrors": "Legendary quality",
+  "fid": "legendary-quality",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "W",
+  "pre": [
+   "in_context_learning",
+   "scalable_oversight"
+  ],
+  "cost": [
+   5000,
+   "RGBPYW",
+   60
+  ],
+  "unlocks": [
+   "Quality tier Reference"
+  ],
+  "defn": "A machine-checked proof that the program is correct.",
+  "cite": "Floyd, 1967; Hoare, 1969",
+  "year": 1969,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "expert_iteration": {
+  "id": "expert_iteration",
+  "name": "Expert iteration",
+  "mirrors": "Recycling",
+  "fid": "recycling",
+  "tag": "ISO",
+  "regime": "H",
+  "tier": "P",
+  "pre": [
+   "deep_learning",
+   "accelerators",
+   "concrete"
+  ],
+  "cost": [
+   5000,
+   "RGBP",
+   15
+  ],
+  "unlocks": [
+   "Verifier"
+  ],
+  "defn": "Generate, keep the best, train on it, repeat.",
+  "cite": "Anthony, Tian & Barber, 2017",
+  "year": 2017,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "prior_art": {
+  "id": "prior_art",
+  "name": "Prior art",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "S",
+  "pre": [],
+  "cost": [
+   "start"
+  ],
+  "unlocks": [
+   "Stone furnace",
+   "Burner mining drill",
+   "Iron gear wheel",
+   "Transport belt",
+   "Burner inserter",
+   "Wooden chest",
+   "Iron chest",
+   "Smelting (iron, copper, stone brick)",
+   "Archive processing (per D)"
+  ],
+  "defn": "Known before the game begins.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": "Cosmetic root showing the start recipes (Factorio enables these with no node). No pistol, no magazine at start.",
+  "essential": false,
+  "upgrade": false
+ },
+ "artificial_intelligence": {
+  "id": "artificial_intelligence",
+  "name": "Artificial intelligence",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "R",
+  "pre": [
+   "basic_research"
+  ],
+  "cost": [
+   10,
+   "R",
+   60
+  ],
+  "unlocks": [
+   "No effect; required by Perceptron, Expert systems, Statistical learning"
+  ],
+  "defn": "Proposed as a two-month, ten-man study.",
+  "cite": "McCarthy, Minsky, Rochester & Shannon, 1955",
+  "year": 1955,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": "H's set-piece: ten memos, as the proposal asked for ten men.",
+  "essential": false,
+  "upgrade": false
+ },
+ "expert_systems": {
+  "id": "expert_systems",
+  "name": "Expert systems",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "artificial_intelligence",
+   "linear_programming"
+  ],
+  "cost": [
+   100,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Hand-crafting speed +100%. Does not apply to machines."
+  ],
+  "defn": "Rules written by hand, consulted by machine.",
+  "cite": "Feigenbaum, 1977",
+  "year": 1977,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "packet_switching": {
+  "id": "packet_switching",
+  "name": "Packet switching",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "G",
+  "pre": [
+   "cybernetics",
+   "radar"
+  ],
+  "cost": [
+   100,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Exchanges can be tapped (B, L3)",
+   "Radars relay circuit signals to one another",
+   "Staffing radius +50% (if B's staffing is adopted)"
+  ],
+  "defn": "Messages cut into packets, each routed independently.",
+  "cite": "Baran, 1964; Davies, 1966",
+  "year": 1966,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": "The 'networking' idea: gates Crawling, so the crawl (oil) needs it.",
+  "essential": false,
+  "upgrade": false
+ },
+ "evaporative_cooling": {
+  "id": "evaporative_cooling",
+  "name": "Evaporative cooling",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "G",
+  "pre": [
+   "steam_power",
+   "linear_programming"
+  ],
+  "cost": [
+   75,
+   "RG",
+   30
+  ],
+  "unlocks": [
+   "Cooling tower (F: removes up to 10 MW from its chunk)"
+  ],
+  "defn": "Evaporating water carries heat away.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "liquid_cooling": {
+  "id": "liquid_cooling",
+  "name": "Liquid cooling",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "B",
+  "pre": [
+   "evaporative_cooling",
+   "disk_storage",
+   "statistical_learning"
+  ],
+  "cost": [
+   150,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Coolant fluid boxes on compute entities (tier 2+)",
+   "Dry cooler",
+   "Water exchanger"
+  ],
+  "defn": "Coolant carries heat from the chip to the outside.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "dennard_scaling_1": {
+  "id": "dennard_scaling_1",
+  "name": "Dennard scaling 1",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "cmos",
+   "statistical_learning"
+  ],
+  "cost": [
+   100,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Compute entities −8% energy"
+  ],
+  "defn": "Smaller transistors, same power per area.",
+  "cite": "Dennard et al., 1974",
+  "year": 1974,
+  "branch": "",
+  "series": "dennard",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "dennard_scaling_2": {
+  "id": "dennard_scaling_2",
+  "name": "Dennard scaling 2",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "B",
+  "pre": [
+   "dennard_scaling_1"
+  ],
+  "cost": [
+   200,
+   "RGB",
+   30
+  ],
+  "unlocks": [
+   "Compute entities −8% energy"
+  ],
+  "defn": "Smaller transistors, same power per area.",
+  "cite": "Dennard et al., 1974",
+  "year": 1974,
+  "branch": "",
+  "series": "dennard",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "dennard_scaling_3": {
+  "id": "dennard_scaling_3",
+  "name": "Dennard scaling 3",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "P",
+  "pre": [
+   "dennard_scaling_2",
+   "deep_learning"
+  ],
+  "cost": [
+   250,
+   "RGBP",
+   30
+  ],
+  "unlocks": [
+   "Compute entities −8% energy"
+  ],
+  "defn": "Smaller transistors, same power per area.",
+  "cite": "Dennard et al., 1974",
+  "year": 1974,
+  "branch": "",
+  "series": "dennard",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "dennard_scaling_4": {
+  "id": "dennard_scaling_4",
+  "name": "Dennard scaling 4",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "P",
+  "pre": [
+   "dennard_scaling_3"
+  ],
+  "cost": [
+   300,
+   "RGBP",
+   30
+  ],
+  "unlocks": [
+   "Compute entities −8% energy"
+  ],
+  "defn": "Smaller transistors, same power per area.",
+  "cite": "Dennard et al., 1974",
+  "year": 1974,
+  "branch": "",
+  "series": "dennard",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "dennard_scaling_5": {
+  "id": "dennard_scaling_5",
+  "name": "Dennard scaling 5",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "P",
+  "pre": [
+   "dennard_scaling_4"
+  ],
+  "cost": [
+   400,
+   "RGBP",
+   30
+  ],
+  "unlocks": [
+   "Compute entities −8% energy. No further levels exist."
+  ],
+  "defn": "Smaller transistors, same power per area.",
+  "cite": "Dennard et al., 1974",
+  "year": 1974,
+  "branch": "",
+  "series": "dennard",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "immersion_cooling": {
+  "id": "immersion_cooling",
+  "name": "Immersion cooling",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "liquid_cooling",
+   "expected_utility",
+   "deep_learning"
+  ],
+  "cost": [
+   500,
+   "RGBPY",
+   30
+  ],
+  "unlocks": [
+   "Liquid-cooled share of compute heat 70% → 90%"
+  ],
+  "defn": "The whole board sits in coolant.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "synthetic_detection": {
+  "id": "synthetic_detection",
+  "name": "Synthetic detection",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "Y",
+  "pre": [
+   "expected_utility",
+   "spam_filtering"
+  ],
+  "cost": [
+   300,
+   "RGBY",
+   30
+  ],
+  "unlocks": [
+   "Crawlers route synthetic text as its own output (C's false-positive rate); without this it passes as curated text and lowers checkpoint quality (F)"
+  ],
+  "defn": "Classifiers that flag machine-written text.",
+  "cite": "Solaiman et al., 2019",
+  "year": 2019,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "watermarking": {
+  "id": "watermarking",
+  "name": "Watermarking",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "Y",
+  "pre": [
+   "synthetic_detection",
+   "instruction_tuning"
+  ],
+  "cost": [
+   300,
+   "RGBY",
+   30
+  ],
+  "unlocks": [
+   "Your deployments add half as much to σ (F's Provenance)"
+  ],
+  "defn": "Generated text carries a statistical signature.",
+  "cite": "Kirchenbauer et al., 2023",
+  "year": 2023,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "preference_tuning": {
+  "id": "preference_tuning",
+  "name": "Preference tuning",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "Y",
+  "pre": [
+   "scaling_laws"
+  ],
+  "cost": [
+   200,
+   "RGBPY",
+   30
+  ],
+  "unlocks": [
+   "Post-training payload"
+  ],
+  "defn": "Tune against a reward fitted to human comparisons.",
+  "cite": "Christiano et al., 2017; Ouyang et al., 2022",
+  "year": 2022,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": "Factorio unlocks the satellite with the silo; here post-training is its own, cheap idea (keeps pacing).",
+  "essential": false,
+  "upgrade": false
+ },
+ "interpretability": {
+  "id": "interpretability",
+  "name": "Interpretability",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "Y",
+  "pre": [
+   "expected_utility",
+   "attention"
+  ],
+  "cost": [
+   1000,
+   "RGBPY",
+   60
+  ],
+  "unlocks": [
+   "Quality of model items is shown (checkpoint-type modules, Researchers, payloads, agents); before this it reads '?' and filters cannot sort by it",
+   "Hollow work no longer consumes papers (F)"
+  ],
+  "defn": "Read what a trained network computes.",
+  "cite": "Olah et al., 2018",
+  "year": 2018,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": "D5 / brainstorm 03 reveal. Optional: drop the hidden-quality half if it tests badly.",
+  "essential": false,
+  "upgrade": false
+ },
+ "chain_of_thought": {
+  "id": "chain_of_thought",
+  "name": "Chain of thought",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "W",
+  "pre": [
+   "in_context_learning"
+  ],
+  "cost": [
+   2000,
+   "RGBPYW",
+   60
+  ],
+  "unlocks": [
+   "System cards per frontier run +50% (1,000 → 1,500)"
+  ],
+  "defn": "Intermediate steps written out before the answer.",
+  "cite": "Wei et al., 2022",
+  "year": 2022,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "self_play": {
+  "id": "self_play",
+  "name": "Self-play",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "W",
+  "pre": [
+   "in_context_learning"
+  ],
+  "cost": [
+   2000,
+   "RGBPYW",
+   60
+  ],
+  "unlocks": [
+   "Run shard productivity +20%"
+  ],
+  "defn": "The model generates its own training opponents.",
+  "cite": "Samuel, 1959; Silver et al., 2017",
+  "year": 2017,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "test_time_compute": {
+  "id": "test_time_compute",
+  "name": "Test-time compute",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "W",
+  "pre": [
+   "chain_of_thought"
+  ],
+  "cost": [
+   3000,
+   "RGBPYW",
+   60
+  ],
+  "unlocks": [
+   "Research halls: a mode for +50% output at +100% energy"
+  ],
+  "defn": "Spend compute per answer instead of per model.",
+  "cite": "Snell et al., 2024",
+  "year": 2024,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "automated_research": {
+  "id": "automated_research",
+  "name": "Automated research",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "W",
+  "pre": [
+   "test_time_compute",
+   "self_play"
+  ],
+  "cost": [
+   1000,
+   "RGBPYW",
+   60
+  ],
+  "unlocks": [
+   "Researcher (4 Accelerators + 1 Checkpoint → 1 Researcher + 1 Checkpoint returned)",
+   "Research hall (writes System cards)",
+   "Model generation"
+  ],
+  "defn": "Machines do the research that improves the machines.",
+  "cite": "Good, 1965",
+  "year": 1965,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": "Closes the loop. The takeoff clock starts when the first Research hall is powered (G).",
+  "essential": true,
+  "upgrade": false
+ },
+ "model_generation": {
+  "id": "model_generation",
+  "name": "Model generation 1–20",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "F",
+  "tier": "W",
+  "pre": [
+   "automated_research"
+  ],
+  "cost": [
+   "formula",
+   "1.5^(L−1)×1000",
+   "W",
+   30,
+   "1–20"
+  ],
+  "unlocks": [
+   "Researcher output ×m per level (m = 2.0, r = 1.71 at G's g = 1.5)",
+   "Level 20 ends the run (capstone; H's run report)"
+  ],
+  "defn": "The previous generation trained this one.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": "The RSI lever (G). Beyond the literature.",
+  "essential": false,
+  "upgrade": false
+ },
+ "model_generation_inf": {
+  "id": "model_generation_inf",
+  "name": "Model generation 21+",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "F",
+  "tier": "W",
+  "pre": [
+   "model_generation"
+  ],
+  "cost": [
+   "formula",
+   "2^(L−20)×2.2M",
+   "W",
+   30,
+   "∞"
+  ],
+  "unlocks": [
+   "Researcher output ×1.1 per level (r ≈ 0.14; G)"
+  ],
+  "defn": "Diminishing returns again.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": true,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "wafer_scale_integration": {
+  "id": "wafer_scale_integration",
+  "name": "Wafer-scale integration",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "F",
+  "tier": "W",
+  "pre": [
+   "automated_research"
+  ],
+  "cost": [
+   2000,
+   "W",
+   30
+  ],
+  "unlocks": [
+   "Accelerator 2 (Researcher speed 3 at 8 MW per hall; G)"
+  ],
+  "defn": "One chip the size of the wafer.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "fusion_power": {
+  "id": "fusion_power",
+  "name": "Fusion power",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "F",
+  "tier": "W",
+  "pre": [
+   "automated_research",
+   "nuclear_power"
+  ],
+  "cost": [
+   4000,
+   "W",
+   30
+  ],
+  "unlocks": [
+   "Fusion reactor",
+   "Fusion generator",
+   "Fusion power cell (Space Age numbers)"
+  ],
+  "defn": "Light nuclei fused for net electric power.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "photonic_interconnect": {
+  "id": "photonic_interconnect",
+  "name": "Photonic interconnect",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "F",
+  "tier": "W",
+  "pre": [
+   "wafer_scale_integration"
+  ],
+  "cost": [
+   8000,
+   "W",
+   30
+  ],
+  "unlocks": [
+   "Accelerator 3 (speed 8 at 12 MW per hall; G)"
+  ],
+  "defn": "Light carries data between chips.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "reversible_logic": {
+  "id": "reversible_logic",
+  "name": "Reversible logic",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "F",
+  "tier": "W",
+  "pre": [
+   "photonic_interconnect"
+  ],
+  "cost": [
+   32000,
+   "W",
+   30
+  ],
+  "unlocks": [
+   "Accelerator 4 (speed 20 at 16 MW per hall; G)"
+  ],
+  "defn": "Computation that erases nothing, so dissipates less.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "research_scheduling": {
+  "id": "research_scheduling",
+  "name": "Research scheduling",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "F",
+  "tier": "W",
+  "pre": [
+   "automated_research"
+  ],
+  "cost": [
+   5000,
+   "W",
+   30
+  ],
+  "unlocks": [
+   "Researchers fill the research queue ('Queued by: Researcher')"
+  ],
+  "defn": "Researchers choose the next technology.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": "H 5.1 #41. Presentation BEND.",
+  "essential": false,
+  "upgrade": false
+ },
+ "weight_transplant": {
+  "id": "weight_transplant",
+  "name": "Weight transplant",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "F",
+  "tier": "W",
+  "pre": [
+   "wafer_scale_integration"
+  ],
+  "cost": [
+   5000,
+   "W",
+   30
+  ],
+  "unlocks": [
+   "Recipe: a Researcher moves to newer Accelerators; the old ones are returned"
+  ],
+  "defn": "Weights move to new hardware without retraining.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": false,
+  "note": "H 5.1 #40.",
+  "essential": false,
+  "upgrade": false
+ },
+ "research_productivity": {
+  "id": "research_productivity",
+  "name": "Research productivity",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "W",
+  "pre": [
+   "in_context_learning"
+  ],
+  "cost": [
+   "formula",
+   "2^(L−1)×1000",
+   "RGBPYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Research productivity +10%"
+  ],
+  "defn": "Each idea costs more research than the last.",
+  "cite": "Bloom, Jones, Van Reenen & Webb, 2020",
+  "year": 2020,
+  "branch": "",
+  "series": null,
+  "infinite": true,
+  "note": "Space Age research productivity (+10%/level at 1.2^L×1000, 120 s); cost doubles here (H).",
+  "essential": false,
+  "upgrade": false
+ },
+ "self_driving_labs": {
+  "id": "self_driving_labs",
+  "name": "Self-driving labs",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "W",
+  "pre": [
+   "in_context_learning",
+   "code_generation"
+  ],
+  "cost": [
+   "formula",
+   "2^(L−1)×1000",
+   "RGBPYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Lab speed +20%"
+  ],
+  "defn": "Experiments chosen, run and read by machine.",
+  "cite": "King et al., 2009",
+  "year": 2009,
+  "branch": "",
+  "series": null,
+  "infinite": true,
+  "note": "Research speed 7+.",
+  "essential": false,
+  "upgrade": false
+ },
+ "process_node": {
+  "id": "process_node",
+  "name": "Process node",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "W",
+  "pre": [
+   "in_context_learning"
+  ],
+  "cost": [
+   "formula",
+   "2^(L−1)×1000",
+   "RGBPYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Accelerator productivity +10%"
+  ],
+  "defn": "Transistors per die double; so does the fab's cost.",
+  "cite": "Moore, 1965",
+  "year": 1965,
+  "branch": "",
+  "series": null,
+  "infinite": true,
+  "note": "Space Age processing-unit productivity; Rock's law as the cost curve (H).",
+  "essential": false,
+  "upgrade": false
+ },
+ "algorithmic_progress": {
+  "id": "algorithmic_progress",
+  "name": "Algorithmic progress",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "H",
+  "tier": "W",
+  "pre": [
+   "in_context_learning"
+  ],
+  "cost": [
+   "formula",
+   "1.5^L×2000",
+   "RGBPYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Run shard productivity +10%"
+  ],
+  "defn": "The same loss for less compute.",
+  "cite": "Ho et al., 2024",
+  "year": 2024,
+  "branch": "",
+  "series": null,
+  "infinite": true,
+  "note": "Space Age rocket part productivity, same formula.",
+  "essential": false,
+  "upgrade": false
+ },
+ "thermal_management": {
+  "id": "thermal_management",
+  "name": "Thermal management",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "W",
+  "pre": [
+   "immersion_cooling",
+   "in_context_learning"
+  ],
+  "cost": [
+   "formula",
+   "1.5^L×1000",
+   "RGBPYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Cooling tower capacity +10%"
+  ],
+  "defn": "More heat moved per tower.",
+  "cite": null,
+  "year": null,
+  "branch": "",
+  "series": null,
+  "infinite": true,
+  "note": "F's infinite cooling lever.",
+  "essential": false,
+  "upgrade": false
+ },
+ "arc_turret": {
+  "id": "arc_turret",
+  "name": "Arc turret",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "P",
+  "pre": [
+   "laser_turret",
+   "deep_learning"
+  ],
+  "cost": [
+   300,
+   "RGMBP",
+   30
+  ],
+  "unlocks": [
+   "Arc turret (Space Age Tesla turret stats)"
+  ],
+  "defn": "Chain lightning between targets.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": null,
+  "infinite": false,
+  "note": "F: Space Age's Tesla turret moved to the Preprint tier. Ferals resist 0% electric.",
+  "essential": false,
+  "upgrade": false
+ },
+ "arc_damage_1": {
+  "id": "arc_damage_1",
+  "name": "Arc damage 1",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "P",
+  "pre": [
+   "arc_turret"
+  ],
+  "cost": [
+   250,
+   "RGMBP",
+   30
+  ],
+  "unlocks": [
+   "Damage: arc +30%, discharge +30%"
+  ],
+  "defn": "Stronger arcs.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "arc_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "arc_damage_2": {
+  "id": "arc_damage_2",
+  "name": "Arc damage 2",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "Y",
+  "pre": [
+   "arc_damage_1",
+   "expected_utility"
+  ],
+  "cost": [
+   500,
+   "RGMBPY",
+   60
+  ],
+  "unlocks": [
+   "Damage: arc +40%, discharge +40%"
+  ],
+  "defn": "Stronger arcs.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "arc_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "arc_damage_3": {
+  "id": "arc_damage_3",
+  "name": "Arc damage 3",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "W",
+  "pre": [
+   "arc_damage_2",
+   "in_context_learning"
+  ],
+  "cost": [
+   1000,
+   "RGMBPYW",
+   60
+  ],
+  "unlocks": [
+   "Damage: arc +70%, discharge +70%"
+  ],
+  "defn": "Stronger arcs.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "arc_damage",
+  "infinite": false,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ },
+ "arc_damage_4": {
+  "id": "arc_damage_4",
+  "name": "Arc damage 4+",
+  "mirrors": "—",
+  "fid": null,
+  "tag": "BEND",
+  "regime": "L",
+  "tier": "W",
+  "pre": [
+   "arc_damage_3"
+  ],
+  "cost": [
+   "formula",
+   "2^(L−3)×1000",
+   "RGMBPYW",
+   60,
+   "∞"
+  ],
+  "unlocks": [
+   "Damage: arc +70%, discharge +70%"
+  ],
+  "defn": "Stronger arcs.",
+  "cite": null,
+  "year": null,
+  "branch": "M",
+  "series": "arc_damage",
+  "infinite": true,
+  "note": null,
+  "essential": false,
+  "upgrade": false
+ }
+}

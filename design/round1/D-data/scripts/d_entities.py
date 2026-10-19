@@ -1,0 +1,166 @@
+# R1-D buildings and other placeables. Each entry yields an entity, its placing item and its recipe.
+# E(id, name, type, size, energy, mirrors, recipe_ins, recipe_time, unlock, stack, group, **fields)
+# energy: ("electric", kW) | ("burner", kW) | ("none", 0) | ("heat", kW)
+
+
+def E(id, name, typ, size, energy, mirrors, ins, time, unlock, stack, group, **f):
+    d = dict(id=id, name=name, type=typ, size=list(size), mirrors=mirrors, ins=ins, time=time,
+             unlock=unlock, stack=stack, group=group)
+    src, kw = energy
+    d["energy"] = {"source": src, "kw": kw}
+    if src == "burner":
+        d["energy"]["fuel_categories"] = ["chemical"]
+    d.update(f)
+    return d
+
+
+S = "start"
+ENTITIES = [
+    # ---------- extraction ----------
+    E("burner-mining-drill", "Burner mining drill", "mining-drill", (2, 2), ("burner", 150), "burner-mining-drill",
+      {"iron-gear-wheel": 3, "stone-furnace": 1, "iron-plate": 3}, 2, S, 50, "extraction", mining_speed=0.25, module_slots=0, emissions_per_min=12),
+    E("electric-mining-drill", "Electric mining drill", "mining-drill", (3, 3), ("electric", 90), "electric-mining-drill",
+      {"logic-board": 3, "iron-gear-wheel": 5, "iron-plate": 10}, 2, S, 50, "extraction", mining_speed=0.5, module_slots=3, emissions_per_min=10),
+    E("offshore-pump", "Offshore pump", "offshore-pump", (1, 2), ("none", 0), "offshore-pump",
+      {"pipe": 3, "iron-gear-wheel": 2}, 0.5, S, 20, "extraction", extra={"pumping_per_s": 1200}),
+    E("crawler", "Crawler", "pumpjack", (3, 3), ("electric", 90), "pumpjack",
+      {"steel-plate": 5, "iron-gear-wheel": 10, "logic-board": 5, "data-line": 10}, 5, "information-retrieval", 20, "extraction",
+      mining_speed=1, module_slots=2, emissions_per_min=10, sprite="lattice mast over a manhole, cable bundle dropping into it",
+      desc="Placed on an exchange. Pulls whatever passes through."),
+    # ---------- smelting ----------
+    E("stone-furnace", "Stone furnace", "furnace", (2, 2), ("burner", 90), "stone-furnace",
+      {"quartz": 5}, 0.5, S, 50, "smelting", crafting_speed=1, categories=["smelting"], module_slots=0, emissions_per_min=2),
+    E("steel-furnace", "Steel furnace", "furnace", (2, 2), ("burner", 90), "steel-furnace",
+      {"steel-plate": 6, "quartz": 10}, 3, "advanced-material-processing", 50, "smelting", crafting_speed=2, categories=["smelting"], module_slots=0, emissions_per_min=4),
+    E("electric-furnace", "Electric furnace", "furnace", (3, 3), ("electric", 180), "electric-furnace",
+      {"steel-plate": 10, "processor": 5, "quartz": 10}, 5, "advanced-material-processing-2", 50, "smelting", crafting_speed=2, categories=["smelting"], module_slots=2, emissions_per_min=1),
+    E("keypunch", "Keypunch", "furnace", (2, 2), ("burner", 90), "stone-furnace (data smelter)",
+      {"iron-gear-wheel": 2, "iron-plate": 3}, 0.5, S, 50, "transcription", crafting_speed=1, categories=["transcription"], module_slots=0,
+      emissions_per_min=2, desc="Transcribes records into tokens, one card at a time. Burns fuel.", sprite="desk-sized keypunch, card hopper on top, cream and steel-blue"),
+    E("tokenizer", "Tokenizer", "furnace", (3, 3), ("electric", 180), "electric-furnace (data smelter)",
+      {"steel-plate": 10, "processor": 5, "dataset": 10}, 5, "tokenization", 50, "transcription", crafting_speed=2, categories=["transcription"], module_slots=2,
+      emissions_per_min=1, sprite="low grey cabinet with a page-feed slot and a glowing ribbon of glyphs"),
+    # ---------- production ----------
+    E("assembling-machine-1", "Assembling machine 1", "assembler", (3, 3), ("electric", 75), "assembling-machine-1",
+      {"logic-board": 3, "iron-gear-wheel": 5, "iron-plate": 9}, 0.5, "automation", 50, "production",
+      crafting_speed=0.5, categories=["crafting"], module_slots=0, emissions_per_min=4),
+    E("assembling-machine-2", "Assembling machine 2", "assembler", (3, 3), ("electric", 150), "assembling-machine-2",
+      {"steel-plate": 2, "logic-board": 3, "iron-gear-wheel": 5, "assembling-machine-1": 1}, 0.5, "automation-2", 50, "production",
+      crafting_speed=0.75, categories=["crafting", "crafting-with-fluid"], module_slots=2, emissions_per_min=3),
+    E("assembling-machine-3", "Assembling machine 3", "assembler", (3, 3), ("electric", 375), "assembling-machine-3",
+      {"coprocessor": 4, "assembling-machine-2": 2}, 0.5, "automation-3", 50, "production",
+      crafting_speed=1.25, categories=["crafting", "crafting-with-fluid"], module_slots=4, emissions_per_min=2),
+    E("chemical-plant", "Chemical plant", "assembler", (3, 3), ("electric", 210), "chemical-plant",
+      {"steel-plate": 5, "iron-gear-wheel": 5, "logic-board": 5, "pipe": 5}, 5, "coal-chemistry", 10, "production",
+      crafting_speed=1, categories=["chemistry"], module_slots=3, emissions_per_min=4),
+    E("data-refinery", "Data refinery", "assembler", (5, 5), ("electric", 420), "oil-refinery",
+      {"steel-plate": 15, "iron-gear-wheel": 10, "concrete": 10, "logic-board": 10, "data-line": 10}, 8, "information-retrieval", 10, "production",
+      crafting_speed=1, categories=["data-refining"], module_slots=3, emissions_per_min=6,
+      sprite="squat 5x5 hall with three stacked tape towers and cooling vents; three cable outlets"),
+    E("data-plant", "Data plant", "assembler", (3, 3), ("electric", 210), "chemical-plant (data side)",
+      {"steel-plate": 5, "iron-gear-wheel": 5, "logic-board": 5, "data-line": 5}, 5, "datasets", 10, "production",
+      crafting_speed=1, categories=["data-processing"], module_slots=3, emissions_per_min=4,
+      sprite="3x3 cabinet block with blinking front panels and two cable ports"),
+    E("trainer", "Trainer", "assembler", (3, 3), ("electric", 400), "centrifuge (special 3x3 maker); recipes mirror modules",
+      {"steel-plate": 10, "iron-gear-wheel": 10, "processor": 10, "copper-cable": 10}, 5, "machine-learning", 10, "production",
+      crafting_speed=1, categories=["training"], module_slots=4, emissions_per_min=4,
+      sprite="3x3 black cabinet with a loss-curve display that falls while working"),
+    E("centrifuge", "Centrifuge", "assembler", (3, 3), ("electric", 350), "centrifuge",
+      {"concrete": 100, "steel-plate": 50, "processor": 100, "iron-gear-wheel": 100}, 4, "uranium-processing", 10, "production",
+      crafting_speed=1, categories=["centrifuging"], module_slots=2, emissions_per_min=4),
+    E("seminar", "Seminar", "lab", (3, 3), ("electric", 60), "lab",
+      {"logic-board": 10, "iron-gear-wheel": 10, "transport-belt": 4}, 2, S, 10, "production",
+      crafting_speed=1, module_slots=2, emissions_per_min=0, desc="Consumes papers. Needs staff."),
+    E("switch", "Switch", "beacon", (3, 3), ("electric", 480), "beacon",
+      {"processor": 20, "logic-board": 20, "steel-plate": 10, "copper-cable": 10}, 15, "interconnect", 20, "production",
+      module_slots=2, extra={"distribution_efficiency": 1.5, "supply_area": "9x9", "profile": "1/sqrt(n)"},
+      sprite="3x3 switch cabinet with fan-out cables on all four sides", desc="Lends its modules to every machine in range. Each additional switch counts for less."),
+    E("frontier-cluster", "Frontier cluster", "rocket-silo", (9, 9), ("electric", 3990), "rocket-silo",
+      {"steel-plate": 1000, "concrete": 1000, "pipe": 100, "accelerator": 200, "electric-engine-unit": 200}, 30, "frontier-run", 1, "production",
+      crafting_speed=1, categories=["frontier-run", "launch"], module_slots=4, emissions_per_min=0,
+      extra={"parts_required": 100, "idle_kw": 250, "payload": "post-training-payload", "returns": "1000 system-card"},
+      sprite="9x9 hall of racks around a central gantry; progress bar is a falling loss curve"),
+    # ---------- power (ISO) ----------
+    E("boiler", "Boiler", "boiler", (3, 2), ("burner", 1800), "boiler", {"stone-furnace": 1, "pipe": 4}, 0.5, S, 50, "power", emissions_per_min=30, categories=["boiling"], extra={"steam_per_s": 60, "temp_c": 165}),
+    E("steam-engine", "Steam engine", "generator", (3, 5), ("none", 0), "steam-engine", {"iron-gear-wheel": 8, "pipe": 5, "iron-plate": 10}, 0.5, S, 10, "power", extra={"max_kw": 900}),
+    E("solar-panel", "Solar panel", "solar-panel", (3, 3), ("none", 0), "solar-panel", {"steel-plate": 5, "logic-board": 15, "silicon": 5}, 10, "semiconductors", 50, "power",
+      extra={"peak_kw": 60}),
+    E("accumulator", "Accumulator", "accumulator", (2, 2), ("none", 0), "accumulator", {"iron-plate": 2, "battery": 5}, 10, "battery", 50, "power", extra={"capacity_mj": 5, "flow_kw": 300}),
+    E("nuclear-reactor", "Nuclear reactor", "reactor", (5, 5), ("burner", 40000), "nuclear-reactor",
+      {"concrete": 500, "steel-plate": 500, "processor": 500, "copper-plate": 500}, 8, "nuclear-power", 10, "power", categories=["fission"], extra={"heat_mw": 40, "neighbour_bonus": "+100% per adjacent active reactor"}),
+    E("heat-pipe", "Heat pipe", "heat-pipe", (1, 1), ("none", 0), "heat-pipe", {"steel-plate": 10, "copper-plate": 20}, 1, "nuclear-power", 50, "power"),
+    E("heat-exchanger", "Heat exchanger", "heat-exchanger", (3, 2), ("heat", 10000), "heat-exchanger", {"steel-plate": 10, "copper-plate": 100, "pipe": 10}, 3, "nuclear-power", 50, "power", categories=["boiling"], extra={"steam_per_s": 103.09, "temp_c": 500}),
+    E("steam-turbine", "Steam turbine", "generator", (3, 5), ("none", 0), "steam-turbine", {"iron-gear-wheel": 50, "copper-plate": 50, "pipe": 20}, 3, "nuclear-power", 10, "power", extra={"max_kw": 5820}),
+    E("small-electric-pole", "Small electric pole", "electric-pole", (1, 1), ("none", 0), "small-electric-pole", {"wood": 1, "copper-cable": 2}, 0.5, S, 50, "power",
+      extra={"wire_reach": 7.5, "supply": "5x5"}, produces=2),
+    E("medium-electric-pole", "Medium electric pole", "electric-pole", (1, 1), ("none", 0), "medium-electric-pole", {"iron-stick": 4, "steel-plate": 2, "copper-cable": 2}, 0.5, "electric-energy-distribution-1", 50, "power",
+      extra={"wire_reach": 9, "supply": "7x7"}),
+    E("big-electric-pole", "Big electric pole", "electric-pole", (2, 2), ("none", 0), "big-electric-pole", {"iron-stick": 8, "steel-plate": 5, "copper-cable": 4}, 0.5, "electric-energy-distribution-1", 50, "power",
+      extra={"wire_reach": 32, "supply": "4x4"}),
+    E("substation", "Substation", "electric-pole", (2, 2), ("none", 0), "substation", {"steel-plate": 10, "processor": 5, "copper-cable": 6}, 0.5, "electric-energy-distribution-2", 50, "power",
+      extra={"wire_reach": 18, "supply": "18x18"}),
+    # ---------- belts (ISO) ----------
+    E("transport-belt", "Transport belt", "belt", (1, 1), ("none", 0), "transport-belt", {"iron-plate": 1, "iron-gear-wheel": 1}, 0.5, S, 100, "belt", extra={"items_per_s": 15}, produces=2),
+    E("fast-transport-belt", "Fast transport belt", "belt", (1, 1), ("none", 0), "fast-transport-belt", {"iron-gear-wheel": 5, "transport-belt": 1}, 0.5, "logistics-2", 100, "belt", extra={"items_per_s": 30}),
+    E("express-transport-belt", "Express transport belt", "belt", (1, 1), ("none", 0), "express-transport-belt", {"iron-gear-wheel": 10, "fast-transport-belt": 1, "lubricant": 20}, 0.5, "logistics-3", 100, "belt", extra={"items_per_s": 45}),
+    E("underground-belt", "Underground belt", "underground-belt", (1, 1), ("none", 0), "underground-belt", {"iron-plate": 10, "transport-belt": 5}, 1, "logistics", 50, "belt", extra={"max_gap": 4}, produces=2),
+    E("fast-underground-belt", "Fast underground belt", "underground-belt", (1, 1), ("none", 0), "fast-underground-belt", {"iron-gear-wheel": 40, "underground-belt": 2}, 2, "logistics-2", 50, "belt", extra={"max_gap": 6}, produces=2),
+    E("express-underground-belt", "Express underground belt", "underground-belt", (1, 1), ("none", 0), "express-underground-belt", {"iron-gear-wheel": 80, "fast-underground-belt": 2, "lubricant": 40}, 2, "logistics-3", 50, "belt", extra={"max_gap": 8}, produces=2),
+    E("splitter", "Splitter", "splitter", (2, 1), ("none", 0), "splitter", {"logic-board": 5, "iron-plate": 5, "transport-belt": 4}, 1, "logistics", 50, "belt"),
+    E("fast-splitter", "Fast splitter", "splitter", (2, 1), ("none", 0), "fast-splitter", {"splitter": 1, "iron-gear-wheel": 10, "logic-board": 10}, 2, "logistics-2", 50, "belt"),
+    E("express-splitter", "Express splitter", "splitter", (2, 1), ("none", 0), "express-splitter", {"fast-splitter": 1, "iron-gear-wheel": 10, "processor": 10, "lubricant": 80}, 2, "logistics-3", 50, "belt"),
+    # ---------- inserters (ISO) ----------
+    E("burner-inserter", "Burner inserter", "inserter", (1, 1), ("burner", 105), "burner-inserter", {"iron-plate": 1, "iron-gear-wheel": 1}, 0.5, S, 50, "inserter"),
+    E("inserter", "Inserter", "inserter", (1, 1), ("electric", 13.2), "inserter", {"logic-board": 1, "iron-gear-wheel": 1, "iron-plate": 1}, 0.5, S, 50, "inserter"),
+    E("long-handed-inserter", "Long-handed inserter", "inserter", (1, 1), ("electric", 20), "long-handed-inserter", {"iron-gear-wheel": 1, "iron-plate": 1, "inserter": 1}, 0.5, "automation", 50, "inserter"),
+    E("fast-inserter", "Fast inserter", "inserter", (1, 1), ("electric", 46), "fast-inserter", {"logic-board": 2, "iron-plate": 2, "inserter": 1}, 0.5, "fast-inserter", 50, "inserter"),
+    E("bulk-inserter", "Bulk inserter", "inserter", (1, 1), ("electric", 132), "bulk-inserter", {"iron-gear-wheel": 15, "logic-board": 15, "processor": 1, "fast-inserter": 1}, 0.5, "bulk-inserter", 50, "inserter"),
+    # ---------- storage (ISO) ----------
+    E("wooden-chest", "Wooden chest", "chest", (1, 1), ("none", 0), "wooden-chest", {"wood": 2}, 0.5, S, 50, "storage", extra={"slots": 16}),
+    E("iron-chest", "Iron chest", "chest", (1, 1), ("none", 0), "iron-chest", {"iron-plate": 8}, 0.5, S, 50, "storage", extra={"slots": 32}),
+    E("steel-chest", "Steel chest", "chest", (1, 1), ("none", 0), "steel-chest", {"steel-plate": 8}, 0.5, "steel-processing", 50, "storage", extra={"slots": 48}),
+] + [
+    E(f"{k}-chest", f"{k.replace('-', ' ').capitalize()} chest", "logistic-chest", (1, 1), ("none", 0), f"{k}-chest",
+      {"steel-chest": 1, "logic-board": 3, "processor": 1}, 0.5,
+      "planning-agents" if k in ("passive-provider", "storage") else "learned-agents", 50, "storage")
+    for k in ("active-provider", "passive-provider", "storage", "buffer", "requester")
+] + [
+    # ---------- fluids: pipes (physical) and data lines (data) ----------
+    E("pipe", "Pipe", "pipe", (1, 1), ("none", 0), "pipe", {"iron-plate": 1}, 0.5, S, 100, "fluid"),
+    E("pipe-to-ground", "Pipe to ground", "pipe-to-ground", (1, 1), ("none", 0), "pipe-to-ground", {"pipe": 10, "iron-plate": 5}, 0.5, S, 50, "fluid", extra={"max_gap": 9}, produces=2),
+    E("pump", "Pump", "pump", (1, 2), ("electric", 29), "pump", {"engine-unit": 1, "steel-plate": 1, "pipe": 1}, 2, "fluid-handling", 50, "fluid"),
+    E("storage-tank", "Storage tank", "storage-tank", (3, 3), ("none", 0), "storage-tank", {"iron-plate": 20, "steel-plate": 5}, 3, "fluid-handling", 50, "fluid", extra={"capacity": 25000}),
+    E("data-line", "Data line", "pipe", (1, 1), ("none", 0), "pipe (data network)", {"copper-plate": 1}, 0.5, "telecommunication", 100, "fluid",
+      sprite="flat black cable in a grey tray; a coloured stripe shows the stream"),
+    E("underground-line", "Underground line", "pipe-to-ground", (1, 1), ("none", 0), "pipe-to-ground (data)", {"data-line": 10, "iron-plate": 5}, 0.5, "telecommunication", 50, "fluid",
+      extra={"max_gap": 9}, produces=2, sprite="cable tray dipping into a small concrete duct"),
+    E("repeater", "Repeater", "pump", (1, 2), ("electric", 29), "pump (data)", {"steel-plate": 1, "logic-board": 2, "data-line": 1}, 2, "telecommunication", 50, "fluid",
+      sprite="small grey box straddling a cable, green arrow lamp"),
+    E("data-lake", "Data lake", "storage-tank", (3, 3), ("none", 0), "storage-tank (data)", {"iron-plate": 20, "steel-plate": 5}, 3, "telecommunication", 50, "fluid",
+      extra={"capacity": 25000}, sprite="3x3 vault of tape racks with a fill gauge"),
+    # ---------- rail (ISO + data wagon) ----------
+    E("rail", "Rail", "rail", (2, 2), ("none", 0), "rail", {"quartz": 1, "iron-stick": 1, "steel-plate": 1}, 0.5, "railway", 100, "rail", produces=2),
+    E("train-stop", "Train stop", "train-stop", (2, 2), ("none", 0), "train-stop", {"logic-board": 5, "iron-plate": 6, "iron-stick": 6, "steel-plate": 3}, 0.5, "railway", 10, "rail"),
+    E("rail-signal", "Rail signal", "rail-signal", (1, 1), ("none", 0), "rail-signal", {"logic-board": 1, "iron-plate": 5}, 0.5, "railway", 50, "rail"),
+    E("rail-chain-signal", "Rail chain signal", "rail-signal", (1, 1), ("none", 0), "rail-chain-signal", {"logic-board": 1, "iron-plate": 5}, 0.5, "railway", 50, "rail"),
+    E("locomotive", "Locomotive", "locomotive", (2, 6), ("burner", 600), "locomotive", {"engine-unit": 20, "logic-board": 10, "steel-plate": 30}, 4, "railway", 5, "rail"),
+    E("cargo-wagon", "Cargo wagon", "cargo-wagon", (2, 6), ("none", 0), "cargo-wagon", {"iron-gear-wheel": 10, "iron-plate": 20, "steel-plate": 20}, 1, "railway", 5, "rail", extra={"slots": 40}),
+    E("fluid-wagon", "Fluid wagon", "fluid-wagon", (2, 6), ("none", 0), "fluid-wagon", {"iron-gear-wheel": 10, "steel-plate": 16, "pipe": 8, "storage-tank": 1}, 1.5, "fluid-wagon", 5, "rail", extra={"capacity": 50000}),
+    E("data-wagon", "Data wagon", "fluid-wagon", (2, 6), ("none", 0), "fluid-wagon (data)", {"iron-gear-wheel": 10, "steel-plate": 16, "data-line": 8, "data-lake": 1}, 1.5, "fluid-wagon", 5, "rail",
+      extra={"capacity": 50000}, sprite="boxcar lined with drive racks"),
+    # ---------- agents, sensing, circuit network ----------
+    E("agent-hub", "Agent hub", "roboport", (4, 4), ("electric", 50), "roboport", {"steel-plate": 45, "iron-gear-wheel": 45, "processor": 45}, 5, "planning-agents", 10, "agent"),
+    E("radar", "Radar", "radar", (3, 3), ("electric", 300), "radar", {"logic-board": 5, "iron-gear-wheel": 5, "iron-plate": 10}, 0.5, S, 50, "agent",
+      desc="Surplus from a wartime laboratory."),
+    E("car", "Car", "other", (2, 3), ("burner", 600), "car", {"engine-unit": 8, "iron-plate": 20, "steel-plate": 5}, 2, "automobilism", 1, "agent"),
+    E("small-lamp", "Lamp", "lamp", (1, 1), ("electric", 5), "small-lamp", {"logic-board": 1, "copper-cable": 3, "iron-plate": 1}, 0.5, "optics", 50, "circuit"),
+    E("decider-combinator", "Threshold unit", "combinator", (1, 2), ("electric", 1), "decider-combinator", {"copper-cable": 5, "logic-board": 5}, 0.5, "circuit-network", 50, "circuit",
+      desc="Fires when its weighted inputs cross a threshold."),
+    E("arithmetic-combinator", "Arithmetic unit", "combinator", (1, 2), ("electric", 1), "arithmetic-combinator", {"copper-cable": 5, "logic-board": 5}, 0.5, "circuit-network", 50, "circuit"),
+    E("constant-combinator", "Bias unit", "combinator", (1, 1), ("none", 0), "constant-combinator", {"copper-cable": 5, "logic-board": 2}, 0.5, "circuit-network", 50, "circuit",
+      desc="A constant input."),
+    E("selector-combinator", "Selector unit", "combinator", (1, 2), ("electric", 1), "selector-combinator", {"processor": 2, "decider-combinator": 5}, 0.5, "advanced-combinators", 50, "circuit"),
+    E("power-switch", "Power switch", "other", (2, 2), ("none", 0), "power-switch", {"iron-plate": 5, "copper-cable": 5, "logic-board": 2}, 2, "circuit-network", 10, "circuit"),
+    E("programmable-speaker", "Programmable speaker", "other", (1, 1), ("electric", 2), "programmable-speaker", {"iron-plate": 3, "iron-stick": 4, "copper-cable": 5, "logic-board": 4}, 2, "circuit-network", 10, "circuit"),
+    E("display-panel", "Display panel", "other", (1, 1), ("none", 0), "display-panel", {"iron-plate": 1, "logic-board": 1}, 0.5, "circuit-network", 10, "circuit"),
+]

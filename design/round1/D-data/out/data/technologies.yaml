@@ -1,0 +1,1016 @@
+- id: automation
+  name: Automation
+  era: 1947 (the word)
+  prerequisites: []
+  cost:
+    count: 10
+    time: 10
+    packs:
+      memo: 1
+  unlocks:
+    recipes:
+    - assembling-machine-1
+    - long-handed-inserter
+  mirrors: see R1-E
+- id: logistics
+  name: Logistics
+  era: ''
+  prerequisites: []
+  cost:
+    count: 20
+    time: 10
+    packs:
+      memo: 1
+  unlocks:
+    recipes:
+    - underground-belt
+    - splitter
+  mirrors: see R1-E
+- id: optics
+  name: Optics
+  era: ''
+  prerequisites: []
+  cost:
+    count: 10
+    time: 10
+    packs:
+      memo: 1
+  unlocks:
+    recipes:
+    - small-lamp
+  mirrors: see R1-E
+- id: fast-inserter
+  name: Fast inserter
+  era: ''
+  prerequisites:
+  - automation
+  cost:
+    count: 30
+    time: 10
+    packs:
+      memo: 1
+  unlocks:
+    recipes:
+    - fast-inserter
+  mirrors: see R1-E
+- id: steel-processing
+  name: Steel processing
+  era: ''
+  prerequisites: []
+  cost:
+    count: 50
+    time: 10
+    packs:
+      memo: 1
+  unlocks:
+    recipes:
+    - steel-plate
+    - steel-chest
+  mirrors: see R1-E
+- id: report
+  name: Report
+  era: 1950s
+  prerequisites:
+  - automation
+  cost:
+    count: 75
+    time: 10
+    packs:
+      memo: 1
+  unlocks:
+    recipes:
+    - report
+  mirrors: see R1-E
+- id: semiconductors
+  name: Transistor
+  era: 1947–54
+  prerequisites:
+  - report
+  - steel-processing
+  cost:
+    count: 100
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - silicon
+    - solar-panel
+  mirrors: see R1-E
+- id: automation-2
+  name: Automation 2
+  era: ''
+  prerequisites:
+  - report
+  - steel-processing
+  cost:
+    count: 40
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - assembling-machine-2
+  mirrors: see R1-E
+- id: fluid-handling
+  name: Fluid handling
+  era: ''
+  prerequisites:
+  - report
+  cost:
+    count: 50
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - barrel
+    - fill-water-barrel
+    - empty-water-barrel
+    - fill-sulfuric-acid-barrel
+    - empty-sulfuric-acid-barrel
+    - fill-lubricant-barrel
+    - empty-lubricant-barrel
+    - pump
+    - storage-tank
+  mirrors: see R1-E
+- id: engine
+  name: Engine
+  era: ''
+  prerequisites:
+  - report
+  - steel-processing
+  cost:
+    count: 100
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - engine-unit
+  mirrors: see R1-E
+- id: logistics-2
+  name: Logistics 2
+  era: ''
+  prerequisites:
+  - logistics
+  - report
+  cost:
+    count: 200
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - fast-transport-belt
+    - fast-underground-belt
+    - fast-splitter
+  mirrors: see R1-E
+- id: railway
+  name: Railway
+  era: ''
+  prerequisites:
+  - engine
+  - logistics-2
+  cost:
+    count: 75
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - rail
+    - train-stop
+    - rail-signal
+    - rail-chain-signal
+    - locomotive
+    - cargo-wagon
+  mirrors: see R1-E
+- id: automobilism
+  name: Automobilism
+  era: ''
+  prerequisites:
+  - engine
+  cost:
+    count: 100
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - car
+  mirrors: see R1-E
+- id: electric-energy-distribution-1
+  name: Electric energy distribution 1
+  era: ''
+  prerequisites:
+  - report
+  - steel-processing
+  cost:
+    count: 120
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - medium-electric-pole
+    - big-electric-pole
+  mirrors: see R1-E
+- id: concrete
+  name: Concrete
+  era: ''
+  prerequisites:
+  - report
+  cost:
+    count: 100
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - concrete
+    - hazard-concrete
+  mirrors: see R1-E
+- id: landfill
+  name: Landfill
+  era: ''
+  prerequisites:
+  - report
+  cost:
+    count: 50
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - landfill
+  mirrors: see R1-E
+- id: circuit-network
+  name: Threshold logic
+  era: 1943–48
+  prerequisites:
+  - report
+  cost:
+    count: 100
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - decider-combinator
+    - arithmetic-combinator
+    - constant-combinator
+    - power-switch
+    - programmable-speaker
+    - display-panel
+  mirrors: see R1-E
+- id: telecommunication
+  name: Telecommunication
+  era: ''
+  prerequisites:
+  - report
+  cost:
+    count: 75
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - drive
+    - fill-crawl-drive
+    - empty-crawl-drive
+    - fill-junk-drive
+    - empty-junk-drive
+    - fill-text-drive
+    - empty-text-drive
+    - fill-prose-drive
+    - empty-prose-drive
+    - data-line
+    - underground-line
+    - repeater
+    - data-lake
+  mirrors: see R1-E
+- id: advanced-material-processing
+  name: Advanced material processing
+  era: ''
+  prerequisites:
+  - steel-processing
+  - report
+  cost:
+    count: 75
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - steel-furnace
+  mirrors: see R1-E
+- id: fluid-wagon
+  name: Fluid wagon
+  era: ''
+  prerequisites:
+  - railway
+  - fluid-handling
+  - telecommunication
+  cost:
+    count: 200
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - fluid-wagon
+    - data-wagon
+  mirrors: see R1-E
+- id: coal-chemistry
+  name: Coal chemistry
+  era: ''
+  prerequisites:
+  - fluid-handling
+  cost:
+    count: 100
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - sulfur
+    - sulfuric-acid
+    - chemical-plant
+  mirrors: see R1-E
+- id: information-retrieval
+  name: Information retrieval
+  era: 1960s
+  prerequisites:
+  - telecommunication
+  - fluid-handling
+  - concrete
+  cost:
+    count: 100
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - deduplication
+    - crawler
+    - data-refinery
+  mirrors: see R1-E
+- id: datasets
+  name: Datasets
+  era: ''
+  prerequisites:
+  - information-retrieval
+  cost:
+    count: 100
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - dataset
+    - benchmark
+    - data-plant
+  mirrors: see R1-E
+- id: integrated-circuits
+  name: Integrated circuit
+  era: 1958–71
+  prerequisites:
+  - semiconductors
+  - coal-chemistry
+  cost:
+    count: 200
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - processor
+    - wafer
+  mirrors: see R1-E
+- id: article
+  name: Article
+  era: ''
+  prerequisites:
+  - integrated-circuits
+  - datasets
+  - engine
+  cost:
+    count: 75
+    time: 15
+    packs:
+      memo: 1
+      report: 1
+  unlocks:
+    recipes:
+    - article
+  mirrors: see R1-E
+- id: lubricant
+  name: Lubricant
+  era: ''
+  prerequisites:
+  - coal-chemistry
+  - article
+  cost:
+    count: 100
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - lubricant
+  mirrors: see R1-E
+- id: battery
+  name: Battery
+  era: ''
+  prerequisites:
+  - coal-chemistry
+  - article
+  cost:
+    count: 150
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - battery
+    - accumulator
+  mirrors: see R1-E
+- id: explosives
+  name: Explosives
+  era: ''
+  prerequisites:
+  - coal-chemistry
+  - article
+  cost:
+    count: 100
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - explosives
+  mirrors: see R1-E
+- id: cliff-explosives
+  name: Cliff explosives
+  era: ''
+  prerequisites:
+  - explosives
+  cost:
+    count: 200
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - cliff-explosives
+  mirrors: see R1-E
+- id: accelerators
+  name: Accelerator
+  era: ''
+  prerequisites:
+  - article
+  cost:
+    count: 300
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - accelerator
+  mirrors: see R1-E
+- id: machine-learning
+  name: Machine learning
+  era: '1959'
+  prerequisites:
+  - article
+  cost:
+    count: 200
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - checkpoint
+    - coprocessor
+    - learned-controller
+    - trainer
+  mirrors: see R1-E
+- id: distillation
+  name: Distillation
+  era: '2015'
+  prerequisites:
+  - machine-learning
+  cost:
+    count: 150
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - distilled-controller
+  mirrors: see R1-E
+- id: electric-engine
+  name: Electric engine
+  era: ''
+  prerequisites:
+  - lubricant
+  cost:
+    count: 50
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - electric-engine-unit
+  mirrors: see R1-E
+- id: planning-agents
+  name: Planning
+  era: '1971'
+  prerequisites:
+  - electric-engine
+  - battery
+  - machine-learning
+  cost:
+    count: 100
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - drone-frame
+    - construction-agent
+    - passive-provider-chest
+    - storage-chest
+    - agent-hub
+  mirrors: see R1-E
+- id: advanced-material-processing-2
+  name: Advanced material processing 2
+  era: ''
+  prerequisites:
+  - article
+  - advanced-material-processing
+  cost:
+    count: 250
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - electric-furnace
+  mirrors: see R1-E
+- id: electric-energy-distribution-2
+  name: Electric energy distribution 2
+  era: ''
+  prerequisites:
+  - article
+  - electric-energy-distribution-1
+  cost:
+    count: 100
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - substation
+  mirrors: see R1-E
+- id: adversarial-examples
+  name: Adversarial examples
+  era: '2013'
+  prerequisites:
+  - article
+  cost:
+    count: 75
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - adversarial-set
+    - proceedings
+  mirrors: see R1-E
+- id: quality-filtering
+  name: Quality filtering
+  era: ''
+  prerequisites:
+  - article
+  - information-retrieval
+  cost:
+    count: 75
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - quality-filtering
+    - denoising
+    - rephrasing
+  mirrors: see R1-E
+- id: tokenization
+  name: Tokenization
+  era: ''
+  prerequisites:
+  - article
+  - datasets
+  cost:
+    count: 150
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - tokenizer
+  mirrors: see R1-E
+- id: preprint
+  name: Preprint
+  era: '1991'
+  prerequisites:
+  - tokenization
+  - machine-learning
+  - railway
+  cost:
+    count: 100
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - preprint
+  mirrors: see R1-E
+- id: uranium-processing
+  name: Uranium processing
+  era: ''
+  prerequisites:
+  - article
+  - concrete
+  cost:
+    count: 200
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - uranium-processing
+    - centrifuge
+  mirrors: see R1-E
+- id: nuclear-power
+  name: Nuclear power
+  era: ''
+  prerequisites:
+  - uranium-processing
+  cost:
+    count: 800
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - uranium-fuel-cell
+    - burn-fuel-cell
+    - nuclear-reactor
+    - heat-pipe
+    - heat-exchanger
+    - steam-turbine
+  mirrors: see R1-E
+- id: refined-concrete
+  name: Refined concrete
+  era: ''
+  prerequisites:
+  - concrete
+  - article
+  cost:
+    count: 250
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - refined-concrete
+    - refined-hazard-concrete
+  mirrors: see R1-E
+- id: advanced-combinators
+  name: Advanced combinators
+  era: ''
+  prerequisites:
+  - circuit-network
+  - article
+  cost:
+    count: 100
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - selector-combinator
+  mirrors: see R1-E
+- id: bulk-inserter
+  name: Bulk inserter
+  era: ''
+  prerequisites:
+  - fast-inserter
+  - article
+  cost:
+    count: 150
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - bulk-inserter
+  mirrors: see R1-E
+- id: learned-agents
+  name: Learned agents
+  era: ''
+  prerequisites:
+  - planning-agents
+  - machine-learning
+  cost:
+    count: 250
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+  unlocks:
+    recipes:
+    - logistic-agent
+    - active-provider-chest
+    - buffer-chest
+    - requester-chest
+  mirrors: see R1-E
+- id: kovarex
+  name: Kovarex enrichment process
+  era: ''
+  prerequisites:
+  - nuclear-power
+  - preprint
+  cost:
+    count: 1500
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+      preprint: 1
+  unlocks:
+    recipes:
+    - nuclear-fuel-reprocessing
+    - kovarex-enrichment-process
+  mirrors: see R1-E
+- id: automation-3
+  name: Automation 3
+  era: ''
+  prerequisites:
+  - preprint
+  - machine-learning
+  cost:
+    count: 150
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+      preprint: 1
+  unlocks:
+    recipes:
+    - assembling-machine-3
+  mirrors: see R1-E
+- id: interconnect
+  name: Interconnect
+  era: ''
+  prerequisites:
+  - preprint
+  - accelerators
+  cost:
+    count: 75
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+      preprint: 1
+  unlocks:
+    recipes:
+    - switch
+  mirrors: see R1-E
+- id: modules-2
+  name: Modules 2
+  era: ''
+  prerequisites:
+  - preprint
+  - accelerators
+  - distillation
+  cost:
+    count: 150
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+      preprint: 1
+  unlocks:
+    recipes:
+    - coprocessor-2
+    - learned-controller-2
+    - distilled-controller-2
+  mirrors: see R1-E
+- id: logistics-3
+  name: Logistics 3
+  era: ''
+  prerequisites:
+  - preprint
+  - lubricant
+  - logistics-2
+  cost:
+    count: 300
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+      preprint: 1
+  unlocks:
+    recipes:
+    - express-transport-belt
+    - express-underground-belt
+    - express-splitter
+  mirrors: see R1-E
+- id: racks
+  name: Racks
+  era: ''
+  prerequisites:
+  - preprint
+  - battery
+  cost:
+    count: 300
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+      preprint: 1
+  unlocks:
+    recipes:
+    - rack
+  mirrors: see R1-E
+- id: synthetic-data
+  name: Synthetic data
+  era: ''
+  prerequisites:
+  - quality-filtering
+  - machine-learning
+  - preprint
+  cost:
+    count: 300
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+      preprint: 1
+  unlocks:
+    recipes:
+    - synthetic-data
+  mirrors: see R1-E
+- id: model-card
+  name: Model card
+  era: '2019'
+  prerequisites:
+  - racks
+  - planning-agents
+  - machine-learning
+  cost:
+    count: 100
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+      preprint: 1
+  unlocks:
+    recipes:
+    - model-card
+  mirrors: see R1-E
+- id: modules-3
+  name: Modules 3
+  era: ''
+  prerequisites:
+  - modules-2
+  - model-card
+  cost:
+    count: 300
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+      preprint: 1
+      model-card: 1
+  unlocks:
+    recipes:
+    - coprocessor-3
+    - learned-controller-3
+    - distilled-controller-3
+  mirrors: see R1-E
+- id: corpora
+  name: Corpora
+  era: ''
+  prerequisites:
+  - model-card
+  - quality-filtering
+  cost:
+    count: 300
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+      preprint: 1
+      model-card: 1
+  unlocks:
+    recipes:
+    - corpus
+  mirrors: see R1-E
+- id: frontier-run
+  name: Frontier run
+  era: ''
+  prerequisites:
+  - corpora
+  - racks
+  - modules-3
+  - interconnect
+  cost:
+    count: 1000
+    time: 30
+    packs:
+      memo: 1
+      report: 1
+      article: 1
+      preprint: 1
+      model-card: 1
+  unlocks:
+    recipes:
+    - post-training-payload
+    - run-shard
+    - launch
+    - researcher
+    - frontier-cluster
+  mirrors: see R1-E
