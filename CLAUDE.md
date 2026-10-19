@@ -50,6 +50,7 @@
 
 ## The game design (read before coding)
 - **Spec entry point:** `design/spec/README.md`: what the game is, the file map, the M1 reading order, checks and generators. Binding decisions: `design/DECISIONS.md`. Design history: `design/PROCESS.md`.
+- **Title:** *Paperwork*, tagline *Information is physical.* (DECISIONS §44). Repo: `github.com/mb706/paperwork` (deploy key `~/.ssh/browsergame_deploy_ed25519`, bound through the repo-local `core.sshCommand`).
 - **Concept:** a faithful Factorio 2.0-like (mechanics, numbers, UI and keybindings kept) about AI research. A 1945 charter founds a research Site "to determine whether the work of this Site can be done by a machine"; the game ends in a takeoff. Ontology: *information is physical*.
 - **Data is the source of truth:** `design/spec/data/*.yaml`.
   - 02, 05 and 09 §1–§2 are generated; never hand-edit them.

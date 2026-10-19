@@ -4,6 +4,8 @@
 
 ## What the game is
 
+**Paperwork** — *Information is physical.* (title and tagline: DECISIONS §44, 08 §3.1; repository `github.com/mb706/paperwork`)
+
 1. A single-player 2D browser game that plays like Factorio 2.0 (the same belts, inserters, machines, numbers and keybindings), themed on AI research: in 1945 a federal charter founds a research Site "to determine whether the work of this Site can be done by a machine."
 2. Everything obeys one law, *information is physical*: ore, archives of records and town exchanges feed the papers (Memo, Report, Proceedings, Article, Preprint, Model card, System card) that Seminars consume to research 250 technologies, and information exists only on carriers, as ideas in the tree, or as three global numbers (W, j, σ) in the evolution factor's slot.
 3. From minute one, three systems sit on top of Factorio: a per-chunk heat field on pollution's engine (only computing machines throttle), staffing (Seminars need staff from universities within commuting range), and the world's text (the field's progress, the junk share and the synthetic share of new writing).

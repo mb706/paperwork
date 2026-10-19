@@ -106,6 +106,15 @@ Research Site · 1945
 
 **The callback.** At victory the run report repeats §2 verbatim and adds one word, **Determined.** (DECISIONS §1). The sentence opened the game as a question and closes it as a settled one; the mechanics changed its meaning, which is the one condition under which P6 allows a callback. This is the game's only callback; no other text may use one. The same stamp also appears on the archived charter sheet (`07-ui.md` §14): one stamp, filed twice, not a second callback.
 
+### 3.1 Title and tagline
+
+**Title:** *Paperwork*. **Tagline:** *Information is physical.*
+- **Where they appear:** only on the main menu (`07-ui.md` §18) and as the browser tab's title (the title alone).
+- **Never explained in the game.**
+  - The title is true on first contact: the science packs are papers (Memo → System card), and the factory mass-produces them.
+  - The tagline is the game's founding law (B's ontology, 00 §3). That is what makes the title literal: papers are things on belts.
+- **Source.** The tagline quotes the title of Landauer, R. (1991). Information is physical. *Physics Today*, 44(5), 23–29. It is listed in the credits' References like a cited technology, and nowhere else.
+
 ---
 
 ## 4. Endings, readouts and the run report

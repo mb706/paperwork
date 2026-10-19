@@ -248,3 +248,10 @@ Accuracy refinements (after R3-accuracy.md landed, ~19:40):
 40a. **D10 reading** (R5-apply, accepted): the scheduler follows `meta.endgame.takeoff_order` strictly, in list order; it does not search the list. An entry waiting on a technology that Researchers cannot queue is skipped.
     - Reference takeoff: 50.0 min. The search reading gave 56.1 min, outside G17's 5%.
     - Reproduced by `design/round5/R5-apply-d10.py`. Objection recorded in 04 §13 #6.
+
+## Title (2026-10-19, the user's choice)
+
+44. **Title: *Paperwork*. Tagline: *Information is physical.*** (Landauer, 1991, *Physics Today* 44(5) 23–29.)
+    - Shown only on the main menu (07 §18); the browser tab reads "Paperwork". Never explained in the game (08 §3.1).
+    - The title is true on first contact (the science packs are papers), and the tagline is the game's founding law, which makes it literal.
+    - Repository: `github.com/mb706/paperwork`.

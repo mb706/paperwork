@@ -17,6 +17,8 @@
 
 ## 1. Premise: the charter
 
+**Title:** *Paperwork*. **Tagline:** *Information is physical.* (DECISIONS §44; 08 §3.1)
+
 **1945.** A federal charter establishes a research Site on the edge of a thinly settled continent. The charter is shown at the start of every game (08 §3):
 
 > **Purpose. To determine whether the work of this Site can be done by a machine.**
