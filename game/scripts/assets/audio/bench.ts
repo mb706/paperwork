@@ -196,6 +196,7 @@ try {
         console.log(
           `${cfg.name.padEnd(28)} r${r} audio ${row.audioPct}% (worst second ${row.worstSecondPct}%, p95 ${row.p95SecondPct}%) ` +
             `main ${row.mainPct}% (max tick ${row.maxTickMs.toFixed(1)} ms) voices max ${row.bank?.maxActive ?? '-'} ` +
+            `(SFX ${row.bank?.maxSfx ?? '-'}) ` +
             `stolen ${row.bank?.stolen ?? 0} dropped ${row.dropped}; audio threads at ${row.audioMhz} MHz: ` +
             `${row.audioPctAt26}% / ${row.worstSecondPctAt26}% at 2.6 GHz`,
         );
