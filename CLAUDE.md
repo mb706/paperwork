@@ -117,20 +117,27 @@
   run it in-process (`test/fake/harness.ts`); `node test/fake/snapshot.ts out.png [ticks]` draws its packet stream.
 
 ## The simulation (`game/crates/`; C2)
-- **Crates:** `det` (libm wrappers, `powi`, `fmax`/`fmin`, piecewise tables, the expression interpreter), `sim` (the
-  World, saves, digests, the scheduler, the D18 harness), `simtool` (the native host). `sim::SimContext` is the
-  module behind the ABI (`init`, `new_world`, `load`, `tick`, `save`, `state_hash`, `digest`, `meta`,
-  `load_report`, …; outputs are the envelopes' payloads); `simabi` will wrap it.
-- **Tests:** `cargo test -p sim --features simcheck` (units, and `tests/core/`: the golden set's no-system parts,
-  entity churn, the harness, the scheduler's toy factory, the allocation-free tick). The harness:
-  `sim::testkit::{record, compare, check_equivalence}` with `Variant::{NoSleep, Reload, Heavy}` compares full
-  canonical state per tick and names the first differing section and field. RNG vectors: `test/rng/vectors.py`
-  (an independent implementation) → `vectors.txt`.
+- **Crates:** `det` (libm wrappers, `powi`, `fmax`/`fmin`, piecewise tables, the expression interpreter, XXH64),
+  `worldgen` (v0: simplex noise ported bit for bit from simplex-noise 4.0.3, terrain, water, ore spots, starting
+  patches), `sim` (the World, saves, digests, the scheduler, the rules in `rules/`, statistics, pristine chunks and
+  inline commits in `regen.rs`, the D18 harness and the scenario DSL in `testkit/`), `simabi`/`genabi` (sim.wasm,
+  gen.wasm), `simtool` (the native host). `sim::SimContext` is the module behind the ABI; outputs are the
+  envelopes' payloads.
+- **Rules follow the golden model** (`test/golden/model/rules.ts` and its README's numbered rules): when changing a
+  rule, port it from there and cite "rule n"; a refusal changes nothing (`SimContext::set_check_refusals` verifies).
+- **ABI feature:** `simabi`/`genabi` export the full §15.8/§15.9 tables only with the cargo feature `full-abi`; without
+  it they are still the M0 scaffold (ABI 0) the app's loader expects. Flip both defaults when the Shell's loaders land.
+- **Tests:** `cargo test -p sim --features simcheck` (`tests/core/`: the golden set — every digest, state and event of
+  the closure log, the traces; churn, the harness, the scheduler, allocation; `tests/rules/`: R23–R29 and the M0
+  scenarios, each with D18 a–c and a recorded session in `test/logs/` that `replay` replays; `UPDATE_SCENARIO_LOGS=1`
+  rewrites them after review). `npx vitest run test/sim-wasm test/worldgen` runs the same golden set, sessions and
+  worldgen chunks in WebAssembly, and pins the simplex port to the npm package. Scenario DSL:
+  `sim::testkit::{Scenario, TestSequencer}` (`act`, `act_at`, `system`, `run`, `events`, `check_equivalence`).
 - **simtool:** `cargo run --release -p simtool -- hash <save|sections> --protos <prototypes.bin>`; `trace <save>
   <log.pwlog> --protos … [--ticks N] [--full] [--no-sleep] [--check]` prints `tick d slice r` like the golden
   `digests.txt`. It reads raw containers only.
-- **Build times** (pinned `taskset -c 0-15`): a sim edit rebuilds the dev tests in ≈ 3.5 s, the `wasmdev` modules
-  in ≈ 3.5 s, clippy in ≈ 2 s; the `ntest` profile (fat LTO) takes ≈ 35 s.
+- **Build times** (pinned `taskset -c 0-15`): a sim edit rebuilds the `ntest` tests in ≈ 1–6 s (incremental, no
+  LTO) and runs them in ≈ 7 s; the `wasmdev` modules in ≈ 3.5 s; clippy in ≈ 2 s.
 
 ## Assets (`npm run assets`; C6, 10 §9, the *Survey* look of `design/art/DIRECTION.md`)
 - **Sources** (committed): `game/assets/blender/` (`lib/` style, materials, parts, rig, contract; `entities/`,

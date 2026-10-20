@@ -15,12 +15,12 @@
 //!    spawn the elevation is raised above the water level.
 //! 3. **Tiles** (stage 3): biomes by θ (tundra < 0 ≤ boreal < 8 ≤ temperate < 20 ≤ steppe < 26 ≤ desert),
 //!    blended ±2 K with tile noise (24 tiles); each biome draws from the tiles that name it, by moisture
-//!    noise (64 tiles); a biome without tiles in the prototype set falls back to its neighbours. Land just
+//!    noise (64 and 16 tiles, weights 0.7 and 0.3); a biome without tiles in the prototype set falls back to its neighbours. Land just
 //!    above the water level is a beach of the first desert tile. Tiles outside the map are `out-of-map`.
 //! 4. **Resources** (stage 5, and stage 10's starting patches), solid resources only: one starting patch per
 //!    resource 30–40 tiles from spawn (radius 7 × √size, amount richness × 1,500 × falloff × (1 + 0.2 n));
-//!    elsewhere one spot per 160-tile cell with probability 0.3 × frequency outside the starting area
-//!    (radius (10–19) × √size, amount richness × 2,000 × (1 + d/512) × falloff × (1 + 0.2 n), d the spot's
+//!    elsewhere one spot per 128-tile cell with probability 0.5 × frequency outside the starting area
+//!    (radius (12–23) × √size, amount richness × 2,000 × (1 + d/512) × falloff × (1 + 0.2 n), d the spot's
 //!    distance from spawn). Falloff is 1 − (r/R)². Earlier patches win: starting patches, then spots, each
 //!    in ascending resource id and cell order. Resources lie only on walkable land.
 //!
@@ -148,7 +148,7 @@ pub struct Generator {
 }
 
 /// The spot cell size in tiles.
-const CELL: i64 = 160;
+const CELL: i64 = 128;
 
 impl Generator {
     /// The generator of the world with this seed and these settings (`climate_compass` from the world settings).
@@ -293,12 +293,12 @@ impl Generator {
             }
         }
         let (x0, y0) = (i64::from(cx) * 32, i64::from(cy) * 32);
-        // A spot's centre lies 24–135 tiles into its cell and its radius is under 19 × √size tiles.
+        // A spot's centre lies 16–111 tiles into its cell and its radius is under 24 × √size tiles.
         for (k, r) in self.resources.iter().enumerate() {
             if !(r.size > 0.0 && r.richness > 0.0 && r.frequency > 0.0) {
                 continue;
             }
-            let reach = (19.0 * r.size.sqrt()).ceil() as i64 + 1;
+            let reach = (24.0 * r.size.sqrt()).ceil() as i64 + 1;
             let (rx0, rx1) = ((x0 - reach).div_euclid(CELL), (x0 + 32 + reach).div_euclid(CELL));
             let (ry0, ry1) = ((y0 - reach).div_euclid(CELL), (y0 + 32 + reach).div_euclid(CELL));
             for ry in ry0..=ry1 {
@@ -306,22 +306,72 @@ impl Generator {
                     let h = layer_seed(self.seed, Layer::Spots, rx, ry) ^ mix64(k as u64 + 1);
                     let h = mix64(h);
                     let u = (h & 0xFF_FFFF) as f64 / 16_777_216.0;
-                    if u >= 0.3 * r.frequency {
+                    if u >= 0.5 * r.frequency {
                         continue;
                     }
-                    let x = (rx * CELL + 24 + ((h >> 24) % 112) as i64) as f64;
-                    let y = (ry * CELL + 24 + ((h >> 36) % 112) as i64) as f64;
+                    let x = (rx * CELL + 16 + ((h >> 24) % 96) as i64) as f64;
+                    let y = (ry * CELL + 16 + ((h >> 36) % 96) as i64) as f64;
                     // The starting area is the starting patches'.
                     let keep = 2.0 * self.starting_radius + 64.0;
                     if x * x + y * y < keep * keep {
                         continue;
                     }
-                    let radius = (10 + (h >> 48) % 10) as f64;
+                    let radius = (12 + (h >> 48) % 12) as f64;
                     let base = 2000.0 * (1.0 + (x * x + y * y).sqrt() / 512.0) * r.richness;
                     out.push(Patch { resource: r.id, x, y, r2: radius * radius * r.size, base });
                 }
             }
         }
+    }
+
+    /// The tile at `(tx, ty)` of a chunk whose climate is `theta` (stages 2–3), and whether it is land.
+    pub fn tile(&self, tx: i32, ty: i32, theta: f64) -> (TileId, bool) {
+        let fallback = self.land.iter().find_map(|l| l.first().copied()).unwrap_or(TileId(0));
+        if !self.in_map(tx, ty) {
+            return (self.out_of_map.unwrap_or(fallback), false);
+        }
+        let (x, y) = (f64::from(tx) + 0.5, f64::from(ty) + 0.5);
+        let e = self.elevation(x, y);
+        if let Some(level) = self.water_level {
+            if e < level - 0.18
+                && let Some(d) = self.deep_water.or(self.water)
+            {
+                return (d, false);
+            }
+            if e < level
+                && let Some(w) = self.water
+            {
+                return (w, false);
+            }
+        }
+        let t = theta + 2.0 * self.blend.noise(x / 24.0, y / 24.0);
+        let biome = if t < 0.0 {
+            0
+        } else if t < 8.0 {
+            1
+        } else if t < 20.0 {
+            2
+        } else if t < 26.0 {
+            3
+        } else {
+            4
+        };
+        if self.water_level.is_some_and(|l| e < l + 0.025)
+            && let Some(b) = self.beach
+        {
+            return (b, true);
+        }
+        let list = &self.land[biome];
+        if list.is_empty() {
+            return (fallback, true);
+        }
+        // Two octaves, so that the boundary between a biome's tiles is not one octave's zero line.
+        let n = 0.7 * self.moisture.noise(x / 64.0, y / 64.0)
+            + 0.3 * self.moisture.noise(x / 16.0 + 101.5, y / 16.0 - 37.25);
+        let m = (n + 1.0) / 2.0;
+        let k = (m * list.len() as f64).floor();
+        let k = if k < 0.0 { 0 } else { (k as usize).min(list.len() - 1) };
+        (list[k], true)
     }
 
     /// Generates chunk `(cx, cy)` of `surface` (§5.18, §15.9): the sim's inline generation and the workers'
@@ -332,58 +382,16 @@ impl Generator {
         let mut resources = Vec::new();
         let mut patches = Vec::new();
         self.patches(cx, cy, &mut patches);
-        let fallback = self.land.iter().find_map(|l| l.first().copied()).unwrap_or(TileId(0));
         for ly in 0..CHUNK {
             for lx in 0..CHUNK {
                 let (tx, ty) = (cx * CHUNK + lx, cy * CHUNK + ly);
                 let i = (ly * CHUNK + lx) as usize;
-                if !self.in_map(tx, ty) {
-                    tiles[i] = self.out_of_map.unwrap_or(fallback);
+                let (tile, land) = self.tile(tx, ty, theta);
+                tiles[i] = tile;
+                if !land {
                     continue;
                 }
                 let (x, y) = (f64::from(tx) + 0.5, f64::from(ty) + 0.5);
-                let e = self.elevation(x, y);
-                if let Some(level) = self.water_level {
-                    if e < level - 0.18
-                        && let Some(d) = self.deep_water.or(self.water)
-                    {
-                        tiles[i] = d;
-                        continue;
-                    }
-                    if e < level
-                        && let Some(w) = self.water
-                    {
-                        tiles[i] = w;
-                        continue;
-                    }
-                }
-                let t = theta + 2.0 * self.blend.noise(x / 24.0, y / 24.0);
-                let biome = if t < 0.0 {
-                    0
-                } else if t < 8.0 {
-                    1
-                } else if t < 20.0 {
-                    2
-                } else if t < 26.0 {
-                    3
-                } else {
-                    4
-                };
-                let beach = self.water_level.is_some_and(|l| e < l + 0.025);
-                tiles[i] = match (beach, self.beach) {
-                    (true, Some(b)) => b,
-                    _ => {
-                        let list = &self.land[biome];
-                        if list.is_empty() {
-                            fallback
-                        } else {
-                            let m = (self.moisture.noise(x / 64.0, y / 64.0) + 1.0) / 2.0;
-                            let k = (m * list.len() as f64).floor();
-                            let k = if k < 0.0 { 0 } else { (k as usize).min(list.len() - 1) };
-                            list[k]
-                        }
-                    }
-                };
                 // Resources on land only: the first patch that covers the tile.
                 for p in &patches {
                     let (dx, dy) = (x - p.x, y - p.y);

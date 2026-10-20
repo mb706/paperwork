@@ -3,8 +3,10 @@
 //!
 //! - **Pristine chunks** are generated but unmodified: only their `GENERATED` record is saved, and their
 //!   tiles and resources are a pure function of the world ([`worldgen::Generator`]). The cache holds the
-//!   ones a rule has touched since the world was loaded; it is derived state, never saved, and bounded
-//!   (an evicted chunk is regenerated when touched again, with the same bytes).
+//!   ones a rule has read since the world was loaded: a read of a pristine chunk that is not cached generates
+//!   it there and then (interior mutability: rules read tiles through `&World`, and no rule can forget to
+//!   prepare a chunk). It is derived state, never saved, and bounded (an evicted chunk is generated again
+//!   when read again, with the same bytes).
 //! - **Requests** (§5.18 "the commit protocol"): when a character enters a chunk, every chunk within the
 //!   pre-generation radius (7 chunks, Chebyshev) that lies in the map and is neither generated nor pending is
 //!   requested. A tick's requests are scheduled in ascending `(surface, cy, cx)`; each takes the first tick
@@ -16,6 +18,7 @@
 use crate::r#gen::{Chunk, GeneratedChunk};
 use crate::world::{PendingKey, World};
 use schema::{ChunkData, ChunkKey, ChunkRequest, SurfaceIndex, Tick, chunk_key};
+use std::cell::{Cell, RefCell};
 use std::sync::Arc;
 
 /// Chunks kept in the cache before the oldest is evicted (a 15 × 15 pre-generation square is 225).
@@ -27,56 +30,73 @@ pub const COMMIT_DELAY: u32 = 30;
 /// The most chunks one tick commits (§5.18, B1-r1 16).
 pub const COMMITS_PER_TICK: usize = 8;
 
+/// One cached chunk: its key, its insertion stamp (evictions take the oldest) and its content.
+type Entry = (SurfaceIndex, ChunkKey, u64, Arc<ChunkData>);
+
 /// The regeneration cache (derived, unsaved) and the world's generator.
 #[derive(Clone, Debug, Default)]
 pub struct RegenCache {
     generator: Option<Arc<worldgen::Generator>>,
-    /// Ascending by `(surface, key)`; the second field orders evictions (insertion order).
-    entries: Vec<(SurfaceIndex, ChunkKey, u64, Arc<ChunkData>)>,
-    stamp: u64,
-    /// How many chunks this cache generated (tests: a load regenerates nothing until a rule touches it).
-    pub generated: u64,
+    /// Ascending by `(surface, key)`.
+    entries: RefCell<Vec<Entry>>,
+    stamp: Cell<u64>,
+    /// How many chunks this cache generated (tests: a load regenerates nothing until a rule reads it).
+    generated: Cell<u64>,
 }
 
 impl RegenCache {
     pub fn set_generator(&mut self, g: Arc<worldgen::Generator>) {
         self.generator = Some(g);
-        self.entries.clear();
+        self.entries.get_mut().clear();
     }
 
     pub fn generator(&self) -> Option<&Arc<worldgen::Generator>> {
         self.generator.as_ref()
     }
 
-    fn find(&self, surface: SurfaceIndex, key: ChunkKey) -> Result<usize, usize> {
-        self.entries.binary_search_by(|e| (e.0, e.1).cmp(&(surface, key)))
+    /// How many chunks this cache generated since the world was installed.
+    pub fn generated(&self) -> u64 {
+        self.generated.get()
     }
 
-    pub fn get(&self, surface: SurfaceIndex, key: ChunkKey) -> Option<&ChunkData> {
-        self.find(surface, key).ok().map(|i| &*self.entries[i].3)
+    /// Calls `f` with the content of pristine chunk `(surface, key)`, generating it into the cache first when it
+    /// is not there.
+    pub fn with_chunk<R>(&self, surface: SurfaceIndex, key: ChunkKey, f: impl FnOnce(&ChunkData) -> R) -> R {
+        let hit = {
+            let e = self.entries.borrow();
+            e.binary_search_by(|x| (x.0, x.1).cmp(&(surface, key))).ok().map(|i| e[i].3.clone())
+        };
+        let data = hit.unwrap_or_else(|| {
+            let d = self.generate(surface, key);
+            self.put(d.clone());
+            d
+        });
+        f(&data)
     }
 
     /// Stores a chunk's generated content, evicting the oldest entry when the cache is full.
-    pub fn put(&mut self, data: Arc<ChunkData>) {
+    pub fn put(&self, data: Arc<ChunkData>) {
         let (surface, key) = (data.surface, data.key);
-        self.stamp += 1;
-        match self.find(surface, key) {
-            Ok(i) => self.entries[i] = (surface, key, self.stamp, data),
+        let stamp = self.stamp.get() + 1;
+        self.stamp.set(stamp);
+        let mut e = self.entries.borrow_mut();
+        match e.binary_search_by(|x| (x.0, x.1).cmp(&(surface, key))) {
+            Ok(i) => e[i] = (surface, key, stamp, data),
             Err(i) => {
-                self.entries.insert(i, (surface, key, self.stamp, data));
-                if self.entries.len() > CACHE_CHUNKS {
-                    let oldest = (0..self.entries.len()).min_by_key(|&j| self.entries[j].2).unwrap_or(0);
-                    self.entries.remove(oldest);
+                e.insert(i, (surface, key, stamp, data));
+                if e.len() > CACHE_CHUNKS {
+                    let oldest = (0..e.len()).min_by_key(|&j| e[j].2).unwrap_or(0);
+                    e.remove(oldest);
                 }
             }
         }
     }
 
     /// Generates chunk `(surface, key)` with the world's generator.
-    pub fn generate(&mut self, surface: SurfaceIndex, key: ChunkKey) -> Arc<ChunkData> {
+    pub fn generate(&self, surface: SurfaceIndex, key: ChunkKey) -> Arc<ChunkData> {
         let g = self.generator.as_ref().expect("a world with pristine chunks has a generator");
         let (cx, cy) = schema::chunk_xy(key);
-        self.generated += 1;
+        self.generated.set(self.generated.get() + 1);
         Arc::new(g.chunk(surface, cx, cy))
     }
 }
@@ -139,18 +159,9 @@ pub fn chunk_record(d: &ChunkData) -> Chunk {
 }
 
 impl World {
-    /// Makes sure the pristine chunk `(surface, key)` is in the regeneration cache.
-    pub(crate) fn regen_touch(&mut self, surface: SurfaceIndex, key: ChunkKey) {
-        if self.regen.get(surface, key).is_none() {
-            let d = self.regen.generate(surface, key);
-            self.regen.put(d);
-        }
-    }
-
     /// The `CHUNKS` record a pristine chunk becomes when a rule changes it.
-    pub(crate) fn regen_record(&mut self, surface: SurfaceIndex, key: ChunkKey) -> Chunk {
-        self.regen_touch(surface, key);
-        chunk_record(self.regen.get(surface, key).expect("touched"))
+    pub(crate) fn regen_record(&self, surface: SurfaceIndex, key: ChunkKey) -> Chunk {
+        self.regen.with_chunk(surface, key, chunk_record)
     }
 
     /// Whether a request for `(surface, key)` is pending.

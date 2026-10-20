@@ -86,15 +86,6 @@ impl World {
             return;
         }
         let (x, y, dir, surface) = (p.x, p.y, p.walking_dir, p.surface);
-        // The tiles the step can touch: the character's box grown by a step (well under a tile).
-        let b = self.character_box(x, y);
-        self.touch_tiles(
-            surface,
-            b.x0.floor() as i32 - 1,
-            b.y0.floor() as i32 - 1,
-            b.x1.floor() as i32 + 2,
-            b.y1.floor() as i32 + 2,
-        );
         let tile_speed = match self.tile_at(surface, x.floor() as i32, y.floor() as i32) {
             Some(t) => self.protos.tile.walking_speed[usize::from(t.0)],
             None => 0.0,

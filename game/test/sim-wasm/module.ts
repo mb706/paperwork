@@ -8,10 +8,11 @@ import { join } from 'node:path';
 import { SimStatus } from '../../src/shared/gen/abi.ts';
 import { GAME } from '../helpers/paths.ts';
 
-export const WASM = join(GAME, 'target', 'wasm32-unknown-unknown', 'wasmdev', 'simabi.wasm');
+const target = (crate: string): string =>
+  join(GAME, 'target', 'wasm32-unknown-unknown', 'wasmdev', `${crate}.wasm`);
 
-/** Builds sim.wasm with the full ABI (cargo is incremental: a fresh build is skipped in a fraction of a second). */
-export function buildModule(): WebAssembly.Module {
+/** Builds `simabi` (sim.wasm) or `genabi` (gen.wasm) with the full ABI; cargo skips a fresh build quickly. */
+export function buildModule(crate: 'simabi' | 'genabi' = 'simabi'): WebAssembly.Module {
   const r = spawnSync(
     'cargo',
     [
@@ -24,12 +25,12 @@ export function buildModule(): WebAssembly.Module {
       '--target',
       'wasm32-unknown-unknown',
       '-p',
-      'simabi',
+      crate,
     ],
     { cwd: GAME, encoding: 'utf8' },
   );
-  if (r.status !== 0) throw new Error(`cargo build of sim.wasm failed:\n${r.stderr}`);
-  return new WebAssembly.Module(readFileSync(WASM));
+  if (r.status !== 0) throw new Error(`cargo build of ${crate} failed:\n${r.stderr}`);
+  return new WebAssembly.Module(readFileSync(target(crate)));
 }
 
 const NAMES = new Map(Object.entries(SimStatus).map(([k, v]) => [v as number, k]));
@@ -39,13 +40,15 @@ export const statusName = (code: number): string => NAMES.get(code) ?? `status $
 
 type Export = (...args: number[]) => number;
 
-/** One instance of the module: a fresh world for every test that needs one. */
+/** One instance of sim.wasm (prefix `sim`) or gen.wasm (prefix `gen`): a fresh world for every test. */
 export class WasmSim {
   readonly exports: Record<string, Export>;
   readonly memory: WebAssembly.Memory;
+  readonly prefix: string;
   panics: string[] = [];
 
-  constructor(module: WebAssembly.Module) {
+  constructor(module: WebAssembly.Module, prefix: 'sim' | 'gen' = 'sim') {
+    this.prefix = prefix;
     let memory: WebAssembly.Memory | null = null;
     const text = (ptr: number, len: number): string =>
       new TextDecoder().decode(new Uint8Array((memory as WebAssembly.Memory).buffer, ptr >>> 0, len >>> 0));
@@ -71,7 +74,7 @@ export class WasmSim {
 
   /** Writes a request into the input buffer (§15.8: `sim_input(len)`) and returns its length. */
   private input(bytes: Uint8Array): number {
-    const ptr = this.call('sim_input', bytes.length);
+    const ptr = this.call(`${this.prefix}_input`, bytes.length);
     if (ptr === 0 && bytes.length > 0) throw new Error('sim_input: memory cannot grow');
     new Uint8Array(this.memory.buffer, ptr, bytes.length).set(bytes);
     return bytes.length;
@@ -91,8 +94,8 @@ export class WasmSim {
    * An envelope export: its payload (the bytes after `u32 len`), or the status from `sim_last_error` when it
    * returned 0. `bytes` is the input buffer's request, if the export reads one.
    */
-  envelope(name: string, bytes?: Uint8Array): { status: string; out: Uint8Array | null } {
-    const ptr = bytes === undefined ? this.call(name) : this.call(name, this.input(bytes));
+  envelope(name: string, bytes?: Uint8Array, ...args: number[]): { status: string; out: Uint8Array | null } {
+    const ptr = bytes === undefined ? this.call(name, ...args) : this.call(name, this.input(bytes));
     if (ptr === 0) return { status: this.lastError().status, out: null };
     if (ptr % 8 !== 0) throw new Error(`${name}: the envelope at ${ptr} is not 8-byte aligned`);
     const view = new DataView(this.memory.buffer);
@@ -102,7 +105,7 @@ export class WasmSim {
 
   /** `sim_last_error`: the code's name and the message. */
   lastError(): { status: string; message: string } {
-    const ptr = this.call('sim_last_error');
+    const ptr = this.call(`${this.prefix}_last_error`);
     if (ptr === 0) return { status: 'none', message: '' };
     const view = new DataView(this.memory.buffer);
     const len = view.getUint32(ptr, true);

@@ -237,7 +237,6 @@ impl World {
             }
         }
         let surface = SurfaceIndex(0);
-        self.touch_tiles(surface, tx0, ty0, tx1, ty1);
         for tx in tx0..tx1 {
             for ty in ty0..ty1 {
                 if !self.buildable(surface, tx, ty) {

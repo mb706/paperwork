@@ -10,8 +10,14 @@
 //! - [`compare`] finds the first tick where two traces differ and names the first differing section and field,
 //!   decoded by the generated readers ([`diff_states`]).
 //!
-//! The `TestSequencer` that writes closures for scenarios (§10.2) arrives with the action pipeline (C2b); the
-//! harness takes closures as bytes.
+//! The [`TestSequencer`] writes closures for scenarios (§10.2, §15.3), and [`Scenario`] is the scenario DSL
+//! over it (sequencer.rs, scenario.rs).
+
+mod scenario;
+mod sequencer;
+
+pub use scenario::{Recorded, Scenario};
+pub use sequencer::TestSequencer;
 
 use crate::context::SimContext;
 use crate::r#gen::{

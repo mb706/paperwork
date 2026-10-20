@@ -3,13 +3,14 @@
 // codex's review C2a-r1 (test/sim-wasm/cases/, written by the native test `review_c2a`), so the native and the
 // wasm32 answers are compared on the same inputs.
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { actionBlob, closureActions, decodeAction } from '../../src/shared/gen/actions.ts';
 import { Reader } from '../../src/shared/gen/codec.ts';
 import { parseClosureLog } from '../../src/shared/gen/container.ts';
 import { DigestResultCodec } from '../../src/shared/gen/projections.ts';
+import { GEN_ABI_VERSION } from '../../src/shared/gen/schema.ts';
 import { GAME } from '../helpers/paths.ts';
 import { buildModule, initInput, stateInput, WasmSim } from './module.ts';
 
@@ -255,6 +256,70 @@ describe('sim.wasm: the golden set ticks', () => {
       hex(golden('states/tick-3600.sections')),
     );
   }, 120_000);
+});
+
+describe('sim.wasm: the recorded sessions of test/logs/ (D18 e, natively and in WebAssembly)', () => {
+  it('replays every scenario session to its digests, state hash and lineage', () => {
+    const dir = join(GAME, 'test', 'logs');
+    const names = readdirSync(dir)
+      .filter((f) => f.endsWith('.pwlog'))
+      .map((f) => f.slice(0, -6))
+      .sort();
+    expect(names.length).toBeGreaterThanOrEqual(10);
+    for (const name of names) {
+      const log = parseClosureLog(new Uint8Array(readFileSync(join(dir, `${name}.pwlog`))));
+      const s = fresh();
+      expect(
+        s.status('sim_load', stateInput(new Uint8Array(readFileSync(join(dir, `${name}.start`))))),
+        name,
+      ).toBe('ok');
+      expect(s.stateHash(), name).toBe(log.header.start_state_hash);
+      const closures = new Map(log.records.map((r) => [r.tick, r.closure]));
+      let d = 0n;
+      let r = 0n;
+      for (let t = log.header.start_tick + 1; t <= log.header.end_tick; t++) {
+        expect(s.status('sim_tick', closures.get(t) ?? new Uint8Array()), `${name} tick ${t}`).toBe('ok');
+        const v = DigestResultCodec.read(new Reader(s.envelope('sim_digest').out as Uint8Array));
+        d = v.d;
+        r = v.r;
+        if (d !== log.digests[t - log.header.start_tick - 1])
+          expect(d, `${name}: d_${t}`).toBe(log.digests[t - log.header.start_tick - 1]);
+      }
+      const hex64 = (v: bigint | null) => (v ?? 0n).toString(16).padStart(16, '0');
+      expect(
+        `${name} ticks ${log.header.start_tick}..${log.header.end_tick} state ${hex64(s.stateHash())} r ${hex64(r)}\n`,
+      ).toBe(readFileSync(join(dir, `${name}.txt`), 'utf8'));
+      expect(s.panics, name).toEqual([]);
+    }
+  }, 120_000);
+});
+
+describe('gen.wasm: worldgen v0 natively and in WebAssembly', () => {
+  it('answers gen_init, gen_chunk and gen_chart with the native bytes', () => {
+    const gen = new WasmSim(buildModule('genabi'), 'gen');
+    const dir = join(GAME, 'test', 'sim-wasm', 'worldgen');
+    const fixture = (name: string) => new Uint8Array(readFileSync(join(dir, name)));
+    expect(gen.exports.gen_abi_version?.()).toBe(GEN_ABI_VERSION);
+    const init = gen.envelope('gen_init', fixture('init.bin'));
+    expect(init.status, gen.lastError().message).toBe('ok');
+    const hash = new DataView((init.out as Uint8Array).buffer).getBigUint64(0, true);
+    expect(`${hash.toString(16).padStart(16, '0')}\n`).toBe(
+      readFileSync(join(dir, 'world-hash.txt'), 'utf8'),
+    );
+    const chunks = readdirSync(dir).filter((f) => f.startsWith('chunk_'));
+    expect(chunks.length).toBeGreaterThanOrEqual(9);
+    for (const f of chunks) {
+      const [cx, cy] = f.slice(6, -4).split('_').map(Number) as [number, number];
+      const r = gen.envelope('gen_chunk', undefined, 0, cx, cy);
+      expect(r.status, `${f}: ${gen.lastError().message}`).toBe('ok');
+      expect(hex(r.out as Uint8Array), f).toBe(hex(fixture(f)));
+    }
+    expect(hex(gen.envelope('gen_chart', undefined, 0, 0, 0).out as Uint8Array)).toBe(
+      hex(fixture('chart_0_0.bin')),
+    );
+    expect(gen.envelope('gen_chunk', undefined, 0, 40_000, 0).status).toBe('err_input');
+    expect(gen.panics).toEqual([]);
+  });
 });
 
 describe('sim.wasm: codex C2a-r1 regressions', () => {
