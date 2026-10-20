@@ -731,3 +731,10 @@ Also in this value bump, as README edits:
 - the audio paragraph no longer names the deleted sound fixture.
 
 `npm run ci`: green in 44.3 s.
+
+## Integration: GATE-r2 #2's fixture atlas
+
+C6's greybox fallback (merge 1e86703) regenerated the fixture atlas: three greyboxes and an impossible-inserter
+case, with the same file names and format. **Golden version 7 is a mechanical bump**: only the atlas's five
+`external` hashes changed; every `m0/` file is unchanged. `test/golden` passes 47 of 47 tests. `npm run ci` fails
+only `cargo fmt --check`, on C2's uncommitted `crates/det/src/piecewise.rs` (work in progress, not mine).
