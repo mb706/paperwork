@@ -344,10 +344,14 @@ export function writeEvent(w: Writer, meta: EventMeta, p: EventPayload): void {
   w.pad(start, 4);
 }
 
-/** Reads one EVENTS record: the header, the payload (exactly \`len\` bytes of its type) and the padding. */
+/**
+ * Reads one EVENTS record: the header, the payload (exactly \`len\` bytes of its type) and the padding. A
+ * \`len\` other than the type's payload size is refused (\`bad_length\`).
+ */
 export function readEvent(r: Reader): { header: ${o.t(eh)}; payload: EventPayload } {
   const start = r.pos;
   const header = ${o.c(eh)}.read(r, 'EventHeader');
+  if (header.len !== EVENT_SIZE[EVENT_BY_ID.get(header.type) as EventName]) throw new DecodeError('bad_length', 'EventHeader.len', start + 2);
   const body = r.take(header.len, 'EventRecord.payload');
   let payload: EventPayload;
   try {

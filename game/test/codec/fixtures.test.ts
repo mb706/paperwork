@@ -23,9 +23,11 @@ import {
   parseEntries,
   parseHexFile,
   parseProbes,
+  readOneEvent,
   refusalMatches,
   roundTrip,
   roundTripAction,
+  roundTripEvent,
   verdictOf,
 } from '../helpers/codec.ts';
 import { GAME } from '../helpers/paths.ts';
@@ -149,15 +151,22 @@ describe('hand-written fixtures (spec/*.hex)', () => {
           const got =
             c.target === '@action'
               ? verdictOf(() => decodeFramed(c.bytes))
-              : cd
-                ? verdictOf(() => cd.decode(c.bytes))
-                : 'no such type';
+              : c.target === '@event'
+                ? verdictOf(() => readOneEvent(c.bytes))
+                : cd
+                  ? verdictOf(() => cd.decode(c.bytes))
+                  : 'no such type';
           if (!refusalMatches(c.expect.error, got))
             failures.push(`${where}: got \`${got}\`, want \`${c.expect.error}\``);
           continue;
         }
         try {
-          const got = c.target === '@action' ? roundTripAction(c.bytes) : roundTrip(c.target, c.bytes);
+          const got =
+            c.target === '@action'
+              ? roundTripAction(c.bytes)
+              : c.target === '@event'
+                ? roundTripEvent(c.bytes)
+                : roundTrip(c.target, c.bytes);
           if ('dump' in c.expect && got !== c.expect.dump)
             failures.push(`${where}: dump differs:\n--- want\n${c.expect.dump}--- got\n${got}`);
         } catch (e) {

@@ -10,7 +10,15 @@ import {
   PreflightError,
   preflight,
 } from '../../src/shared/gen/actions.ts';
-import { DecodeError, Dump, Reader } from '../../src/shared/gen/codec.ts';
+import { DecodeError, Dump, Reader, Writer } from '../../src/shared/gen/codec.ts';
+import {
+  dumpEvent,
+  type EventHeader,
+  EventHeaderCodec,
+  type EventPayload,
+  readEvent,
+  writeEvent,
+} from '../../src/shared/gen/events.ts';
 import { CODECS } from '../../src/shared/gen/samples.ts';
 
 const VARIANTS = ['zero', 'mixed', 'max'] as const;
@@ -116,6 +124,28 @@ export function roundTripAction(bytes: Uint8Array): string {
   return d.out;
 }
 
+/** One EVENTS record (the header, its payload, the padding) that fills `bytes`, read as the main thread does. */
+export function readOneEvent(bytes: Uint8Array): { header: EventHeader; payload: EventPayload } {
+  const r = new Reader(bytes);
+  const e = readEvent(r);
+  r.finish('EVENTS');
+  return e;
+}
+
+/** Reads one EVENTS record, writes it again (same bytes) and dumps it: `header.` fields, then the payload. */
+export function roundTripEvent(bytes: Uint8Array): string {
+  const { header, payload } = readOneEvent(bytes);
+  const w = new Writer();
+  const { type: _type, len: _len, ...meta } = header;
+  writeEvent(w, meta, payload);
+  const diff = sameBytes(w.finish(), bytes);
+  if (diff) throw new Error(diff);
+  const d = new Dump();
+  EventHeaderCodec.dump(d, header, 'header.');
+  dumpEvent(d, payload);
+  return d.out;
+}
+
 /** FNV-1a (32-bit) of a string's UTF-8 bytes. */
 export function fnv1a32(text: string): number {
   let h = 0x811c9dc5;
@@ -168,6 +198,9 @@ export function parseHexFile(file: string, text: string): HexCase[] {
       } else if (word === '@action') {
         flush();
         cur = start('@action');
+      } else if (word === '@event') {
+        flush();
+        cur = start('@event');
       } else if (word === '@closure') {
         flush();
         cur = start('@closure', rest);

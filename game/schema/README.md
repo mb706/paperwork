@@ -25,6 +25,7 @@ covers), and the fixtures in `test/fixtures/codec/`.
 
 ```sh
 npm run gen                         # regenerate everything (≈4 s; the dev server does it on save)
+npm run data                        # then the data stage: prototypes.bin carries SCHEMA_HASH
 node scripts/schema-gen.ts --check  # what CI runs: every output fresh, nothing stale
 cargo test -p sim --test codec_fixtures   # Rust against the fixtures
 npx vitest run test/codec scripts/schema-gen   # TypeScript against the fixtures; the hash tests
@@ -105,9 +106,9 @@ byte for byte, and only `pad_to` and `reserved…` fields add zeros.
 A record's value bytes for a nested record are that record's whole encoding (its own u32 length and
 triples). Writers always write every field. A strict read (`decode(r, true)`: input from the same build,
 such as the ABI's, and the fixtures) refuses an unknown id (`unknown_field`), a missing one
-(`missing_field`), ids out of order or twice (`field_order`) and a triple whose `len` does not match its
-value (`bad_length`). A lenient read (saves, §8.3) skips unknown ids and gives missing fields their
-`default`.
+(`missing_field`), ids out of order or twice (`field_order`), and a triple whose value does not fill its `len`
+exactly (`truncated` when the value needs more bytes, `bad_length` when bytes are left over). A lenient read
+(saves, §8.3) skips unknown ids and gives missing fields their `default`.
 
 Every decoder also refuses running out of bytes (`truncated`) and bytes left over (`trailing`). An error
 carries its kind, a field path (`EntityView.serial`, `map_settings.width`) and a byte offset; the kinds
@@ -193,6 +194,12 @@ interpreter independent of the emitted code); a new type is covered without furt
 - `probes.txt`: every limit, and a refusal just past it: `<kind>:<type> <name> <verdict> <hex>`, where the
   verdict is `ok` or `<error kind> <field> @<offset>`. Both languages must give each verdict exactly.
 - `spec/*.hex`: hand-written cases, derived from this README and the YAML alone.
+- `golden/`: whole messages the TypeScript side writes (a closure, a five-section packet, a closure log),
+  which Rust must preflight and decode, write byte for byte (the packet) and parse
+  (`crates/schema/tests/golden.rs`). After a deliberate format change:
+  `UPDATE_GOLDEN=1 npx vitest run test/codec/golden.test.ts`.
+- `../protos/m0.bin`: the M0 build's `prototypes.bin` (`npm run data` writes it), which
+  `crates/schema/tests/protos_load.rs` loads with `Protos::load` and corrupts in every refused way.
 
 The dump (`Dump` in both runtimes): one `path=value` line per leaf in field order; nested values as
 `outer.inner`, list and array items as `path[i]` after a `path.len=N` line (fixed arrays have no `.len`);
@@ -219,6 +226,8 @@ tag=1
 01 00 0000 07000000 05000000 0100 0000  0200 0200 0000
 @ok batches=1 actions=1         # or: @error framing @<offset> / @error blob_missing @<offset>
 ```
+`@event` decodes one EVENTS record with the event readers (`read_event`, `readEvent`), which check `len`
+against the type; its dump is the header's fields under `header.`, then the payload's (`type=<name>` first).
 A directive line may end in a ` # comment`. An action's error offsets count from its payload. `@closure`
 runs the preflight (§15.3) on the bytes: `last_seq` lists `player:seq` pairs (others 0), `system_seq` is
 the system watermark, `blobs` the SHA-256s supplied (comma-separated hex). Both

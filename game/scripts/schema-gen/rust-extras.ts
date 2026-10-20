@@ -437,10 +437,21 @@ pub fn write_event(w: &mut Writer<'_>, header: &${ht}, payload: &EventPayload) -
     Ok(())
 }
 
-/// Reads one EVENTS record: the header, the payload (exactly \`len\` bytes of its type) and the padding.
+/// The payload size of an event type (its records' \`len\`).
+pub const fn event_payload_size(t: ${et}) -> usize {
+    match t {
+${s.events.map((e) => `        ${et}::${enumVariant(e.name)} => ${e.msg.fixed},`).join('\n')}
+    }
+}
+
+/// Reads one EVENTS record: the header, the payload (exactly \`len\` bytes of its type) and the padding. A
+/// \`len\` other than the type's payload size is refused (\`bad_length\`).
 pub fn read_event(r: &mut Reader<'_>) -> DResult<(${ht}, EventPayload)> {
     let start = r.pos();
     let h = <${ht} as crate::codec::Fixed>::read(r, "EventHeader")?;
+    if usize::from(h.len) != event_payload_size(h.r#type) {
+        return Err(r.err_at(start + 2, ErrorKind::BadLength, "EventHeader.len"));
+    }
     let body = r.take(usize::from(h.len), "EventRecord.payload")?;
     let p = EventPayload::decode(h.r#type, body).map_err(|e| DecodeError { at: e.at + start + 16, ..e })?;
     r.pad(start, 4, "EventRecord.padding")?;

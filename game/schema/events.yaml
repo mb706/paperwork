@@ -1,7 +1,8 @@
 # Events (10 §15.6): the packet's EVENTS section holds event records back to back. A record is the
 # 16-byte header, then `len` bytes of payload packed in declaration order, then zero padding to a multiple
-# of 4 (not counted in `len`). A decoder refuses a `len` other than its type's size. Positions in payloads
-# are FinePos or TilePos2. Type ids are append-only.
+# of 4 (not counted in `len`). The event readers (`read_event`, `readEvent`) refuse a `len` other than the
+# type's payload size (`bad_length`); `EventRecord` below is only the framing, which its own codec reads
+# without looking at the type. Positions in payloads are FinePos or TilePos2. Type ids are append-only.
 #
 # Delivery and suppression: §15.6. The queue holds at most `queue_max_events` events or `queue_max_bytes`
 # of records; on overflow the oldest are dropped and the packet carries EVENTS_DROPPED.

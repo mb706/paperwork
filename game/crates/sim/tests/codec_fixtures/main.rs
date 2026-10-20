@@ -152,6 +152,10 @@ fn parse_hex_file(file: &str, text: &str) -> Vec<HexCase> {
                     flush(&mut cur, &mut hex);
                     cur = Some(start("@action", String::new()));
                 }
+                "@event" => {
+                    flush(&mut cur, &mut hex);
+                    cur = Some(start("@event", String::new()));
+                }
                 "@closure" => {
                     flush(&mut cur, &mut hex);
                     cur = Some(start("@closure", rest));
@@ -212,6 +216,31 @@ fn closure_verdict(params: &str, bytes: &[u8]) -> String {
     }
 }
 
+/// One EVENTS record (the header, its payload, the padding) that fills `bytes`, read as the main thread does.
+fn read_one_event(
+    bytes: &[u8],
+) -> Result<(schema::EventHeader, schema::EventPayload), schema::codec::DecodeError> {
+    let mut r = schema::codec::Reader::new(bytes);
+    let e = schema::read_event(&mut r)?;
+    r.finish("EVENTS")?;
+    Ok(e)
+}
+
+/// Reads one EVENTS record, writes it again (which must give the same bytes) and dumps it: the header's
+/// fields under `header.`, then the payload (`type=<name>` and its fields).
+fn round_trip_event(bytes: &[u8]) -> Result<String, String> {
+    let (h, p) = read_one_event(bytes).map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    schema::write_event(&mut schema::codec::Writer::new(&mut out), &h, &p).map_err(|e| e.to_string())?;
+    if out != bytes {
+        return Err("re-encoding the event differs from the fixture".to_owned());
+    }
+    let mut d = schema::codec::Dump::default();
+    h.dump(&mut d, "header.");
+    p.dump(&mut d);
+    Ok(d.out)
+}
+
 /// An expected refusal matches a verdict exactly, or by its kind when it names only the kind.
 fn refusal_matches(want: &str, got: &str) -> bool {
     if want.contains(' ') { got == want } else { got.split(' ').next() == Some(want) }
@@ -247,17 +276,15 @@ fn hand_written_fixtures_decode_to_their_dumps() {
                 }
                 continue;
             }
-            let verdict_of = |b: &[u8]| {
-                if c.target == "@action" {
-                    verdict(&decode_action_framed(b))
-                } else {
-                    decode_by_name(&c.target, b).map_or_else(|| "no such type".to_owned(), |r| verdict(&r))
-                }
+            let verdict_of = |b: &[u8]| match c.target.as_str() {
+                "@action" => verdict(&decode_action_framed(b)),
+                "@event" => verdict(&read_one_event(b)),
+                t => decode_by_name(t, b).map_or_else(|| "no such type".to_owned(), |r| verdict(&r)),
             };
-            let trip = if c.target == "@action" {
-                round_trip_action(&c.bytes)
-            } else {
-                round_trip(&c.target, &c.bytes).unwrap_or_else(|| Err("no such type".to_owned()))
+            let trip = match c.target.as_str() {
+                "@action" => round_trip_action(&c.bytes),
+                "@event" => round_trip_event(&c.bytes),
+                t => round_trip(t, &c.bytes).unwrap_or_else(|| Err("no such type".to_owned())),
             };
             match (&c.expect, trip) {
                 (Expect::Dump(want), Ok(dump)) if *want == dump => {}

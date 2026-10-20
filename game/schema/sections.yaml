@@ -100,6 +100,8 @@ sections:
   - RNG: {id: 10, version: 1, encoding: records, record: rng_state, key: [stream], hashed: true, shard: {pieces: {base: 1801, step: 1}}}
   - PLAYERS: {id: 11, version: 1, encoding: records, record: player, key: [index], hashed: true, shard: player}
   - STATS: {id: 13, version: 1, encoding: records, record: stat, key: [key], hashed: true, shard: key}
+  # C1b decision (§8.1 sorts by commit tick, surface, cx, cy; §5.18 commits a tick's chunks in ascending
+  # (surface, cy, cx)): the key follows §5.18, so the saved order is the order the commits run in.
   - WORLDGEN_PENDING: {id: 16, version: 1, encoding: records, record: worldgen_request, key: [commit_tick, surface, cy, cx], hashed: true, shard: chunk}
   - GENERATED: {id: 17, version: 1, encoding: records, record: generated_chunk, key: [surface, key], hashed: true, shard: chunk}
   - POOL_CONTAINER: {id: 32, version: 1, encoding: table, table: container, hashed: true, shard: serial, header_shard: 3002}
