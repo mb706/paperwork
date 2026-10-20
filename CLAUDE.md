@@ -19,7 +19,7 @@
 ## Toolchain
 - **Node 24 LTS** + npm (global prefix `~/.local`). `/usr/bin/node` is v10 — never use it.
 - **Python**: `uv` (Pythons 3.12/3.13). `gamedev-python` = 3.12 venv `~/.local/opt/gamedev-py` with numpy, scipy,
-  soundfile, pedalboard, mido, pretty_midi, music21, librosa, matplotlib, pillow, opensimplex.
+  soundfile, pedalboard, mido, pretty_midi, music21, librosa, matplotlib, pillow, opensimplex, fonttools, brotli.
   Add packages: `uv pip install --python ~/.local/opt/gamedev-py/bin/python <pkg>`. System `python3` is 3.8.
 - **Browser**: Playwright 1.64 (global) + Chrome for Testing 156 at `~/.local/opt/chrome-current/chrome`
   (`chrome-headless-shell-current` too). WebGL2 and WebGPU run on SwiftShader (software): simple scenes hit 60 fps,
@@ -34,6 +34,9 @@
   llvmpipe + Xvfb (the host's Mesa 21 renders EEVEE blank).
 - **glTF**: `gltf-transform` (optimize, meshopt/draco, texture resize), `gltfpack`.
 - **2D**: `resvg` / `rsvg-convert` (SVG → PNG), ImageMagick 7 `magick`, `oxipng`, `pngquant`, `cwebp`, `gifski`.
+- **GPU textures**: `basisu` 2.50 (Basis Universal, built from source with the system gcc into `~/.local/opt/basisu-2.50`;
+  its WASM transcoder is in `webgl/transcoder/` there) makes the KTX2 atlases: XUBC7 for colour, ETC1S for shadows
+  (spec 10 §9.2). `cmake` for such builds: `~/.local/opt/buildtools-venv/bin/cmake`.
 - **Audio**: `fluidsynth` with SoundFonts in `~/.local/share/soundfonts` (GeneralUser-GS.sf2 — free for any use;
   FluidR3_GM.sf2 — MIT), `sox`, static `ffmpeg` 9 (opus, vorbis, mp3, aac), pedalboard (effects/mastering), `lame`, `opusenc`.
 - **Misc**: `jq`, `fd`, `rg`, `gh`, `zstd`, `micromamba` (root `~/.local/share/mamba`; env `media` = conda CLI tools,

@@ -68,6 +68,7 @@ const browser = await chromium.launch({
 try {
   for (let r = 0; r < rounds; r++) {
     const order = r % 2 === 0 ? cfgs : [...cfgs].reverse();
+    const r0 = r;
     for (const cfg of order) {
       const page = await browser.newPage();
       const errs = [];
@@ -75,13 +76,32 @@ try {
       page.on('pageerror', (e) => errs.push(String(e)));
       await page.goto(`http://127.0.0.1:${server.address().port}/`);
       await page.waitForFunction(() => window.ready === true);
+      if (cfg.mode === 'offline') {
+        const r = await page.evaluate((c) => window.offline(c), cfg);
+        const res = { round: r0, name: cfg.name, offlineLoadPct: +(100 * r.load).toFixed(2), seconds: r.seconds, ms: Math.round(r.ms), errors: (r.errors ?? []).slice(0, 2) };
+        results.push(res);
+        console.log(`${cfg.name.padEnd(34)} r${r0} offline render load ${res.offlineLoadPct}% of a core (${res.seconds} s in ${res.ms} ms)`);
+        await page.close();
+        continue;
+      }
       const info = await page.evaluate((c) => ('voices' in c ? window.voices(c) : window.play(c)), cfg);
       await new Promise((res) => setTimeout(res, 4000));
       const a = threads();
       const m0 = mhz();
       const ta = Date.now();
       const b0 = await page.evaluate(() => window.__bench());
-      await new Promise((res) => setTimeout(res, secs * 1000));
+      // one sample per second: the audio threads' share in every 1 s window
+      const perSec = [];
+      let prev = a, prevT = Date.now();
+      for (let i = 0; i < secs; i++) {
+        await new Promise((res) => setTimeout(res, 1000));
+        const cur = threads();
+        const now = Date.now();
+        let s = 0;
+        for (const [k, v] of cur) if (isAudio(v)) s += (v.cpu - (prev.get(k)?.cpu ?? v.cpu)) / HZ;
+        perSec.push(s / ((now - prevT) / 1000));
+        prev = cur; prevT = now;
+      }
       const b1 = await page.evaluate(() => window.__bench());
       const b = threads();
       const m1 = mhz();
@@ -95,13 +115,15 @@ try {
       }
       rows.sort((x, y) => y.pct - x.pct);
       const main = (b1.tickMs - b0.tickMs) / 1000 / wall;
+      const sorted = [...perSec].sort((x, y) => x - y);
       const res = { round: r, name: cfg.name, wall: +wall.toFixed(1), audioPct: +(100 * audioSum).toFixed(2),
+        perSecMaxPct: +(100 * sorted[sorted.length - 1]).toFixed(1), perSecP95Pct: +(100 * sorted[Math.floor(0.95 * (sorted.length - 1))]).toFixed(1),
         mainSchedPct: +(100 * main).toFixed(3), maxTickMs: +b1.maxTick.toFixed(1), notes: b1.notes - b0.notes,
         dropped: b1.dropped, voicesMax: b1.voicesMax, voicesMean: b1.voicesMean ? +b1.voicesMean.toFixed(1) : undefined,
         stolen: b1.stolen, decodedMB: info?.decodedMB ? +info.decodedMB.toFixed(1) : undefined, mhz: Math.round((m0 + m1) / 2),
         threads: rows.slice(0, 8), errors: errs.slice(0, 3) };
       results.push(res);
-      console.log(`${cfg.name.padEnd(28)} r${r} audio ${res.audioPct.toFixed(1)}%  main ${res.mainSchedPct}% (max tick ${res.maxTickMs} ms) notes ${res.notes} voices max ${res.voicesMax ?? '-'} mean ${res.voicesMean ?? '-'} stolen ${res.stolen ?? 0} decoded ${res.decodedMB ?? '-'} MB  ${res.mhz} MHz`);
+      console.log(`${cfg.name.padEnd(34)} r${r} audio ${res.audioPct.toFixed(1)}% (1-s max ${res.perSecMaxPct}%, p95 ${res.perSecP95Pct}%)  main ${res.mainSchedPct}% (max tick ${res.maxTickMs} ms) notes ${res.notes} voices max ${res.voicesMax ?? '-'} mean ${res.voicesMean ?? '-'} stolen ${res.stolen ?? 0} decoded ${res.decodedMB ?? '-'} MB  ${res.mhz} MHz`);
       console.log('    ' + rows.slice(0, 5).map((t) => `${t.type}:${t.name} ${t.pct}%`).join(' | ') + (errs.length ? '  ERR ' + errs[0] : ''));
       await page.close();
     }

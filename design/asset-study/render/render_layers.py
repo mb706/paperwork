@@ -47,6 +47,9 @@ def parse():
     ap.add_argument('--threads', type=int, default=16)
     ap.add_argument('--direction', default='S')
     ap.add_argument('--variant', type=int, default=0)
+    ap.add_argument('--all', action='store_true', help='every direction and variant of META, in one process')
+    ap.add_argument('--shadow-normal', action='store_true', help='render the shadow at Normal resolution (50%)')
+    ap.add_argument('--full-base', action='store_true', help='v2 scheme: the base is frame 0 in full')
     return ap.parse_args(argv)
 
 
@@ -74,7 +77,20 @@ def main():
     a = parse()
     mod = importlib.import_module('entities.' + a.entity.replace('-', '_'))
     meta = mod.META
-    out = os.path.join(ROOT, 'design', 'art', 'out', 'layers', a.entity)
+    combos = [(d, v) for d in meta.get('directions', ['S']) for v in range(meta.get('variants', 1))] if a.all else [(a.direction, a.variant)]
+    if a.all:
+        a.frames = meta.get('frames', 1)
+    t0 = time.time()
+    res = [one(a, mod, meta, d, v) for d, v in combos]
+    tot = dict(entity=a.entity, combos=len(combos), frames=meta.get('frames', 1), total_s=round(time.time() - t0, 1),
+               parts_s={k: round(sum(r[k] for r in res), 1) for k in ('base_passes_s', 'base_shadow_s', 'pose_all_frames_s', 'anim_frames_s')},
+               canvas_px=sum(r['canvas'][0] * r['canvas'][1] for r in res), rect_px=sum(r['rect_px'] for r in res))
+    print('[build] ' + json.dumps(tot), flush=True)
+
+
+def one(a, mod, meta, direction, variant):
+    a.direction, a.variant = direction, variant
+    out = os.path.join(ROOT, 'design', 'art', 'out', 'layers', 'build' if a.all else '', a.entity, f'{direction}{variant}' if a.all else '')
     os.makedirs(out, exist_ok=True)
     T = {}
     t0 = time.time()
@@ -105,10 +121,14 @@ def main():
         P.set_collection(None)
         bpy.context.view_layer.update()
         moving_idx |= {i for i, q in enumerate(objsh) if i < len(sig0) and signature(q) != sig0[i]}
+        if len(objsh) != len(sig0):          # a part that appears or vanishes (a belt's slats): it moves
+            moving_idx |= set(range(min(len(objsh), len(sig0)), len(sig0)))
         for o in objsh:
             bpy.data.objects.remove(o, do_unlink=True)
     moving_idx = sorted(moving_idx)
     T['probe_s'] = time.time() - t
+    if a.frames <= 1 or meta.get('frames', 1) <= 1:
+        moving_idx = []
     moving = [objs0[i] for i in moving_idx]
     static = [o for i, o in enumerate(objs0) if i not in moving_idx]
 
@@ -135,31 +155,37 @@ def main():
         else:
             R.render_to(scene, path)
 
-    # the base: animated parts hidden
+    # the base: v1 hid the animated parts; v2 (--full-base) renders frame 0 in full
     t = time.time()
-    for o in moving:
-        o.hide_render = True
+    if not a.full_base:
+        for o in moving:
+            o.hide_render = True
     for ps in ('colour', 'normal', 'aux') + (('light',) if meta.get('light') else ()):
-        render(ps, os.path.join(out, f'base.{ps}.png'), static)
+        render(ps, os.path.join(out, f'base.{ps}.png'), static if not a.full_base else objs0)
     T['base_passes_s'] = time.time() - t
     t = time.time()
     for o in moving:
         o.hide_render = False
+    if a.shadow_normal:
+        scene.render.resolution_percentage = 50
     render('shadow', os.path.join(out, 'base.shadow.png'), objs0)
+    scene.render.resolution_percentage = 100
     T['base_shadow_s'] = time.time() - t
     # the animation rectangle: union over frames (needs each frame's pose)
     t = time.time()
     rect = [1e9, 1e9, -1e9, -1e9]
     poses = []
-    for k in range(a.frames):
+    nframes = a.frames if moving_idx else 0
+    for k in range(nframes):
         coll = bpy.data.collections.new(f'f{k}')
         scene.collection.children.link(coll)
         P.set_collection(coll)
         ok = [o for o in mod.build(P, direction=a.direction, frame=k, variant=a.variant, state='working') if o is not None]
         P.set_collection(None)
-        keep = [ok[i] for i in moving_idx]
-        for i, o in enumerate(ok):
-            if i not in moving_idx:
+        keep = [ok[i] for i in moving_idx if i < len(ok)] + ok[len(objs0):]
+        kept = set(id(o) for o in keep)
+        for o in ok:
+            if id(o) not in kept:
                 bpy.data.objects.remove(o, do_unlink=True)
         for o in keep:
             o.hide_render = True
@@ -169,13 +195,17 @@ def main():
         poses.append(keep)
     T['pose_all_frames_s'] = time.time() - t
     m = 8
-    rect = [max(0, math.floor(rect[0]) - m), max(0, math.floor(rect[1]) - m),
-            min(W, math.ceil(rect[2]) + m), min(H, math.ceil(rect[3]) + m)]
+    if nframes:
+        # R: the moving parts' bounds plus 8 px, rounded out to multiples of 8 px (10 §9.2's alignment)
+        rect = [max(0, (math.floor(rect[0]) - m) // 8 * 8), max(0, (math.floor(rect[1]) - m) // 8 * 8),
+                min(W, -(-(math.ceil(rect[2]) + m) // 8) * 8), min(H, -(-(math.ceil(rect[3]) + m) // 8) * 8)]
+    else:
+        rect = [0, 0, 0, 0]
     for o in moving:
         o.hide_render = True
     t = time.time()
     per = []
-    for k in range(a.frames):
+    for k in range(nframes):
         tk = time.time()
         for o in poses[k]:
             o.hide_render = False
@@ -186,7 +216,7 @@ def main():
             o.hide_render = True
         per.append(time.time() - tk)
     T['anim_frames_s'] = time.time() - t
-    T['anim_per_frame_s'] = sum(per) / len(per)
+    T['anim_per_frame_s'] = sum(per) / len(per) if per else 0
     T['total_s'] = time.time() - t0
     res = dict(entity=a.entity, canvas=[W, H], rect=rect, rect_px=(rect[2] - rect[0]) * (rect[3] - rect[1]),
                rect_share=round((rect[2] - rect[0]) * (rect[3] - rect[1]) / (W * H), 4),
@@ -194,6 +224,7 @@ def main():
                **{k: round(v, 2) for k, v in T.items()})
     print('[layers] ' + json.dumps(res), flush=True)
     json.dump(res, open(os.path.join(out, 'timing.json'), 'w'), indent=1)
+    return res
 
 
 main()

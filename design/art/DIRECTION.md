@@ -251,10 +251,10 @@ The mock shows three working furnaces beside an idle one (`mocks/survey-final-1x
 
 | Kind | Frames | Rule |
 |---|---|---|
-| Machines, furnaces, Keypunch | 16, seamless | animated parts on their own layer over a static base (10 §9.1: the base has the animated parts hidden; each layer frame is the inked frame cropped to its animation rectangle) |
+| Machines, furnaces, Keypunch | 16, seamless | animated parts on their own layer (10 §9.1: frame 0 is rendered in full; each layer frame is re-rendered and inked inside its animation rectangle R, and the game draws frame 0's pieces outside R plus the layer frame, every pixel once) |
 | Drills | 16 × 4 directions | the turret's ring gear turns |
 | Belts | 16 per piece | chevron ridges advance 1/16 of their 0.25-tile pitch per frame |
-| Inserters | parts | base, arm and hand rotated in 2D (10 §6.8); arms in the high layer |
+| Inserters | parts | platform, arm and hand (open, closed) with pivots, the arm and hand rotated in 2D (10 §6.8, §15.7); arms in the high layer |
 | Steam engine | 16 | flywheel, crank and governor, speed from output |
 | Smoke, steam | particles | render-time only, never simulated |
 
@@ -283,7 +283,7 @@ Rules:
   - near-white with a clean grotesque (after 1995).
   - The ink, the bands and the sprites never change. That is the one exception to rule 6, and it is optional.
 - **Heat.** As computing scales, the heat overlay's contextual tint (07 §3.2) reads naturally on a survey plate,
-  as an isotherm wash. Trees losing leaves to heat (01 §2.2) are drawn as bare inked branches: leaf stages 4 → 1.
+  as an isotherm wash. Trees losing leaves to heat (01 §2.2) are drawn as bare inked branches: leaf stages 4 → 0, five pictures, the last bare (10 §15.7).
 
 ## 11. Terrain and decoratives
 
@@ -390,7 +390,7 @@ taskset -c 8-15,24-31 blender -b --factory-startup -noaudio --python design/art/
    `scripts/build-assets.ts` through Python, before trimming and packing (10 §9.2 step 1).
 2. **Render each model once per direction, then only its animated layer per frame.** The prototype rebuilds the
    scene per frame, which makes a full 6,000-frame set take about 11 hours on 16 threads. Building once and
-   rendering animated layers only (10 §9.1 #4) brings it near the spec's 2 hours.
+   rendering animated layers only (10 §9.1 #4) brings the full game to about 2.6 hours (10 §9.6's target: ≤ 3 h).
 3. **Shadow masks** at Normal resolution with values below 0.03 clipped, and the glow sprite (RGB) as its own atlas
    (10 §6.4's lights array).
 4. **Icons through `render_icons.py`, not hand-authored SVG** (§7). SVG stays for UI glyphs and 9-slices (10 §9.3).
@@ -409,7 +409,7 @@ taskset -c 8-15,24-31 blender -b --factory-startup -noaudio --python design/art/
   (about 100 MB).
 - **Download:** colour about 18 MB for the full game, well under 200 MB.
 - **Planned M3 KTX2 compression** (10 §6.13) gives a further 4× when needed.
-- *Update (WP B2, 2026-10-20):* superseded by spec 10 §9.2 and §9.6. Atlases ship as KTX2 XUBC7 transcoded to BC7 from M0, a format chosen by measurement on pages from this pipeline. An itemised model of every sprite set (10 §9.6) gives the slice 8 pages and 43 MB of GPU memory at High, and the full game 33 pages and 183 MB.
+- *Update (WP B2, 2026-10-20):* superseded by spec 10 §9.2 and §9.6. Atlases ship as KTX2 XUBC7 transcoded to BC7 from M0, a format chosen by measurement on pages from this pipeline. An itemised model of every sprite set (10 §9.6, version 2 after codex B2-r1: 32-px cells, every allocation counted) gives the slice 13 colour pages and 150 MB of GPU memory in all at High, and the full game 47 pages and 358 MB.
 
 ## 14. Do and don't
 

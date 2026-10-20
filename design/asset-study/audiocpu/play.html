@@ -2,16 +2,24 @@
 <html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>audio cpu study</title></head>
 <body>
 <script type="module">
-// B2 audio CPU study (10 §9.4): A4's engine (served from /audio/) played live with the cuts of A4 DIRECTION §6.5
-// applied as variants, so their effect on the audio thread can be measured by bench.mjs from /proc.
+// B2 audio CPU study (10 §9.4): A4's engine (served from /audio/) with the runtime changes of 10 §9.4 applied as
+// variants, played live (bench.mjs measures the audio threads from /proc) or rendered offline (render speed).
+//   variant: { fdn, irMax, noXfade, voiceCap, workletVoices, insertsInBank, noInserts, noSynth }; cfg.sfx: { loops, shotsPerSec }
 import { MusicEngine } from '/audio/proto/engine/engine.js';
 import { PIECES } from '/audio/proto/engine/pieces/index.js';
 import { IR_PRESETS, Mixer, dbToGain } from '/audio/proto/engine/mixer.js';
-import { Sampler } from '/audio/proto/engine/instruments.js';
+import { Sampler, Synth } from '/audio/proto/engine/instruments.js';
 
 const IR_ORIG = JSON.parse(JSON.stringify(IR_PRESETS));
-// The benchmark joins a piece in the middle (cfg.offset): the piece then starts in the past, and automation
-// scheduled before time 0 must be clamped (the engine already drops notes that are due in the past).
+const SAMPLER_PLAY = Sampler.prototype.play;
+const SAMPLER_SEG = Sampler.prototype._segment;
+const ADD_REVERB = Mixer.prototype.addReverb;
+const ROUTE = MusicEngine.prototype.route;
+const SYNTH_PLAY = Synth.prototype.play;
+const ECHO = MusicEngine.prototype.echo;
+const NOISE = MusicEngine.prototype.noise;
+// Joining a piece in the middle (cfg.offset) starts it in the past: clamp automation scheduled before time 0
+// (the engine already drops notes due in the past).
 for (const m of ['setValueAtTime', 'linearRampToValueAtTime', 'exponentialRampToValueAtTime', 'cancelScheduledValues']) {
   const f = AudioParam.prototype[m];
   AudioParam.prototype[m] = function (...a) { const i = m === 'cancelScheduledValues' ? 0 : 1; if (a[i] < 0) a[i] = 0; return f.apply(this, a); };
@@ -20,32 +28,36 @@ for (const m of ['setValueAtTime', 'linearRampToValueAtTime', 'exponentialRampTo
   const f = AudioParam.prototype.setTargetAtTime;
   AudioParam.prototype.setTargetAtTime = function (v, t, c) { return f.call(this, v, Math.max(0, t), c); };
 }
-const SAMPLER_PLAY = Sampler.prototype.play;
-const SAMPLER_SEG = Sampler.prototype._segment;
-const ADD_REVERB = Mixer.prototype.addReverb;
-const ROUTE = MusicEngine.prototype.route;
 
-function applyVariant(ctx, v) {
-  // restore, then patch
+function applyVariant(v, insertLog) {
   for (const k of Object.keys(IR_PRESETS)) Object.assign(IR_PRESETS[k], IR_ORIG[k]);
   Sampler.prototype.play = SAMPLER_PLAY;
   Sampler.prototype._segment = SAMPLER_SEG;
   Mixer.prototype.addReverb = ADD_REVERB;
   MusicEngine.prototype.route = ROUTE;
-  if (v.noInserts) {
-    // measure what the per-channel inserts cost: tape (modulated delay, 2x-oversampled shaper, filters), tremolo
-    MusicEngine.prototype.route = function (instName, chOpts = {}) { return ROUTE.call(this, instName, { ...chOpts, inserts: [] }); };
-  }
-  if (v.shaper1x) {
-    const f = BaseAudioContext.prototype.createWaveShaper;
-    BaseAudioContext.prototype.createWaveShaper = function () {
-      const w = f.call(this);
-      const d = Object.getOwnPropertyDescriptor(WaveShaperNode.prototype, 'oversample');
-      Object.defineProperty(w, 'oversample', { get: () => 'none', set: () => d.set.call(w, 'none') });
-      return w;
-    };
+  Synth.prototype.play = SYNTH_PLAY;
+  MusicEngine.prototype.echo = ECHO;
+  MusicEngine.prototype.noise = NOISE;
+  if (v.noSynth) {
+    // the bound on moving the synthesised voices (organ, sine, FM), the tape echo and the noise bed into the
+    // worklet: they are not played at all (B2 review, finding 4)
+    Synth.prototype.play = function () { window.__synthDropped = (window.__synthDropped ?? 0) + 1; };
+    const stub = (ctx) => { const g = ctx.createGain(); return { input: g, output: ctx.createGain(), feedback: g.gain, delay: { delayTime: g.gain }, src: { start() {}, stop() {} } }; };
+    MusicEngine.prototype.echo = function () { return stub(this.ctx); };
+    MusicEngine.prototype.noise = function () { return stub(this.ctx); };
   }
   if (v.irMax) for (const k of Object.keys(IR_PRESETS)) IR_PRESETS[k].seconds = Math.min(IR_PRESETS[k].seconds, v.irMax);
+  if (v.noInserts || v.insertsInBank) {
+    MusicEngine.prototype.route = function (instName, chOpts = {}) {
+      const name = chOpts.channel ?? instName;
+      const isSampler = this.inst.get(instName) instanceof Sampler;
+      if (v.noInserts || isSampler) {
+        if (isSampler && v.insertsInBank) insertLog.set(name, { inserts: chOpts.inserts ?? [], tape: chOpts.tape, tremoloHz: chOpts.tremoloHz, tremoloDepth: chOpts.tremoloDepth });
+        return ROUTE.call(this, instName, { ...chOpts, inserts: [] });
+      }
+      return ROUTE.call(this, instName, chOpts);      // synth channels (organ) keep their native inserts
+    };
+  }
   if (v.fdn) {
     Mixer.prototype.addReverb = function (name, preset, wetDb = 0) {
       const p = typeof preset === 'string' ? IR_ORIG[preset] : preset;
@@ -62,7 +74,6 @@ function applyVariant(ctx, v) {
     };
   }
   if (v.noXfade) {
-    // one voice per note for short or percussive notes (A4 §6.5 #2)
     Sampler.prototype.play = function (t, midi, vel, dur, opts = {}) {
       if (this.layers.length > 1 && opts.layer == null && (dur < 0.5 || this.def.kind === 'oneshot')) {
         const L = this.layers.length;
@@ -72,105 +83,148 @@ function applyVariant(ctx, v) {
       return SAMPLER_PLAY.call(this, t, midi, vel, dur, opts);
     };
   }
-  if (v.voiceCap) {
-    // a global cap on sounding sample voices: steal the quietest-by-design (lowest gain), then the oldest
-    // (A4 §6.5 #3). A re-implementation of Sampler._segment that keeps the voice handles.
-    const live = [];
-    window.__live = live;
-    Sampler.prototype._segment = function (t, buf, rate, gain, attack, hold, release, offset, linearAttack) {
-      const ctx = this.ctx;
-      const now = ctx.currentTime;
-      for (let i = live.length - 1; i >= 0; i--) if (live[i].end < now) live.splice(i, 1);
-      while (live.length >= v.voiceCap) {
-        let k = 0;
-        for (let i = 1; i < live.length; i++) if (live[i].gain < live[k].gain || (live[i].gain === live[k].gain && live[i].t < live[k].t)) k = i;
-        const victim = live.splice(k, 1)[0];
-        const at = Math.max(now, victim.t);
-        victim.g.gain.cancelScheduledValues(at);
-        victim.g.gain.setTargetAtTime(0, at, 0.01);
-        try { victim.src.stop(at + 0.06); } catch {}
-        window.__stolen = (window.__stolen ?? 0) + 1;
-      }
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.playbackRate.value = rate;
-      const g = ctx.createGain();
-      if (attack > 0.004) {
-        g.gain.setValueAtTime(0, t);
-        if (linearAttack) g.gain.linearRampToValueAtTime(gain, t + attack);
-        else g.gain.setTargetAtTime(gain, t, attack / 3);
-      } else g.gain.setValueAtTime(gain, t);
-      const off = t + Math.max(hold, attack + 0.01);
-      g.gain.setTargetAtTime(0, off, release / 4.5);
-      src.connect(g);
-      g.connect(this.out);
-      src.start(t, offset);
-      src.stop(off + release * 1.3);
-      this.active++;
-      const rec = { src, g, gain, t, end: off + release * 1.3 };
-      live.push(rec);
-      src.onended = () => { this.active--; src.disconnect(); g.disconnect(); };
-    };
-  }
 }
 
-// Move every sampler voice into one AudioWorklet node: one stereo output per sampler instance, connected to the
-// instance's channel input; the decoded AudioBuffers are converted to Int16 and sent to the worklet once.
-async function useBank(ctx, eng, maxVoices) {
-  const samplers = [...eng.inst.entries()].filter(([, v]) => v instanceof Sampler);
-  const node = new AudioWorkletNode(ctx, 'sampler-bank', { numberOfInputs: 0, numberOfOutputs: samplers.length,
-    outputChannelCount: samplers.map(() => 2), processorOptions: { maxVoices } });
+const NF = 14;
+// The bank: one AudioWorklet node, one stereo output per sampler instance plus one for the SFX.
+async function useBank(ctx, eng, v, insertLog, sfxOut) {
+  const samplers = [...eng.inst.entries()].filter(([, s]) => s instanceof Sampler);
+  const nOut = samplers.length + 1;
+  const node = new AudioWorkletNode(ctx, 'sampler-bank', { numberOfInputs: 0, numberOfOutputs: nOut,
+    outputChannelCount: Array(nOut).fill(2), processorOptions: { maxVoices: (v.voiceCap ?? 48) + 24 } });
   const ids = new Map();
   let next = 0;
+  const sendBuf = (ab) => {
+    if (ids.has(ab)) return ids.get(ab);
+    const id = next++;
+    ids.set(ab, id);
+    const chans = [];
+    for (let c = 0; c < ab.numberOfChannels; c++) {
+      const d = ab.getChannelData(c);
+      const i16 = new Int16Array(d.length);
+      for (let i = 0; i < d.length; i++) i16[i] = Math.max(-32768, Math.min(32767, Math.round(d[i] * 32767)));
+      chans.push(i16);
+    }
+    node.port.postMessage({ t: 'buf', id, chans, rate: ab.sampleRate }, chans.map((c) => c.buffer));
+    return id;
+  };
+  const pending = [];
   samplers.forEach(([name, smp], k) => {
     node.connect(smp.out, k);
-    smp.__bank = { node, out: k, ids };
-    for (const [file, ab] of smp.buffers) {
-      if (ids.has(ab)) continue;
-      const id = next++;
-      ids.set(ab, id);
-      const chans = [];
-      for (let c = 0; c < ab.numberOfChannels; c++) {
-        const d = ab.getChannelData(c);
-        const i16 = new Int16Array(d.length);
-        for (let i = 0; i < d.length; i++) i16[i] = Math.max(-32768, Math.min(32767, Math.round(d[i] * 32767)));
-        chans.push(i16);
+    smp.__bank = { out: k };
+    for (const ab of smp.buffers.values()) sendBuf(ab);
+    const chName = [...eng.channels.entries()].find(([, ch]) => ch.input === smp.out)?.[0];
+    const ins = insertLog.get(chName);
+    if (ins) {
+      for (const kind of ins.inserts) {
+        if (kind === 'tape') node.port.postMessage({ t: 'insert', out: k, kind: 'tape', p: ins.tape ?? {} });
+        if (kind === 'tremolo') node.port.postMessage({ t: 'insert', out: k, kind: 'tremolo', p: { rate: ins.tremoloHz ?? 5.2, depth: ins.tremoloDepth ?? 0.3 } });
       }
-      node.port.postMessage({ t: 'buf', id, chans, rate: ab.sampleRate }, chans.map((c) => c.buffer));
     }
   });
-  window.__bankNode = node;
+  node.connect(sfxOut, nOut - 1);
   Sampler.prototype._segment = function (t, buf, rate, gain, attack, hold, release, offset, linearAttack) {
-    const b = this.__bank;
     const off = t + Math.max(hold, attack + 0.01);
-    b.node.port.postMessage({ t: 'notes', notes: [{ when: t, buf: b.ids.get(buf), out: b.out, rate, gain, attack,
-      linear: !!linearAttack, off, release, stop: off + release * 1.3, offset }] });
+    pending.push([t, ids.get(buf), this.__bank.out, rate, gain, attack, linearAttack ? 1 : 0, off, release, off + release * 1.3, offset, 0, 0, 0]);
   };
+  const flush = () => {
+    if (!pending.length) return;
+    const data = new Float64Array(pending.length * NF);
+    pending.forEach((r, i) => data.set(r, i * NF));
+    node.port.postMessage({ t: 'notes', n: pending.length, data }, [data.buffer]);
+    pending.length = 0;
+  };
+  return { node, sendBuf, push: (r) => pending.push(r), flush, sfxOut: nOut - 1 };
 }
 
-window.play = async (cfg) => {
-  const ctx = new AudioContext({ latencyHint: 'playback', sampleRate: cfg.sampleRate ?? undefined });
-  await ctx.resume();
+// A busy factory's SFX: working loops and one-shots through the bank (or native voices without the bank).
+async function loadSfx(ctx) {
+  const names = ['keypunch_loop', 'belt_loop', 'ui_click_1', 'ui_click_2', 'build_small_1', 'build_medium_1', 'mine_ore_1',
+    'mine_ore_2', 'inserter_swing_1', 'inserter_swing_2', 'footstep_grass_1', 'footstep_grass_2', 'deconstruct_1'];
+  const out = {};
+  await Promise.all(names.map(async (n) => { out[n] = await ctx.decodeAudioData(await (await fetch(`/audio/demos/sfx/${n}.ogg`)).arrayBuffer()); }));
+  return out;
+}
+
+async function build(ctx, cfg) {
   await ctx.audioWorklet.addModule('/study/fdn-worklet.js');
   await ctx.audioWorklet.addModule('/study/bank-worklet.js');
-  applyVariant(ctx, cfg.variant ?? {});
+  const v = cfg.variant ?? {};
+  const insertLog = new Map();
+  applyVariant(v, insertLog);
   const pack = `/audio/out/samples/${cfg.pack ?? 'prep'}`;
   const manifest = await (await fetch(`${pack}/instruments.json`)).json();
   const eng = new MusicEngine(ctx, { manifest, baseUrl: pack, mixer: cfg.mixer ?? {} });
   const spec = PIECES[cfg.piece];
   await eng.loadSamplers(spec.samplers);
   spec.setup(eng, cfg.params ?? {});
-  if (cfg.variant?.workletVoices) await useBank(ctx, eng, cfg.variant.voiceCap ?? 48);
+  const sfxBus = ctx.createGain();
+  sfxBus.gain.value = 0.5;
+  sfxBus.connect(eng.mixer.master);
+  let bank = null;
+  if (v.workletVoices) bank = await useBank(ctx, eng, v, insertLog, sfxBus);
+  // decoded memory, counting each AudioBuffer once (aliases share buffers)
+  const seen = new Set();
   let decoded = 0;
-  for (const inst of eng.inst.values()) if (inst.buffers) for (const b of inst.buffers.values()) decoded += b.length * b.numberOfChannels * 4;
-  const auto = (cfg.automation ?? []).slice().sort((a, b) => a[0] - b[0]);
-  const t0 = ctx.currentTime;
+  for (const inst of eng.inst.values()) if (inst.buffers) for (const b of inst.buffers.values()) {
+    if (!seen.has(b)) { seen.add(b); decoded += b.length * b.numberOfChannels * 4; }
+  }
+  const sfx = cfg.sfx ? await loadSfx(ctx) : null;
+  const sfxIds = {};
+  if (sfx && bank) for (const [n, ab] of Object.entries(sfx)) sfxIds[n] = bank.sendBuf(ab);
+  return { eng, spec, bank, sfx, sfxIds, sfxBus, decodedMB: decoded / 2 ** 20 };
+}
+
+function startPiece(ctx, b, cfg, t0) {
+  const { eng, spec, bank, sfx, sfxIds, sfxBus } = b;
+  const auto = (cfg.automation ?? []).slice().sort((a, c) => a[0] - c[0]);
   eng.clock.listeners.add((now) => { while (auto.length && auto[0][0] <= now - t0 + (cfg.offset ?? 0)) Object.assign(eng.state, auto.shift()[1]); });
   const piece = new spec.Piece(eng, { ...(cfg.params ?? {}), duration: cfg.duration, start: t0 + 0.1 - (cfg.offset ?? 0) });
   eng.clock.add(piece);
-  let tickMs = 0, maxTick = 0, notes0 = 0;
+  // SFX schedule, driven by the same clock (works offline too)
+  if (sfx) {
+    const oneShots = Object.keys(sfx).filter((n) => !n.endsWith('_loop'));
+    let k = 0, nextShot = t0 + 0.2, loopsStarted = false;
+    const rnd = () => { k = (k * 1103515245 + 12345) & 0x7fffffff; return k / 0x7fffffff; };
+    eng.clock.listeners.add((now) => {
+      const horizon = now + eng.clock.lookahead;
+      if (!loopsStarted) {
+        loopsStarted = true;
+        for (let i = 0; i < cfg.sfx.loops; i++) {
+          const n = i % 2 ? 'belt_loop' : 'keypunch_loop';
+          const ab = sfx[n];
+          const len = ab.length;
+          if (bank) bank.push([now + 0.05, sfxIds[n], bank.sfxOut, 1, 0.25, 0.3, 1, now + 1e6, 0.3, now + 1e6, (i * 0.37) % (ab.duration - 0.1), (i / cfg.sfx.loops) * 1.4 - 0.7, 0, len - 1]);
+          else { const s = ctx.createBufferSource(); s.buffer = ab; s.loop = true; const g = ctx.createGain(); g.gain.value = 0.25; const p = ctx.createStereoPanner(); p.pan.value = (i / cfg.sfx.loops) * 1.4 - 0.7; s.connect(g); g.connect(p); p.connect(sfxBus); s.start(now + 0.05, (i * 0.37) % (ab.duration - 0.1)); }
+        }
+      }
+      while (nextShot < horizon) {
+        const n = oneShots[Math.floor(rnd() * oneShots.length)];
+        const ab = sfx[n];
+        const rate = 1 + (rnd() - 0.5) * 0.06;
+        const pan = rnd() * 1.4 - 0.7;
+        if (bank) bank.push([nextShot, sfxIds[n], bank.sfxOut, rate, 0.4, 0, 0, nextShot + ab.duration, 0.05, nextShot + ab.duration + 0.1, 0, pan, 0, 0]);
+        else { const s = ctx.createBufferSource(); s.buffer = ab; s.playbackRate.value = rate; const g = ctx.createGain(); g.gain.value = 0.4; const p = ctx.createStereoPanner(); p.pan.value = pan; s.connect(g); g.connect(p); p.connect(sfxBus); s.start(nextShot); s.onended = () => { s.disconnect(); g.disconnect(); p.disconnect(); }; }
+        nextShot += 1 / cfg.sfx.shotsPerSec;
+      }
+    });
+  }
+  if (bank) {
+    const orig = eng.clock.tick.bind(eng.clock);
+    eng.clock.tick = (now) => { orig(now); bank.flush(); };
+  }
+  return piece;
+}
+
+window.play = async (cfg) => {
+  const ctx = new AudioContext({ latencyHint: cfg.latencyHint ?? 'playback', sampleRate: cfg.sampleRate ?? undefined });
+  await ctx.resume();
+  const b = await build(ctx, cfg);
+  const t0 = ctx.currentTime;
+  startPiece(ctx, b, cfg, t0);
+  const eng = b.eng;
+  let tickMs = 0, maxTick = 0, vMax = 0, vSum = 0, vN = 0;
   const orig = eng.clock.tick.bind(eng.clock);
-  let vMax = 0, vSum = 0, vN = 0;
   eng.clock.tick = (now) => {
     const a = performance.now(); orig(now); const d = performance.now() - a; tickMs += d; maxTick = Math.max(maxTick, d);
     let act = 0; for (const inst of eng.inst.values()) if (inst instanceof Sampler) act += inst.active;
@@ -178,9 +232,27 @@ window.play = async (cfg) => {
   };
   eng.clock.cursor = t0;
   eng.clock.start();
-  window.__bench = () => ({ tickMs, maxTick, notes: eng.log.length, dropped: eng.dropped ?? 0, decodedMB: decoded / 2 ** 20, sr: ctx.sampleRate,
-    voicesMax: vMax, voicesMean: vN ? vSum / vN : 0, stolen: window.__stolen ?? 0 });
-  return { decodedMB: decoded / 2 ** 20, sampleRate: ctx.sampleRate };
+  let bankStats = null;
+  if (b.bank) b.bank.node.port.onmessage = (e) => { bankStats = e.data; };
+  window.__bench = () => { if (b.bank) b.bank.node.port.postMessage({ t: 'stats' });
+    return { tickMs, maxTick, notes: eng.log.length, dropped: eng.dropped ?? 0, decodedMB: b.decodedMB, sr: ctx.sampleRate,
+      voicesMax: b.bank ? (bankStats?.maxActive ?? 0) : vMax, voicesMean: vN ? vSum / vN : 0, stolen: bankStats?.stolen ?? 0 }; };
+  return { decodedMB: b.decodedMB, sampleRate: ctx.sampleRate };
+};
+
+// Offline render speed: the same graph in an OfflineAudioContext, rendered as fast as possible. On one thread,
+// seconds of wall time per second of audio approximate the realtime audio thread's load; bench.html can measure
+// this in any browser, where /proc is not available.
+window.offline = async (cfg) => {
+  const sr = cfg.sampleRate ?? 48000;
+  const secs = cfg.seconds ?? 30;
+  const ctx = new OfflineAudioContext(2, Math.ceil(sr * (secs + 1)), sr);
+  const b = await build(ctx, cfg);
+  startPiece(ctx, b, cfg, 0);
+  const t = performance.now();
+  await b.eng.clock.renderOffline(secs + 1, 0.25);
+  const ms = performance.now() - t;
+  return { load: ms / 1000 / (secs + 1), ms, seconds: secs + 1, errors: b.eng.clock.errors };
 };
 
 // microbenchmark: N concurrent sample voices, native nodes against one worklet mixer
@@ -211,7 +283,7 @@ window.voices = async (cfg) => {
     worklet.port.postMessage({ t: 'buf', id: 0, data: i16, rate: sr });
   }
   let k = 0;
-  const timer = setInterval(() => {
+  setInterval(() => {
     const horizon = ctx.currentTime + 0.5;
     const batch = [];
     while (next < horizon) {

@@ -20,15 +20,26 @@ class SamplerProc extends AudioWorkletProcessor {
     this.vRel = new Float32Array(M);
     this.vStart = new Float64Array(M);
     this.vStop = new Float64Array(M);
-    this.queue = [];
+    this.QC = 1024;
+    this.qWhen = new Float64Array(this.QC); this.qRate = new Float64Array(this.QC); this.qGain = new Float64Array(this.QC);
+    this.qPan = new Float64Array(this.QC); this.qDur = new Float64Array(this.QC); this.qRel = new Float64Array(this.QC);
+    this.qUsed = new Uint8Array(this.QC); this.qN = 0;
     this.port.onmessage = (e) => {
       const m = e.data;
       if (m.t === 'buf') { this.bufs[m.id] = m.data; this.bufRate[m.id] = m.rate; }
-      else if (m.t === 'notes') { for (const n of m.notes) this.queue.push(n); }
+      else if (m.t === 'notes') {
+        for (const n of m.notes) {
+          let s = 0; while (s < this.QC && this.qUsed[s]) s++;
+          if (s === this.QC) continue;
+          this.qUsed[s] = 1; this.qN++;
+          this.qWhen[s] = n.when; this.qRate[s] = n.rate; this.qGain[s] = n.gain; this.qPan[s] = n.pan;
+          this.qDur[s] = n.dur; this.qRel[s] = n.release ?? 0.3;
+        }
+      }
     };
   }
 
-  start(n) {
+  start(n) {   // n: {buf, rate, gain, pan, dur, release, when}
     let k = -1, quiet = 1e9;
     for (let i = 0; i < this.max; i++) {
       if (this.vBuf[i] < 0) { k = i; break; }
@@ -47,14 +58,35 @@ class SamplerProc extends AudioWorkletProcessor {
     this.vStop[k] = (n.when + n.dur) * sampleRate;
   }
 
+  startSlot(q) {     // the same as start(), from the preallocated table, without building an object
+    let k = -1, quiet = 1e9;
+    for (let i = 0; i < this.max; i++) {
+      if (this.vBuf[i] < 0) { k = i; break; }
+      if (this.vEnv[i] < quiet) { quiet = this.vEnv[i]; k = i; }
+    }
+    this.vBuf[k] = 0;
+    this.vPos[k] = 0;
+    this.vInc[k] = this.qRate[q] * this.bufRate[0] / sampleRate;
+    const p = (this.qPan[q] + 1) * Math.PI / 4;
+    this.vGL[k] = this.qGain[q] * Math.cos(p);
+    this.vGR[k] = this.qGain[q] * Math.sin(p);
+    this.vEnv[k] = 0;
+    this.vAtk[k] = 1 / Math.max(1, 0.004 * sampleRate);
+    this.vRel[k] = Math.exp(-1 / Math.max(1, this.qRel[q] * sampleRate / 4.5));
+    this.vStart[k] = this.qWhen[q] * sampleRate;
+    this.vStop[k] = (this.qWhen[q] + this.qDur[q]) * sampleRate;
+  }
+
   process(inputs, outputs) {
     const out = outputs[0];
     const L = out[0], R = out[1] ?? out[0];
     const n = L.length;
     const f0 = currentFrame;
-    if (this.queue.length) {
-      for (let q = this.queue.length - 1; q >= 0; q--) {
-        if (this.queue[q].when * sampleRate < f0 + n) { this.start(this.queue[q]); this.queue.splice(q, 1); }
+    if (this.qN) {
+      for (let q = 0; q < this.QC; q++) {
+        if (this.qUsed[q] && this.qWhen[q] * sampleRate < f0 + n) {
+          this.startSlot(q); this.qUsed[q] = 0; this.qN--;
+        }
       }
     }
     for (let i = 0; i < this.max; i++) {

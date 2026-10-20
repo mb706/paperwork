@@ -14,13 +14,36 @@ window.run = async (list, reps) => {
     for (const n of ['EXT_texture_compression_bptc', 'WEBGL_compressed_texture_astc', 'WEBGL_compressed_texture_etc',
       'WEBGL_compressed_texture_s3tc', 'EXT_texture_compression_rgtc']) ext[n] = !!gl.getExtension(n);
     out.renderer = gl.getParameter(gl.RENDERER);
+    // the probe the asset worker runs (10 §9.2): each format's extension, then a real upload of one 4x4 block
+    // into a texture array, checked with getError; a format counts only if both pass
+    const probes = {
+      bc7: ['EXT_texture_compression_bptc', 'COMPRESSED_RGBA_BPTC_UNORM_EXT', 16],
+      astc4x4: ['WEBGL_compressed_texture_astc', 'COMPRESSED_RGBA_ASTC_4x4_KHR', 16],
+      bc3: ['WEBGL_compressed_texture_s3tc', 'COMPRESSED_RGBA_S3TC_DXT5_EXT', 16],
+      etc2_rgba: ['WEBGL_compressed_texture_etc', 'COMPRESSED_RGBA8_ETC2_EAC', 16],
+      bc4: ['EXT_texture_compression_rgtc', 'COMPRESSED_RED_RGTC1_EXT', 8],
+      eac_r11: ['WEBGL_compressed_texture_etc', 'COMPRESSED_R11_EAC', 8],
+    };
+    out.probe = {};
+    for (const [name, [extName, enumName, bytes]] of Object.entries(probes)) {
+      const e = gl.getExtension(extName);
+      if (!e || !e[enumName]) { out.probe[name] = 'no extension'; continue; }
+      while (gl.getError()) {}
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
+      gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, e[enumName], 4, 4, 1);
+      gl.compressedTexSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, 0, 4, 4, 1, e[enumName], new Uint8Array(bytes));
+      const err = gl.getError();
+      out.probe[name] = err === 0 ? 'ok' : 'upload error ' + err;
+      gl.deleteTexture(tex);
+    }
   }
   out.ext = ext;
   let t = performance.now();
   const B = await BASIS({ locateFile: (f) => '/basis/' + f });
   B.initializeBasis();
   out.transcoderInitMs = performance.now() - t;
-  const FMT = { bc7: 6, astc4: 10, etc2: 1, rgba32: 13 };
+  const FMT = { bc7: 6, astc4: 10, bc3: 3, etc2: 1, rgba32: 13 };
   for (const f of list) {
     const bytes = new Uint8Array(await (await fetch(f.url)).arrayBuffer());
     if (f.kind === 'png' || f.kind === 'webp') {

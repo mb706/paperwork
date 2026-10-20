@@ -51,7 +51,7 @@ try {
     const out = await page.evaluate(([l, r]) => window.run(l, r), [list, reps]);
     out.version = b.version();
     fs.writeFileSync(path.join(enc, `../bench-${name}.json`), JSON.stringify(out, null, 1));
-    console.log(name, out.version, 'webgl2', out.webgl2, out.renderer ?? '', JSON.stringify(out.ext), 'init', out.transcoderInitMs.toFixed(1), 'ms');
+    console.log(name, out.version, 'webgl2', out.webgl2, out.renderer ?? '', JSON.stringify(out.ext), 'probe', JSON.stringify(out.probe ?? {}), 'init', out.transcoderInitMs.toFixed(1), 'ms');
     for (const r of out.rows) console.log(`  ${r.page.padEnd(14)} ${r.variant.padEnd(12)} ${r.op.padEnd(18)} ${Number.isNaN(r.ms) ? 'n/a' : r.ms.toFixed(1)} ms`);
     await b.close();
   }

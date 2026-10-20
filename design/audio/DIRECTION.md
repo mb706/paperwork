@@ -14,7 +14,7 @@
 - A WebAudio engine plays rule sets live, from about 7 MB of CC0 samples, with generated reverbs and synthesized voices. The same code renders offline, through `OfflineAudioContext`, the fallback tracks, the menu loop and these demos.
 - It costs under 1% of the main thread (measured).
 - The audio thread is the real budget: 36% of a core for Era I, 53% for Era II and 76% for the takeoff on this host. That is roughly 20–40% on the reference laptop. §6.5 lists the cuts that bring it under 15–25%.
-- *Update (WP B2, 2026-10-20):* the runtime is now specified in spec 10 §9.4. Its budget is ≤ 8% of a reference core on average and ≤ 15% in any second. With the shipping pack, an FDN reverb worklet, every sampler voice in one AudioWorklet and a 32 kHz engine, the measured cost is 5.4% (Era I), 7.0% (Era II without its inserts) and 8.8% (takeoff) on the reference machine.
+- *Update (WP B2, 2026-10-20, revised after codex B2-r1):* the runtime is now specified in spec 10 §9.4. Its budget is ≤ 8% of a reference core on average and ≤ 15% in any second. With the shipping pack, an FDN reverb worklet, every sampler voice and the inserts in one AudioWorklet, a 32 kHz engine and an SFX load, whole pieces measure 5.7% (Era I), 9.3% (Era II) and 8.2% (takeoff) on the reference machine. Era II and the takeoff are over, so the organ, the drones, the FM voices, the tape echo and the hiss move into the worklet too (spec 10 §9.4).
 
 **The demos** (`demos/`; Opus 128 kbps; −16 LUFS, true peak ≤ −1 dBTP):
 
@@ -207,7 +207,7 @@ The cue is 15 s long. A cue on this scale does not break the register; it has no
 | Adaptivity | Crossfades between tracks only. Cannot follow the doubling time continuously, or place a cue at an exact moment, without many variants | Continuous: tempo, density, instruments, the convergence cue at the exact moment, activity gates | As (b) |
 | Download | Slice: 2–3 tracks × 4 min × 96 kbps ≈ 6–9 MB for 10 min of music. Full game ~130 MB for 3 h | Slice ≈ 7.5 MB (shipping profile: Era I 6.3 MB, Era II +1 MB, SFX 0.3 MB). Full game ~15–20 MB. Packs lazy per era | As (b), plus a 3 MB menu loop and optional fallbacks |
 | Main-thread CPU | ~0 (a media element) | Scheduler 0.09–0.6% of a core; worst tick 1.7–14 ms (measured, §6.5) | As (b) |
-| Audio-thread CPU | ~2% | Measured 36% (Era I), 53% (Era II), 76% (takeoff) of a core on this host, about 20–42% on the reference laptop. Optimized target ≤15% / ≤25% (§6.5); spec 10 §9.4 now sets ≤ 8% on average and measures 5.4–8.8% | As (b), with a fallback to (a) on weak machines |
+| Audio-thread CPU | ~2% | Measured 36% (Era I), 53% (Era II), 76% (takeoff) of a core on this host, about 20–42% on the reference laptop. Optimized target ≤15% / ≤25% (§6.5); spec 10 §9.4 now sets ≤ 8% on average and measures 5.7–9.3% over whole pieces with SFX | As (b), with a fallback to (a) on weak machines |
 | Effort | Low: 2–3 agent-days | High: the engine port, rule sets and tests, ~7–9 agent-days for M1 | (b) + ~1 day (offline-render tooling exists: `render/render.mjs`) |
 
 **Recommendation: (c).**
@@ -221,7 +221,7 @@ The cue is 15 s long. A cue on this scale does not break the register; it has no
 
 ### 6.2 Architecture (the prototype: `proto/engine/`)
 
-*The game's runtime differs from this prototype graph; spec 10 §9.4 (WP B2) is binding for it. Every sampler voice is mixed in one AudioWorklet (Int16 samples), an FDN worklet replaces the convolvers, the tape and tremolo inserts move into the worklet, and the engine runs at 32 kHz. The offline renderer may keep this graph.*
+*The game's runtime differs from this prototype graph; spec 10 §9.4 (WP B2) is binding for it. Every sampler voice is mixed in one AudioWorklet (Int16 samples), an FDN worklet replaces the convolvers, the tape and tremolo inserts move into the worklet, the synthesised voices, the tape echo and the hiss follow them (after codex B2-r1), and the engine runs at 32 kHz. The offline renderer may keep this graph.*
 
 ```
  game state (sim → main thread, per second): literatureYear, activity, closure, doublingTime, victory, paused
@@ -305,7 +305,7 @@ The cue is 15 s long. A cue on this scale does not break the register; it has no
 
 - This host runs single-threaded at about 0.55× the reference laptop, so these figures are roughly 20/29/42% there.
 - Compressors and limiters cost nothing measurable.
-- *Update (WP B2):* spec 10 §9.4 now sets the budget at ≤ 8% of a reference core on average and ≤ 15% in any second, and measures the cuts below plus an AudioWorklet voice bank and a 32 kHz engine: 5.4% (Era I), 7.0% (Era II without its inserts) and 8.8% (takeoff). The FDN replaces every convolver at run time, not only the long tails, and the fallback to recorded pieces starts above 15% on the user's machine.
+- *Update (WP B2, revised after codex B2-r1):* spec 10 §9.4 now sets the budget at ≤ 8% of a reference core on average and ≤ 15% in any second, and measures the cuts below plus an AudioWorklet voice bank and a 32 kHz engine over whole pieces with SFX: 5.7% (Era I), 9.3% (Era II) and 8.2% (takeoff). The FDN replaces every convolver at run time, not only the long tails. The synthesised voices and the tape echo move into the worklet; a machine that fails `bench.html`'s offline-render gate, or whose AudioWorklet fails, gets recorded music.
 - **The cost is reverb (about one third) and voices.** The audio WP must reach ≤15% (Eras I–II) and ≤25% (takeoff) on the reference laptop, by:
   1. **One convolver per era bus, IR ≤ 4 s.** Longer tails (Eras IV–V; the takeoff's 12 s `vast`) come from a feedback-delay-network reverb in an AudioWorklet: 8 lines, about 1–2% of a core.
   2. **No velocity-layer crossfade** for notes shorter than 0.5 s or faster than 6 per second: one voice per note.
