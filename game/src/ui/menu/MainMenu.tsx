@@ -5,6 +5,7 @@
 // build and the storage use. The first click or key anywhere also starts the audio (07 §18; the app's hook).
 import { createResource, createSignal, For, type JSX, Match, Show, Switch } from 'solid-js';
 import { type SaveEntry, useServices } from '../core/context.ts';
+import { labelTip, useTip } from '../core/tip.ts';
 import { Button, Panel, Window } from '../core/Window.tsx';
 import { formatDuration, t } from '../i18n/locale.ts';
 import { SettingsWindow } from '../windows/SettingsWindow.tsx';
@@ -113,7 +114,7 @@ function NewGame(props: { onBack: () => void }): JSX.Element {
           <button
             type="button"
             class="frame-button pw-button"
-            title={t('new-game.random-seed')}
+            {...useTip(labelTip(() => t('new-game.random-seed')))}
             onClick={roll}
           >
             <span class="typed">#</span>

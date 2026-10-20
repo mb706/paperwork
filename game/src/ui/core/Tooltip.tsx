@@ -51,6 +51,9 @@ export function Tooltip(): JSX.Element {
             <Match when={tp().kind === 'text'}>
               <div class="tip-title">{tp().text}</div>
             </Match>
+            <Match when={tp().kind === 'label'}>
+              <div class="tip-label">{tp().text}</div>
+            </Match>
           </Switch>
           <Show when={tp().hint}>
             <div class="tip-hint">{tp().hint}</div>

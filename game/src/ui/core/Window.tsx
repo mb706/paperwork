@@ -3,9 +3,11 @@
 // the position is remembered per window type; the default is centred. Content panels inside are index cards.
 import { type JSX, onCleanup, Show } from 'solid-js';
 import { t } from '../i18n/locale.ts';
+import { bindingLabel } from '../input/keys.ts';
 import { windowPositions } from '../store/ui.ts';
 import { useServices } from './context.ts';
 import { Glyph } from './Icon.tsx';
+import { labelTip, useTip } from './tip.ts';
 
 export interface WindowProps {
   /** The window type: its remembered position's key. */
@@ -94,17 +96,26 @@ export function Window(props: WindowProps): JSX.Element {
 export function FrameButton(props: {
   glyph: string;
   title: string;
+  /** The hotkey hint (I §1.6), from the live bindings. */
+  hint?: string;
   onClick: () => void;
   testid?: string;
   pressed?: boolean;
 }): JSX.Element {
+  const tip = useTip(
+    labelTip(
+      () => props.title,
+      () => props.hint ?? '',
+    ),
+  );
   return (
     <button
       type="button"
       class={`frame-button ${props.pressed ? 'pw-button-pressed' : 'pw-button'}`}
-      title={props.title}
+      aria-label={props.title}
       data-testid={props.testid}
       onClick={() => props.onClick()}
+      {...tip}
     >
       <Glyph name={props.glyph} size={16} />
     </button>
@@ -112,7 +123,16 @@ export function FrameButton(props: {
 }
 
 export function CloseButton(props: { onClose: () => void }): JSX.Element {
-  return <FrameButton glyph="close" title={t('button.close')} onClick={props.onClose} testid="close" />;
+  const s = useServices();
+  return (
+    <FrameButton
+      glyph="close"
+      title={t('button.close')}
+      hint={bindingLabel(s.bindings().get('toggle-menu')[0])}
+      onClick={props.onClose}
+      testid="close"
+    />
+  );
 }
 
 /** A content panel: a cream index card ruled in pale blue (deep: inventories and lists). */

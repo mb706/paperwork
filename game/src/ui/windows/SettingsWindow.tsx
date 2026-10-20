@@ -6,6 +6,7 @@
 // Interface holds the UI scale; the other tabs fill in with their systems.
 import { createMemo, createSignal, For, type JSX, onCleanup, Show } from 'solid-js';
 import { useServices } from '../core/context.ts';
+import { labelTip, useTip } from '../core/tip.ts';
 import { Button, Panel, Window } from '../core/Window.tsx';
 import { t } from '../i18n/locale.ts';
 import type { BindingTable } from '../input/bindings.ts';
@@ -227,7 +228,7 @@ function ControlsTab(props: { table: BindingTable; setTable: (b: BindingTable) =
                         <button
                           type="button"
                           class="frame-button pw-button reset"
-                          title={t('button.reset')}
+                          {...useTip(labelTip(() => t('button.reset')))}
                           onClick={() =>
                             props.setTable(
                               props.table

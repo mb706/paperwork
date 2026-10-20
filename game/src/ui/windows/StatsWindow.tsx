@@ -6,6 +6,7 @@
 import { createEffect, createMemo, createSignal, For, type JSX, on, onCleanup, Show } from 'solid-js';
 import { useServices } from '../core/context.ts';
 import { Icon } from '../core/Icon.tsx';
+import { useTip } from '../core/tip.ts';
 import { Window } from '../core/Window.tsx';
 import { formatCount, formatRate, t } from '../i18n/locale.ts';
 import { type HeldSeries, PRECISION_SECONDS, type StatsView, statId, statKind } from '../store/records.ts';
@@ -109,7 +110,11 @@ function StatsHalf(props: {
       <div class="stats-rows">
         <For each={props.rows}>
           {(r) => (
-            <div class="stats-row" title={name(r.key)} data-testid={`stats-row-${props.side}`}>
+            <div
+              class="stats-row"
+              data-testid={`stats-row-${props.side}`}
+              {...useTip(() => (statKind(r.key) === 1 ? { kind: 'item', id: statId(r.key) } : null))}
+            >
               <span class="stats-icon">
                 <Icon name={icon(r.key)} size={32} label={name(r.key)} />
                 <span class="count">{formatCount(Math.round(r.total))}</span>

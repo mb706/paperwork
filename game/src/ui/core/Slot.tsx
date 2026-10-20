@@ -2,12 +2,12 @@
 // typed face. States: hover, the hand marker on the stack's origin slot (I §3.2), red (not craftable by hand),
 // dimmed (none carried, nothing craftable), a progress bar (the crafting queue's head). Clicks are not handled
 // here: the slot registers what it is, and the input core resolves the binding (I §1.4, §3.8).
-import { type JSX, onCleanup, Show } from 'solid-js';
+import { type JSX, Show } from 'solid-js';
 import { formatCount } from '../i18n/locale.ts';
 import { registerSlot, type SlotRef } from '../input/slots.ts';
 import type { TipContent } from '../store/ui.ts';
-import { useServices } from './context.ts';
 import { Icon } from './Icon.tsx';
+import { useTip } from './tip.ts';
 
 export interface SlotProps {
   slot?: SlotRef;
@@ -30,35 +30,8 @@ export interface SlotProps {
   testid?: string;
 }
 
-/** GUI tooltip delay (I §4.20: about 0.4 s); Shift shows it at once (`activate-tooltip`). */
-const TOOLTIP_DELAY_MS = 400;
-
 export function Slot(props: SlotProps): JSX.Element {
-  const s = useServices();
-  let timer = 0;
-  let el: HTMLDivElement | undefined;
-  let mine = false;
-  const show = () => {
-    const content = props.tooltip;
-    if (!content || !el) return;
-    const r = el.getBoundingClientRect();
-    mine = true;
-    s.ui.tooltip[1]({ x: r.left, y: r.top, w: r.width, h: r.height, content });
-  };
-  const enter = () => {
-    window.clearTimeout(timer);
-    if (s.ui.tooltipNow[0]()) show();
-    else timer = window.setTimeout(show, TOOLTIP_DELAY_MS);
-  };
-  const leave = () => {
-    window.clearTimeout(timer);
-    if (mine) s.ui.tooltip[1](null);
-    mine = false;
-  };
-  onCleanup(() => {
-    window.clearTimeout(timer);
-    if (mine) s.ui.tooltip[1](null);
-  });
+  const tip = useTip(() => props.tooltip?.() ?? null);
   const cls = () =>
     [
       'slot',
@@ -70,17 +43,12 @@ export function Slot(props: SlotProps): JSX.Element {
   return (
     <div
       ref={(e) => {
-        el = e;
         if (props.slot) registerSlot(e, props.slot);
       }}
       class={cls()}
       data-slot=""
       data-testid={props.testid}
-      onPointerEnter={enter}
-      onPointerLeave={leave}
-      onPointerDown={() => {
-        window.clearTimeout(timer);
-      }}
+      {...tip}
     >
       <Show when={props.icon}>
         {(name) => <Icon name={name()} label={props.label ?? ''} class="slot-icon" />}

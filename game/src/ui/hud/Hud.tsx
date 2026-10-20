@@ -6,6 +6,7 @@ import { createMemo, For, type JSX, Show } from 'solid-js';
 import { useServices } from '../core/context.ts';
 import { Glyph, Icon } from '../core/Icon.tsx';
 import { Slot } from '../core/Slot.tsx';
+import { labelTip, useTip } from '../core/tip.ts';
 import { formatCount, formatDuration, t } from '../i18n/locale.ts';
 import { bindingLabel } from '../input/keys.ts';
 import { NO_ITEM } from '../store/protos.ts';
@@ -44,7 +45,7 @@ function Quickbar(): JSX.Element {
                 type="button"
                 class="page-button pw-button"
                 data-testid={`quickbar-page-${row}`}
-                title={t('controls.action-bar-select-page', page() + 1)}
+                {...useTip(labelTip(() => t('controls.action-bar-select-page', page() + 1)))}
               >
                 <span class="typed">{page() + 1}</span>
               </button>
@@ -90,15 +91,20 @@ function Quickbar(): JSX.Element {
 
 function ShortcutBar(): JSX.Element {
   const s = useServices();
-  const label = () => `${t('controls.show-info')} (${bindingLabel(s.bindings().get('show-info')[0])})`;
+  const tip = useTip(
+    labelTip(
+      () => t('controls.show-info'),
+      () => bindingLabel(s.bindings().get('show-info')[0]),
+    ),
+  );
   return (
     <div class="shortcut-bar pw-frame" data-gui="" data-testid="shortcut-bar">
       <button
         type="button"
         class={`shortcut ${s.ui.altMode[0]() ? 'pw-button-pressed shortcut-on' : 'pw-button'}`}
-        title={label()}
         data-testid="shortcut-alt-mode"
         onClick={() => s.ui.altMode[1](!s.ui.altMode[0]())}
+        {...tip}
       >
         <Glyph name="alt-mode" size={28} />
       </button>

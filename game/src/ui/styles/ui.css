@@ -221,6 +221,28 @@ button {
   width: 100%;
 }
 
+/* The tabbed character screen's tabs sit in the title bar, set like titles; the inactive one is pale. */
+.title-tab {
+  border: 0;
+  padding: 0 2px 2px;
+  font-weight: 800;
+  font-size: 14.5px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--disabled);
+  border-bottom: 2px solid transparent;
+}
+
+.title-tab-on {
+  color: var(--ink);
+  border-bottom-color: var(--red);
+}
+
+.hidden,
+.character-columns > .hidden {
+  display: none;
+}
+
 .title-group {
   display: flex;
   align-items: center;
@@ -475,6 +497,12 @@ button {
   margin-bottom: 2px;
 }
 
+/* A button's name; its hotkey follows on the hint line. */
+.tip-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .tip-desc {
   margin: 2px 0 4px;
 }
@@ -512,6 +540,11 @@ button {
   color: var(--dim);
   white-space: pre-line;
   font-size: 12px;
+}
+
+.tip-label + .tip-hint {
+  margin-top: 2px;
+  font-family: var(--typed);
 }
 
 /* ------------------------------------------------------------------------------------------- HUD */

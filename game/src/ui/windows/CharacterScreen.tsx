@@ -8,6 +8,7 @@ import { InventoryType } from '../../shared/gen/types.ts';
 import { useServices } from '../core/context.ts';
 import { Icon } from '../core/Icon.tsx';
 import { Slot } from '../core/Slot.tsx';
+import { labelTip, useTip } from '../core/tip.ts';
 import { CloseButton, FrameButton, TitleGroup, Window } from '../core/Window.tsx';
 import { t } from '../i18n/locale.ts';
 import { bindingLabel } from '../input/keys.ts';
@@ -84,34 +85,74 @@ export function CharacterScreen(): JSX.Element {
   const toggleSearch = () => {
     const on = !searching();
     setSearching(on);
-    if (on) queueMicrotask(() => search?.focus());
-    else setQuery('');
+    if (on) {
+      if (tabbed()) s.ui.charTab[1]('crafting');
+      queueMicrotask(() => search?.focus());
+    } else setQuery('');
   };
+  /** The tabbed layout below the width the flat one needs (I §4.4); F2 and F3 switch its tabs. */
+  const tabbed = () => s.narrow();
+  const tab = () => s.ui.charTab[0]();
+  const searchButton = () => (
+    <FrameButton
+      glyph="search"
+      title={t('button.search')}
+      hint={bindingLabel(s.bindings().get('focus-search')[0])}
+      onClick={toggleSearch}
+      pressed={searching()}
+      testid="crafting-search-button"
+    />
+  );
   return (
     <Window
       id="character"
       testid="character-screen"
       header={
-        <div class="title-columns">
-          <TitleGroup title={t('window.character')} class="col-inventory" />
-          <TitleGroup title={t('window.crafting')} class="col-crafting">
-            <FrameButton
-              glyph="search"
-              title={`${t('button.search')} (${bindingLabel(s.bindings().get('focus-search')[0])})`}
-              onClick={toggleSearch}
-              pressed={searching()}
-              testid="crafting-search-button"
-            />
-            <CloseButton onClose={() => s.ui.close()} />
-          </TitleGroup>
-        </div>
+        <Show
+          when={tabbed()}
+          fallback={
+            <div class="title-columns">
+              <TitleGroup title={t('window.character')} class="col-inventory" />
+              <TitleGroup title={t('window.crafting')} class="col-crafting">
+                {searchButton()}
+                <CloseButton onClose={() => s.ui.close()} />
+              </TitleGroup>
+            </div>
+          }
+        >
+          <div class="title-columns">
+            <div class="title-group col-crafting">
+              <For each={['character', 'crafting'] as const}>
+                {(x) => (
+                  <button
+                    type="button"
+                    class={`title-tab ${tab() === x ? 'title-tab-on' : ''}`}
+                    data-testid={`character-tab-${x}`}
+                    onClick={() => s.ui.charTab[1](x)}
+                    {...useTip(
+                      labelTip(
+                        () => t(`window.${x}`),
+                        () => bindingLabel(s.bindings().get(`controller-gui-${x}-tab`)[0]),
+                      ),
+                    )}
+                  >
+                    {t(`window.${x}`)}
+                  </button>
+                )}
+              </For>
+              <div class="drag pw-title-rule" />
+              <Show when={tab() === 'crafting'}>{searchButton()}</Show>
+              <CloseButton onClose={() => s.ui.close()} />
+            </div>
+          </div>
+        </Show>
       }
     >
-      <div class="character-columns">
-        <div class="panel pw-panel col-inventory">
+      <div class="character-columns" classList={{ tabbed: tabbed() }}>
+        <div class="panel pw-panel col-inventory" classList={{ hidden: tabbed() && tab() !== 'character' }}>
           <MainInventory other={null} />
         </div>
-        <div class="col-crafting crafting">
+        <div class="col-crafting crafting" classList={{ hidden: tabbed() && tab() !== 'crafting' }}>
           <Show when={searching()}>
             <input
               ref={search}
@@ -128,9 +169,9 @@ export function CharacterScreen(): JSX.Element {
                 <button
                   type="button"
                   class={`group-tab ${group() === i() ? 'pw-tab-selected' : 'pw-tab'}`}
-                  title={t(`item-group-name.${g.name}`)}
                   data-testid={`group-${g.name}`}
                   onClick={() => setGroup(i())}
+                  {...useTip(labelTip(() => t(`item-group-name.${g.name}`)))}
                 >
                   <Icon
                     name={s.protos()?.groupIcon(g) ?? 'fx/missing'}

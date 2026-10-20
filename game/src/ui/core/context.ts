@@ -48,6 +48,8 @@ export interface UiServices {
   hasGui: (proto: number) => boolean;
   /** Current UI scale (I §4.0). */
   scale: () => number;
+  /** The viewport, in GUI px after the UI scale, is too narrow for the flat character screen (I §4.4). */
+  narrow: () => boolean;
   /** The UI scale setting in percent, 0 for automatic. */
   uiScaleSetting: () => number;
   setUiScaleSetting: (v: number) => void;

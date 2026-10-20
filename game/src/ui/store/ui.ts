@@ -25,7 +25,7 @@ export interface Dialog {
 
 /** What a tooltip shows; read reactively, so it follows the slot's contents while it stays open. */
 export interface TipContent {
-  kind: 'item' | 'recipe' | 'text' | 'queue';
+  kind: 'item' | 'recipe' | 'text' | 'queue' | 'label';
   /** Item key or recipe id, by kind. */
   id: number;
   text?: string;
@@ -63,6 +63,8 @@ export class UiState {
   /** A notice line for the loading screen and the menu (developer failures in M0). */
   readonly notice = createSignal<string | null>(null);
   readonly loadingProgress = createSignal(0);
+  /** The character screen's tab in the tabbed layout (I §4.4: F2 character, F3 crafting). */
+  readonly charTab = createSignal<'character' | 'crafting'>('character');
   private readonly back: MainWindow[] = [];
   private readonly forward: MainWindow[] = [];
   /** The green buttons on screen, newest last: E presses the newest enabled one (I §1.4). */

@@ -354,6 +354,12 @@ export class Resolver implements InputSink {
       case 'production-statistics':
         ui.toggle({ kind: 'stats' });
         return true;
+      case 'controller-gui-character-tab':
+      case 'controller-gui-crafting-tab':
+        // The tabbed layout's tabs (I §2.2, §4.4); they also open the character screen.
+        ui.charTab[1](control === 'controller-gui-character-tab' ? 'character' : 'crafting');
+        if (ui.window[0]()?.kind !== 'character') ui.open({ kind: 'character' });
+        return true;
       case 'back':
         ui.goBack();
         return true;

@@ -102,6 +102,8 @@ export interface UiTestHooks {
 }
 
 const DEV_REASONS = new Set([1, 2, 3, 4, 5]);
+/** GUI px the flat character screen needs: two 10-wide panels and the frame (I §4.4: about 880 at 100 %). */
+const FLAT_MIN_WIDTH = 920;
 
 export function mountUi(o: UiOptions): UiHandle {
   const settings = loadSettings();
@@ -155,6 +157,7 @@ export function mountUi(o: UiOptions): UiHandle {
     build: o.build,
     hasGui,
     scale,
+    narrow: () => viewport().w / scale() < FLAT_MIN_WIDTH,
     uiScaleSetting: scaleSetting,
     setUiScaleSetting: (v) => {
       setScaleSetting(v);
