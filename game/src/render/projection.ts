@@ -112,6 +112,18 @@ export function posHash(x: number, y: number): number {
   return h >>> 0;
 }
 
+/**
+ * posHash(x, y) written to out[i] (as int32 into an Int32Array, as uint32 into a Uint32Array): the frame path's form,
+ * since V8 boxes a returned number outside ±2³⁰, which is half of all hashes.
+ */
+export function posHashInto(x: number, y: number, out: Int32Array | Uint32Array, i: number): void {
+  let h = Math.imul(x, 0x27d4eb2d) ^ Math.imul(y, 0x165667b1);
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x85ebca77);
+  h ^= h >>> 13;
+  out[i] = h;
+}
+
 /** Direction 0–15 (north 0, east 4, south 8, west 12; 10 §4.2) as a unit vector in world (x east, y south). */
 export const DIR_X = new Float64Array(16);
 export const DIR_Y = new Float64Array(16);

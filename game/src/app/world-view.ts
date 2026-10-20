@@ -168,16 +168,33 @@ export async function createWorldView(o: WorldViewOptions): Promise<WorldView> {
     'position:fixed;left:8px;bottom:8px;margin:0;padding:6px 8px;background:#f4ecd8e8;color:#2b2723;font:12px/1.35 "Courier Prime",monospace;z-index:5;display:none;pointer-events:none';
   o.container.append(hud);
   let showHud = false;
-  let lastRect = '';
+  // the per-frame bookkeeping below allocates nothing unless something changed (10 §6: no per-frame allocation)
+  const tiles = new Int32Array(4);
+  const lastView = new Float64Array([Number.NaN, Number.NaN, Number.NaN, Number.NaN, Number.NaN]);
   const reportView = () => {
     if (!o.onView) return;
-    const r = renderer.visibleTiles();
-    const key = `${r.x0},${r.y0},${r.x1},${r.y1},${renderer.camera.zoom}`;
-    if (key === lastRect) return;
-    lastRect = key;
-    o.onView({ ...r, zoom: renderer.camera.zoom });
+    renderer.visibleTilesInto(tiles);
+    const zoom = renderer.camera.zoom;
+    if (
+      tiles[0] === lastView[0] &&
+      tiles[1] === lastView[1] &&
+      tiles[2] === lastView[2] &&
+      tiles[3] === lastView[3] &&
+      zoom === lastView[4]
+    )
+      return;
+    lastView.set(tiles);
+    lastView[4] = zoom;
+    o.onView({
+      x0: tiles[0] as number,
+      y0: tiles[1] as number,
+      x1: tiles[2] as number,
+      y1: tiles[3] as number,
+      zoom,
+    });
   };
   let frames = 0;
+  // page keys for the loader, written by index (the arrays never shrink, so they are not reallocated)
   const missedKeys: number[] = [];
   const level0Keys: number[] = [];
   // what the renderer drew without its art (or wants at High) goes to the loader: every 10th frame when running,
@@ -185,13 +202,17 @@ export async function createWorldView(o: WorldViewOptions): Promise<WorldView> {
   const afterFrame = () => {
     frames++;
     if ((renderer.mode === 'on-demand' || frames % 10 === 0) && loader) {
-      missedKeys.length = 0;
-      level0Keys.length = 0;
+      let nm = 0;
+      let nl = 0;
       const missed = renderer.scene.missed;
-      for (let i = 0; i < missed.length; i++)
-        if (missed[i] === 1) for (const k of atlas.sets[i]?.pageKeys ?? []) missedKeys.push(k);
-      for (const l of renderer.pagesWantingLevel0()) level0Keys.push((colourArray << 16) | l);
-      if (missedKeys.length > 0 || level0Keys.length > 0) loader.update(missedKeys, level0Keys);
+      for (let i = 0; i < missed.length; i++) {
+        if (missed[i] !== 1) continue;
+        const keys = atlas.sets[i]?.pageKeys;
+        if (keys) for (let j = 0; j < keys.length; j++) missedKeys[nm++] = keys[j] as number;
+      }
+      const want = renderer.scene.wantLevel0;
+      for (let l = 0; l < want.length; l++) if (want[l] === 1) level0Keys[nl++] = (colourArray << 16) | l;
+      if (nm > 0 || nl > 0) loader.update(missedKeys, level0Keys, nm, nl);
     }
     if (showHud && frames % 10 === 0) hud.textContent = debugHud(renderer, loader);
     reportView();

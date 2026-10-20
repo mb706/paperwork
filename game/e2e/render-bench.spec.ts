@@ -4,7 +4,10 @@
 // one at a time, with the GPU drained between them (a 1×1 readPixels: finish() does not wait in Chrome here), so the
 // numbers are the main thread's own work: the upload pump,
 // the scene build (culling, sorting, programs, belt expansion), the vertex upload and the GL calls.
-// Also checks that steady-state frames allocate nothing (the heap after a GC does not grow).
+// Also checks that steady-state frames allocate (next to) nothing: after V8 has optimized the frame path (see
+// allocation()), its sampling heap profiler, counting objects the GC already collected too, finds under 1 kB per frame
+// below Renderer.frame (what remains is mostly performance.now()'s results for the timings; before the renderer passed
+// doubles in typed blocks it was 0.26–1.4 MB per frame here), and the heap after a GC does not grow.
 //   taskset -c 0-7 npx playwright test e2e/render-bench.spec.ts --project chrome
 import { existsSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -44,13 +47,84 @@ interface Row {
   submit: number;
   budget: number;
   heapGrowthKb: number;
+  /** Bytes allocated per frame below Renderer.frame, collected objects included. */
+  allocPerFrame: number;
+}
+
+interface ProfileNode {
+  callFrame: { functionName: string; url: string };
+  selfSize: number;
+  children: ProfileNode[];
+}
+
+/**
+ * Bytes allocated per steady-state frame below Renderer.frame, collected objects included. V8 optimizes the
+ * once-per-frame functions only after some hundreds of calls, and until then its baseline code boxes every double
+ * (1.3 kB per frame after 100 frames here, 0.5 kB after 300, 0.1 kB after 600): so 600 frames warm up first, on a
+ * 64×64 canvas where the GPU's work is negligible but every pass still runs; then the canvas is restored and 10 frames
+ * settle (its targets are re-created) before the measured ones.
+ */
+async function allocation(page: Page, frames: number): Promise<number> {
+  await page.evaluate(() => {
+    const w = window as unknown as {
+      __render: {
+        renderer: { frame(): boolean; canvas: HTMLCanvasElement; gl: WebGL2RenderingContext | null };
+      };
+    };
+    const r = w.__render.renderer;
+    const gl = r.gl as WebGL2RenderingContext;
+    const px = new Uint8Array(4);
+    const c = r.canvas;
+    const [sw, sh] = [c.style.width, c.style.height];
+    c.style.width = '64px';
+    c.style.height = '64px';
+    for (let i = 0; i < 600; i++) {
+      r.frame();
+      if (i % 50 === 49) gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    }
+    c.style.width = sw;
+    c.style.height = sh;
+    for (let i = 0; i < 10; i++) {
+      r.frame();
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    }
+  });
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('HeapProfiler.enable');
+  await cdp.send('HeapProfiler.startSampling', {
+    samplingInterval: 32,
+    includeObjectsCollectedByMajorGC: true,
+    includeObjectsCollectedByMinorGC: true,
+  });
+  await page.evaluate((n) => {
+    const w = window as unknown as {
+      __render: { renderer: { frame(): boolean; gl: WebGL2RenderingContext | null } };
+    };
+    const gl = w.__render.renderer.gl as WebGL2RenderingContext;
+    const px = new Uint8Array(4);
+    for (let i = 0; i < n; i++) {
+      w.__render.renderer.frame();
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    }
+  }, frames);
+  const { profile } = (await cdp.send('HeapProfiler.stopSampling')) as { profile: { head: ProfileNode } };
+  await cdp.detach();
+  let bytes = 0;
+  const walk = (n: ProfileNode, under: boolean) => {
+    const u =
+      under || (n.callFrame.functionName === 'frame' && n.callFrame.url.includes('/render/renderer.ts'));
+    if (u) bytes += n.selfSize;
+    for (const c of n.children) walk(c, u);
+  };
+  walk(profile.head, false);
+  return bytes / frames;
 }
 
 async function measure(page: Page, query: string, frames: number): Promise<Omit<Row, 'scene' | 'budget'>> {
   await page.goto(`/src/dev/gallery.html?clean=1&scene=bench&${query}`);
   await page.waitForFunction(() => (window as unknown as { __gallery?: unknown }).__gallery !== undefined);
   await page.evaluate(() => (window as unknown as { __gallery: { ready: Promise<void> } }).__gallery.ready);
-  return page.evaluate((n) => {
+  const timing = await page.evaluate((n) => {
     type R = {
       __render: {
         renderer: { frame(): boolean; gl: WebGL2RenderingContext | null; camera: { zoom: number } };
@@ -101,6 +175,7 @@ async function measure(page: Page, query: string, frames: number): Promise<Omit<
       heapGrowthKb: (heap1 - heap0) / 1024,
     };
   }, frames);
+  return { ...timing, allocPerFrame: await allocation(page, 30) };
 }
 
 test('main-thread frame cost at 10 §6.12 scenes @bench', async ({ page }, info) => {
@@ -123,14 +198,17 @@ test('main-thread frame cost at 10 §6.12 scenes @bench', async ({ page }, info)
       (r) =>
         `${r.scene.padEnd(16)} sprites ${String(r.sprites).padStart(6)}  belt items ${String(r.beltItems).padStart(6)}  ` +
         `median ${r.median.toFixed(2)} ms  p95 ${r.p95.toFixed(2)} ms  (build ${r.build.toFixed(2)}, GL ${r.submit.toFixed(2)})  ` +
-        `budget ${r.budget} × ${HOST_FACTOR} = ${(r.budget * HOST_FACTOR).toFixed(1)} ms  heap +${r.heapGrowthKb.toFixed(0)} kB`,
+        `budget ${r.budget} × ${HOST_FACTOR} = ${(r.budget * HOST_FACTOR).toFixed(1)} ms  ` +
+        `allocated ${r.allocPerFrame.toFixed(0)} B/frame  heap +${r.heapGrowthKb.toFixed(0)} kB`,
     )
     .join('\n');
   console.log(`\n${table}\n`);
   writeFileSync(info.outputPath('bench.json'), `${JSON.stringify(rows, null, 1)}\n`);
   for (const r of rows) {
     expect(r.median, r.scene).toBeLessThanOrEqual(r.budget * HOST_FACTOR);
-    // no per-frame allocation in steady state: 60 frames leave the heap where they found it (one GC's noise)
+    // no per-frame allocation in steady state: under 1 kB per frame is allocated at all (the timings' numbers), and
+    // 60 frames leave the heap where they found it (one GC's noise)
+    expect(r.allocPerFrame, r.scene).toBeLessThan(1024);
     expect(r.heapGrowthKb, r.scene).toBeLessThan(256);
   }
 });

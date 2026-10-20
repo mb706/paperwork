@@ -207,27 +207,36 @@ export class AssetLoader {
 
   /**
    * Once per frame (or less): pages the renderer drew as greyboxes go to the front (class 1); colour pages drawn
-   * with k > 0.5 get their High level 0 (class 4). `missed` and `level0` are page keys (array << 16 | layer).
+   * with k > 0.5 get their High level 0 (class 4). `missed` and `level0` are page keys (array << 16 | layer), the
+   * first nMissed and nLevel0 of them.
    */
-  update(missed: Iterable<number>, level0: Iterable<number>): void {
-    const reqs: AssetRequest[] = [];
-    for (const key of missed) {
-      const e = this.normal.get(key);
+  update(
+    missed: readonly number[],
+    level0: readonly number[],
+    nMissed = missed.length,
+    nLevel0 = level0.length,
+  ): void {
+    // nothing is allocated unless a request changes (the app calls this every 10th frame)
+    let reqs: AssetRequest[] | null = null;
+    for (let i = 0; i < nMissed; i++) {
+      const e = this.normal.get(missed[i] as number);
       if (e && !e.delivered && e.req.priority !== PRIORITY.missing) {
         e.req.priority = PRIORITY.missing;
+        if (reqs === null) reqs = [];
         reqs.push(e.req);
       }
     }
-    for (const key of level0) {
-      const e = this.level0.get(key);
+    for (let i = 0; i < nLevel0; i++) {
+      const e = this.level0.get(level0[i] as number);
       if (e && !e.requested) {
         e.requested = true;
         e.req.priority = PRIORITY.level0;
+        if (reqs === null) reqs = [];
         reqs.push(e.req);
         this.stats.requested++;
       }
     }
-    if (reqs.length > 0) this.o.worker.postMessage({ t: 'want', reqs } satisfies ToWorker);
+    if (reqs !== null) this.o.worker.postMessage({ t: 'want', reqs } satisfies ToWorker);
   }
 
   /** In idle time on a screen with a device pixel ratio of 2: every page's High level 0 at low priority (§9.7). */

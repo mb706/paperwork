@@ -113,6 +113,32 @@ interface GlState {
   lightT: Target | null;
 }
 
+/**
+ * The hatch and grade passes' uniforms that never change, set once per program (uniform values live in the program
+ * object, and a restored context links new programs). Per frame they would cost GL calls and boxed doubles.
+ */
+function setStaticUniforms(gl: WebGL2RenderingContext, hatch: Program, grade: Program): void {
+  gl.useProgram(hatch.program);
+  const h = hatch.u;
+  if (h.uShadow) gl.uniform1i(h.uShadow, 0);
+  if (h.uPeriod) gl.uniform1f(h.uPeriod, SHADOW.periodTiles);
+  if (h.uWidth) gl.uniform1f(h.uWidth, SHADOW.widthTiles);
+  if (h.uInk) gl.uniform1f(h.uInk, SHADOW.ink);
+  if (h.uDarken) gl.uniform1f(h.uDarken, SHADOW.darken);
+  if (h.uGain) gl.uniform1f(h.uGain, SHADOW.maskGain);
+  if (h.uInkColour) gl.uniform3fv(h.uInkColour, INK_COLOUR);
+  gl.useProgram(grade.program);
+  const r = grade.u;
+  if (r.uScene) gl.uniform1i(r.uScene, 0);
+  if (r.uLight) gl.uniform1i(r.uLight, 1);
+  if (r.uLut) gl.uniform1i(r.uLut, 2);
+  if (r.uStain) gl.uniform1f(r.uStain, LIGHT_DAY_STAIN);
+  if (r.uReveal) gl.uniform1f(r.uReveal, NIGHT.reveal);
+  if (r.uLightAdd) gl.uniform1f(r.uLightAdd, NIGHT.lightAdd);
+  if (r.uLutSize) gl.uniform1f(r.uLutSize, CYANOTYPE_LUT_SIZE);
+  gl.useProgram(null);
+}
+
 /** The frame's clock (one function, not a closure per frame). */
 const clock = (): number => performance.now();
 
@@ -258,14 +284,17 @@ export class Renderer {
     for (const p of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R])
       gl.texParameteri(gl.TEXTURE_3D, p, gl.CLAMP_TO_EDGE);
     gl.bindTexture(gl.TEXTURE_3D, null);
+    const hatch = createProgram(gl, FULLSCREEN_VS, HATCH_FS, 'hatch');
+    const grade = createProgram(gl, FULLSCREEN_VS, GRADE_FS, 'grade');
+    setStaticUniforms(gl, hatch, grade);
     return {
       gl,
       sprite: createProgram(gl, SPRITE_VS, SPRITE_FS, 'sprite'),
       shadow: createProgram(gl, SPRITE_VS, SHADOW_FS, 'shadow'),
       light: createProgram(gl, SPRITE_VS, LIGHT_FS, 'light'),
       solid: createProgram(gl, SPRITE_VS, SOLID_FS, 'solid'),
-      hatch: createProgram(gl, FULLSCREEN_VS, HATCH_FS, 'hatch'),
-      grade: createProgram(gl, FULLSCREEN_VS, GRADE_FS, 'grade'),
+      hatch,
+      grade,
       batcher,
       textures,
       terrain,
@@ -313,6 +342,8 @@ export class Renderer {
   }
 
   /** The backing store's size in device px: the canvas's CSS size × dpr (into bw, bh; no allocation). */
+  /** Computed uniforms of the hatch and grade passes, passed as typed arrays (no boxed doubles). */
+  private readonly uni = new Float32Array(16);
   private bw = 1;
   private bh = 1;
   private measure(): void {
@@ -333,15 +364,22 @@ export class Renderer {
 
   /** The visible tile rectangle (x0, y0 inclusive; x1, y1 exclusive), for the view request (§15.4). */
   visibleTiles(): { x0: number; y0: number; x1: number; y1: number } {
-    const [w, h] = this.backingSize();
+    const t = new Int32Array(4);
+    this.visibleTilesInto(t);
+    return { x0: t[0] as number, y0: t[1] as number, x1: t[2] as number, y1: t[3] as number };
+  }
+
+  /** visibleTiles() as [x0, y0, x1, y1] into `out` (the app asks every frame: no allocation). */
+  visibleTilesInto(out: Int32Array): void {
+    this.measure();
+    const w = this.bw;
+    const h = this.bh;
     const cam = this.camera;
     const S = PX_PER_TILE * cam.zoom * this.dpr();
-    return {
-      x0: Math.floor(cam.cx - w / 2 / S),
-      y0: Math.floor(cam.cy - h / 2 / S),
-      x1: Math.ceil(cam.cx + w / 2 / S),
-      y1: Math.ceil(cam.cy + h / 2 / S),
-    };
+    out[0] = Math.floor(cam.cx - w / 2 / S);
+    out[1] = Math.floor(cam.cy - h / 2 / S);
+    out[2] = Math.ceil(cam.cx + w / 2 / S);
+    out[3] = Math.ceil(cam.cy + h / 2 / S);
   }
 
   /** Moves the camera onto the followed character, extrapolated like its sprite; false when it is not in view. */
@@ -440,7 +478,7 @@ export class Renderer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, scene.fbo);
     gl.viewport(0, 0, w, h);
     gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
-    this.hatch(g, sh, ox, oy, w, h, S, cam);
+    this.hatch(g, sh, ox, oy, w, h, cam);
     // 4–5: objects, then arms, hands, smoke and held items
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     this.drawStream(g, STREAM.object, ox, oy, w, h, 1, g.sprite);
@@ -516,36 +554,30 @@ export class Renderer {
     g.batcher.draw(s, st);
   }
 
-  private hatch(
-    g: GlState,
-    sh: Target,
-    ox: number,
-    oy: number,
-    w: number,
-    h: number,
-    S: number,
-    cam: Camera,
-  ): void {
+  private hatch(g: GlState, sh: Target, ox: number, oy: number, w: number, h: number, cam: Camera): void {
     if ((this.scene.streams[STREAM.shadow] as Stream).quads === 0) return;
     const gl = g.gl;
     const p = g.hatch;
     gl.useProgram(p.program);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, sh.tex);
-    gl.uniform1i(p.u.uShadow as WebGLUniformLocation, 0);
-    gl.uniform2f(p.u.uHalfScale as WebGLUniformLocation, 0.5 / sh.w, 0.5 / sh.h);
-    gl.uniform2f(p.u.uSize as WebGLUniformLocation, w, h);
-    gl.uniform2f(p.u.uOrigin as WebGLUniformLocation, ox, oy);
-    gl.uniform1f(p.u.uS as WebGLUniformLocation, S);
+    // computed values go through a typed array: a double passed to a WebGL call is boxed
+    const u = this.uni;
+    u[0] = 0.5 / sh.w;
+    u[1] = 0.5 / sh.h;
+    u[2] = w;
+    u[3] = h;
+    u[4] = ox;
+    u[5] = oy;
+    u[6] = scaleOf(cam);
     // the hatching's phase at the camera, in f64: lines anchored to the world, precise at any distance
-    const u = ((cam.cx - cam.cy) * Math.SQRT1_2) / SHADOW.periodTiles;
-    gl.uniform1f(p.u.uPhase as WebGLUniformLocation, u - Math.floor(u));
-    gl.uniform1f(p.u.uPeriod as WebGLUniformLocation, SHADOW.periodTiles);
-    gl.uniform1f(p.u.uWidth as WebGLUniformLocation, SHADOW.widthTiles);
-    gl.uniform1f(p.u.uInk as WebGLUniformLocation, SHADOW.ink);
-    gl.uniform1f(p.u.uDarken as WebGLUniformLocation, SHADOW.darken);
-    gl.uniform1f(p.u.uGain as WebGLUniformLocation, SHADOW.maskGain);
-    gl.uniform3fv(p.u.uInkColour as WebGLUniformLocation, INK_COLOUR);
+    const ph = ((cam.cx - cam.cy) * Math.SQRT1_2) / SHADOW.periodTiles;
+    u[7] = ph - Math.floor(ph);
+    gl.uniform2fv(p.u.uHalfScale as WebGLUniformLocation, u, 0, 2);
+    gl.uniform2fv(p.u.uSize as WebGLUniformLocation, u, 2, 2);
+    gl.uniform2fv(p.u.uOrigin as WebGLUniformLocation, u, 4, 2);
+    gl.uniform1fv(p.u.uS as WebGLUniformLocation, u, 6, 1);
+    gl.uniform1fv(p.u.uPhase as WebGLUniformLocation, u, 7, 1);
     gl.bindVertexArray(g.emptyVao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
@@ -562,19 +594,16 @@ export class Renderer {
     gl.useProgram(p.program);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, scene.tex);
-    gl.uniform1i(p.u.uScene as WebGLUniformLocation, 0);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, li.tex);
-    gl.uniform1i(p.u.uLight as WebGLUniformLocation, 1);
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_3D, g.lut);
-    if (p.u.uLut) gl.uniform1i(p.u.uLut, 2);
-    gl.uniform2f(p.u.uHalfScale as WebGLUniformLocation, 0.5 / li.w, 0.5 / li.h);
-    gl.uniform1f(p.u.uNight as WebGLUniformLocation, this.night());
-    gl.uniform1f(p.u.uStain as WebGLUniformLocation, LIGHT_DAY_STAIN);
-    if (p.u.uReveal) gl.uniform1f(p.u.uReveal, NIGHT.reveal);
-    if (p.u.uLightAdd) gl.uniform1f(p.u.uLightAdd, NIGHT.lightAdd);
-    if (p.u.uLutSize) gl.uniform1f(p.u.uLutSize, CYANOTYPE_LUT_SIZE);
+    const u = this.uni;
+    u[8] = 0.5 / li.w;
+    u[9] = 0.5 / li.h;
+    u[10] = Math.min(1, Math.max(0, (1 - this.mirror.daylight) / (1 - AMBIENT_FLOOR)));
+    gl.uniform2fv(p.u.uHalfScale as WebGLUniformLocation, u, 8, 2);
+    gl.uniform1fv(p.u.uNight as WebGLUniformLocation, u, 10, 1);
     gl.bindVertexArray(g.emptyVao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);

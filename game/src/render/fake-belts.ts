@@ -5,19 +5,25 @@
 // real sim: the renderer does no gameplay arithmetic.
 
 import type { Lookups } from './lookups.ts';
-import { EV, type Mirror } from './mirror.ts';
+import { type ChunkView, EV, type Mirror } from './mirror.ts';
 import { DIR_X, DIR_Y } from './projection.ts';
 
 let seen = -1;
+let acc = 0;
+const fold = (c: ChunkView): void => {
+  // kept below 2³⁰: a larger number stored in a module variable is boxed
+  acc = (Math.imul(acc, 31) + c.entityCount + (c.versions[1] as number)) & 0x3fffffff;
+};
+/** A tile's key: a small integer for |x| < 16,384. */
+const key = (x: number, y: number): number => (x << 16) | (y & 0xffff);
 
 export function deriveBeltMasks(mirror: Mirror, look: Lookups): void {
-  // only when the chunk set or an entity list changed (the terrain revision moves with every chunk delta)
-  let rev = mirror.chunks.size;
-  for (const c of mirror.chunks.values())
-    rev = (Math.imul(rev, 31) + c.entityCount + (c.versions[1] as number)) | 0;
-  if (rev === seen) return;
-  seen = rev;
-  const belts = new Map<string, number>();
+  // only when the chunk set or an entity list changed; the check runs for every packet and allocates nothing
+  acc = mirror.chunks.size;
+  mirror.chunks.forEach(fold);
+  if (acc === seen) return;
+  seen = acc;
+  const belts = new Map<number, number>();
   for (const c of mirror.chunks.values()) {
     const v = c.entityView;
     for (let i = 0; i < c.entityCount; i++) {
@@ -25,10 +31,10 @@ export function deriveBeltMasks(mirror: Mirror, look: Lookups): void {
       if (!look.isBelt[v.getUint16(o + EV.proto, true)]) continue;
       const x = v.getInt32(o + EV.x2, true) >> 1;
       const y = v.getInt32(o + EV.y2, true) >> 1;
-      belts.set(`${x},${y}`, v.getUint8(o + EV.dir));
+      belts.set(key(x, y), v.getUint8(o + EV.dir));
     }
   }
-  const at = (x: number, y: number) => belts.get(`${x},${y}`);
+  const at = (x: number, y: number) => belts.get(key(x, y));
   const feeds = (x: number, y: number, tx: number, ty: number) => {
     const d = at(x, y);
     return (

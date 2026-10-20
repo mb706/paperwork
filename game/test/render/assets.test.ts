@@ -132,7 +132,7 @@ describe('KTX2 and transcoding (10 §9.2)', () => {
     return null;
   };
 
-  it('transcodes the real atlas: XUBC7 to BC7, ASTC, BC3, ETC2, RGBA8; ETC1S to BC4, EAC R11, R8', async () => {
+  it('transcodes the real atlas: XUBC7 to BC7, ASTC, BC3, ETC2, RGBA8; ETC1S to BC4 and R8 (not EAC R11)', async () => {
     const n = page('colour-core-0', '.n.ktx2');
     const s = page('shadow-core-0', '.ktx2');
     if (!basis || !n || !s) return; // `npm run assets` has not run

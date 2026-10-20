@@ -1,7 +1,8 @@
 // The drawing programs of 10 §15.7 (a set's `kind`): entity, inserter, object, resource, mover and icon. Each turns
 // one packet-shaped input into draws on a SpriteSink, so the same code feeds the WebGL batcher and the tests that run
 // test/fixtures/sprites/cases.json (whose expectations come from scripts/assets/manifest.py, the Python twin).
-// Nothing here allocates: inputs are reused scratch objects, lookups write into typed arrays.
+// Nothing here allocates: inputs are reused scratch objects, lookups write into typed arrays, and doubles travel in
+// typed blocks (AT, the sink's args), never as call arguments, which V8 would box (see gl/batcher.ts QUAD).
 //
 // Readings that 10 §15.7 leaves open are the ones manifest.py's docstring fixes (C6, pm/reports/C6.md), notably:
 // an impossible combination of the picture drawn first draws `greybox/<prototype>` (base and shadow, marked as a
@@ -9,7 +10,7 @@
 // is; inserter shadows turn about Q′ = anchor + shadowShoulder · k′; orientation rounds half up.
 
 import { type Atlas, AXIS, axisValues, KIND, lookup, type Part, type SpriteSet } from './manifest.ts';
-import { type Camera, POS_ONE, posHash, scaleOf } from './projection.ts';
+import { type Camera, POS_ONE, posHashInto, scaleOf } from './projection.ts';
 import { BELT_ITEM_SIZE } from './style.ts';
 
 /** Where a draw goes: the layer of 10 §6.2 and, through its frames, the texture array. */
@@ -52,31 +53,35 @@ export const PART = {
   held: 16,
 } as const;
 
+/** The size of a SpriteSink's argument block. */
+export const SINK_ARGS = 8;
+
 export interface SpriteSink {
-  /** Frame f axis-aligned at [left, top, w, h] device px from the canvas centre; alpha scales it (lights). */
-  quad(stream: number, f: number, left: number, top: number, w: number, h: number, alpha: number): void;
   /**
-   * Frame f rotated by `turns` (clockwise) about its pivot (frame px) placed at (atX, atY) device px, k device px
-   * per frame px, stretched by `stretch` along the frame's vertical (the arm's length).
+   * The argument block the programs fill before quad, rotated and held:
+   * quad: [left, top, w, h] device px from the canvas centre, [4] alpha (lights);
+   * rotated: [pivotX, pivotY] frame px placed at [atX, atY] device px, [4] turns clockwise, [5] k device px per
+   * frame px, [6] stretch along the frame's vertical (the arm's length);
+   * held: [atX, atY] device px, [2] size in tiles.
    */
-  rotated(
-    stream: number,
-    f: number,
-    pivotX: number,
-    pivotY: number,
-    atX: number,
-    atY: number,
-    turns: number,
-    k: number,
-    stretch: number,
-  ): void;
+  readonly args: Float64Array;
+  /** Frame f axis-aligned at args [left, top, w, h], alpha args[4]. */
+  quad(stream: number, f: number): void;
+  /** Frame f rotated about its pivot: args [pivotX, pivotY, atX, atY, turns, k, stretch]. */
+  rotated(stream: number, f: number): void;
   /** The draws that follow belong to part `code` (index: a layer's or a clip's), of set `set`. */
   part(code: number, index: number, set: SpriteSet | null): void;
   /** The draws that follow are the greybox `set` drawn for an impossible combination or a missing set. */
   fallback(set: SpriteSet): void;
-  /** An item held by an inserter's hand, at (atX, atY) device px. */
-  held(item: number, atX: number, atY: number, sizeTiles: number): void;
+  /** An item held by an inserter's hand: args [atX, atY, sizeTiles]. */
+  held(item: number): void;
 }
+
+/**
+ * The anchor block that emitEntry and drawIcon read: [0] x and [1] y in tiles, [2] alpha (emitEntry), [3] size in
+ * tiles (drawIcon). Callers fill it just before the call.
+ */
+export const AT = new Float64Array(4);
 
 /** One entity, as the mirror and DYN give it (a reused scratch object). */
 export interface EntityInput {
@@ -147,35 +152,26 @@ export function moverInput(): MoverInput {
 
 const vals = axisValues();
 
-/** Emits every frame of `p`'s entry `e` as axis-aligned quads at (ex, ey) tiles. */
-function emitEntry(
-  atlas: Atlas,
-  sink: SpriteSink,
-  cam: Camera,
-  stream: number,
-  p: Part,
-  e: number,
-  ex: number,
-  ey: number,
-  alpha: number,
-): void {
+/** Emits every frame of `p`'s entry `e` as axis-aligned quads at AT [x, y] tiles, alpha AT[2]. */
+function emitEntry(atlas: Atlas, sink: SpriteSink, cam: Camera, stream: number, p: Part, e: number): void {
   const start = p.entries[e * 2] as number;
   const count = p.entries[e * 2 + 1] as number;
   const S = scaleOf(cam);
   const fr = atlas.frames;
+  const ex = AT[0] as number;
+  const ey = AT[1] as number;
+  const alpha = AT[2] as number;
+  const a = sink.args;
   for (let i = 0; i < count; i++) {
     const f = atlas.entryFrames[start + i] as number;
     const o = f * 8;
     const k = S / (atlas.pxPerTile[fr[o] as number] as number);
-    sink.quad(
-      stream,
-      f,
-      (ex - cam.cx) * S - (fr[o + 6] as number) * k,
-      (ey - cam.cy) * S - (fr[o + 7] as number) * k,
-      (fr[o + 4] as number) * k,
-      (fr[o + 5] as number) * k,
-      alpha,
-    );
+    a[0] = (ex - cam.cx) * S - (fr[o + 6] as number) * k;
+    a[1] = (ey - cam.cy) * S - (fr[o + 7] as number) * k;
+    a[2] = (fr[o + 4] as number) * k;
+    a[3] = (fr[o + 5] as number) * k;
+    a[4] = alpha;
+    sink.quad(stream, f);
   }
 }
 
@@ -197,18 +193,19 @@ export function drawGreybox(
   vals[AXIS.mask] = variant;
   vals[AXIS.frame] = 0;
   vals[AXIS.light] = 0;
-  const ex = x2 / 2;
-  const ey = y2 / 2;
+  AT[0] = x2 / 2;
+  AT[1] = y2 / 2;
+  AT[2] = 1;
   sink.fallback(g);
   if (g.base === null) return false;
   const eb = lookup(g.base, vals, 0);
   if (entryEmpty(g.base, eb)) return false;
   sink.part(PART.base, 0, g);
-  emitEntry(atlas, sink, cam, colourStream, g.base, eb, ex, ey, 1);
+  emitEntry(atlas, sink, cam, colourStream, g.base, eb);
   if (g.shadow !== null) {
     const es = lookup(g.shadow, vals, 0);
     sink.part(PART.shadow, 0, g);
-    if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, g.shadow, es, ex, ey, 1);
+    if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, g.shadow, es);
   }
   return true;
 }
@@ -232,8 +229,6 @@ export function drawEntity(
     return (
       greybox !== null && drawGreybox(atlas, sink, cam, greybox, e.x2, e.y2, e.dir, e.variant, colourStream)
     );
-  const ex = e.x2 / 2;
-  const ey = e.y2 / 2;
   let fidx = -1;
   if (s.framesPerTile > 0)
     // belts (10 §6.8): frame = (tick × speed × framesPerTile ÷ 256) mod frames
@@ -251,24 +246,29 @@ export function drawEntity(
     if (s.name.startsWith('greybox/') || greybox === null) return false;
     return drawGreybox(atlas, sink, cam, greybox, e.x2, e.y2, e.dir, e.variant, colourStream);
   }
+  AT[0] = e.x2 / 2;
+  AT[1] = e.y2 / 2;
+  AT[2] = 1;
   sink.part(useIdle ? PART.idle : PART.base, 0, s);
-  emitEntry(atlas, sink, cam, colourStream, first, ef, ex, ey, 1);
+  emitEntry(atlas, sink, cam, colourStream, first, ef);
   if (!useIdle)
     for (let i = 0; i < s.layers.length; i++) {
       const L = s.layers[i] as Part;
       const el = lookup(L, vals, fidx);
       sink.part(PART.layer, i, s);
-      if (el >= 0) emitEntry(atlas, sink, cam, colourStream, L, el, ex, ey, 1);
+      if (el >= 0) emitEntry(atlas, sink, cam, colourStream, L, el);
     }
   if (s.light !== null) {
     const el = lookup(s.light, vals, fidx);
     sink.part(PART.light, 0, s);
-    if (el >= 0) emitEntry(atlas, sink, cam, STREAM.light, s.light, el, ex, ey, e.hasDyn ? e.light / 255 : 0);
+    AT[2] = e.hasDyn ? e.light / 255 : 0;
+    if (el >= 0) emitEntry(atlas, sink, cam, STREAM.light, s.light, el);
+    AT[2] = 1;
   }
   if (s.shadow !== null) {
     const es = lookup(s.shadow, vals, fidx);
     sink.part(PART.shadow, 0, s);
-    if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, s.shadow, es, ex, ey, 1);
+    if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, s.shadow, es);
   }
   return true;
 }
@@ -302,13 +302,17 @@ export function drawInserter(
   const S = scaleOf(cam);
   const ex = h.x2 / 2;
   const ey = h.y2 / 2;
+  AT[0] = ex;
+  AT[1] = ey;
+  AT[2] = 1;
   sink.part(PART.platform, 0, s);
-  emitEntry(atlas, sink, cam, platformStream, s.platform, ep, ex, ey, 1);
+  emitEntry(atlas, sink, cam, platformStream, s.platform, ep);
   if (s.platformShadow !== null) {
     const es = lookup(s.platformShadow, vals);
     sink.part(PART.platformShadow, 0, s);
-    if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, s.platformShadow, es, ex, ey, 1);
+    if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, s.platformShadow, es);
   }
+  const a = sink.args;
   const arm = s.arm;
   if (arm === null) return true;
   const th = h.theta / 65536;
@@ -335,7 +339,16 @@ export function drawInserter(
     if (armP !== null) {
       const f = onlyFrame(atlas, armP);
       sink.part(shadow ? PART.armShadow : PART.arm, 0, s);
-      if (f >= 0) sink.rotated(stream, f, armP.pivotX, armP.pivotY, qx, qy, th, k, stretch);
+      if (f >= 0) {
+        a[0] = armP.pivotX;
+        a[1] = armP.pivotY;
+        a[2] = qx;
+        a[3] = qy;
+        a[4] = th;
+        a[5] = k;
+        a[6] = stretch;
+        sink.rotated(stream, f);
+      }
     }
     const handP = shadow
       ? holding
@@ -354,11 +367,23 @@ export function drawInserter(
           ? PART.handClosed
           : PART.handOpen;
       sink.part(code, 0, s);
-      if (f >= 0) sink.rotated(stream, f, handP.pivotX, handP.pivotY, hx, hy, th, k, 1);
+      if (f >= 0) {
+        a[0] = handP.pivotX;
+        a[1] = handP.pivotY;
+        a[2] = hx;
+        a[3] = hy;
+        a[4] = th;
+        a[5] = k;
+        a[6] = 1;
+        sink.rotated(stream, f);
+      }
     }
     if (!shadow && holding) {
       sink.part(PART.held, 0, s);
-      sink.held(h.held, hx, hy, BELT_ITEM_SIZE);
+      a[0] = hx;
+      a[1] = hy;
+      a[2] = BELT_ITEM_SIZE;
+      sink.held(h.held);
     }
   }
   return true;
@@ -376,18 +401,19 @@ export function drawObject(
   colourStream: number,
 ): boolean {
   if (s.base === null) return false;
-  vals[AXIS.shape] = posHash(x, y) | 0;
+  posHashInto(x, y, vals, AXIS.shape);
   vals[AXIS.stage] = variant;
   const eb = lookup(s.base, vals);
   if (entryEmpty(s.base, eb)) return false;
-  const ex = x / POS_ONE;
-  const ey = y / POS_ONE;
+  AT[0] = x / POS_ONE;
+  AT[1] = y / POS_ONE;
+  AT[2] = 1;
   sink.part(PART.base, 0, s);
-  emitEntry(atlas, sink, cam, colourStream, s.base, eb, ex, ey, 1);
+  emitEntry(atlas, sink, cam, colourStream, s.base, eb);
   if (s.shadow !== null) {
     const es = lookup(s.shadow, vals);
     sink.part(PART.shadow, 0, s);
-    if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, s.shadow, es, ex, ey, 1);
+    if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, s.shadow, es);
   }
   return true;
 }
@@ -403,16 +429,19 @@ export function drawResource(
   band: number,
 ): boolean {
   if (s.base === null) return false;
-  vals[AXIS.shape] = posHash(tx, ty) | 0;
+  posHashInto(tx, ty, vals, AXIS.shape);
   vals[AXIS.band] = band;
   const eb = lookup(s.base, vals);
   if (entryEmpty(s.base, eb)) return false;
+  AT[0] = tx + 0.5;
+  AT[1] = ty + 0.5;
+  AT[2] = 1;
   sink.part(PART.base, 0, s);
-  emitEntry(atlas, sink, cam, STREAM.ground, s.base, eb, tx + 0.5, ty + 0.5, 1);
+  emitEntry(atlas, sink, cam, STREAM.ground, s.base, eb);
   if (s.shadow !== null) {
     const es = lookup(s.shadow, vals);
     sink.part(PART.shadow, 0, s);
-    if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, s.shadow, es, tx + 0.5, ty + 0.5, 1);
+    if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, s.shadow, es);
   }
   return true;
 }
@@ -436,8 +465,9 @@ export function drawMover(
   m: MoverInput,
   colourStream: number,
 ): boolean {
-  const ex = m.x / POS_ONE;
-  const ey = m.y / POS_ONE;
+  AT[0] = m.x / POS_ONE;
+  AT[1] = m.y / POS_ONE;
+  AT[2] = 1;
   vals[AXIS.orientation] = m.orientation;
   if (s.clipIdle !== null) {
     const clip = moverClip(m);
@@ -450,11 +480,11 @@ export function drawMover(
     const ef = lookup(p, vals, f < 0 ? f + n : f);
     if (entryEmpty(p, ef)) return false;
     sink.part(PART.clip, clip, s);
-    emitEntry(atlas, sink, cam, colourStream, p, ef, ex, ey, 1);
+    emitEntry(atlas, sink, cam, colourStream, p, ef);
     if (ps !== null) {
       const es = lookup(ps, vals, f < 0 ? f + n : f);
       sink.part(PART.clipShadow, clip, s);
-      if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, ps, es, ex, ey, 1);
+      if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, ps, es);
     }
     return true;
   }
@@ -462,44 +492,33 @@ export function drawMover(
   const eb = lookup(s.base, vals);
   if (entryEmpty(s.base, eb)) return false;
   sink.part(PART.base, 0, s);
-  emitEntry(atlas, sink, cam, colourStream, s.base, eb, ex, ey, 1);
+  emitEntry(atlas, sink, cam, colourStream, s.base, eb);
   if (s.shadow !== null) {
     const es = lookup(s.shadow, vals);
     sink.part(PART.shadow, 0, s);
-    if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, s.shadow, es, ex, ey, 1);
+    if (es >= 0) emitEntry(atlas, sink, cam, STREAM.shadow, s.shadow, es);
   }
   return true;
 }
 
 /**
  * The `icon` program: frame id of a set's icon (the icon array's 64 px per icon: P is per icon, not per tile), drawn
- * centred-by-anchor at (x, y) tiles at `sizeTiles` (10 §15.7 "Icons").
+ * centred-by-anchor at AT [x, y] tiles, AT[3] tiles wide (10 §15.7 "Icons").
  */
-export function drawIcon(
-  atlas: Atlas,
-  sink: SpriteSink,
-  cam: Camera,
-  f: number,
-  x: number,
-  y: number,
-  sizeTiles: number,
-  stream: number,
-): void {
+export function drawIcon(atlas: Atlas, sink: SpriteSink, cam: Camera, f: number, stream: number): void {
   if (f < 0) return;
   const o = f * 8;
   const fr = atlas.frames;
   const S = scaleOf(cam);
-  const k = (S * sizeTiles) / (atlas.pxPerTile[fr[o] as number] as number);
+  const k = (S * (AT[3] as number)) / (atlas.pxPerTile[fr[o] as number] as number);
   sink.part(PART.icon, 0, null);
-  sink.quad(
-    stream,
-    f,
-    (x - cam.cx) * S - (fr[o + 6] as number) * k,
-    (y - cam.cy) * S - (fr[o + 7] as number) * k,
-    (fr[o + 4] as number) * k,
-    (fr[o + 5] as number) * k,
-    1,
-  );
+  const a = sink.args;
+  a[0] = ((AT[0] as number) - cam.cx) * S - (fr[o + 6] as number) * k;
+  a[1] = ((AT[1] as number) - cam.cy) * S - (fr[o + 7] as number) * k;
+  a[2] = (fr[o + 4] as number) * k;
+  a[3] = (fr[o + 5] as number) * k;
+  a[4] = 1;
+  sink.quad(stream, f);
 }
 
 /** An icon set's frame (its only entry's first frame), or −1. */

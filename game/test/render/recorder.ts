@@ -1,7 +1,7 @@
 // A SpriteSink that records draws in the shape of test/fixtures/sprites/cases.json's expectations (the Python twin's
 // `draws_for` dicts), so the renderer's programs can be compared with scripts/assets/manifest.py case by case.
 import { ARRAY_KINDS, type Atlas, type SpriteSet } from '../../src/render/manifest.ts';
-import { PART, type SpriteSink } from '../../src/render/programs.ts';
+import { PART, SINK_ARGS, type SpriteSink } from '../../src/render/programs.ts';
 
 export interface RecordedDraw {
   part: string;
@@ -69,6 +69,7 @@ export function partName(code: number, index: number): string {
 }
 
 export class Recorder implements SpriteSink {
+  readonly args = new Float64Array(SINK_ARGS);
   draws: RecordedDraw[] = [];
   private current: RecordedDraw | null = null;
   private fallbackName: string | null = null;
@@ -106,7 +107,8 @@ export class Recorder implements SpriteSink {
     return this.current as RecordedDraw;
   }
 
-  quad(stream: number, f: number, left: number, top: number, w: number, h: number, alpha: number): void {
+  quad(stream: number, f: number): void {
+    const [left, top, w, h, alpha] = this.args as unknown as [number, number, number, number, number];
     const d = this.cur();
     const fr = this.atlas.frames;
     const a = fr[f * 8] as number;
@@ -123,17 +125,16 @@ export class Recorder implements SpriteSink {
     if (d.part === 'light') d.alpha = alpha;
   }
 
-  rotated(
-    stream: number,
-    f: number,
-    pivotX: number,
-    pivotY: number,
-    atX: number,
-    atY: number,
-    turns: number,
-    k: number,
-    stretch: number,
-  ): void {
+  rotated(stream: number, f: number): void {
+    const [pivotX, pivotY, atX, atY, turns, k, stretch] = this.args as unknown as number[] as [
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+    ];
     const d = this.cur();
     d.frames.push(f);
     d.streams.push(stream);
@@ -145,7 +146,8 @@ export class Recorder implements SpriteSink {
     if (d.part === 'arm' || d.part === 'arm_shadow') d.stretch = stretch;
   }
 
-  held(item: number, atX: number, atY: number, sizeTiles: number): void {
+  held(item: number): void {
+    const [atX, atY, sizeTiles] = this.args as unknown as [number, number, number];
     const d = this.cur();
     d.item = item;
     d.at = [atX, atY];

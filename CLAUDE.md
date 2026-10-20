@@ -208,12 +208,18 @@
   the asset queue and transcoding); `npx playwright test e2e/render.spec.ts --project chrome` (@smoke: golden packets
   at 1×/0.3×, dpr 1/2, pixel-exact placement, the Survey smoke screenshots; @render: night, fallbacks, context loss,
   the fake factory, F4/F5); `taskset -c 0-7 npx playwright test e2e/render-bench.spec.ts --project chrome` (@bench:
-  main-thread ms per frame against §6.12 × 2.4). Screenshots land in `test-results/dev/`: Read them.
-- **Rules:** the frame path allocates nothing in steady state (typed arrays, bound callbacks; check with the bench's
-  heap numbers); no string lookups per frame; sprite placement only through `projection.ts`/the programs; pages are
-  premultiplied UNORM (never sRGB formats); in headless Chrome `gl.finish()` does not wait, so benchmarks drain the
-  GPU with a 1×1 `readPixels`; any WebGL canvas here logs four "GPU stall due to ReadPixels" compositor warnings,
-  which `e2e/console.ts` ignores.
+  main-thread ms per frame against §6.12 × 2.4, and bytes allocated per frame). Screenshots land in
+  `test-results/dev/`: Read them.
+- **Rules:** the frame path allocates nothing in steady state. Beyond the obvious (no closures, arrays, iterators or
+  strings per frame), V8 boxes every non-integer double passed to a call it does not inline, every number outside
+  ±2³⁰ returned or used as a Map key, and every double object field passed on: so doubles travel in typed blocks (the
+  SpriteSink's `args`, the programs' `AT`, the batcher's `QUAD`), the mirror keys chunks by `chunkId` (a small integer,
+  not the wire's chunk_key), hashes are written into arrays (`posHashInto`), and constant uniforms are set once per
+  program. Measure with the bench (V8's sampling heap profiler, collected objects included); a heap that does not
+  grow proves nothing. No string lookups per frame; sprite placement only through `projection.ts`/the programs;
+  pages are premultiplied UNORM (never sRGB formats); in headless Chrome `gl.finish()` does not wait, so benchmarks
+  drain the GPU with a 1×1 `readPixels`; any WebGL canvas here logs four "GPU stall due to ReadPixels" compositor
+  warnings, which `e2e/console.ts` ignores.
 
 ## Showing the game to the user
 - Dev server on `127.0.0.1:<high port>`; the user tunnels in: `ssh -L 5173:127.0.0.1:5173 cpuserver10`.

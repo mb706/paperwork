@@ -6,6 +6,15 @@
 // f32 store), uv 2×u16 normalised, layer u16 + flags u16, tint RGBA8.
 
 export const VERTEX_BYTES = 20;
+
+/**
+ * The corner block. A caller writes a quad's corners and tint here, then calls Stream.quad or Stream.rect: doubles
+ * never travel as call arguments on the frame path, because V8 boxes every non-integer double passed to a call it
+ * does not inline (a 12-byte HeapNumber each; ≈ 1.4 MB of garbage per frame on 10 §6.12's late base before this).
+ * quad: x0, y0 (top-left), x1, y1 (top-right), x2, y2 (bottom-left), x3, y3 (bottom-right), tint at [8].
+ * rect: left, top, w, h, tint at [4]. Tints are RGBA8 words (r in the low byte).
+ */
+export const QUAD = new Float64Array(9);
 const QUAD_WORDS = 20;
 export const QUADS_PER_DRAW = 65536;
 
@@ -28,72 +37,57 @@ export class Stream {
   }
 
   /**
-   * One quad: corners top-left (x0, y0), top-right (x1, y1), bottom-left (x2, y2), bottom-right (x3, y3); uv corners
-   * u0, v0 (top-left) to u1, v1 (bottom-right) as u16; layer; flags; tint as RGBA8 (r in the low byte).
+   * One quad, its corners and tint in QUAD; uv corners u0, v0 (top-left) to u1, v1 (bottom-right) as u16; layer and
+   * flags.
    */
-  quad(
-    x0: number,
-    y0: number,
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number,
-    x3: number,
-    y3: number,
-    u0: number,
-    v0: number,
-    u1: number,
-    v1: number,
-    layerFlags: number,
-    tint: number,
-  ): void {
+  quad(u0: number, v0: number, u1: number, v1: number, layerFlags: number): void {
     if ((this.quads + 1) * QUAD_WORDS > this.u32.length) this.grow();
+    const q = QUAD;
     const f = this.f32;
     const u = this.u32;
+    const tint = q[8] as number;
     let o = this.quads * QUAD_WORDS;
-    f[o] = x0;
-    f[o + 1] = y0;
+    f[o] = q[0] as number;
+    f[o + 1] = q[1] as number;
     u[o + 2] = (u0 | (v0 << 16)) >>> 0;
     u[o + 3] = layerFlags;
     u[o + 4] = tint;
     o += 5;
-    f[o] = x1;
-    f[o + 1] = y1;
+    f[o] = q[2] as number;
+    f[o + 1] = q[3] as number;
     u[o + 2] = (u1 | (v0 << 16)) >>> 0;
     u[o + 3] = layerFlags;
     u[o + 4] = tint;
     o += 5;
-    f[o] = x2;
-    f[o + 1] = y2;
+    f[o] = q[4] as number;
+    f[o + 1] = q[5] as number;
     u[o + 2] = (u0 | (v1 << 16)) >>> 0;
     u[o + 3] = layerFlags;
     u[o + 4] = tint;
     o += 5;
-    f[o] = x3;
-    f[o + 1] = y3;
+    f[o] = q[6] as number;
+    f[o + 1] = q[7] as number;
     u[o + 2] = (u1 | (v1 << 16)) >>> 0;
     u[o + 3] = layerFlags;
     u[o + 4] = tint;
     this.quads++;
   }
 
-  /** An axis-aligned quad whose uv words (u|v<<16 at its four corners) are precomputed at `uv[uo…uo+3]`. */
-  rect(
-    l: number,
-    t: number,
-    w: number,
-    h: number,
-    uv: Uint32Array,
-    uo: number,
-    lf: number,
-    tint: number,
-  ): void {
+  /**
+   * An axis-aligned quad at QUAD [left, top, w, h] with tint QUAD[4]; its uv words (u | v << 16 at its four corners)
+   * precomputed at uv[uo…uo+3].
+   */
+  rect(uv: Uint32Array, uo: number, lf: number): void {
     if ((this.quads + 1) * QUAD_WORDS > this.u32.length) this.grow();
+    const q = QUAD;
     const f = this.f32;
     const u = this.u32;
     const o = this.quads * QUAD_WORDS;
-    const r = l + w;
-    const b = t + h;
+    const l = q[0] as number;
+    const t = q[1] as number;
+    const r = l + (q[2] as number);
+    const b = t + (q[3] as number);
+    const tint = q[4] as number;
     f[o] = l;
     f[o + 1] = t;
     u[o + 2] = uv[uo] as number;
@@ -127,6 +121,10 @@ function byte(x: number): number {
   return v < 0 ? 0 : v > 255 ? 255 : v;
 }
 export const WHITE = 0xffffffff;
+/** The tint of a quad drawn at alpha i/255 (premultiplied grey: i in every byte), by i. */
+export const ALPHA_TINT = Uint32Array.from({ length: 256 }, (_, i) =>
+  rgba8(i / 255, i / 255, i / 255, i / 255),
+);
 
 /** The GL side of the streams: the shared index buffer and two buffers per stream, alternating. */
 export class GlBatcher {

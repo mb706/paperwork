@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Lookups } from '../../src/render/lookups.ts';
 import { Atlas, type SpriteManifest } from '../../src/render/manifest.ts';
-import { EV, Mirror, MO, PacketError } from '../../src/render/mirror.ts';
+import { chunkIdOfKey, EV, Mirror, MO, PacketError } from '../../src/render/mirror.ts';
 import { STREAM } from '../../src/render/programs.ts';
 import type { Camera } from '../../src/render/projection.ts';
 import { Scene } from '../../src/render/scene.ts';
@@ -81,7 +81,7 @@ describe('the golden flow into the mirror (test/golden/m0/packets)', () => {
       m.apply(bytes, n.endsWith('full') ? null : view);
       const { get } = decodedChunks(bytes);
       for (const rec of get('CHUNK_ENTITIES')) {
-        const c = m.chunks.get(rec.chunk_key as number);
+        const c = m.chunks.get(chunkIdOfKey(rec.chunk_key as number));
         expect(c, `chunk ${chunkXY(rec.chunk_key as number)}`).toBeDefined();
         const list = rec.entities as { serial: number; x2: number; y2: number; proto: number; dir: number }[];
         expect(c?.entityCount).toBe(list.length);
@@ -94,11 +94,11 @@ describe('the golden flow into the mirror (test/golden/m0/packets)', () => {
         });
       }
       for (const rec of get('CHUNK_TILES')) {
-        const c = m.chunks.get(rec.chunk_key as number);
+        const c = m.chunks.get(chunkIdOfKey(rec.chunk_key as number));
         expect(Array.from(c?.tiles ?? [])).toEqual(rec.tiles);
       }
       for (const rec of get('CHUNK_RESOURCES'))
-        expect(m.chunks.get(rec.chunk_key as number)?.resourceCount).toBe(
+        expect(m.chunks.get(chunkIdOfKey(rec.chunk_key as number))?.resourceCount).toBe(
           (rec.resources as unknown[]).length,
         );
       const movers = get('MOVERS');

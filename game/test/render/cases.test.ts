@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Atlas, type SpriteManifest } from '../../src/render/manifest.ts';
 import {
+  AT,
   drawEntity,
   drawIcon,
   drawInserter,
@@ -96,7 +97,10 @@ function run(c: (typeof cases.cases)[number]): RecordedDraw[] {
     case 'icon': {
       const at = a.at as [number, number];
       const f = iconFrame(atlas, s) >= 0 ? iconFrame(atlas, s) : iconFrame(atlas, atlas.set('fx/missing'));
-      drawIcon(atlas, rec, cam, f, at[0], at[1], (a.sizeTiles as number) ?? 0.5, STREAM.groundIcon);
+      AT[0] = at[0];
+      AT[1] = at[1];
+      AT[3] = (a.sizeTiles as number) ?? 0.5;
+      drawIcon(atlas, rec, cam, f, STREAM.groundIcon);
       break;
     }
     default:

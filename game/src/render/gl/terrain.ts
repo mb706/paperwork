@@ -6,7 +6,7 @@
 
 import type { JsonTile } from '../../shared/gen/protos.ts';
 import type { ChunkView, Mirror } from '../mirror.ts';
-import { OV } from '../mirror.ts';
+import { chunkId, OV } from '../mirror.ts';
 import { type Camera, CHUNK_TILES, scaleOf } from '../projection.ts';
 import { CRISP_TILES, hex, PAPER_TONE, TERRAIN, TILE_FALLBACK, WATER_TILES } from '../style.ts';
 import {
@@ -70,6 +70,8 @@ export class TerrainPass {
   private vertices = new ArrayBuffer(VERTEX_BYTES * 4 * 64);
   private vf32 = new Float32Array(this.vertices);
   private vi32 = new Int32Array(this.vertices);
+  /** Computed uniforms (origin, target, scale, lining fade), passed as typed arrays. */
+  private readonly uni = new Float32Array(8);
   private frameNo = 0;
   /** The chunks drawn and the shore textures built in the last frame (the HUD). */
   drawn = 0;
@@ -94,6 +96,27 @@ export class TerrainPass {
     this.idCapacity = idCapacity;
     this.shoreCapacity = shoreCapacity;
     this.prog = createProgram(gl, TERRAIN_VS, TERRAIN_FS, 'terrain');
+    // the uniforms that never change, once (they live in the program object; per frame they would box doubles)
+    const p = this.prog.u;
+    gl.useProgram(this.prog.program);
+    if (p.uMatTiles) gl.uniform1f(p.uMatTiles, TERRAIN.materialTiles);
+    if (p.uWarp) gl.uniform1f(p.uWarp, TERRAIN.warpTiles);
+    if (p.uWarpCell) gl.uniform1f(p.uWarpCell, TERRAIN.warpCellTiles);
+    if (p.uKerb) gl.uniform3fv(p.uKerb, TERRAIN.kerb);
+    if (p.uKerbAlpha) gl.uniform1f(p.uKerbAlpha, TERRAIN.kerbAlpha);
+    if (p.uLiningInk) gl.uniform3fv(p.uLiningInk, TERRAIN.liningInk);
+    if (p.uLiningAlpha) gl.uniform1f(p.uLiningAlpha, TERRAIN.liningAlpha);
+    if (p.uLining) gl.uniform1fv(p.uLining, TERRAIN.lining);
+    if (p.uShore) gl.uniform3fv(p.uShore, TERRAIN.shore);
+    if (p.uShoreAlpha) gl.uniform1f(p.uShoreAlpha, TERRAIN.shoreAlpha);
+    if (p.uShorePx) gl.uniform1f(p.uShorePx, TERRAIN.shorePx);
+    if (p.uWoodland) gl.uniform3fv(p.uWoodland, WOODLAND_RATIO);
+    if (p.uWoodlandAlpha) gl.uniform1f(p.uWoodlandAlpha, TERRAIN.woodlandAlpha);
+    if (p.uIds) gl.uniform1i(p.uIds, 0);
+    if (p.uSdf) gl.uniform1i(p.uSdf, 1);
+    if (p.uMats) gl.uniform1i(p.uMats, 2);
+    if (p.uTiles) gl.uniform1i(p.uTiles, 3);
+    gl.useProgram(null);
     const ids = gl.createTexture();
     const shore = gl.createTexture();
     const tiles = gl.createTexture();
@@ -175,11 +198,11 @@ export class TerrainPass {
     this.slotsSeen = mirror.terrainRev;
   }
   private slotsSeen = -1;
-  private readonly release = (slot: Slot, key: number): void => {
-    if (this.mirrorNow?.chunks.has(key)) return;
+  private readonly release = (slot: Slot, id: number): void => {
+    if (this.mirrorNow?.chunks.has(id)) return;
     this.freeIds.push(slot.idLayer);
     if (slot.shoreLayer >= 0) this.freeShore.push(slot.shoreLayer);
-    this.slots.delete(key);
+    this.slots.delete(id);
   };
 
   /** The neighbourhood's signature: the chunk's and its eight neighbours' terrain revisions and presence. */
@@ -187,17 +210,17 @@ export class TerrainPass {
     let h = 17;
     for (let dy = -1; dy <= 1; dy++)
       for (let dx = -1; dx <= 1; dx++) {
-        const n = mirror.chunks.get(chunkKeyOf(c.cx + dx, c.cy + dy));
+        const n = mirror.chunks.get(chunkId(c.cx + dx, c.cy + dy));
         const v = n?.tiles ? n.terrainRev + 1 : 0;
         h = (Math.imul(h, 31) + v + (n?.objectCount ?? 0) * 7) | 0;
       }
-    return h;
+    return h & 0x3fffffff;
   }
 
   /** Tiles of chunk (x, y) from the mirror (bound once, so the per-frame walk allocates nothing). */
   private mirrorNow: Mirror | null = null;
   private readonly tilesOf = (x: number, y: number): Uint8Array | null =>
-    this.mirrorNow?.chunks.get(chunkKeyOf(x, y))?.tiles ?? null;
+    this.mirrorNow?.chunks.get(chunkId(x, y))?.tiles ?? null;
 
   /** Held chunks whose shore texture is missing or stale (tests wait for 0 before a screenshot). */
   pending = 0;
@@ -205,12 +228,12 @@ export class TerrainPass {
   /** A chunk's slot, its tile ids rebuilt when its neighbourhood changed; null over capacity. */
   private slotOf(mirror: Mirror, c: ChunkView): Slot | null {
     const gl = this.gl;
-    let slot = this.slots.get(c.key);
+    let slot = this.slots.get(c.id);
     if (!slot) {
       const idLayer = this.freeIds.pop();
       if (idLayer === undefined) return null; // over capacity: the paper shows through
       slot = { idLayer, shoreLayer: -1, sig: 0, shoreSig: 0, frame: 0 };
-      this.slots.set(c.key, slot);
+      this.slots.set(c.id, slot);
     }
     const sig = this.signature(mirror, c);
     if (sig !== slot.sig || slot.sig === 0) {
@@ -339,9 +362,9 @@ export class TerrainPass {
     let quads = 0;
     for (let cy = cy0; cy <= cy1; cy++)
       for (let cx = cx0; cx <= cx1; cx++) {
-        const c = mirror.chunks.get(chunkKeyOf(cx, cy));
+        const c = mirror.chunks.get(chunkId(cx, cy));
         if (!c?.tiles) continue;
-        const slot = this.slots.get(c.key);
+        const slot = this.slots.get(c.id);
         if (slot === undefined) continue;
         // the quad: device px from the canvas centre (f64 → f32), chunk-local tile coordinates 0…32
         const x0 = (cx * CHUNK_TILES - cam.cx) * S;
@@ -350,46 +373,46 @@ export class TerrainPass {
         const y1 = y0 + CHUNK_TILES * S;
         // a stale shore texture (a neighbour just changed) is kept until its rebuild, so the lining never flickers
         const shoreLayer = slot.shoreLayer;
-        this.vertex(quads * 4, x0, y0, 0, 0, cx, cy, slot.idLayer, shoreLayer);
-        this.vertex(quads * 4 + 1, x1, y0, CHUNK_TILES, 0, cx, cy, slot.idLayer, shoreLayer);
-        this.vertex(quads * 4 + 2, x0, y1, 0, CHUNK_TILES, cx, cy, slot.idLayer, shoreLayer);
-        this.vertex(quads * 4 + 3, x1, y1, CHUNK_TILES, CHUNK_TILES, cx, cy, slot.idLayer, shoreLayer);
+        const o = this.reserve(quads) * 8;
+        const f = this.vf32;
+        const n = this.vi32;
+        for (let v = 0; v < 4; v++) {
+          const at = o + v * 8;
+          f[at] = (v & 1) === 0 ? x0 : x1;
+          f[at + 1] = v < 2 ? y0 : y1;
+          f[at + 2] = (v & 1) === 0 ? 0 : CHUNK_TILES;
+          f[at + 3] = v < 2 ? 0 : CHUNK_TILES;
+          n[at + 4] = cx;
+          n[at + 5] = cy;
+          n[at + 6] = slot.idLayer;
+          n[at + 7] = shoreLayer;
+        }
         quads++;
       }
     this.drawn = quads;
     if (quads === 0) return;
     const p = this.prog;
     gl.useProgram(p.program);
-    gl.uniform2f(p.u.uOrigin as WebGLUniformLocation, ox, oy);
-    gl.uniform2f(p.u.uTarget as WebGLUniformLocation, tw, th);
-    gl.uniform1f(p.u.uS as WebGLUniformLocation, S);
-    gl.uniform1f(p.u.uMatTiles as WebGLUniformLocation, TERRAIN.materialTiles);
-    gl.uniform1f(p.u.uWarp as WebGLUniformLocation, TERRAIN.warpTiles);
-    gl.uniform1f(p.u.uWarpCell as WebGLUniformLocation, TERRAIN.warpCellTiles);
-    gl.uniform3fv(p.u.uKerb as WebGLUniformLocation, TERRAIN.kerb);
-    gl.uniform1f(p.u.uKerbAlpha as WebGLUniformLocation, TERRAIN.kerbAlpha);
-    gl.uniform3fv(p.u.uLiningInk as WebGLUniformLocation, TERRAIN.liningInk);
-    gl.uniform1f(p.u.uLiningAlpha as WebGLUniformLocation, TERRAIN.liningAlpha);
-    gl.uniform1fv(p.u.uLining as WebGLUniformLocation, TERRAIN.lining);
-    const fade = Math.min(1, Math.max(0, (S - (TERRAIN.liningMinScale - 2)) / 4));
-    gl.uniform1f(p.u.uLiningFade as WebGLUniformLocation, fade);
-    gl.uniform3fv(p.u.uShore as WebGLUniformLocation, TERRAIN.shore);
-    gl.uniform1f(p.u.uShoreAlpha as WebGLUniformLocation, TERRAIN.shoreAlpha);
-    gl.uniform1f(p.u.uShorePx as WebGLUniformLocation, TERRAIN.shorePx);
-    gl.uniform3fv(p.u.uWoodland as WebGLUniformLocation, WOODLAND_RATIO);
-    gl.uniform1f(p.u.uWoodlandAlpha as WebGLUniformLocation, TERRAIN.woodlandAlpha);
+    // computed values go through typed arrays: a double passed to a WebGL call is boxed
+    const u = this.uni;
+    u[0] = ox;
+    u[1] = oy;
+    u[2] = tw;
+    u[3] = th;
+    u[4] = S;
+    u[5] = Math.min(1, Math.max(0, (S - (TERRAIN.liningMinScale - 2)) / 4));
+    gl.uniform2fv(p.u.uOrigin as WebGLUniformLocation, u, 0, 2);
+    gl.uniform2fv(p.u.uTarget as WebGLUniformLocation, u, 2, 2);
+    gl.uniform1fv(p.u.uS as WebGLUniformLocation, u, 4, 1);
+    gl.uniform1fv(p.u.uLiningFade as WebGLUniformLocation, u, 5, 1);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.ids);
-    gl.uniform1i(p.u.uIds as WebGLUniformLocation, 0);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shore);
-    gl.uniform1i(p.u.uSdf as WebGLUniformLocation, 1);
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, materials);
-    if (p.u.uMats) gl.uniform1i(p.u.uMats, 2);
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, this.tiles);
-    gl.uniform1i(p.u.uTiles as WebGLUniformLocation, 3);
     gl.bindVertexArray(this.vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
     gl.bufferData(gl.ARRAY_BUFFER, this.vf32, gl.STREAM_DRAW, 0, quads * 4 * (VERTEX_BYTES / 4));
@@ -405,33 +428,16 @@ export class TerrainPass {
     gl.bindVertexArray(null);
   }
 
-  private vertex(
-    i: number,
-    x: number,
-    y: number,
-    lx: number,
-    ly: number,
-    cx: number,
-    cy: number,
-    idLayer: number,
-    shoreLayer: number,
-  ): void {
-    if ((i + 1) * VERTEX_BYTES > this.vertices.byteLength) {
+  /** Makes room for quad `q`'s four vertices; returns its first vertex index. */
+  private reserve(q: number): number {
+    if ((q + 1) * 4 * VERTEX_BYTES > this.vertices.byteLength) {
       const next = new ArrayBuffer(this.vertices.byteLength * 2);
       new Uint8Array(next).set(new Uint8Array(this.vertices));
       this.vertices = next;
       this.vf32 = new Float32Array(next);
       this.vi32 = new Int32Array(next);
     }
-    const o = i * 8;
-    this.vf32[o] = x;
-    this.vf32[o + 1] = y;
-    this.vf32[o + 2] = lx;
-    this.vf32[o + 3] = ly;
-    this.vi32[o + 4] = cx;
-    this.vi32[o + 5] = cy;
-    this.vi32[o + 6] = idLayer;
-    this.vi32[o + 7] = shoreLayer;
+    return q * 4;
   }
 
   /** Tree positions (tiles from the chunk's origin) within reach of chunk (cx, cy)'s shore texture. */
@@ -440,7 +446,7 @@ export class TerrainPass {
     const reach = SHORE_BORDER;
     for (let dy = -1; dy <= 1; dy++)
       for (let dx = -1; dx <= 1; dx++) {
-        const c = mirror.chunks.get(chunkKeyOf(cx + dx, cy + dy));
+        const c = mirror.chunks.get(chunkId(cx + dx, cy + dy));
         if (!c || c.objectCount === 0) continue;
         const v = c.objectView;
         for (let i = 0; i < c.objectCount; i++) {
@@ -499,8 +505,4 @@ function mixPaper(c: [number, number, number]): [number, number, number] {
     c[1] * 0.25 + (PAPER_TONE[1] as number) * 0.75,
     c[2] * 0.25 + (PAPER_TONE[2] as number) * 0.75,
   ];
-}
-
-export function chunkKeyOf(cx: number, cy: number): number {
-  return (((cx + 32768) << 16) | ((cy + 32768) & 0xffff)) >>> 0;
 }

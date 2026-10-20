@@ -4,15 +4,17 @@
 // each drawn by its program; shadows and lights go to their own streams as the programs meet them. Sprites are
 // culled by their quads. A set whose pages are not resident draws its greybox and is reported, so the asset
 // worker fetches it first (10 §9.7). The Scene is the programs' SpriteSink: it turns frames into batcher quads.
-// In steady state nothing here allocates: buffers grow and are kept.
+// In steady state nothing here allocates: buffers grow and are kept, and doubles travel in typed blocks (the sink's
+// args, the programs' AT, the batcher's QUAD), never as call arguments, which V8 would box.
 
 import { beltOut, expandLine } from './belts.ts';
-import { rgba8, Stream, WHITE } from './gl/batcher.ts';
+import { ALPHA_TINT, QUAD, rgba8, Stream, WHITE } from './gl/batcher.ts';
 import { type Lookups, ROLE } from './lookups.ts';
 import type { Atlas, SpriteSet } from './manifest.ts';
 import { AXIS, axisValues, KIND, lookup } from './manifest.ts';
-import { type ChunkView, DY, EV, HA, type Mirror, MO, OV, RV } from './mirror.ts';
+import { type ChunkView, chunkId, DY, EV, HA, type Mirror, MO, OV, RV } from './mirror.ts';
 import {
+  AT,
   drawEntity,
   drawIcon,
   drawInserter,
@@ -22,10 +24,11 @@ import {
   entityInput,
   inserterInput,
   moverInput,
+  SINK_ARGS,
   type SpriteSink,
   STREAM,
 } from './programs.ts';
-import { type Camera, CHUNK_TILES, CULL_MARGIN_TILES, POS_ONE, posHash, scaleOf } from './projection.ts';
+import { type Camera, CHUNK_TILES, CULL_MARGIN_TILES, POS_ONE, posHashInto, scaleOf } from './projection.ts';
 import { BELT_ITEM_SIZE, DEBUG_COLOURS, SMOKE } from './style.ts';
 
 /** The overlay streams (10 §6.2 step 8: after the grade): ghosts (colour array, tinted) and solid debug quads. */
@@ -64,6 +67,13 @@ export const NO_DEBUG: DebugFlags = {
 /** A ghost's hologram tint (premultiplied): a pale blueprint blue. */
 const GHOST_TINT = rgba8(0.42 * 0.62, 0.6 * 0.62, 0.78 * 0.62, 0.62);
 const ITEM = { entity: 0, inserter: 1, object: 2, mover: 3 } as const;
+/** The deconstruction mark's red (premultiplied). */
+const DECON_TINT = rgba8(
+  DEBUG_COLOURS.chunkGrid[0] * 0.9,
+  DEBUG_COLOURS.chunkGrid[1] * 0.9,
+  DEBUG_COLOURS.chunkGrid[2] * 0.9,
+  0.9,
+);
 
 interface MoverState {
   x: number;
@@ -96,6 +106,8 @@ export class Scene implements SpriteSink {
   readonly stats: SceneStats = { chunks: 0, entities: 0, objects: 0, beltItems: 0, movers: 0, greyboxed: 0 };
   /** Extrapolate movers from their base tick (off in on-demand rendering, so screenshots are exact). */
   extrapolate = true;
+  /** The programs' argument block (SpriteSink). */
+  readonly args = new Float64Array(SINK_ARGS);
 
   private cam: Camera = { cx: 0, cy: 0, zoom: 1, dpr: 1 };
   private S = 32;
@@ -107,10 +119,15 @@ export class Scene implements SpriteSink {
   private readonly mi = moverInput();
   private readonly vals = axisValues();
   private belts = beltOut();
-  // the object items of a frame, sorted by (bottom y, x, serial)
+  /** posHashInto's output for smoke (uint32). */
+  private readonly hash = new Uint32Array(2);
+  /** line()'s block: [x0, y0, x1, y1] tiles, [4] width in device px. */
+  private readonly ln = new Float64Array(5);
+  private readonly smokeRadius: number;
+  // the object items of a frame, sorted by (bottom y, x, serial); keys in 1/256 tile
   private cap = 0;
-  private keyY = new Float64Array(0);
-  private keyX = new Float64Array(0);
+  private keyY = new Int32Array(0);
+  private keyX = new Int32Array(0);
   private serial = new Uint32Array(0);
   private kind = new Uint8Array(0);
   private refA = new Int32Array(0);
@@ -162,6 +179,8 @@ export class Scene implements SpriteSink {
       this.frameLayer[f] = atlas.frames[o + 1] as number;
     }
     this.colourArray = atlas.arrayOfKind[KIND.colour] as number;
+    const smoke = look.smokeSet >= 0 ? atlas.sets[look.smokeSet] : undefined;
+    this.smokeRadius = (smoke && (atlas.json.sets[smoke.name]?.radiusTiles as number | undefined)) ?? 0.34;
     this.iconSetOf = new Int32Array(atlas.frameCount).fill(-1);
     for (const s of atlas.sets)
       if (s.icon !== null && (s.icon.entries[1] as number) > 0)
@@ -175,8 +194,8 @@ export class Scene implements SpriteSink {
       b.set(a.subarray(0, Math.min(a.length, this.n)));
       return b;
     };
-    this.keyY = keep(this.keyY, new Float64Array(cap));
-    this.keyX = keep(this.keyX, new Float64Array(cap));
+    this.keyY = keep(this.keyY, new Int32Array(cap));
+    this.keyX = keep(this.keyX, new Int32Array(cap));
     this.serial = keep(this.serial, new Uint32Array(cap));
     this.kind = keep(this.kind, new Uint8Array(cap));
     this.refA = keep(this.refA, new Int32Array(cap));
@@ -201,36 +220,48 @@ export class Scene implements SpriteSink {
 
   // ------------------------------------------------------------------------------------------- SpriteSink
 
-  quad(stream: number, f: number, left: number, top: number, w: number, h: number, alpha: number): void {
-    if (this.tap) this.tap.quad(stream, f, left, top, w, h, alpha);
+  quad(stream: number, f: number): void {
+    const a = this.args;
+    if (this.tap) {
+      this.tap.args.set(a);
+      this.tap.quad(stream, f);
+    }
+    const left = a[0] as number;
+    const top = a[1] as number;
+    const w = a[2] as number;
+    const h = a[3] as number;
+    const alpha = a[4] as number;
+    const q = QUAD;
     let st = stream;
-    let tint = alpha >= 1 ? WHITE : rgba8(alpha, alpha, alpha, alpha);
+    // the tint goes straight into the block: a local mixing the WHITE constant with a table word would be boxed
+    if (alpha < 1) {
+      const ai = Math.round(alpha * 255);
+      q[4] = ALPHA_TINT[ai < 0 ? 0 : ai] as number;
+    } else q[4] = WHITE;
     if (this.ghost) {
       if (stream === STREAM.shadow || stream === STREAM.light) return;
       if (stream === STREAM.groundIcon || stream === STREAM.highIcon) return;
       st = OVERLAY.ghost;
-      tint = GHOST_TINT;
+      q[4] = GHOST_TINT;
     }
     if (alpha <= 0 && stream === STREAM.light) return;
     if (left > this.halfW || top > this.halfH || left + w < -this.halfW || top + h < -this.halfH) return;
     const layer = this.frameLayer[f] as number;
     if (this.colourWantsLevel0 && this.frameArray[f] === this.colourArray && layer < this.pagesColour)
       this.wantLevel0[layer] = 1;
-    (this.streams[st] as Stream).rect(left, top, w, h, this.uvWords, f * 4, layer, tint);
+    q[0] = left;
+    q[1] = top;
+    q[2] = w;
+    q[3] = h;
+    (this.streams[st] as Stream).rect(this.uvWords, f * 4, layer);
   }
 
-  rotated(
-    stream: number,
-    f: number,
-    pivotX: number,
-    pivotY: number,
-    atX: number,
-    atY: number,
-    turns: number,
-    k: number,
-    stretch: number,
-  ): void {
-    if (this.tap) this.tap.rotated(stream, f, pivotX, pivotY, atX, atY, turns, k, stretch);
+  rotated(stream: number, f: number): void {
+    const a = this.args;
+    if (this.tap) {
+      this.tap.args.set(a);
+      this.tap.rotated(stream, f);
+    }
     let st = stream;
     let tint = WHITE;
     if (this.ghost) {
@@ -238,11 +269,17 @@ export class Scene implements SpriteSink {
       st = OVERLAY.ghost;
       tint = GHOST_TINT;
     }
+    const pivotX = a[0] as number;
+    const pivotY = a[1] as number;
+    const atX = a[2] as number;
+    const atY = a[3] as number;
+    const turns = a[4] as number;
+    const k = a[5] as number;
+    const stretch = a[6] as number;
     const fr = this.atlas.frames;
     const o = f * 8;
-    const a = fr[o] as number;
     const layer = fr[o + 1] as number;
-    const P = this.atlas.pageSize[a] as number;
+    const P = this.atlas.pageSize[fr[o] as number] as number;
     const x = fr[o + 2] as number;
     const y = fr[o + 3] as number;
     const fw = fr[o + 4] as number;
@@ -264,21 +301,22 @@ export class Scene implements SpriteSink {
     const v0 = -pivotY * stretch;
     const v1 = (fh - pivotY) * stretch;
     const uk = 65535 / P;
+    const q = QUAD;
+    q[0] = atX + u0 * c - v0 * s;
+    q[1] = atY + u0 * s + v0 * c;
+    q[2] = atX + u1 * c - v0 * s;
+    q[3] = atY + u1 * s + v0 * c;
+    q[4] = atX + u0 * c - v1 * s;
+    q[5] = atY + u0 * s + v1 * c;
+    q[6] = atX + u1 * c - v1 * s;
+    q[7] = atY + u1 * s + v1 * c;
+    q[8] = tint;
     (this.streams[st] as Stream).quad(
-      atX + u0 * c - v0 * s,
-      atY + u0 * s + v0 * c,
-      atX + u1 * c - v0 * s,
-      atY + u1 * s + v0 * c,
-      atX + u0 * c - v1 * s,
-      atY + u0 * s + v1 * c,
-      atX + u1 * c - v1 * s,
-      atY + u1 * s + v1 * c,
       Math.round(x * uk),
       Math.round(y * uk),
       Math.round((x + fw) * uk),
       Math.round((y + fh) * uk),
       layer,
-      tint,
     );
   }
 
@@ -290,22 +328,20 @@ export class Scene implements SpriteSink {
     if (this.tap) this.tap.fallback(set);
   }
 
-  held(item: number, atX: number, atY: number, sizeTiles: number): void {
-    if (this.tap) this.tap.held(item, atX, atY, sizeTiles);
+  held(item: number): void {
+    const a = this.args;
+    if (this.tap) {
+      this.tap.args.set(a);
+      this.tap.held(item);
+    }
     if (this.ghost) return;
     const f = this.iconFrame(this.look.itemFrame(item));
     if (f < 0) return;
-    // atX, atY are device px from the canvas centre: back to tiles for the icon program
-    drawIcon(
-      this.atlas,
-      this,
-      this.cam,
-      f,
-      this.cam.cx + atX / this.S,
-      this.cam.cy + atY / this.S,
-      sizeTiles,
-      STREAM.highIcon,
-    );
+    // args [atX, atY] are device px from the canvas centre: back to tiles for the icon program
+    AT[0] = this.cam.cx + (a[0] as number) / this.S;
+    AT[1] = this.cam.cy + (a[1] as number) / this.S;
+    AT[3] = a[2] as number;
+    drawIcon(this.atlas, this, this.cam, f, STREAM.highIcon);
   }
 
   /** The icon frame if its page is resident, else fx/missing's if that is, else −1. */
@@ -344,7 +380,7 @@ export class Scene implements SpriteSink {
     renderTick: number,
     debug: DebugFlags = NO_DEBUG,
   ): void {
-    for (const s of this.streams) s.reset();
+    for (let i = 0; i < this.streams.length; i++) (this.streams[i] as Stream).reset();
     this.missed.fill(0);
     this.wantLevel0.fill(0);
     const st = this.stats;
@@ -373,7 +409,7 @@ export class Scene implements SpriteSink {
     let nc = 0;
     for (let cy = cy0; cy <= cy1; cy++)
       for (let cx = cx0; cx <= cx1; cx++) {
-        const c = mirror.chunks.get((((cx + 32768) << 16) | ((cy + 32768) & 0xffff)) >>> 0);
+        const c = mirror.chunks.get(chunkId(cx, cy));
         if (c === undefined) continue;
         this.chunkRefs[nc++] = c;
       }
@@ -417,10 +453,11 @@ export class Scene implements SpriteSink {
           const dir = v.getUint8(o + EV.dir);
           const turned = dir === 4 || dir === 12;
           const h = (turned ? look.size[proto * 2] : look.size[proto * 2 + 1]) as number;
+          // keys in 1/256 tile: integers, so the call boxes nothing
           this.push(
             role === ROLE.inserter ? ITEM.inserter : ITEM.entity,
-            y2 / 2 + h / 2,
-            x2 / 2,
+            Math.round((y2 + h) * 128),
+            x2 * 128,
             v.getUint32(o + EV.serial, true),
             ci,
             i,
@@ -435,15 +472,19 @@ export class Scene implements SpriteSink {
           const x = v.getInt32(o + OV.x, true);
           const y = v.getInt32(o + OV.y, true);
           if (x / POS_ONE < vx0 || x / POS_ONE > vx1 || y / POS_ONE < vy0 || y / POS_ONE > vy1) continue;
-          if (kind === 0 || kind === 1) this.push(ITEM.object, y / POS_ONE, x / POS_ONE, 0, ci, i);
+          if (kind === 0 || kind === 1) this.push(ITEM.object, y, x, 0, ci, i);
           else if (kind === 4 && decorOk) {
             const s = this.usable(look.decorSet[v.getUint16(o + OV.id, true)] ?? -1);
             if (s !== null)
               drawObject(this.atlas, this, cam, s, x, y, v.getUint8(o + OV.variant), STREAM.ground);
           } else if (kind === 3) {
             const f = this.iconFrame(look.itemFrame(v.getUint16(o + OV.id, true)));
-            if (f >= 0)
-              drawIcon(this.atlas, this, cam, f, x / POS_ONE, y / POS_ONE, BELT_ITEM_SIZE, STREAM.groundIcon);
+            if (f >= 0) {
+              AT[0] = x / POS_ONE;
+              AT[1] = y / POS_ONE;
+              AT[3] = BELT_ITEM_SIZE;
+              drawIcon(this.atlas, this, cam, f, STREAM.groundIcon);
+            }
           }
         }
       }
@@ -467,7 +508,12 @@ export class Scene implements SpriteSink {
         const y = this.belts.y[k] as number;
         if (x < vx0 || x > vx1 || y < vy0 || y > vy1) continue;
         const f = this.iconFrame(look.itemFrame(this.belts.key[k] as number));
-        if (f >= 0) drawIcon(this.atlas, this, cam, f, x, y, BELT_ITEM_SIZE, STREAM.groundIcon);
+        if (f >= 0) {
+          AT[0] = x;
+          AT[1] = y;
+          AT[3] = BELT_ITEM_SIZE;
+          drawIcon(this.atlas, this, cam, f, STREAM.groundIcon);
+        }
         st.beltItems++;
       }
     }
@@ -482,7 +528,7 @@ export class Scene implements SpriteSink {
       const x = mv.view.getInt32(o + MO.x, true) + mv.view.getInt16(o + MO.vx, true) * dt;
       const y = mv.view.getInt32(o + MO.y, true) + mv.view.getInt16(o + MO.vy, true) * dt;
       if (x / POS_ONE < vx0 || x / POS_ONE > vx1 || y / POS_ONE < vy0 || y / POS_ONE > vy1) continue;
-      this.push(ITEM.mover, y / POS_ONE, x / POS_ONE, mv.view.getUint32(o + MO.serial, true), i, 0);
+      this.push(ITEM.mover, Math.round(y), Math.round(x), mv.view.getUint32(o + MO.serial, true), i, 0);
     }
     this.trackMovers(mirror);
 
@@ -492,7 +538,7 @@ export class Scene implements SpriteSink {
       const it = this.sorted[k] as number;
       const kind = this.kind[it] as number;
       if (kind === ITEM.mover) {
-        this.mover(mirror, this.refA[it] as number, renderTick);
+        this.mover(mirror, this.refA[it] as number);
         continue;
       }
       const c = this.chunkRefs[this.refA[it] as number] as ChunkView;
@@ -543,10 +589,10 @@ export class Scene implements SpriteSink {
   private sortItems(): void {
     const n = this.n;
     if (n === 0) return;
-    let r0 = Number.POSITIVE_INFINITY;
-    let r1 = Number.NEGATIVE_INFINITY;
+    let r0 = 0x7fffffff;
+    let r1 = -0x80000000;
     for (let i = 0; i < n; i++) {
-      const r = Math.floor(this.keyY[i] as number);
+      const r = (this.keyY[i] as number) >> 8;
       if (r < r0) r0 = r;
       if (r > r1) r1 = r;
     }
@@ -555,12 +601,12 @@ export class Scene implements SpriteSink {
     const b = this.buckets;
     b.fill(0, 0, rows + 1);
     for (let i = 0; i < n; i++) {
-      const k = Math.floor(this.keyY[i] as number) - r0 + 1;
+      const k = ((this.keyY[i] as number) >> 8) - r0 + 1;
       b[k] = (b[k] as number) + 1;
     }
     for (let r = 1; r <= rows; r++) b[r] = (b[r] as number) + (b[r - 1] as number);
     for (let i = 0; i < n; i++) {
-      const r = Math.floor(this.keyY[i] as number) - r0;
+      const r = ((this.keyY[i] as number) >> 8) - r0;
       const at = b[r] as number;
       this.sorted[at] = i;
       b[r] = at + 1;
@@ -631,8 +677,8 @@ export class Scene implements SpriteSink {
       this.missed[look.greybox[proto] as number] = 1;
     drawEntity(this.atlas, this, this.cam, s, g, e, this.ghost ? OVERLAY.ghost : stream);
     if (!this.ghost && s !== null && s.smoke.length > 0 && e.hasDyn && e.state === 1)
-      this.smoke(s, serial, e.x2 / 2, e.y2 / 2);
-    if ((flags & 2) !== 0) this.deconstructMark(e.x2 / 2, e.y2 / 2, proto, e.dir);
+      this.smoke(s, serial, e.x2, e.y2);
+    if ((flags & 2) !== 0) this.deconstructMark(e.x2, e.y2, proto, e.dir);
     this.ghost = false;
     this.stats.entities++;
   }
@@ -666,12 +712,13 @@ export class Scene implements SpriteSink {
     const flags = v.getUint8(o + EV.flags);
     this.ghost = (flags & 1) !== 0;
     drawInserter(this.atlas, this, this.cam, s, g, h, this.ghost ? OVERLAY.ghost : STREAM.object);
-    if ((flags & 2) !== 0) this.deconstructMark(h.x2 / 2, h.y2 / 2, proto, h.dir);
+    if ((flags & 2) !== 0) this.deconstructMark(h.x2, h.y2, proto, h.dir);
     this.ghost = false;
     this.stats.entities++;
   }
 
-  private mover(mirror: Mirror, i: number, renderTick: number): void {
+  private mover(mirror: Mirror, i: number): void {
+    const renderTick = this.lastTick;
     const mv = mirror.movers.view;
     const o = i * 32;
     const proto = mv.getUint16(o + MO.proto, true);
@@ -719,22 +766,27 @@ export class Scene implements SpriteSink {
   }
 
   /** Smoke (A3 §8, 10 §9.8): three inked puffs per chimney, drifting east, fading over 2 s; render-only. */
-  private smoke(s: SpriteSet, serial: number, ex: number, ey: number): void {
+  private smoke(s: SpriteSet, serial: number, x2: number, y2: number): void {
     const fx = this.look.smokeSet >= 0 ? this.usable(this.look.smokeSet) : null;
     if (fx === null || fx.base === null) return;
     const P = this.atlas.pxPerTile[this.atlas.arrayOfKind[KIND.colour] as number] as number;
-    const radius = (this.atlas.json.sets[fx.name]?.radiusTiles as number | undefined) ?? 0.34;
+    const radius = this.smokeRadius;
+    const ex = x2 / 2;
+    const ey = y2 / 2;
+    const a = this.args;
     const life = SMOKE.lifeTicks;
     const t = this.lastTick;
     for (let c = 0; c < s.smoke.length / 2; c++) {
       const bx = ex + (s.smoke[c * 2] as number) / P;
       const by = ey + (s.smoke[c * 2 + 1] as number) / P;
-      const seed = posHash(serial, c) % life;
+      posHashInto(serial, c, this.hash, 0);
+      const seed = (this.hash[0] as number) % life;
       for (let j = 0; j < SMOKE.puffs; j++) {
         const clock = t + seed + (j * life) / SMOKE.puffs;
         const age = (clock % life) / life;
         const cycle = Math.floor(clock / life);
-        const h = posHash(serial * 3 + j, cycle);
+        posHashInto(serial * 3 + j, cycle, this.hash, 1);
+        const h = this.hash[1] as number;
         this.vals[AXIS.shape] = h | 0;
         const e = lookup(fx.base, this.vals);
         if (e < 0 || fx.base.entries[e * 2 + 1] === 0) continue;
@@ -747,15 +799,12 @@ export class Scene implements SpriteSink {
         const o = f * 8;
         const fr = this.atlas.frames;
         const k = (this.S / P) * (size / (2 * radius));
-        this.quad(
-          STREAM.high,
-          f,
-          (px - this.cam.cx) * this.S - (fr[o + 6] as number) * k,
-          (py - this.cam.cy) * this.S - (fr[o + 7] as number) * k,
-          (fr[o + 4] as number) * k,
-          (fr[o + 5] as number) * k,
-          alpha,
-        );
+        a[0] = (px - this.cam.cx) * this.S - (fr[o + 6] as number) * k;
+        a[1] = (py - this.cam.cy) * this.S - (fr[o + 7] as number) * k;
+        a[2] = (fr[o + 4] as number) * k;
+        a[3] = (fr[o + 5] as number) * k;
+        a[4] = alpha;
+        this.quad(STREAM.high, f);
       }
     }
   }
@@ -764,54 +813,71 @@ export class Scene implements SpriteSink {
   lastTick = 0;
 
   /** Factorio's deconstruction mark: a red cross over the entity's footprint (an overlay, never graded). */
-  private deconstructMark(ex: number, ey: number, proto: number, dir: number): void {
+  private deconstructMark(x2: number, y2: number, proto: number, dir: number): void {
+    const ex = x2 / 2;
+    const ey = y2 / 2;
     const turned = dir === 4 || dir === 12;
     const w =
       Math.max(0.6, (turned ? this.look.size[proto * 2 + 1] : this.look.size[proto * 2]) as number) * 0.5;
     const h =
       Math.max(0.6, (turned ? this.look.size[proto * 2] : this.look.size[proto * 2 + 1]) as number) * 0.5;
-    const r = DEBUG_COLOURS.chunkGrid;
-    const tint = rgba8(r[0] * 0.9, r[1] * 0.9, r[2] * 0.9, 0.9);
-    const lw = Math.max(2, this.S / 12);
-    this.line(ex - w * 0.6, ey - h * 0.6, ex + w * 0.6, ey + h * 0.6, lw, tint);
-    this.line(ex + w * 0.6, ey - h * 0.6, ex - w * 0.6, ey + h * 0.6, lw, tint);
+    const L = this.ln;
+    L[4] = Math.max(2, this.S / 12);
+    L[0] = ex - w * 0.6;
+    L[1] = ey - h * 0.6;
+    L[2] = ex + w * 0.6;
+    L[3] = ey + h * 0.6;
+    this.line(DECON_TINT);
+    L[0] = ex + w * 0.6;
+    L[1] = ey - h * 0.6;
+    L[2] = ex - w * 0.6;
+    L[3] = ey + h * 0.6;
+    this.line(DECON_TINT);
   }
 
-  /** A solid line between two world points (tiles), `lw` device px wide. */
-  private line(x0: number, y0: number, x1: number, y1: number, lw: number, tint: number): void {
+  /** A solid line between two world points, ln [x0, y0, x1, y1] tiles, ln[4] device px wide. */
+  private line(tint: number): void {
+    const L = this.ln;
     const S = this.S;
-    const ax = (x0 - this.cam.cx) * S;
-    const ay = (y0 - this.cam.cy) * S;
-    const bx = (x1 - this.cam.cx) * S;
-    const by = (y1 - this.cam.cy) * S;
+    const ax = ((L[0] as number) - this.cam.cx) * S;
+    const ay = ((L[1] as number) - this.cam.cy) * S;
+    const bx = ((L[2] as number) - this.cam.cx) * S;
+    const by = ((L[3] as number) - this.cam.cy) * S;
+    const lw = L[4] as number;
     const dx = bx - ax;
     const dy = by - ay;
     const len = Math.hypot(dx, dy) || 1;
     const nx = (-dy / len) * lw * 0.5;
     const ny = (dx / len) * lw * 0.5;
-    (this.streams[OVERLAY.solid] as Stream).quad(
-      ax + nx,
-      ay + ny,
-      bx + nx,
-      by + ny,
-      ax - nx,
-      ay - ny,
-      bx - nx,
-      by - ny,
-      0,
-      0,
-      0,
-      0,
-      0,
-      tint,
-    );
+    const q = QUAD;
+    q[0] = ax + nx;
+    q[1] = ay + ny;
+    q[2] = bx + nx;
+    q[3] = by + ny;
+    q[4] = ax - nx;
+    q[5] = ay - ny;
+    q[6] = bx - nx;
+    q[7] = by - ny;
+    q[8] = tint;
+    (this.streams[OVERLAY.solid] as Stream).quad(0, 0, 0, 0, 0);
+  }
+
+  /** line() from arguments (only the debug overlays use it). */
+  private lineAt(x0: number, y0: number, x1: number, y1: number, lw: number, tint: number): void {
+    const L = this.ln;
+    L[0] = x0;
+    L[1] = y0;
+    L[2] = x1;
+    L[3] = y1;
+    L[4] = lw;
+    this.line(tint);
   }
 
   private rectOutline(x0: number, y0: number, x1: number, y1: number, lw: number, tint: number): void {
-    this.line(x0, y0, x1, y0, lw, tint);
-    this.line(x1, y0, x1, y1, lw, tint);
-    this.line(x1, y1, x0, y1, lw, tint);
-    this.line(x0, y1, x0, y0, lw, tint);
+    this.lineAt(x0, y0, x1, y0, lw, tint);
+    this.lineAt(x1, y0, x1, y1, lw, tint);
+    this.lineAt(x1, y1, x0, y1, lw, tint);
+    this.lineAt(x0, y1, x0, y0, lw, tint);
   }
 
   /** F4's overlays (I §4.21): tile and chunk grids, collision and selection rectangles, entity positions. */
@@ -827,13 +893,13 @@ export class Scene implements SpriteSink {
       );
     if (d.tileGrid && S >= 8) {
       const t = col(DEBUG_COLOURS.tileGrid);
-      for (let x = Math.ceil(vx0); x <= vx1; x++) this.line(x, vy0, x, vy1, 1, t);
-      for (let y = Math.ceil(vy0); y <= vy1; y++) this.line(vx0, y, vx1, y, 1, t);
+      for (let x = Math.ceil(vx0); x <= vx1; x++) this.lineAt(x, vy0, x, vy1, 1, t);
+      for (let y = Math.ceil(vy0); y <= vy1; y++) this.lineAt(vx0, y, vx1, y, 1, t);
     }
     if (d.chunkGrid) {
       const t = col(DEBUG_COLOURS.chunkGrid);
-      for (let x = Math.ceil(vx0 / 32) * 32; x <= vx1; x += 32) this.line(x, vy0, x, vy1, 2, t);
-      for (let y = Math.ceil(vy0 / 32) * 32; y <= vy1; y += 32) this.line(vx0, y, vx1, y, 2, t);
+      for (let x = Math.ceil(vx0 / 32) * 32; x <= vx1; x += 32) this.lineAt(x, vy0, x, vy1, 2, t);
+      for (let y = Math.ceil(vy0 / 32) * 32; y <= vy1; y += 32) this.lineAt(vx0, y, vx1, y, 2, t);
     }
     if (!(d.collision || d.selection || d.positions)) return;
     const cc = col(DEBUG_COLOURS.collision);
@@ -850,7 +916,7 @@ export class Scene implements SpriteSink {
         const dir = v.getUint8(o + EV.dir);
         if (d.collision) this.box(this.look.collision, proto, dir, ex, ey, cc);
         if (d.selection) this.box(this.look.selection, proto, dir, ex, ey, sc);
-        if (d.positions) this.line(ex - 2 * px, ey, ex + 2 * px, ey, 4, pc);
+        if (d.positions) this.lineAt(ex - 2 * px, ey, ex + 2 * px, ey, 4, pc);
       }
     }
   }

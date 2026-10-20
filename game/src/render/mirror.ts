@@ -15,7 +15,6 @@ import {
   BeltSegmentCodec,
   type ChunkRect,
   ChunkTilesCodec,
-  chunkXY,
   DynCodec,
   EntityViewCodec,
   heldChunks,
@@ -45,9 +44,26 @@ const CHUNK_HEADER = 16;
 const TILE_RECORD = ChunkTilesCodec.SIZE;
 const SECTION_TYPES = 18;
 
+/**
+ * The mirror's key of chunk (cx, cy): (cx << 16) | (cy & 0xffff), a small integer (V8 Smi) for |cx| < 16,384 chunks,
+ * so a lookup boxes nothing. The wire's chunk_key, ((cx + 32768) << 16 | (cy + 32768)) >>> 0, is above 2³⁰ for nearly
+ * every chunk, and V8 boxes such a number each time it is passed to Map.get. Exact (if boxed) beyond that range.
+ */
+export function chunkId(cx: number, cy: number): number {
+  return (cx << 16) | (cy & 0xffff);
+}
+
+/** The mirror's key (chunkId) of a wire chunk_key. */
+export function chunkIdOfKey(key: number): number {
+  return chunkId((key >>> 16) - 32768, (key & 0xffff) - 32768);
+}
+
 /** One held chunk's retained records. */
 export interface ChunkView {
+  /** The wire's chunk_key. */
   key: number;
+  /** The mirror's key: chunkId(cx, cy). */
+  id: number;
   cx: number;
   cy: number;
   /** 1,024 tile ids, row-major (index = y × 32 + x), or null until CHUNK_TILES arrives. */
@@ -100,7 +116,10 @@ class Snapshot {
       this.bytes = new Uint8Array(n);
       this.view = new DataView(this.bytes.buffer);
     }
-    this.bytes.set(src.subarray(offset, offset + length), 0);
+    // a byte loop, not set(src.subarray(…)): a view per section per packet would be garbage at 60 Hz (bytes are
+    // small integers, so no tier of V8 boxes them)
+    const out = this.bytes;
+    for (let i = 0; i < length; i++) out[i] = src[offset + i] as number;
     this.count = count;
     this.length = length;
   }
@@ -149,6 +168,7 @@ class SerialIndex {
 }
 
 export class Mirror {
+  /** The held chunks, by chunkId(cx, cy). */
   readonly chunks = new Map<number, ChunkView>();
   readonly lines = new Map<number, BeltLine>();
   readonly dyn = new Snapshot();
@@ -265,23 +285,30 @@ export class Mirror {
 
   /** Applies a view request's held set: chunks and lines that leave it are dropped (§15.4's retirement rules). */
   setView(view: ViewRequest | null): void {
+    // every packet names the request it answers: the same one again changes nothing (and allocates nothing)
+    if (view !== null && view === this.view) return;
     this.view = view;
-    const held = view === null ? null : heldChunks(view);
-    this.held = held;
-    for (const [key, c] of this.chunks)
-      if (!inRect(held, c.cx, c.cy)) {
-        this.chunks.delete(key);
-        this.terrainRev++;
-      }
-    for (const [id, l] of this.lines)
-      if (held === null || l.cx1 < held.cx0 || l.cx0 > held.cx1 || l.cy1 < held.cy0 || l.cy0 > held.cy1)
-        this.lines.delete(id);
+    this.held = view === null ? null : heldChunks(view);
+    this.chunks.forEach(this.dropChunk);
+    this.lines.forEach(this.dropLine);
   }
+  private readonly dropChunk = (c: ChunkView, id: number): void => {
+    if (inRect(this.held, c.cx, c.cy)) return;
+    this.chunks.delete(id);
+    this.terrainRev++;
+  };
+  private readonly dropLine = (l: BeltLine, id: number): void => {
+    const held = this.held;
+    if (held === null || l.cx1 < held.cx0 || l.cx0 > held.cx1 || l.cy1 < held.cy0 || l.cy0 > held.cy1)
+      this.lines.delete(id);
+  };
 
   private chunk(key: number): ChunkView | null {
-    let c = this.chunks.get(key);
+    const cx = (key >>> 16) - 32768;
+    const cy = (key & 0xffff) - 32768;
+    const id = chunkId(cx, cy);
+    let c = this.chunks.get(id);
     if (c) return c;
-    const [cx, cy] = chunkXY(key);
     if (this.view !== null && !inRect(this.held, cx, cy)) {
       if (this.warnings.length < 16)
         this.warnings.push(`a record names chunk ${cx},${cy} outside the held set`);
@@ -289,6 +316,7 @@ export class Mirror {
     }
     c = {
       key,
+      id,
       cx,
       cy,
       tiles: null,
@@ -304,7 +332,7 @@ export class Mirror {
       terrainRev: 0,
       versions: new Int32Array(4),
     };
-    this.chunks.set(key, c);
+    this.chunks.set(id, c);
     this.terrainRev++;
     return c;
   }
