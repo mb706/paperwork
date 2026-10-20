@@ -365,7 +365,16 @@ if (!isMainThread) {
     const line = JSON.stringify({
       ts: Math.floor(Date.now() / 1000),
       git: git(['rev-parse', 'HEAD']),
-      dirty: git(['status', '--porcelain', '--untracked-files=no']) !== '',
+      // The history file itself does not make a run dirty (it is appended to as the run goes).
+      dirty:
+        git([
+          'status',
+          '--porcelain',
+          '--untracked-files=no',
+          '--',
+          ':/',
+          ':(exclude,glob)**/bench/history.jsonl',
+        ]) !== '',
       scenario: sc.name,
       runner: 'node wasm',
       module,

@@ -575,7 +575,16 @@ pub fn host() -> Host {
         .unwrap_or_default();
     Host {
         git: git(&["rev-parse", "HEAD"]).unwrap_or_default(),
-        dirty: git(&["status", "--porcelain", "--untracked-files=no"]).is_some_and(|s| !s.is_empty()),
+        // The history file itself does not make a run dirty (it is appended to as the run goes).
+        dirty: git(&[
+            "status",
+            "--porcelain",
+            "--untracked-files=no",
+            "--",
+            ":/",
+            ":(exclude,glob)**/bench/history.jsonl",
+        ])
+        .is_some_and(|s| !s.is_empty()),
         load,
         mhz: mhz(),
         cpus,
