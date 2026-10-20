@@ -28,6 +28,7 @@ export class Stream {
     this.quads = 0;
   }
 
+  /** Doubles the storage (kept: the arrays grow, never shrink). */
   private grow(): void {
     const next = new ArrayBuffer(this.buf.byteLength * 2);
     new Uint8Array(next).set(new Uint8Array(this.buf));
@@ -70,6 +71,45 @@ export class Stream {
     u[o + 2] = (u1 | (v1 << 16)) >>> 0;
     u[o + 3] = layerFlags;
     u[o + 4] = tint;
+    this.quads++;
+  }
+
+  /** Room for `n` more quads (a caller writing them in place, the belt items' fast path). */
+  reserve(n: number): void {
+    while ((this.quads + n) * QUAD_WORDS > this.u32.length) this.grow();
+  }
+
+  /**
+   * A quad with its corners and tint in QUAD (as quad()), its uv words (u | v << 16 at its four corners)
+   * precomputed at uv[uo…uo+3] (the rotated sprites: no rounding per quad).
+   */
+  quadUv(uv: Uint32Array, uo: number, lf: number): void {
+    if ((this.quads + 1) * QUAD_WORDS > this.u32.length) this.grow();
+    const q = QUAD;
+    const f = this.f32;
+    const u = this.u32;
+    const tint = q[8] as number;
+    const o = this.quads * QUAD_WORDS;
+    f[o] = q[0] as number;
+    f[o + 1] = q[1] as number;
+    u[o + 2] = uv[uo] as number;
+    u[o + 3] = lf;
+    u[o + 4] = tint;
+    f[o + 5] = q[2] as number;
+    f[o + 6] = q[3] as number;
+    u[o + 7] = uv[uo + 1] as number;
+    u[o + 8] = lf;
+    u[o + 9] = tint;
+    f[o + 10] = q[4] as number;
+    f[o + 11] = q[5] as number;
+    u[o + 12] = uv[uo + 2] as number;
+    u[o + 13] = lf;
+    u[o + 14] = tint;
+    f[o + 15] = q[6] as number;
+    f[o + 16] = q[7] as number;
+    u[o + 17] = uv[uo + 3] as number;
+    u[o + 18] = lf;
+    u[o + 19] = tint;
     this.quads++;
   }
 
@@ -136,6 +176,9 @@ export class GlBatcher {
   /** Bytes uploaded in the last frame (the HUD). */
   uploaded = 0;
   draws = 0;
+  /** The storage of every vertex buffer as last specified (two per stream; GPU accounting, C4-r1 8). */
+  readonly bufferBytes: Float64Array;
+  static readonly INDEX_BYTES = QUADS_PER_DRAW * 6 * 4;
 
   constructor(gl: WebGL2RenderingContext, streams: number) {
     this.gl = gl;
@@ -160,6 +203,7 @@ export class GlBatcher {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
     for (let l = 0; l < 4; l++) gl.enableVertexAttribArray(l);
     gl.bindVertexArray(null);
+    this.bufferBytes = new Float64Array(streams * 2);
     for (let s = 0; s < streams; s++) {
       const a = gl.createBuffer();
       const b = gl.createBuffer();
@@ -181,6 +225,14 @@ export class GlBatcher {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers[s]?.[this.flip] as WebGLBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, st.u32, gl.STREAM_DRAW, 0, st.quads * QUAD_WORDS);
     this.uploaded += st.quads * QUAD_WORDS * 4;
+    this.bufferBytes[s * 2 + this.flip] = st.quads * QUAD_WORDS * 4;
+  }
+
+  /** GPU bytes: the index buffer and every vertex buffer's storage. */
+  bytes(): number {
+    let b = GlBatcher.INDEX_BYTES;
+    for (let i = 0; i < this.bufferBytes.length; i++) b += this.bufferBytes[i] as number;
+    return b;
   }
 
   /** Draws stream `s` (already uploaded this frame) with the bound program, in runs of 2¹⁶ quads. */

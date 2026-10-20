@@ -3,6 +3,11 @@
 // material textures (an array with one 512² layer per tile type) and a 256-entry tile table (material layer, flags,
 // tint). Chunk layers are given out as chunks enter the held set and taken back when they leave; the shore textures
 // are rebuilt within a per-frame budget, so a jump of the view never stalls a frame.
+//
+// C4-r1 1 and 7: the caches belong to one world (a new world, the mirror's epoch, empties them, whatever coordinates
+// it reuses); they grow when the held chunks need more layers (the old layers copied on the GPU), up to the GPU's
+// layer limit, and past it visible chunks take the layers of chunks out of view, least recently drawn first. A chunk
+// that could not get a shore layer stays pending and is tried again.
 
 import type { JsonTile } from '../../shared/gen/protos.ts';
 import type { ChunkView, Mirror } from '../mirror.ts';
@@ -44,7 +49,9 @@ interface Slot {
   /** The neighbourhood signature the layers were built from. */
   sig: number;
   shoreSig: number;
+  /** The frame it was last prepared, and last in view (eviction takes the least recently seen out of view). */
   frame: number;
+  seen: number;
 }
 
 const VERTEX_BYTES = 32;
@@ -52,13 +59,19 @@ const VERTEX_BYTES = 32;
 export class TerrainPass {
   readonly gl: WebGL2RenderingContext;
   readonly prog: Program;
-  readonly ids: WebGLTexture;
-  readonly shore: WebGLTexture;
+  ids: WebGLTexture;
+  shore: WebGLTexture;
   readonly tiles: WebGLTexture;
   readonly vao: WebGLVertexArrayObject;
   readonly vbo: WebGLBuffer;
-  readonly idCapacity: number;
-  readonly shoreCapacity: number;
+  idCapacity: number;
+  shoreCapacity: number;
+  /** The GPU's limit on array layers: the caches grow up to it. */
+  private readonly maxLayers: number;
+  /** The mirror epoch the cached layers belong to (C4-r1 1). */
+  private epoch = -1;
+  private copyFbo: WebGLFramebuffer | null = null;
+  private vboBytes = 0;
   private readonly slots = new Map<number, Slot>();
   private readonly freeIds: number[] = [];
   private readonly freeShore: number[] = [];
@@ -93,8 +106,9 @@ export class TerrainPass {
     this.gl = gl;
     this.materialLayers = materialLayers;
     this.treeDrawable = treeDrawable;
-    this.idCapacity = idCapacity;
-    this.shoreCapacity = shoreCapacity;
+    this.maxLayers = (gl.getParameter(gl.MAX_ARRAY_TEXTURE_LAYERS) as number) || 256;
+    this.idCapacity = Math.min(idCapacity, this.maxLayers);
+    this.shoreCapacity = Math.min(shoreCapacity, this.maxLayers);
     this.prog = createProgram(gl, TERRAIN_VS, TERRAIN_FS, 'terrain');
     // the uniforms that never change, once (they live in the program object; per frame they would box doubles)
     const p = this.prog.u;
@@ -117,30 +131,17 @@ export class TerrainPass {
     if (p.uMats) gl.uniform1i(p.uMats, 2);
     if (p.uTiles) gl.uniform1i(p.uTiles, 3);
     gl.useProgram(null);
-    const ids = gl.createTexture();
-    const shore = gl.createTexture();
     const tiles = gl.createTexture();
     const vao = gl.createVertexArray();
     const vbo = gl.createBuffer();
-    if (!ids || !shore || !tiles || !vao || !vbo) throw new Error('terrain: GL allocation failed');
-    this.ids = ids;
-    this.shore = shore;
+    if (!tiles || !vao || !vbo) throw new Error('terrain: GL allocation failed');
     this.tiles = tiles;
     this.vao = vao;
     this.vbo = vbo;
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, ids);
-    gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.R8UI, ID_SIZE, ID_SIZE, idCapacity);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, shore);
-    gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RG8, SHORE_SIZE, SHORE_SIZE, shoreCapacity);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
-    for (let i = idCapacity - 1; i >= 0; i--) this.freeIds.push(i);
-    for (let i = shoreCapacity - 1; i >= 0; i--) this.freeShore.push(i);
+    this.ids = this.array(gl.R8UI, ID_SIZE, this.idCapacity, false);
+    this.shore = this.array(gl.RG8, SHORE_SIZE, this.shoreCapacity, true);
+    for (let i = this.idCapacity - 1; i >= 0; i--) this.freeIds.push(i);
+    for (let i = this.shoreCapacity - 1; i >= 0; i--) this.freeShore.push(i);
     this.uploadTileTable(tileProtos);
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
@@ -190,13 +191,25 @@ export class TerrainPass {
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
-  /** Releases the layers of chunks the mirror no longer holds (bound callbacks: no iterator per frame). */
+  /**
+   * Releases the layers of chunks the mirror no longer holds (bound callbacks: no iterator per frame), and every
+   * layer when the mirror holds another world (its epoch moved): chunk coordinates and revisions start again there.
+   */
   private collect(mirror: Mirror): void {
     this.mirrorNow = mirror;
+    if (mirror.epoch !== this.epoch) {
+      this.epoch = mirror.epoch;
+      this.slots.forEach(this.releaseAll);
+      this.slots.clear();
+    }
     if (this.slots.size > mirror.chunks.size || this.slotsSeen !== mirror.terrainRev)
       this.slots.forEach(this.release);
     this.slotsSeen = mirror.terrainRev;
   }
+  private readonly releaseAll = (slot: Slot): void => {
+    this.freeIds.push(slot.idLayer);
+    if (slot.shoreLayer >= 0) this.freeShore.push(slot.shoreLayer);
+  };
   private slotsSeen = -1;
   private readonly release = (slot: Slot, id: number): void => {
     if (this.mirrorNow?.chunks.has(id)) return;
@@ -230,9 +243,10 @@ export class TerrainPass {
     const gl = this.gl;
     let slot = this.slots.get(c.id);
     if (!slot) {
+      if (this.freeIds.length === 0 && !this.growIds()) this.evict(true);
       const idLayer = this.freeIds.pop();
-      if (idLayer === undefined) return null; // over capacity: the paper shows through
-      slot = { idLayer, shoreLayer: -1, sig: 0, shoreSig: 0, frame: 0 };
+      if (idLayer === undefined) return null; // every layer holds a chunk in view: drawn next frame
+      slot = { idLayer, shoreLayer: -1, sig: 0, shoreSig: -1, frame: 0, seen: 0 };
       this.slots.set(c.id, slot);
     }
     const sig = this.signature(mirror, c);
@@ -264,26 +278,29 @@ export class TerrainPass {
     buildIds(this.tilesOf, c.cx, c.cy, this.idBuf);
     const n = this.collectTrees(mirror, c.cx, c.cy);
     if (needsShore(this.idBuf, this.isWater, n)) {
-      if (slot.shoreLayer < 0) slot.shoreLayer = this.freeShore.pop() ?? -1;
-      if (slot.shoreLayer >= 0) {
-        buildShore(this.idBuf, this.isWater, this.trees, n, this.scratch, this.shoreBuf);
-        gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shore);
-        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-        gl.texSubImage3D(
-          gl.TEXTURE_2D_ARRAY,
-          0,
-          0,
-          0,
-          slot.shoreLayer,
-          SHORE_SIZE,
-          SHORE_SIZE,
-          1,
-          gl.RG,
-          gl.UNSIGNED_BYTE,
-          this.shoreBuf,
-        );
-        this.shoresBuilt++;
+      if (slot.shoreLayer < 0) {
+        if (this.freeShore.length === 0 && !this.growShore()) this.evict(false);
+        slot.shoreLayer = this.freeShore.pop() ?? -1;
       }
+      // no layer to be had now: the chunk stays pending and is tried again (C4-r1 7)
+      if (slot.shoreLayer < 0) return;
+      buildShore(this.idBuf, this.isWater, this.trees, n, this.scratch, this.shoreBuf);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shore);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.texSubImage3D(
+        gl.TEXTURE_2D_ARRAY,
+        0,
+        0,
+        0,
+        slot.shoreLayer,
+        SHORE_SIZE,
+        SHORE_SIZE,
+        1,
+        gl.RG,
+        gl.UNSIGNED_BYTE,
+        this.shoreBuf,
+      );
+      this.shoresBuilt++;
     } else if (slot.shoreLayer >= 0) {
       this.freeShore.push(slot.shoreLayer);
       slot.shoreLayer = -1;
@@ -313,12 +330,21 @@ export class TerrainPass {
     this.pr.cy1 = cy1;
     this.pr.budget = budgetMs;
     this.pr.now = now;
-    this.pr.t0 = now();
+    // the clock is read only when a shore texture is to be built (a steady frame reads none, C4-r1 10)
+    this.pr.t0 = -1;
+    // every visible chunk's slot is marked first, so eviction never takes one it has not reached yet
+    mirror.chunks.forEach(this.markVisible);
     for (let pass = 0; pass < 2; pass++) {
       this.pr.pass = pass;
       mirror.chunks.forEach(this.prepareOne);
     }
   }
+  private readonly markVisible = (c: ChunkView): void => {
+    const pr = this.pr;
+    if (c.cx < pr.cx0 || c.cx > pr.cx1 || c.cy < pr.cy0 || c.cy > pr.cy1) return;
+    const slot = this.slots.get(c.id);
+    if (slot !== undefined) slot.seen = this.frameNo;
+  };
   private readonly pr = { cx0: 0, cy0: 0, cx1: 0, cy1: 0, budget: 0, t0: 0, pass: 0, now: (): number => 0 };
   private readonly prepareOne = (c: ChunkView): void => {
     const mirror = this.mirrorNow;
@@ -327,11 +353,16 @@ export class TerrainPass {
     const visible = c.cx >= pr.cx0 && c.cx <= pr.cx1 && c.cy >= pr.cy0 && c.cy <= pr.cy1;
     if (visible !== (pr.pass === 0)) return;
     const slot = this.slotOf(mirror, c);
-    if (slot === null) return;
+    if (slot === null) {
+      this.pending++;
+      return;
+    }
     slot.frame = this.frameNo;
+    if (visible) slot.seen = this.frameNo;
     if (slot.shoreSig === slot.sig) return;
+    if (pr.t0 < 0) pr.t0 = pr.now();
     if (this.shoresBuilt === 0 || pr.now() - pr.t0 < pr.budget) this.buildShoreOf(mirror, c, slot);
-    else this.pending++;
+    if (slot.shoreSig !== slot.sig) this.pending++;
   };
 
   /**
@@ -372,6 +403,7 @@ export class TerrainPass {
         const x1 = x0 + CHUNK_TILES * S;
         const y1 = y0 + CHUNK_TILES * S;
         // a stale shore texture (a neighbour just changed) is kept until its rebuild, so the lining never flickers
+        // a stale shore texture (a neighbour changed, or no layer yet) is kept until its rebuild: no flicker
         const shoreLayer = slot.shoreLayer;
         const o = this.reserve(quads) * 8;
         const f = this.vf32;
@@ -416,6 +448,7 @@ export class TerrainPass {
     gl.bindVertexArray(this.vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
     gl.bufferData(gl.ARRAY_BUFFER, this.vf32, gl.STREAM_DRAW, 0, quads * 4 * (VERTEX_BYTES / 4));
+    this.vboBytes = quads * 4 * VERTEX_BYTES;
     gl.drawElements(gl.TRIANGLES, quads * 6, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);
   }
@@ -438,6 +471,113 @@ export class TerrainPass {
       this.vi32 = new Int32Array(next);
     }
     return q * 4;
+  }
+
+  /** An R8UI (ids) or RG8 (shores) array of `layers` layers of size² texels. */
+  private array(format: number, size: number, layers: number, linear: boolean): WebGLTexture {
+    const gl = this.gl;
+    const tex = gl.createTexture();
+    if (tex === null) throw new Error('terrain: GL allocation failed');
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
+    gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, format, size, size, layers);
+    const f = linear ? gl.LINEAR : gl.NEAREST;
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, f);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, f);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
+    return tex;
+  }
+
+  /** The array grown to `layers` layers, the old layers copied over on the GPU; the old array is deleted. */
+  private regrow(
+    old: WebGLTexture,
+    oldLayers: number,
+    layers: number,
+    format: number,
+    size: number,
+    linear: boolean,
+  ): WebGLTexture {
+    const gl = this.gl;
+    const tex = this.array(format, size, layers, linear);
+    this.copyFbo ??= gl.createFramebuffer();
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.copyFbo);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
+    for (let l = 0; l < oldLayers; l++) {
+      gl.framebufferTextureLayer(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, old, 0, l);
+      gl.copyTexSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, l, 0, 0, size, size);
+    }
+    gl.framebufferTextureLayer(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, null, 0, 0);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
+    gl.deleteTexture(old);
+    return tex;
+  }
+
+  /** Doubles the tile-id layers (up to the GPU's limit); false when it cannot. */
+  private growIds(): boolean {
+    const next = Math.min(this.maxLayers, this.idCapacity * 2);
+    if (next <= this.idCapacity) return false;
+    this.ids = this.regrow(this.ids, this.idCapacity, next, this.gl.R8UI, ID_SIZE, false);
+    for (let i = next - 1; i >= this.idCapacity; i--) this.freeIds.push(i);
+    this.idCapacity = next;
+    return true;
+  }
+
+  /** Doubles the shore layers (up to the GPU's limit); false when it cannot. */
+  private growShore(): boolean {
+    const next = Math.min(this.maxLayers, this.shoreCapacity * 2);
+    if (next <= this.shoreCapacity) return false;
+    this.shore = this.regrow(this.shore, this.shoreCapacity, next, this.gl.RG8, SHORE_SIZE, true);
+    for (let i = next - 1; i >= this.shoreCapacity; i--) this.freeShore.push(i);
+    this.shoreCapacity = next;
+    return true;
+  }
+
+  /**
+   * Frees a layer (a tile-id layer, else a shore layer) by evicting the chunk out of view seen least recently;
+   * false when every holder is in view.
+   */
+  private evict(ids: boolean): boolean {
+    this.victim = null;
+    this.victimSeen = Number.POSITIVE_INFINITY;
+    this.victimIds = ids;
+    this.slots.forEach(this.pickVictim);
+    const v = this.victim as Slot | null;
+    if (v === null) return false;
+    if (ids) {
+      this.freeIds.push(v.idLayer);
+      if (v.shoreLayer >= 0) this.freeShore.push(v.shoreLayer);
+      this.slots.delete(this.victimKey);
+    } else {
+      this.freeShore.push(v.shoreLayer);
+      v.shoreLayer = -1;
+      v.shoreSig = -1;
+    }
+    return true;
+  }
+  private victim: Slot | null = null;
+  private victimKey = 0;
+  private victimSeen = 0;
+  private victimIds = true;
+  private readonly pickVictim = (slot: Slot, key: number): void => {
+    if (slot.seen === this.frameNo) return;
+    if (!this.victimIds && slot.shoreLayer < 0) return;
+    if (slot.seen < this.victimSeen) {
+      this.victim = slot;
+      this.victimKey = key;
+      this.victimSeen = slot.seen;
+    }
+  };
+
+  /** GPU bytes: the tile-id and shore caches, the tile table and the vertex buffer (C4-r1 8). */
+  bytes(): number {
+    return (
+      ID_SIZE * ID_SIZE * this.idCapacity +
+      SHORE_SIZE * SHORE_SIZE * 2 * this.shoreCapacity +
+      256 * 16 +
+      this.vboBytes
+    );
   }
 
   /** Tree positions (tiles from the chunk's origin) within reach of chunk (cx, cy)'s shore texture. */
@@ -477,6 +617,7 @@ export class TerrainPass {
     const gl = this.gl;
     gl.deleteTexture(this.ids);
     gl.deleteTexture(this.shore);
+    if (this.copyFbo) gl.deleteFramebuffer(this.copyFbo);
     gl.deleteTexture(this.tiles);
     gl.deleteBuffer(this.vbo);
     gl.deleteVertexArray(this.vao);

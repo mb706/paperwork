@@ -19,18 +19,28 @@ import {
   GRADE_FS,
   HATCH_FS,
   LIGHT_FS,
-  MAX_LAYERS,
+  LOD_UNIT,
   SHADOW_FS,
   SOLID_FS,
   SPRITE_FS,
   SPRITE_VS,
 } from './gl/shaders.ts';
 import { TerrainPass } from './gl/terrain.ts';
-import { AtlasTextures, type PageUpload } from './gl/textures.ts';
+import { AllocationError, AtlasTextures, type PageUpload } from './gl/textures.ts';
 import { Lookups } from './lookups.ts';
 import { cyanotypeLut } from './lut.ts';
 import type { Atlas } from './manifest.ts';
-import { type Allocation, chooseMode, otherAllocations, type ResolutionMode } from './memory.ts';
+import {
+  type Allocation,
+  allocationOf,
+  chooseMode,
+  MB,
+  MODE_BUDGET_MB,
+  MODES,
+  otherAllocations,
+  type ResolutionMode,
+  targetBytes,
+} from './memory.ts';
 import { Mirror, MO } from './mirror.ts';
 import { STREAM } from './programs.ts';
 import { type Camera, PX_PER_TILE, scaleOf, snapCamera, ZOOM_MAX, ZOOM_MIN_WORLD } from './projection.ts';
@@ -61,8 +71,13 @@ export interface RendererOptions {
   terrainTiles?: string[];
   /** A lost context could not be recovered. */
   onFatal?: (message: string) => void;
-  /** The context was restored and every page must be uploaded again. */
+  /**
+   * The atlases were allocated again (a restored context, or a lower mode for the memory budget): the formats or
+   * the levels may differ, so the loader asks for every page again under a new upload epoch (`uploadConfig()`).
+   */
   onRestored?: () => void;
+  /** A page gave its layer to another under the eviction safety net (10 §6.13); the loader asks for it again. */
+  onEvict?: (array: number, page: number) => void;
   /** A replacement canvas was created (the app moves its listeners). */
   onCanvas?: (canvas: HTMLCanvasElement) => void;
 }
@@ -117,7 +132,17 @@ interface GlState {
  * The hatch and grade passes' uniforms that never change, set once per program (uniform values live in the program
  * object, and a restored context links new programs). Per frame they would cost GL calls and boxed doubles.
  */
-function setStaticUniforms(gl: WebGL2RenderingContext, hatch: Program, grade: Program): void {
+function setStaticUniforms(
+  gl: WebGL2RenderingContext,
+  hatch: Program,
+  grade: Program,
+  sprites: readonly Program[],
+): void {
+  for (const p of sprites) {
+    gl.useProgram(p.program);
+    if (p.u.uTex) gl.uniform1i(p.u.uTex, 0);
+    if (p.u.uLod) gl.uniform1i(p.u.uLod, LOD_UNIT);
+  }
   gl.useProgram(hatch.program);
   const h = hatch.u;
   if (h.uShadow) gl.uniform1i(h.uShadow, 0);
@@ -171,6 +196,15 @@ export class Renderer {
   debug: DebugFlags = { ...NO_DEBUG };
   /** The render-resolution setting (10 §6.10): the backing store is dpr (≤ 2) × this. */
   renderScale = 1;
+  /** Measure the frame's steps (the F5 HUD, the bench): off, a frame reads no clock (C4-r1 10). */
+  timing = false;
+  /** Frames drawn (the LRU clock of the eviction safety net). */
+  private frameNo = 0;
+  /**
+   * The camera the last frame was drawn with: snapped to whole device px, the canvas centre (ox, oy) and the
+   * backing size in device px, and the dpr. Picking and labels use it (src/shared/world-view.ts's WorldCamera).
+   */
+  readonly drawn = { cx: 0, cy: 0, zoom: 1, dpr: 1, ox: 0, oy: 0, w: 1, h: 1 };
   readonly stats: FrameStats = {
     frame: 0,
     total: 0,
@@ -224,48 +258,85 @@ export class Renderer {
     this.listen(this.canvas);
   }
 
-  private choose(gl: WebGL2RenderingContext): Allocation {
-    const half =
+  private halfFloat(gl: WebGL2RenderingContext): boolean {
+    return (
       gl.getExtension('EXT_color_buffer_float') !== null ||
-      gl.getExtension('EXT_color_buffer_half_float') !== null;
-    const [w, h] = this.backingSize();
-    const other = otherAllocations(w, h, half, 192, 96);
-    return chooseMode(this.atlas.json, this.probe.colour, this.probe.shadow, other, this.opts.mode ?? 'high');
+      gl.getExtension('EXT_color_buffer_half_float') !== null
+    );
   }
 
-  private initGl(gl: WebGL2RenderingContext): GlState {
-    const halfFloat =
-      gl.getExtension('EXT_color_buffer_float') !== null ||
-      gl.getExtension('EXT_color_buffer_half_float') !== null;
-    // allocate the atlases in the chosen mode; on OUT_OF_MEMORY step down (10 §6.13)
-    let textures: AtlasTextures | null = null;
-    for (const mode of ['high', 'normal', 'low'] as ResolutionMode[]) {
-      if (['high', 'normal', 'low'].indexOf(mode) < ['high', 'normal', 'low'].indexOf(this.allocation.mode))
-        continue;
+  /** §6.13's estimate of everything besides the atlases at the current backing size (the mode choice). */
+  private others(gl: WebGL2RenderingContext) {
+    this.measure();
+    return otherAllocations(this.bw, this.bh, this.halfFloat(gl), 192, 96);
+  }
+
+  private choose(gl: WebGL2RenderingContext): Allocation {
+    return chooseMode(
+      this.atlas.json,
+      this.probe.colour,
+      this.probe.shadow,
+      this.others(gl),
+      this.opts.mode ?? 'high',
+    );
+  }
+
+  /**
+   * The atlases in `first` or the next mode down that allocates (10 §6.13 "Choosing the mode"); failing that, at
+   * Low with fewer layers than pages, as many as allocate (the eviction safety net). Every failed attempt has deleted
+   * what it created (C4-r1 5).
+   */
+  private allocateTextures(gl: WebGL2RenderingContext, first: ResolutionMode): AtlasTextures {
+    const failures: string[] = [];
+    const attempt = (mode: ResolutionMode, cap?: number): AtlasTextures | null => {
       try {
-        const [w, h] = this.backingSize();
-        const alloc = chooseMode(
-          this.atlas.json,
-          this.probe.colour,
-          this.probe.shadow,
-          otherAllocations(w, h, halfFloat, 192, 96),
-          mode,
-        );
-        textures = new AtlasTextures(
+        return new AtlasTextures(
           gl,
           this.atlas,
-          alloc,
+          mode,
           this.probe.colour,
           this.probe.shadow,
           this.terrainTiles,
+          cap,
         );
-        this.allocation = alloc;
-        break;
       } catch (e) {
-        if (!(e instanceof RangeError)) throw e;
+        if (!(e instanceof AllocationError)) throw e;
+        failures.push(`${mode}${cap !== undefined ? ` (${cap} layers)` : ''}: ${e.message}`);
+        return null;
       }
+    };
+    for (let i = MODES.indexOf(first); i < MODES.length; i++) {
+      const t = attempt(MODES[i] as ResolutionMode);
+      if (t !== null) return t;
     }
-    if (textures === null) throw new Error('the atlases do not fit the GPU in any resolution mode');
+    // the safety net: the most layers per array that allocate at Low (a binary search; fewer layers always fit
+    // when more do)
+    const most = Math.max(1, ...this.atlas.json.pages.map((p) => p.length));
+    let best: AtlasTextures | null = null;
+    let lo = 1;
+    let hi = most - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const t = attempt('low', mid);
+      if (t !== null) {
+        best?.dispose();
+        best = t;
+        lo = mid + 1;
+      } else hi = mid - 1;
+    }
+    if (best !== null) {
+      console.warn(
+        `GPU memory: the atlases share ${best.arrays.map((a) => `${a.layers}/${a.pages}`).join(', ')} layers (10 §6.13 eviction)`,
+      );
+      return best;
+    }
+    throw new Error(`the atlases do not fit the GPU in any resolution mode: ${failures.join('; ')}`);
+  }
+
+  private initGl(gl: WebGL2RenderingContext): GlState {
+    const halfFloat = this.halfFloat(gl);
+    const textures = this.allocateTextures(gl, this.allocation.mode);
+    this.useTextures(gl, textures);
     const materialLayers = new Map<string, number>(this.terrainTiles.map((t, i) => [t, i]));
     const batcher = new GlBatcher(gl, OVERLAY.solid + 1);
     const trees = Uint8Array.from(this.look.treeSet, (t) => (t >= 0 ? 1 : 0));
@@ -286,13 +357,17 @@ export class Renderer {
     gl.bindTexture(gl.TEXTURE_3D, null);
     const hatch = createProgram(gl, FULLSCREEN_VS, HATCH_FS, 'hatch');
     const grade = createProgram(gl, FULLSCREEN_VS, GRADE_FS, 'grade');
-    setStaticUniforms(gl, hatch, grade);
+    const sprite = createProgram(gl, SPRITE_VS, SPRITE_FS, 'sprite');
+    const shadow = createProgram(gl, SPRITE_VS, SHADOW_FS, 'shadow');
+    const light = createProgram(gl, SPRITE_VS, LIGHT_FS, 'light');
+    const solid = createProgram(gl, SPRITE_VS, SOLID_FS, 'solid');
+    setStaticUniforms(gl, hatch, grade, [sprite, shadow, light, solid]);
     return {
       gl,
-      sprite: createProgram(gl, SPRITE_VS, SPRITE_FS, 'sprite'),
-      shadow: createProgram(gl, SPRITE_VS, SHADOW_FS, 'shadow'),
-      light: createProgram(gl, SPRITE_VS, LIGHT_FS, 'light'),
-      solid: createProgram(gl, SPRITE_VS, SOLID_FS, 'solid'),
+      sprite,
+      shadow,
+      light,
+      solid,
       hatch,
       grade,
       batcher,
@@ -307,6 +382,47 @@ export class Renderer {
     };
   }
 
+  /** Puts `textures` to use: the allocation report, the scene's page tables, eviction notices. */
+  private useTextures(gl: WebGL2RenderingContext, textures: AtlasTextures): void {
+    this.measure();
+    this.allocation = allocationOf(
+      this.atlas.json,
+      this.probe.colour,
+      this.probe.shadow,
+      textures.mode,
+      otherAllocations(this.bw, this.bh, this.halfFloat(gl), 192, 96),
+    );
+    this.scene.usePages(textures.arrays.map((a) => ({ pageLayer: a.pageLayer, used: a.used })));
+    textures.onEvict = (array, page) => this.opts.onEvict?.(array, page);
+  }
+
+  /** What the asset loader must request for the current allocation: formats and levels (an upload epoch). */
+  uploadConfig(): { colour: GpuFormat; shadow: GpuFormat; levelOffset: number[]; terrainOffset: number } {
+    const t = this.g?.textures;
+    return {
+      colour: this.probe.colour,
+      shadow: this.probe.shadow,
+      levelOffset: t ? t.arrays.map((a) => a.offset) : [],
+      terrainOffset: t?.terrain?.offset ?? 0,
+    };
+  }
+
+  /**
+   * Over the mode's budget (a resize, grown vertex buffers): the atlases again in the next lower mode, and every
+   * page asked for again (10 §6.13; C4-r1 8). False at Low.
+   */
+  private stepDown(g: GlState): boolean {
+    const i = MODES.indexOf(g.textures.mode);
+    if (i >= MODES.length - 1) return false;
+    const gl = g.gl;
+    g.textures.dispose();
+    g.textures = this.allocateTextures(gl, MODES[i + 1] as ResolutionMode);
+    this.useTextures(gl, g.textures);
+    console.info(`GPU memory: over the ${MODES[i]} budget; now ${g.textures.mode} (10 §6.13)`);
+    this.opts.onRestored?.();
+    return true;
+  }
+
   /** The GL context (null while lost). */
   get gl(): WebGL2RenderingContext | null {
     return this.g?.gl ?? null;
@@ -314,6 +430,22 @@ export class Renderer {
 
   get textures(): AtlasTextures | null {
     return this.g?.textures ?? null;
+  }
+
+  /** Whether every page and terrain material of group `core` is resident (gameplay readiness, 10 §9.7). */
+  coreResident(): boolean {
+    const t = this.g?.textures;
+    if (!t) return false;
+    const m = this.atlas.json;
+    for (let a = 0; a < m.pages.length; a++) {
+      const pages = m.pages[a] ?? [];
+      for (let p = 0; p < pages.length; p++)
+        if (pages[p]?.group === 'core' && !t.resident(a, p) && !t.evicting) return false;
+    }
+    const tiles = m.terrain?.tiles ?? {};
+    for (let i = 0; i < this.terrainTiles.length; i++)
+      if (tiles[this.terrainTiles[i] as string]?.group === 'core' && !t.terrainResident(i)) return false;
+    return true;
   }
 
   /** Work the renderer still has to do before a frame is final: page uploads and shore textures (tests wait). */
@@ -344,16 +476,14 @@ export class Renderer {
   /** The backing store's size in device px: the canvas's CSS size × dpr (into bw, bh; no allocation). */
   /** Computed uniforms of the hatch and grade passes, passed as typed arrays (no boxed doubles). */
   private readonly uni = new Float32Array(16);
+  /** The full-resolution target's height this frame (the sprite shader's uFullH, C4-r1 11). */
+  private fullH = 1;
   private bw = 1;
   private bh = 1;
   private measure(): void {
     const dpr = this.dpr();
     this.bw = Math.max(1, Math.round((this.canvas.clientWidth || this.canvas.width) * dpr));
     this.bh = Math.max(1, Math.round((this.canvas.clientHeight || this.canvas.height) * dpr));
-  }
-  private backingSize(): [number, number] {
-    this.measure();
-    return [this.bw, this.bh];
   }
 
   /** Zooms by wheel notches (×1.1 each, I §3.15), clamped to the world's range; positive zooms in. */
@@ -404,7 +534,9 @@ export class Renderer {
     const g = this.g;
     if (g === null || this.lost) return false;
     const gl = g.gl;
-    const t0 = performance.now();
+    // the timings read the clock only when someone looks at them (the F5 HUD, the bench)
+    const timed = this.timing;
+    const t0 = timed ? performance.now() : 0;
     const st = this.stats;
     if (this.lastFrame > 0) {
       this.fpsAcc += now - this.lastFrame;
@@ -424,6 +556,9 @@ export class Renderer {
       this.canvas.width = w;
       this.canvas.height = h;
     }
+    // the budget before a resize allocates (C4-r1 8): bigger targets may need a lower mode first
+    if (g.scene === null || g.scene.w !== w || g.scene.h !== h)
+      while (this.overBudget(g, targetBytes(w, h, g.halfFloat)) && this.stepDown(g));
     this.ensureTargets(g, w, h);
     // the tick to draw: the packet's, plus the time since it arrived (at most two ticks) when continuous
     const ahead =
@@ -433,18 +568,30 @@ export class Renderer {
     this.camera.dpr = this.dpr();
     const cam = snapCamera(this.camera, this.snapped);
     const S = scaleOf(cam);
+    const d = this.drawn;
+    d.cx = cam.cx;
+    d.cy = cam.cy;
+    d.zoom = cam.zoom;
+    d.dpr = cam.dpr;
+    d.ox = Math.floor(w / 2);
+    d.oy = Math.floor(h / 2);
+    d.w = w;
+    d.h = h;
     // uploads within 2 ms (10 §9.7), then the scene
-    const tp = performance.now();
+    this.frameNo++;
+    g.textures.frame = this.frameNo;
+    this.scene.frameNo = this.frameNo;
+    const tp = timed ? performance.now() : 0;
     g.textures.pump(2, clock);
-    const tb = performance.now();
+    const tb = timed ? performance.now() : 0;
     this.scene.resident = g.textures.setResident;
     this.scene.extrapolate = this.mode === 'continuous';
     this.scene.build(this.mirror, cam, w, h, renderTick, this.debug);
-    const tu = performance.now();
+    const tu = timed ? performance.now() : 0;
     const streams = this.scene.streams;
     g.batcher.beginFrame();
     for (let s = 0; s < streams.length; s++) g.batcher.upload(s, streams[s] as Stream);
-    const ts = performance.now();
+    const ts = timed ? performance.now() : 0;
     // origin: the canvas centre in whole device px
     const ox = Math.floor(w / 2);
     const oy = Math.floor(h / 2);
@@ -465,6 +612,7 @@ export class Renderer {
     gl.enable(gl.BLEND);
     gl.blendEquation(gl.FUNC_ADD);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    this.fullH = h;
     this.drawStream(g, STREAM.ground, ox, oy, w, h, 1, g.sprite);
     this.drawStream(g, STREAM.groundIcon, ox, oy, w, h, 1, g.sprite);
     // 3: shadows into the half-resolution mask (MAX), then hatched over the ground
@@ -501,13 +649,17 @@ export class Renderer {
     this.drawStream(g, OVERLAY.ghost, ox, oy, w, h, 1, g.sprite);
     this.drawStream(g, OVERLAY.solid, ox, oy, w, h, 1, g.solid);
     gl.disable(gl.BLEND);
-    const te = performance.now();
     st.frame++;
-    st.pump = tb - tp;
-    st.build = tu - tb;
-    st.upload = ts - tu;
-    st.submit = te - ts;
-    st.total = te - t0;
+    if (timed) {
+      const te = performance.now();
+      st.pump = tb - tp;
+      st.build = tu - tb;
+      st.upload = ts - tu;
+      st.submit = te - ts;
+      st.total = te - t0;
+    }
+    // grown vertex buffers count against the budget too (they take effect from the next frame)
+    if (this.overBudget(g, 0)) this.stepDown(g);
     let sprites = 0;
     for (let i = 0; i < streams.length; i++) sprites += (streams[i] as Stream).quads;
     st.sprites = sprites;
@@ -539,15 +691,17 @@ export class Renderer {
     gl.uniform2f(p.u.uOrigin as WebGLUniformLocation, ox, oy);
     gl.uniform2f(p.u.uTarget as WebGLUniformLocation, tw, th);
     gl.uniform1f(p.u.uTargetScale as WebGLUniformLocation, scale);
+    gl.uniform1f(p.u.uFullH as WebGLUniformLocation, this.fullH);
     const kind = STREAM_KIND[s] as number;
+    // the LOD unit always holds an R8UI texture (the colour array's for solid quads): the integer sampler needs one
+    const a = this.atlas.arrayOfKind[kind >= 0 ? kind : 0] as number;
+    const t = g.textures.arrays[a];
+    if (!t) return;
+    gl.activeTexture(gl.TEXTURE0 + LOD_UNIT);
+    gl.bindTexture(gl.TEXTURE_2D, t.lodTex);
+    gl.activeTexture(gl.TEXTURE0);
     if (kind >= 0) {
-      const a = this.atlas.arrayOfKind[kind] as number;
-      const t = g.textures.arrays[a];
-      if (!t) return;
-      gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, t.tex);
-      gl.uniform1i(p.u.uTex as WebGLUniformLocation, 0);
-      gl.uniform1fv(p.u.uMinLod as WebGLUniformLocation, t.minLod, 0, MAX_LAYERS);
       gl.uniform1f(p.u.uPageSize as WebGLUniformLocation, this.atlas.pageSize[a] as number);
       gl.uniform1f(p.u.uLevelOffset as WebGLUniformLocation, t.offset);
     }
@@ -710,23 +864,71 @@ export class Renderer {
     this.recover(gl);
   };
 
-  /** GPU memory as allocated (10 §6.13), MB, with the mode and formats. */
+  /** Whether the live allocations plus `extra` bytes exceed the mode's budget (10 §6.13). */
+  private overBudget(g: GlState, extra: number): boolean {
+    return this.liveBytes(g) + extra > (MODE_BUDGET_MB[g.textures.mode] as number) * MB;
+  }
+
+  /** Every live GPU allocation, bytes (C4-r1 8): atlases, terrain caches, targets, buffers, the LUT. */
+  private liveBytes(g: GlState): number {
+    const t = g.scene;
+    const targets = t === null ? 0 : targetBytes(t.w, t.h, g.halfFloat);
+    const n = CYANOTYPE_LUT_SIZE;
+    return g.textures.bytes() + g.terrain.bytes() + targets + g.batcher.bytes() + n * n * n * 4;
+  }
+
+  /** GPU memory as allocated now (10 §6.13), MB, with the mode, the formats and the budget. */
   memory(): {
     mode: ResolutionMode;
     colour: GpuFormat;
     shadow: GpuFormat;
     atlasMb: number;
+    terrainMb: number;
+    targetsMb: number;
+    buffersMb: number;
     otherMb: number;
     totalMb: number;
+    budgetMb: number;
+    /** Layers per array, and the pages they hold (fewer layers: the eviction safety net). */
+    layers: string;
   } {
-    const a = this.allocation;
+    const g = this.g;
+    const mode = g?.textures.mode ?? this.allocation.mode;
+    const budgetMb = MODE_BUDGET_MB[mode] as number;
+    if (g === null)
+      return {
+        mode,
+        colour: this.probe.colour,
+        shadow: this.probe.shadow,
+        atlasMb: 0,
+        terrainMb: 0,
+        targetsMb: 0,
+        buffersMb: 0,
+        otherMb: 0,
+        totalMb: 0,
+        budgetMb,
+        layers: '',
+      };
+    const t = g.scene;
+    const atlas = g.textures.bytes();
+    const terrain = g.terrain.bytes();
+    const targets = t === null ? 0 : targetBytes(t.w, t.h, g.halfFloat);
+    const buffers = g.batcher.bytes();
+    const total = this.liveBytes(g);
     return {
-      mode: a.mode,
+      mode,
       colour: this.probe.colour,
       shadow: this.probe.shadow,
-      atlasMb: a.atlasBytes / 1048576,
-      otherMb: a.otherBytes / 1048576,
-      totalMb: a.total / 1048576,
+      atlasMb: atlas / MB,
+      terrainMb: terrain / MB,
+      targetsMb: targets / MB,
+      buffersMb: buffers / MB,
+      otherMb: (total - atlas - terrain - targets - buffers) / MB,
+      totalMb: total / MB,
+      budgetMb,
+      layers: g.textures.arrays
+        .map((a) => (a.layers < a.pages ? `${a.layers}/${a.pages}` : `${a.layers}`))
+        .join(' '),
     };
   }
 

@@ -39,7 +39,8 @@ export function debugHud(r: Renderer, loader: LoaderLike | null): string {
     `sprites ${s.sprites}  belt items ${s.beltItems}  entities ${s.entities}  draws ${s.draws}  vertex ${s.uploadedKb.toFixed(0)} kB`,
     `chunks ${s.chunks} (terrain ${s.terrainChunks}, shores built ${s.shoresBuilt})  greyboxed ${s.greyboxed}`,
     `zoom ${r.camera.zoom.toFixed(2)}  dpr ${r.camera.dpr}  camera ${r.camera.cx.toFixed(2)}, ${r.camera.cy.toFixed(2)}`,
-    `GPU ${m.totalMb.toFixed(1)} MB (${m.mode}, ${m.colour}/${m.shadow}; atlases ${m.atlasMb.toFixed(1)}, other ${m.otherMb.toFixed(1)})`,
+    `GPU ${m.totalMb.toFixed(1)} of ${m.budgetMb} MB (${m.mode}, ${m.colour}/${m.shadow}, layers ${m.layers})`,
+    `  atlases ${m.atlasMb.toFixed(1)}  terrain ${m.terrainMb.toFixed(1)}  targets ${m.targetsMb.toFixed(1)}  buffers ${m.buffersMb.toFixed(1)}  other ${m.otherMb.toFixed(1)}`,
   ];
   if (loader) {
     const l = loader.stats;

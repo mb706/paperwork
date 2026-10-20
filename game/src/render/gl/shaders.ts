@@ -1,9 +1,11 @@
 // GLSL ES 3.00 sources of the frame's passes (10 §6.2, §9.8, §9.9). The style's numbers arrive as uniforms
 // (style.ts), so a style is a table, not shader edits. Conventions: sprite positions are device px from the canvas
-// centre; `uOrigin` is that centre (whole pixels); targets are sampled with GL's bottom-left origin throughout.
+// centre; `uOrigin` is that centre (whole pixels); targets are sampled with GL's bottom-left origin throughout, and
+// a half-resolution target holds window y ÷ 2 of the full one, anchored at the bottom: the sprites drawn into it and
+// the composites that read it use that one transform, so an odd height cannot shift them apart (C4-r1 11).
 
-/** Layers a sprite array may have; uMinLod holds one value per layer (10 §9.7: the level-0 clamp). */
-export const MAX_LAYERS = 64;
+/** The texture unit of the sprite programs' LOD texture (one R8UI texel per layer, C4-r1 9). */
+export const LOD_UNIT = 4;
 
 const HEADER = `#version 300 es
 precision highp float;
@@ -19,23 +21,26 @@ layout(location = 3) in vec4 aTint;
 uniform vec2 uOrigin;
 uniform vec2 uTarget;
 uniform float uTargetScale;
-uniform float uMinLod[${MAX_LAYERS}];
+/** The full-resolution target's height (device px): window y = (uFullH − y) × uTargetScale. */
+uniform float uFullH;
+/** The layer's LOD clamp: texel x = layer (10 §9.7's level-0 clamp, for any number of layers). */
+uniform highp usampler2D uLod;
 out vec3 vUv;
 out vec4 vTint;
 flat out float vMinLod;
 void main() {
-  vec2 p = (aPos + uOrigin) * uTargetScale;
-  gl_Position = vec4(p.x / uTarget.x * 2.0 - 1.0, 1.0 - p.y / uTarget.y * 2.0, 0.0, 1.0);
-  uint layer = min(aLayerFlags.x, ${MAX_LAYERS - 1}u);
+  vec2 full = aPos + uOrigin;
+  vec2 win = vec2(full.x, uFullH - full.y) * uTargetScale;
+  gl_Position = vec4(win / uTarget * 2.0 - 1.0, 0.0, 1.0);
   vUv = vec3(aUv, float(aLayerFlags.x));
   vTint = aTint;
-  vMinLod = uMinLod[layer];
+  vMinLod = float(texelFetch(uLod, ivec2(int(aLayerFlags.x), 0), 0).r);
 }
 `;
 
 /**
- * The level of detail from the screen-space derivatives in level-0 texels, clamped from below by the layer's
- * uMinLod (a page whose High level 0 has not arrived samples its Normal levels, 10 §9.7), then shifted by the
+ * The level of detail from the screen-space derivatives in level-0 texels, clamped from below by the layer's LOD
+ * clamp (a page whose High level 0 has not arrived samples its Normal levels, 10 §9.7), then shifted by the
  * mode's dropped levels (Normal and Low allocate without them, §6.13).
  */
 const LOD = `

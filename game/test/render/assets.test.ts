@@ -21,6 +21,7 @@ const SPRITES = join(GAME, 'test', 'fixtures', 'sprites');
 const ATLASES = join(GAME, 'public', 'atlases');
 const req = (id: number, priority: number, level0 = false): AssetRequest => ({
   id,
+  epoch: 0,
   url: `f${id}`,
   priority,
   kind: 'colour',
@@ -241,6 +242,7 @@ describe('the asset loader (10 §9.7)', () => {
       w.answer({
         t: 'file',
         id: r.id,
+        epoch: r.epoch,
         format: 'rgba8',
         levels: [{ width: 4, height: 4, data: new ArrayBuffer(64) }],
         fromLevel: r.fromLevel,
@@ -255,10 +257,10 @@ describe('the asset loader (10 §9.7)', () => {
     const colour = files.find((f) => f.array === 0);
     expect(colour?.firstLevel).toBe(1);
     expect(files.find((f) => f.array === 1)?.firstLevel).toBe(1);
-    // after a lost context: every delivered file again
+    // after a lost context: a new upload epoch, and every Normal file again (C4-r1 6, test/render/review-r1.test.ts)
     w.sent.length = 0;
-    loader.replay();
-    expect(w.sent[0]).toMatchObject({ t: 'replay' });
-    expect((w.sent[0] as { ids: number[] }).ids.length).toBe(reqs.length);
+    loader.reconfigure({ colour: 'rgba8', shadow: 'r8', levelOffset: [1, 1, 0, 0], terrainOffset: 0 });
+    expect(w.sent[0]).toMatchObject({ t: 'init', epoch: 1 });
+    expect(w.wanted().length).toBe(reqs.length);
   });
 });

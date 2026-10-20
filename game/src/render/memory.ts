@@ -40,6 +40,19 @@ export interface Allocation {
   total: number;
 }
 
+/** The frame's render targets at w × h device px: the RGBA8 scene, the half-resolution R8 shadow mask and light. */
+export function targetBytes(w: number, h: number, halfFloat: boolean): number {
+  const hw = Math.ceil(w / 2);
+  const hh = Math.ceil(h / 2);
+  return w * h * 4 + hw * hh + hw * hh * (halfFloat ? 8 : 4);
+}
+
+/**
+ * What the mode choice reserves for the sprite vertex buffers (the live accounting counts them as they are):
+ * §6.12's late base at 0.3×, 100,000 quads of 80 bytes, in two alternating buffers.
+ */
+export const VERTEX_RESERVE_BYTES = 2 * 100_000 * 80;
+
 /** The renderer's allocations besides the atlases at a viewport of w × h device px (10 §6.13's "other" row). */
 export function otherAllocations(
   w: number,
@@ -77,6 +90,15 @@ export function otherAllocations(
       levels: 1,
       layers: 1,
       bytes: hw * hh * (halfFloat ? 8 : 4),
+    },
+    {
+      kind: 'buffer',
+      name: 'sprite vertex buffers (reserve: the late base at 0.3×)',
+      format: 'f32',
+      size: 0,
+      levels: 1,
+      layers: 1,
+      bytes: VERTEX_RESERVE_BYTES,
     },
     {
       kind: 'buffer',

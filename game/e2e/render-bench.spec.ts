@@ -49,6 +49,28 @@ interface Row {
   heapGrowthKb: number;
   /** Bytes allocated per frame below Renderer.frame, collected objects included. */
   allocPerFrame: number;
+  /** Applying a steady tick's packet (the BELT_ITEMS snapshot), median ms: main-thread work beside the frame. */
+  packet: number;
+}
+
+/** Median ms of applying the bench scene's steady tick packet (C4-r1 10: §6.12's main thread, not only frames). */
+async function packetCost(page: Page, n: number): Promise<number> {
+  return page.evaluate((n) => {
+    const w = window as unknown as {
+      __gallery: { tick?: Uint8Array };
+      __render: { world: { applyPacket(b: Uint8Array): void } };
+    };
+    const tick = w.__gallery.tick;
+    if (!tick) return 0;
+    const t: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const t0 = performance.now();
+      w.__render.world.applyPacket(tick);
+      t.push(performance.now() - t0);
+    }
+    t.sort((a, b) => a - b);
+    return t[Math.floor(n / 2)] as number;
+  }, n);
 }
 
 interface ProfileNode {
@@ -68,10 +90,17 @@ async function allocation(page: Page, frames: number): Promise<number> {
   await page.evaluate(() => {
     const w = window as unknown as {
       __render: {
-        renderer: { frame(): boolean; canvas: HTMLCanvasElement; gl: WebGL2RenderingContext | null };
+        renderer: {
+          frame(): boolean;
+          canvas: HTMLCanvasElement;
+          gl: WebGL2RenderingContext | null;
+          timing: boolean;
+        };
       };
     };
     const r = w.__render.renderer;
+    // a frame as drawn by default: no step timings, so no clock reads (C4-r1 10)
+    r.timing = false;
     const gl = r.gl as WebGL2RenderingContext;
     const px = new Uint8Array(4);
     const c = r.canvas;
@@ -127,7 +156,12 @@ async function measure(page: Page, query: string, frames: number): Promise<Omit<
   const timing = await page.evaluate((n) => {
     type R = {
       __render: {
-        renderer: { frame(): boolean; gl: WebGL2RenderingContext | null; camera: { zoom: number } };
+        renderer: {
+          frame(): boolean;
+          gl: WebGL2RenderingContext | null;
+          camera: { zoom: number };
+          timing: boolean;
+        };
         stats(): {
           frame: { total: number; build: number; submit: number; sprites: number; beltItems: number };
         };
@@ -137,6 +171,8 @@ async function measure(page: Page, query: string, frames: number): Promise<Omit<
     const w = window as unknown as R;
     const r = w.__render.renderer;
     const gl = r.gl as WebGL2RenderingContext;
+    // the frame's step timings are measured only on request (C4-r1 10)
+    r.timing = true;
     const totals: number[] = [];
     const builds: number[] = [];
     const submits: number[] = [];
@@ -175,7 +211,8 @@ async function measure(page: Page, query: string, frames: number): Promise<Omit<
       heapGrowthKb: (heap1 - heap0) / 1024,
     };
   }, frames);
-  return { ...timing, allocPerFrame: await allocation(page, 30) };
+  const packet = await packetCost(page, 60);
+  return { ...timing, packet, allocPerFrame: await allocation(page, 30) };
 }
 
 test('main-thread frame cost at 10 §6.12 scenes @bench', async ({ page }, info) => {
@@ -198,6 +235,7 @@ test('main-thread frame cost at 10 §6.12 scenes @bench', async ({ page }, info)
       (r) =>
         `${r.scene.padEnd(16)} sprites ${String(r.sprites).padStart(6)}  belt items ${String(r.beltItems).padStart(6)}  ` +
         `median ${r.median.toFixed(2)} ms  p95 ${r.p95.toFixed(2)} ms  (build ${r.build.toFixed(2)}, GL ${r.submit.toFixed(2)})  ` +
+        `+ packet ${r.packet.toFixed(2)} ms  ` +
         `budget ${r.budget} × ${HOST_FACTOR} = ${(r.budget * HOST_FACTOR).toFixed(1)} ms  ` +
         `allocated ${r.allocPerFrame.toFixed(0)} B/frame  heap +${r.heapGrowthKb.toFixed(0)} kB`,
     )
@@ -205,7 +243,8 @@ test('main-thread frame cost at 10 §6.12 scenes @bench', async ({ page }, info)
   console.log(`\n${table}\n`);
   writeFileSync(info.outputPath('bench.json'), `${JSON.stringify(rows, null, 1)}\n`);
   for (const r of rows) {
-    expect(r.median, r.scene).toBeLessThanOrEqual(r.budget * HOST_FACTOR);
+    // the main thread's frame: drawing plus applying the tick's packet (the UI's own cost is C5's to measure)
+    expect(r.median + r.packet, r.scene).toBeLessThanOrEqual(r.budget * HOST_FACTOR);
     // no per-frame allocation in steady state: under 1 kB per frame is allocated at all (the timings' numbers), and
     // 60 frames leave the heap where they found it (one GC's noise)
     expect(r.allocPerFrame, r.scene).toBeLessThan(1024);

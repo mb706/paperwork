@@ -26,13 +26,39 @@ export class FetchQueue {
   private seq = 0;
   inFlight = 0;
 
-  /** Adds requests, or updates the priority of known ones (a done job is left alone). */
+  /**
+   * Adds requests, or updates the priority of known ones; a done job is wanted again (an evicted page): it waits
+   * once more, and the cache serves it.
+   */
   want(reqs: readonly AssetRequest[]): void {
     for (const r of reqs) {
       const j = this.jobs.get(r.id);
       if (j === undefined)
         this.jobs.set(r.id, { req: r, state: 'waiting', attempt: 0, notBefore: 0, seq: this.seq++ });
-      else j.req.priority = r.priority;
+      else {
+        j.req = r;
+        if (j.state === 'done') {
+          j.state = 'waiting';
+          j.attempt = 0;
+          j.notBefore = 0;
+        }
+      }
+    }
+  }
+
+  /** Drops every job (a new upload epoch). Running ones finish as orphans: counted until then, never retried. */
+  clear(): void {
+    this.jobs.clear();
+  }
+
+  /** Failed jobs waiting for their retry go at once, their delays reset (the core error's Retry). */
+  retryNow(ids: readonly number[]): void {
+    for (const id of ids) {
+      const j = this.jobs.get(id);
+      if (j && j.state === 'waiting' && j.attempt > 0) {
+        j.attempt = 0;
+        j.notBefore = 0;
+      }
     }
   }
 
@@ -73,28 +99,23 @@ export class FetchQueue {
     j.state = 'done';
   }
 
+  /** Whether a job is still this queue's (not dropped by `clear` while it ran). */
+  has(j: Job): boolean {
+    return this.jobs.get(j.req.id) === j;
+  }
+
   /** A job failed at `now`: it waits for its retry delay. Returns the delay. */
   failed(j: Job, now: number): number {
     if (j.state === 'running') this.inFlight--;
+    if (!this.has(j)) {
+      j.state = 'done';
+      return -1;
+    }
     const delay = RETRY_DELAYS_MS[j.attempt] ?? RETRY_LATER_MS;
     j.attempt++;
     j.state = 'waiting';
     j.notBefore = now + delay;
     return delay;
-  }
-
-  /** Makes delivered jobs waiting again (a replay after a lost context goes to the cache first). */
-  again(ids: readonly number[]): Job[] {
-    const out: Job[] = [];
-    for (const id of ids) {
-      const j = this.jobs.get(id);
-      if (j && j.state === 'done') {
-        j.state = 'waiting';
-        j.notBefore = 0;
-        out.push(j);
-      }
-    }
-    return out;
   }
 
   /** The earliest time a waiting job becomes eligible (for the retry timer), or Infinity. */

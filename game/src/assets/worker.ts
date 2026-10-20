@@ -1,8 +1,10 @@
 // The asset worker (10 §9.7, a module worker beside those of §3.1): fetches atlas pages and terrain materials by
 // priority (fetch with a priority hint, at most six in flight), checks their bytes and SHA-256, transcodes every KTX2
 // level to the GPU format the main thread chose (Basis Universal 2.50, basis.ts), and transfers the result. It keeps
-// the compressed bytes of what it delivered, at most 64 MB, so a lost WebGL context re-transcodes without refetching
-// (§6.13); beyond that the HTTP cache serves. Uploads stay on the main thread. Audio decoding joins it later (§9.4).
+// the compressed bytes of what it delivered, at most 64 MB, so a reallocation (a lost WebGL context, a lower mode)
+// re-transcodes without refetching (§6.13); beyond that the HTTP cache serves. Every reply carries its request's
+// upload epoch, and a new epoch drops the older requests (C4-r1 6). Uploads stay on the main thread. Audio decoding
+// joins it later (§9.4).
 
 import { loadBasis, TRANSCODER } from './worker/basis.ts';
 import type { AssetRequest, FromWorker, TargetFormat, ToWorker } from './worker/protocol.ts';
@@ -17,6 +19,7 @@ let cacheBytes = 0;
 let colour: TargetFormat = 'rgba8';
 let shadow: TargetFormat = 'r8';
 let base = '';
+let epoch = 0;
 let basis: Promise<BasisModule> | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -77,6 +80,7 @@ async function run(j: Job): Promise<void> {
       {
         t: 'file',
         id: r.id,
+        epoch: r.epoch,
         format: targetOf(r),
         levels: levels.map((l) => ({ width: l.width, height: l.height, data: l.data.buffer as ArrayBuffer })),
         fromLevel: r.fromLevel,
@@ -89,13 +93,16 @@ async function run(j: Job): Promise<void> {
   } catch (e) {
     cache.delete(r.id);
     const delay = queue.failed(j, performance.now());
-    post({
-      t: 'retry',
-      id: r.id,
-      attempt: j.attempt,
-      error: e instanceof Error ? e.message : String(e),
-      delayMs: delay,
-    });
+    // a request of an older epoch is not retried: the main thread has asked again under the new one
+    if (delay >= 0)
+      post({
+        t: 'retry',
+        id: r.id,
+        epoch: r.epoch,
+        attempt: j.attempt,
+        error: e instanceof Error ? e.message : String(e),
+        delayMs: delay,
+      });
   }
   pump();
 }
@@ -128,14 +135,16 @@ basis.then(
 self.addEventListener('message', (e: MessageEvent<ToWorker>) => {
   const m = e.data;
   if (m.t === 'init') {
+    if (m.epoch !== epoch) queue.clear();
+    epoch = m.epoch;
     colour = m.colour;
     shadow = m.shadow;
     base = m.base;
   } else if (m.t === 'want') {
     queue.want(m.reqs);
     pump();
-  } else if (m.t === 'replay') {
-    queue.again(m.ids);
+  } else if (m.t === 'retry') {
+    queue.retryNow(m.ids);
     pump();
   }
 });

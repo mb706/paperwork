@@ -167,6 +167,11 @@ describe('belt items from gap arrays (§15.4)', () => {
       cy0: 0,
       cx1: 0,
       cy1: 0,
+      box: new Float64Array(3 * 4),
+      bx0: 0,
+      by0: 0,
+      bx1: 0,
+      by1: 0,
     };
     // items at d = 512 (the arc's downstream end), the arc's middle, its upstream end
     const arc = Math.round(r * 402.1238596594935);

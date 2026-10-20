@@ -238,40 +238,58 @@
   on its thread (≈ 0.1 % of a host core per GainNode), so rooms, reverbs and bus faders live in the bank.
 
 ## Renderer (`game/src/render/`, `game/src/assets/`; M0 by C4, 10 §6, §9.7–§9.8)
-- **See it:** `npm run dev`, then `/?sim=fake` (the fake sim's factory, following player 0; `?test=1` renders on demand,
-  `?render=none` skips the renderer, `?deny=bc7,astc` forces the format fallbacks). The gallery
+- **See it:** `npm run dev`, then `/` (the App: `main.ts` attaches the renderer, `attach-renderer.ts`), or `/?sim=fake`
+  (the fake sim's factory, following player 0). `?test=1` renders on demand, `?render=none` draws nothing (the view
+  model, camera and picking still work), `?deny=bc7,astc` forces the format fallbacks. The gallery
   `/src/dev/gallery.html?scene=golden|golden-real|transitions|survey|single|bench[&night=1&zoom=…&x=…&y=…&clean=1]`
   draws the golden packets with the tiny atlas, C6's preview scene (`survey`: the M0 art, a lit keypunch for the
-  light pass) and §6.12's frame-cost scenes. Real atlases need `npm run assets` (`public/atlases/`, gitignored).
-  Input stand-ins until the UI package owns them: wheel zooms (×1.1 per notch, 0.3–3×), F9 / Shift+F9 1× / 2×,
-  F4 cycles the debug overlays (chunk grid, tiles, collision and selection boxes), F5 the timings HUD.
+  light pass) and §6.12's frame-cost scenes. Real atlases need `npm run assets` (`public/atlases/`, gitignored;
+  without them the world is not drawn, quietly). Stand-in input until the UI owns it: wheel zoom (×1.1 per notch,
+  0.3–3×), F9 / Shift+F9 1× / 2×, F4 the debug overlays, F5 the timings HUD (it turns the frame timings on).
+- **The UI's boundary (C4-r1 12):** `src/shared/world-view.ts` is the contract: `WorldViewApi` with `camera` (the
+  camera the last frame was drawn with, CSS px of the canvas: `toWorld`, `toScreen`, `visible`), `pickAt(px, py)`
+  (entity by selection box and priority, else resource, else tile; null outside the held chunks), `model` (the
+  read-only view model: chunks by `chunkId`, DYN/HANDS/MOVERS records in their wire layouts), `zoomBy`, `setZoom`,
+  `follow`, `setHovered` (→ the view request's hovered_serial), `onFrame`, `ready()` (core art uploaded) and
+  `devInput.detach()`. `attachRenderer(app, { devInput, onCoreError, onArtNotice })` (src/app/attach-renderer.ts)
+  returns it: C3's App owns lifecycle and worlds (the world view follows `app.host`'s packets and generations and
+  sends view requests through `app.host.setView`); the UI owns input and calls the API; it never imports render/.
 - **Structure:** `manifest.ts` compiles sprites.json v2 into typed tables; `programs.ts` holds §15.7's drawing programs
   (the TypeScript twin of `scripts/assets/manifest.py`); `mirror.ts` is the view model (packets in, held-set eviction,
-  snapshots); `scene.ts` builds a frame (culling, the counting sort, belt items from gap arrays, smoke, ghosts, debug)
+  snapshots, an epoch per world); `bounds.ts` the sets' conservative bounds (culling); `scene.ts` builds a frame (the
+  ground sublayers in order, the counting sort, belt items expanded and culled in one pass, smoke, ghosts, debug)
   into streams; `renderer.ts` runs the passes (terrain → ground → shadows hatched → objects → high → lights → the one
-  grade pass with the cyanotype LUT → overlays); `gl/` is the thin GL layer (batcher, textures, terrain, shaders);
-  `style.ts` holds Survey's constants. `app/world-view.ts` wires renderer, asset worker and loader (and `__render`).
-- **Assets at run time:** `src/assets/worker.ts` (fetch by priority, SHA-256, Basis transcoding, a 64 MB replay cache)
-  with the vendored stock Basis Universal 2.50 transcoder (`worker/basis/`, Apache-2.0); `loader.ts` turns the
-  manifest into requests and hands levels to the renderer (≤ 2 ms of uploads per frame). The stock transcoder cannot
-  make EAC R11 from ETC1S, so shadows fall back BC4 → R8 (the worker reports what it can make at start-up).
+  grade pass with the cyanotype LUT → overlays) and accounts for every GPU byte; `pick.ts` picks; `gl/` is the thin
+  GL layer (batcher, textures with the page → layer table and per-layer LOD texture, terrain caches that grow and
+  evict, shaders); `style.ts` holds Survey's constants. `app/world-view.ts` wires renderer, asset worker and loader
+  (and `window.__render`: `frame`, `camera`, `ready`, `settled`, `stats`, `world`, `loseContext`).
+- **Assets at run time:** `src/assets/worker.ts` (fetch by priority, SHA-256, Basis transcoding, a 64 MB cache) with
+  the vendored stock Basis Universal 2.50 transcoder (`worker/basis/`, Apache-2.0); `loader.ts` turns the manifest
+  into requests and hands levels to the renderer (≤ 2 ms of uploads per frame). Every allocation of the arrays is an
+  upload epoch: a restored context or a lower mode (`stepDown`, over budget) renegotiates formats and levels, and
+  older replies are dropped. Readiness is core's only; four failures of a core file raise the error with Retry. The
+  stock transcoder cannot make EAC R11 from ETC1S, so shadows fall back BC4 → R8.
 - **Tests:** `npx vitest run test/render` (the 65 sprite cases, golden packets into draw lists, mirror equivalence
   against the fake, belts, projection fixtures `test/fixtures/projection/` made by its `make.py`, terrain data, memory,
-  the asset queue and transcoding); `npx playwright test e2e/render.spec.ts --project chrome` (@smoke: golden packets
-  at 1×/0.3×, dpr 1/2, pixel-exact placement, the Survey smoke screenshots; @render: night, fallbacks, context loss,
-  the fake factory, F4/F5); `taskset -c 0-7 npx playwright test e2e/render-bench.spec.ts --project chrome` (@bench:
-  main-thread ms per frame against §6.12 × 2.4, and bytes allocated per frame). Screenshots land in
-  `test-results/dev/`: Read them.
+  the asset queue and transcoding; `review-r1.test.ts` holds one test per codex C4-r1 finding, the GL side on a
+  recording WebGL2 stub, `gl-stub.ts`); `npx playwright test e2e/render.spec.ts --project chrome` (@smoke: golden
+  packets at 1×/0.3×, dpr 1/2, pixel-exact placement at even and odd sizes, the Survey smoke screenshots; @render:
+  night, fallbacks, context loss, the fake factory, F4/F5, odd heights, picking, readiness);
+  `taskset -c 0-7 npx playwright test e2e/render-bench.spec.ts --project chrome` (@bench: main-thread ms per frame
+  plus a tick's packet against §6.12 × 2.4, and bytes allocated per frame). Give Playwright free ports
+  (`PW_PORT`, `PW_RELEASE_PORT`). Screenshots land in `test-results/dev/`: Read them.
 - **Rules:** the frame path allocates nothing in steady state. Beyond the obvious (no closures, arrays, iterators or
   strings per frame), V8 boxes every non-integer double passed to a call it does not inline, every number outside
   ±2³⁰ returned or used as a Map key, and every double object field passed on: so doubles travel in typed blocks (the
   SpriteSink's `args`, the programs' `AT`, the batcher's `QUAD`), the mirror keys chunks by `chunkId` (a small integer,
   not the wire's chunk_key), hashes are written into arrays (`posHashInto`), and constant uniforms are set once per
   program. Measure with the bench (V8's sampling heap profiler, collected objects included); a heap that does not
-  grow proves nothing. No string lookups per frame; sprite placement only through `projection.ts`/the programs;
-  pages are premultiplied UNORM (never sRGB formats); in headless Chrome `gl.finish()` does not wait, so benchmarks
-  drain the GPU with a 1×1 `readPixels`; any WebGL canvas here logs four "GPU stall due to ReadPixels" compositor
-  warnings, which `e2e/console.ts` ignores.
+  grow proves nothing. The frame reads no clock unless `renderer.timing` is on. No string lookups per frame; sprite
+  placement only through `projection.ts`/the programs; every sprite and chunk is chosen by its conservative bounds,
+  never its anchor; pages are premultiplied UNORM (never sRGB formats); half-resolution targets use the sprite
+  shader's one transform (`uFullH`), so odd sizes stay aligned; in headless Chrome `gl.finish()` does not wait, so
+  benchmarks drain the GPU with a 1×1 `readPixels`; any WebGL canvas here logs four "GPU stall due to ReadPixels"
+  compositor warnings, which `e2e/console.ts` ignores.
 
 ## Showing the game to the user
 - Dev server on `127.0.0.1:<high port>`; the user tunnels in: `ssh -L 5173:127.0.0.1:5173 cpuserver10`.

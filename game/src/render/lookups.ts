@@ -4,6 +4,7 @@
 // prototypesHash is an error in dev builds except in fake mode, where the renderer joins by name and warns.
 
 import type { PrototypesJson } from '../shared/gen/protos.ts';
+import { maxReach, setBounds } from './bounds.ts';
 import { type Atlas, KIND } from './manifest.ts';
 import { iconFrame } from './programs.ts';
 
@@ -48,6 +49,14 @@ export class Lookups {
   readonly smokeSet: number;
   /** Names the data asks for that the atlas lacks (a dev build logs them once). */
   readonly missing: string[] = [];
+  /** Per set: its conservative bounds around the anchor (x0, y0, x1, y1 tiles; bounds.ts, C4-r1 2). */
+  readonly setBox: Float64Array;
+  /** Per entity prototype: the union of its set's and its greybox's bounds (a mover prototype: its set's). */
+  readonly box: Float64Array;
+  /** Selection priority per prototype (prototypes.json; picking, the UI's hover). */
+  readonly selectionPriority: Uint8Array;
+  /** The farthest any set reaches from its anchor, tiles: the view's margin for choosing chunks. */
+  readonly reach: number;
 
   constructor(atlas: Atlas, protos: PrototypesJson, beltSpeed?: ArrayLike<number>) {
     const set = (name: string | null | undefined): number => {
@@ -90,6 +99,33 @@ export class Lookups {
       }
       this.beltSpeed[i] = beltSpeed?.[i] ?? 0;
     });
+    this.setBox = setBounds(atlas);
+    this.reach = maxReach(this.setBox);
+    this.box = new Float64Array(n * 4);
+    this.selectionPriority = Uint8Array.from(protos.entity, (e) => e.selectionPriority ?? 50);
+    for (let i = 0; i < n; i++) {
+      let first = true;
+      for (const si of [this.entitySet[i], this.greybox[i], this.moverSet[i]] as number[]) {
+        if (si < 0) continue;
+        for (let k = 0; k < 4; k++) {
+          const v = this.setBox[si * 4 + k] as number;
+          const o = i * 4 + k;
+          this.box[o] = first
+            ? v
+            : k < 2
+              ? Math.min(this.box[o] as number, v)
+              : Math.max(this.box[o] as number, v);
+        }
+        first = false;
+      }
+      // the footprint too (the deconstruction mark, an entity drawn by nothing)
+      const half = Math.max(this.size[i * 2] as number, this.size[i * 2 + 1] as number) / 2;
+      const o = i * 4;
+      this.box[o] = Math.min(first ? 0 : (this.box[o] as number), -half);
+      this.box[o + 1] = Math.min(first ? 0 : (this.box[o + 1] as number), -half);
+      this.box[o + 2] = Math.max(first ? 0 : (this.box[o + 2] as number), half);
+      this.box[o + 3] = Math.max(first ? 0 : (this.box[o + 3] as number), half);
+    }
     const missingSet = atlas.set('fx/missing');
     this.missingIcon = iconFrame(atlas, missingSet);
     const icon = (name: string): number => {

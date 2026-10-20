@@ -12,6 +12,7 @@ import {
   BeltGeomCodec,
   BeltItemsCodec,
   ChunkEntitiesCodec,
+  ChunkObjectsCodec,
   ChunkResourcesCodec,
   ChunkTilesCodec,
   chunkKey,
@@ -33,17 +34,17 @@ const E = (protos: PrototypesJson, name: string) => {
 };
 const I = (protos: PrototypesJson, name: string) => protos.item.findIndex((t) => t.name === name) * 8;
 
-interface Section {
+export interface Section {
   type: number;
   count: number;
   bytes: Uint8Array;
 }
 
-/** A packet from sections (ascending type), as `sim_extract` writes them. */
-export function packet(sections: Section[], tick: number, daylight: number): Uint8Array {
+/** A packet from sections (ascending type), as `sim_extract` writes them; `flags`: PacketFlags (FULL). */
+export function packet(sections: Section[], tick: number, daylight: number, flags = 0): Uint8Array {
   const w = new Writer(1 << 16);
   const sorted = [...sections].sort((a, b) => a.type - b.type);
-  const p = new PacketWriter(w, sorted.length, tick, 0, Math.round(daylight * 65535));
+  const p = new PacketWriter(w, sorted.length, tick, flags, Math.round(daylight * 65535));
   for (const s of sorted) {
     p.section(s.type);
     w.bytes(s.bytes);
@@ -73,7 +74,7 @@ export function viewOf(x0: number, y0: number, x1: number, y1: number, seq = 1):
   };
 }
 
-function ev(
+export function ev(
   serial: number,
   proto: number,
   x2: number,
@@ -86,7 +87,7 @@ function ev(
 }
 
 /** Chunk tiles for chunks cx0…cx1 × cy0…cy1 from `tileAt(x, y)`. */
-function tilesSection(
+export function tilesSection(
   cx0: number,
   cy0: number,
   cx1: number,
@@ -106,7 +107,13 @@ function tilesSection(
 }
 
 /** Entities grouped into their chunks' records (every chunk of the rectangle, empty ones too). */
-function entitiesSection(cx0: number, cy0: number, cx1: number, cy1: number, list: EntityView[]): Section {
+export function entitiesSection(
+  cx0: number,
+  cy0: number,
+  cx1: number,
+  cy1: number,
+  list: EntityView[],
+): Section {
   const w = new Writer(1 << 14);
   let n = 0;
   for (let cy = cy0; cy <= cy1; cy++)
@@ -120,7 +127,7 @@ function entitiesSection(cx0: number, cy0: number, cx1: number, cy1: number, lis
   return { type: PacketSection.chunk_entities, count: n, bytes: w.finish() };
 }
 
-function resourcesSection(
+export function resourcesSection(
   cx0: number,
   cy0: number,
   cx1: number,
@@ -141,8 +148,29 @@ function resourcesSection(
   return { type: PacketSection.chunk_resources, count: n, bytes: w.finish() };
 }
 
+/** Objects (trees, rocks, decoratives, ground items) grouped into their chunks' records, every chunk of the rectangle. */
+export function objectsSection(
+  cx0: number,
+  cy0: number,
+  cx1: number,
+  cy1: number,
+  list: { kind: number; id: number; x: number; y: number; variant?: number }[],
+): Section {
+  const w = new Writer(1 << 12);
+  let n = 0;
+  for (let cy = cy0; cy <= cy1; cy++)
+    for (let cx = cx0; cx <= cx1; cx++) {
+      const mine = list
+        .filter((o) => o.x >> 13 === cx && o.y >> 13 === cy)
+        .map((o) => ({ id: o.id, kind: o.kind, variant: o.variant ?? 0, x: o.x, y: o.y, count: 0 }));
+      ChunkObjectsCodec.write(w, { chunk_key: chunkKey(cx, cy), surface: 0, version: 1, objects: mine });
+      n++;
+    }
+  return { type: PacketSection.chunk_objects, count: n, bytes: w.finish() };
+}
+
 /** A straight lane from (x0, y) east to (x1, y) (tiles, its centreline), items every `every` positions. */
-function eastLine(
+export function eastLine(
   id: number,
   x0: number,
   x1: number,
@@ -344,7 +372,7 @@ export function benchScene(
   items: number,
   w: number,
   h: number,
-): { packet: Uint8Array; view: ViewRequest } {
+): { packet: Uint8Array; view: ViewRequest; tick: Uint8Array } {
   const grass = T(protos, 'grass');
   const x0 = -Math.ceil(w / 2);
   const y0 = -Math.ceil(h / 2);
@@ -395,11 +423,15 @@ export function benchScene(
     }
   }
   sections.push(entitiesSection(cx0, cy0, cx1, cy1, ents));
+  // a steady tick's packet: what a running sim sends every tick for this view (the BELT_ITEMS snapshot)
+  const tick: Section[] = [];
   if (lines > 0) {
+    const items = its.finish();
     sections.push({ type: PacketSection.belt_geom, count: lines, bytes: geom.finish() });
-    sections.push({ type: PacketSection.belt_items, count: lines, bytes: its.finish() });
+    sections.push({ type: PacketSection.belt_items, count: lines, bytes: items });
+    tick.push({ type: PacketSection.belt_items, count: lines, bytes: items });
   }
-  return { packet: packet(sections, 600, 1), view: viewOf(x0, y0, x1, y1) };
+  return { packet: packet(sections, 600, 1), view: viewOf(x0, y0, x1, y1), tick: packet(tick, 601, 1) };
 }
 
 /** One iron chest at tile (0, 0) on grass (the golden prototypes): the pixel-exact placement check. */

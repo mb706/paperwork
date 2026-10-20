@@ -95,17 +95,23 @@ test.describe('the golden packets with the tiny atlas @smoke', () => {
       await ctx.close();
     });
 
-  for (const dpr of [1, 2])
-    test(`places a sprite pixel-exactly where 10 §15.7 puts it (k = 1, dpr ${dpr})`, async ({
+  // even and odd backing sizes (C4-r1 11)
+  for (const [W, H, dpr] of [
+    [400, 300, 1],
+    [400, 300, 2],
+    [401, 301, 1],
+    [401, 301, 2],
+  ] as const)
+    test(`places a sprite pixel-exactly where 10 §15.7 puts it (k = 1, ${W} × ${H}, dpr ${dpr})`, async ({
       browser,
     }, info) => {
       // one tiny-atlas chest at tile (0, 0); zoom so that k = S ÷ P = 1 (the fixture's colour array is 8 px per tile)
       const zoom = 8 / 32 / dpr;
-      const ctx = await browser.newContext({ viewport: { width: 400, height: 300 }, deviceScaleFactor: dpr });
+      const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: dpr });
       const page = await ctx.newPage();
       const problems = watchConsole(page);
       await gallery(page, `scene=single&zoom=${zoom}&x=0.5&y=0.5`);
-      const png = await shot(page, info.outputPath(`single-dpr${dpr}.png`));
+      const png = await shot(page, info.outputPath(`single-${W}x${H}-dpr${dpr}.png`));
       const m = JSON.parse(readFileSync(join(GAME, 'test', 'fixtures', 'sprites', 'manifest.json'), 'utf8'));
       const f = m.sets['entity/iron-chest'].parts.base.table[0][0] as number;
       const [, , x, y, w, h, ax, ay] = m.frames[f] as number[];
@@ -114,8 +120,8 @@ test.describe('the golden packets with the tiny atlas @smoke', () => {
         0,
       )[0];
       // the anchor sits at the canvas centre (whole device px): the frame's texel (i, j) is device pixel (cx − ax + i, cy − ay + j)
-      const cx = Math.floor((400 * dpr) / 2);
-      const cy = Math.floor((300 * dpr) / 2);
+      const cx = Math.floor(Math.round(W * dpr) / 2);
+      const cy = Math.floor(Math.round(H * dpr) / 2);
       let opaque = 0;
       for (let j = 0; j < (h as number); j++)
         for (let i = 0; i < (w as number); i++) {
@@ -208,7 +214,7 @@ test.describe('the Survey atlas @render', () => {
     });
     type R = {
       __render: {
-        ready(): Promise<void>;
+        settled(): Promise<void>;
         camera(x: number, y: number, z?: number): void;
         stats(): { frame: { frame: number; greyboxed: number; sprites: number } };
       };
@@ -216,7 +222,7 @@ test.describe('the Survey atlas @render', () => {
     for (const zoom of [1, 0.3]) {
       await page.evaluate((z) => (window as unknown as R).__render.camera(14, 0, z), zoom);
       await page.waitForTimeout(500);
-      await page.evaluate(() => (window as unknown as R).__render.ready());
+      await page.evaluate(() => (window as unknown as R).__render.settled());
       await page.screenshot({ path: info.outputPath(`fake-z${zoom}.png`) });
     }
     // continuous rendering: frames advance, and the factory moves between two screenshots
@@ -274,14 +280,14 @@ test.describe('the Survey atlas @render', () => {
     type R = {
       __render: {
         loseContext(ms?: number): Promise<void>;
-        ready(): Promise<void>;
+        settled(): Promise<void>;
         frame(): void;
         renderer: { lost: boolean; canvas: HTMLCanvasElement };
       };
     };
     await page.evaluate(() => (window as unknown as R).__render.loseContext(200));
     await page.waitForFunction(() => !(window as unknown as R).__render.renderer.lost);
-    await page.evaluate(() => (window as unknown as R).__render.ready());
+    await page.evaluate(() => (window as unknown as R).__render.settled());
     const after = PNG.sync.read(await page.screenshot());
     expect(
       pixelmatch(before.data, after.data, undefined, before.width, before.height, { threshold: 0.02 }),
@@ -294,7 +300,7 @@ test.describe('the Survey atlas @render', () => {
     await page.waitForFunction(() => !(window as unknown as R).__render.renderer.lost, null, {
       timeout: 15_000,
     });
-    await page.evaluate(() => (window as unknown as R).__render.ready());
+    await page.evaluate(() => (window as unknown as R).__render.settled());
     const again = PNG.sync.read(await page.screenshot());
     expect(
       pixelmatch(before.data, again.data, undefined, before.width, before.height, { threshold: 0.02 }),
@@ -321,6 +327,129 @@ test.describe('the Survey atlas @render', () => {
     ).toBeGreaterThan(500);
     await expect(page.locator('pre')).toContainText('sprites');
     expect(problems).toEqual([]);
+    await ctx.close();
+  });
+});
+
+// ------------------------------------------------------------------ codex C4-r1 (pm/reviews/C4-r1.md), in the browser
+
+type World = {
+  __render: {
+    world: {
+      camera: {
+        cx: number;
+        cy: number;
+        toScreen(x: number, y: number): { x: number; y: number };
+        toWorld(x: number, y: number): { x: number; y: number };
+      };
+      pickAt(x: number, y: number): { kind: string; serial?: number; tx?: number; ty?: number } | null;
+      active(): boolean;
+    };
+    ready(): Promise<void>;
+    settled(): Promise<void>;
+  };
+};
+
+test.describe('C4-r1 11: odd backing heights', () => {
+  test.skip(!REAL, 'public/atlases is missing: run `npm run assets`');
+  for (const night of [false, true])
+    test(`shadows and lights stay on their sprites at an odd height${night ? ', at night' : ''}`, async ({
+      browser,
+    }, info) => {
+      // the same scene at 540 and 541 px: the centre row (270) is the same, so the top 540 rows must be too; the
+      // half-resolution shadow mask and light target were one device pixel off at an odd height
+      const shots: PNG[] = [];
+      for (const height of [540, 541]) {
+        const ctx = await browser.newContext({ viewport: { width: 960, height } });
+        const page = await ctx.newPage();
+        const problems = watchConsole(page);
+        await gallery(page, `scene=survey${night ? '&night=1' : ''}`);
+        shots.push(
+          PNG.sync.read(
+            await page.screenshot({
+              clip: { x: 0, y: 0, width: 960, height: 540 },
+              path: info.outputPath(`odd-${height}${night ? '-night' : ''}.png`),
+            }),
+          ),
+        );
+        expect(problems).toEqual([]);
+        await ctx.close();
+      }
+      const [a, b] = shots as [PNG, PNG];
+      const diff = pixelmatch(a.data, b.data, undefined, 960, 540, { threshold: 0.1 });
+      expect(diff).toBeLessThan(20);
+    });
+});
+
+test.describe('C4-r1 12: the world view the UI attaches to', () => {
+  for (const dpr of [1, 2])
+    test(`picks what it draws, through the camera it drew with (dpr ${dpr})`, async ({ browser }) => {
+      const ctx = await browser.newContext({ viewport: { width: 641, height: 361 }, deviceScaleFactor: dpr });
+      const page = await ctx.newPage();
+      const problems = watchConsole(page);
+      // one iron chest (serial 2) on tile (0, 0)
+      await gallery(page, 'scene=single');
+      const r = await page.evaluate(() => {
+        const w = (window as unknown as World).__render.world;
+        const at = w.camera.toScreen(0.5, 0.5);
+        const back = w.camera.toWorld(at.x, at.y);
+        const s = w.camera.toScreen(3.5, 2.5);
+        return {
+          active: w.active(),
+          back,
+          chest: w.pickAt(at.x, at.y),
+          tile: w.pickAt(s.x, s.y),
+          outside: w.pickAt(-100000, -100000),
+        };
+      });
+      expect(r.active).toBe(true);
+      expect(r.back.x).toBeCloseTo(0.5, 6);
+      expect(r.back.y).toBeCloseTo(0.5, 6);
+      expect(r.chest).toMatchObject({ kind: 'entity', serial: 2 });
+      expect(r.tile).toMatchObject({ kind: 'tile', tx: 3, ty: 2 });
+      expect(r.outside).toBeNull();
+      expect(problems).toEqual([]);
+      await ctx.close();
+    });
+});
+
+test.describe('C4-r1 4: readiness', () => {
+  test.skip(!REAL, 'public/atlases is missing: run `npm run assets`');
+  test('an optional file that never arrives holds neither the first frame nor a settled picture', async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext({ viewport: { width: 960, height: 540 } });
+    const page = await ctx.newPage();
+    // every High level 0 answers 404: at 2× the frames ask for them (k > 0.5)
+    await page.route(/\.h\.[0-9a-f]+\.ktx2$|\.h\.ktx2$/, (route) => route.fulfill({ status: 404, body: '' }));
+    await gallery(page, 'scene=survey&zoom=2');
+    const t0 = Date.now();
+    await page.evaluate(() => (window as unknown as World).__render.ready());
+    await page.evaluate(() => (window as unknown as World).__render.settled());
+    expect(Date.now() - t0).toBeLessThan(5000);
+    await ctx.close();
+  });
+
+  test('a core file that fails four times shows the error, and Retry recovers', async ({ browser }) => {
+    test.setTimeout(60_000);
+    const ctx = await browser.newContext({ viewport: { width: 960, height: 540 } });
+    const page = await ctx.newPage();
+    const fail = /shadow-core-[^/]*\.ktx2$/;
+    await page.route(fail, (route) => route.fulfill({ status: 404, body: '' }));
+    await page.goto('/src/dev/gallery.html?clean=1&scene=survey');
+    // 1, 2 and 4 s between the attempts: the fourth failure comes after about 7 s
+    await expect(page.getByTestId('art-error')).toBeVisible({ timeout: 20_000 });
+    const rejected = await page.evaluate(() =>
+      (window as unknown as World).__render.ready().then(
+        () => false,
+        () => true,
+      ),
+    );
+    expect(rejected).toBe(true);
+    await page.unroute(fail);
+    await page.getByTestId('art-error').getByRole('button', { name: 'Retry' }).click();
+    await page.evaluate(() => (window as unknown as World).__render.ready());
+    await expect(page.getByTestId('art-error')).toHaveCount(0);
     await ctx.close();
   });
 });

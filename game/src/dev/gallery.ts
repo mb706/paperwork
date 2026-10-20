@@ -15,7 +15,14 @@ import { benchScene, singleScene, surveyScene } from './scenes.ts';
 
 declare global {
   interface Window {
-    __gallery?: { ready: Promise<void>; scene: string; packets: number; error?: string };
+    __gallery?: {
+      ready: Promise<void>;
+      scene: string;
+      packets: number;
+      error?: string;
+      /** The bench scene: a steady tick's packet, which the bench applies every frame (10 §6.12). */
+      tick?: Uint8Array;
+    };
   }
 }
 
@@ -61,6 +68,7 @@ async function run(): Promise<number> {
   r.follow = -1;
   let packets = 0;
   let centre: [number, number] = [0, 0];
+  let tick: Uint8Array | undefined;
   if (scene === 'golden' || scene === 'golden-real') {
     const view = ViewRequestCodec.decode(await bytes(`${GOLDEN}view.bin`));
     // the golden flow (test/golden/README.md): the FULL packet, tick 0 answering the view, tick 1, tick 600
@@ -108,13 +116,16 @@ async function run(): Promise<number> {
     );
     world.applyPacket(s.packet, s.view);
     packets = 1;
+    tick = s.tick;
   } else throw new Error(`unknown scene ${scene}`);
   r.camera.cx = Number(params.get('x') ?? centre[0]);
   r.camera.cy = Number(params.get('y') ?? centre[1]);
   r.camera.zoom = Number(params.get('zoom') ?? 1);
-  await world.ready();
+  // the final picture: every requested file arrived (or failed once), nothing left to upload or build
+  await world.settled();
   r.frame();
   status.textContent = `${scene} · ${packets} packet(s) · zoom ${r.camera.zoom}`;
+  if (tick && window.__gallery) window.__gallery.tick = tick;
   return packets;
 }
 

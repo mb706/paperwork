@@ -19,7 +19,7 @@ const key = (x: number, y: number): number => (x << 16) | (y & 0xffff);
 
 export function deriveBeltMasks(mirror: Mirror, look: Lookups): void {
   // only when the chunk set or an entity list changed; the check runs for every packet and allocates nothing
-  acc = mirror.chunks.size;
+  acc = (mirror.chunks.size + Math.imul(mirror.epoch, 0x9e3779b1)) & 0x3fffffff;
   mirror.chunks.forEach(fold);
   if (acc === seen) return;
   seen = acc;

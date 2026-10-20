@@ -31,6 +31,7 @@ import {
   ResourceViewCodec,
   type ViewRequest,
 } from '../shared/gen/packet.ts';
+import { chunkId, type ViewChunk, type ViewModel } from '../shared/world-view.ts';
 
 /** A refused packet: the same kinds as the generated decoder's DecodeError. */
 export class PacketError extends Error {
@@ -44,22 +45,11 @@ const CHUNK_HEADER = 16;
 const TILE_RECORD = ChunkTilesCodec.SIZE;
 const SECTION_TYPES = 18;
 
-/**
- * The mirror's key of chunk (cx, cy): (cx << 16) | (cy & 0xffff), a small integer (V8 Smi) for |cx| < 16,384 chunks,
- * so a lookup boxes nothing. The wire's chunk_key, ((cx + 32768) << 16 | (cy + 32768)) >>> 0, is above 2³⁰ for nearly
- * every chunk, and V8 boxes such a number each time it is passed to Map.get. Exact (if boxed) beyond that range.
- */
-export function chunkId(cx: number, cy: number): number {
-  return (cx << 16) | (cy & 0xffff);
-}
+// The view model's chunk keys and its read-only contract live in src/shared/world-view.ts (the UI reads them too).
+export { chunkId, chunkIdOfKey } from '../shared/world-view.ts';
 
-/** The mirror's key (chunkId) of a wire chunk_key. */
-export function chunkIdOfKey(key: number): number {
-  return chunkId((key >>> 16) - 32768, (key & 0xffff) - 32768);
-}
-
-/** One held chunk's retained records. */
-export interface ChunkView {
+/** One held chunk's retained records (the read-only ViewChunk of src/shared/world-view.ts, writable here). */
+export interface ChunkView extends ViewChunk {
   /** The wire's chunk_key. */
   key: number;
   /** The mirror's key: chunkId(cx, cy). */
@@ -101,6 +91,13 @@ export interface BeltLine {
   cy0: number;
   cx1: number;
   cy1: number;
+  /** Per segment: a conservative box in tiles (x0, y0, x1, y1), so off-screen segments are skipped (C4-r1 10). */
+  box: Float64Array;
+  /** The whole line's box in tiles. */
+  bx0: number;
+  by0: number;
+  bx1: number;
+  by1: number;
 }
 
 /** A growable byte buffer for one snapshot section. */
@@ -167,9 +164,14 @@ class SerialIndex {
   }
 }
 
-export class Mirror {
+export class Mirror implements ViewModel {
   /** The held chunks, by chunkId(cx, cy). */
   readonly chunks = new Map<number, ChunkView>();
+  /**
+   * Bumped by every reset (a FULL packet, a new state generation): another world, so caches keyed by chunk or by
+   * serial must be dropped, whatever coordinates and revision counters the new one reuses (C4-r1 1).
+   */
+  epoch = 0;
   readonly lines = new Map<number, BeltLine>();
   readonly dyn = new Snapshot();
   readonly hands = new Snapshot();
@@ -199,7 +201,18 @@ export class Mirror {
   private readonly secCount = new Int32Array(SECTION_TYPES);
 
   /** Drops everything (a FULL packet, a new state generation). */
+  /** The index of a serial's DYN record, −1 when it has none (ViewModel). */
+  dynOf(serial: number): number {
+    return this.dynIndex.get(serial);
+  }
+
+  /** The index of a serial's HANDS record, −1 when it has none (ViewModel). */
+  handsOf(serial: number): number {
+    return this.handsIndex.get(serial);
+  }
+
   reset(): void {
+    this.epoch++;
     this.chunks.clear();
     this.lines.clear();
     this.dyn.clear();
@@ -405,6 +418,7 @@ export class Mirror {
       const segAt = o + BeltGeomCodec.PREFIX;
       if (segAt + segCount * BeltSegmentCodec.SIZE > end) throw new PacketError('truncated BELT_GEOM');
       const segs = new Int32Array(segCount * 6);
+      const box = new Float64Array(segCount * 4);
       let x0 = Number.POSITIVE_INFINITY;
       let y0 = Number.POSITIVE_INFINITY;
       let x1 = Number.NEGATIVE_INFINITY;
@@ -423,6 +437,10 @@ export class Mirror {
         segs[s * 6 + 5] = dv.getInt32(so + SG.radius, true);
         // the segment's extent: its end and (at most) len positions upstream in any direction
         const reach = len + 256;
+        box[s * 4] = (x - reach) / 256;
+        box[s * 4 + 1] = (y - reach) / 256;
+        box[s * 4 + 2] = (x + reach) / 256;
+        box[s * 4 + 3] = (y + reach) / 256;
         x0 = Math.min(x0, x - reach);
         y0 = Math.min(y0, y - reach);
         x1 = Math.max(x1, x + reach);
@@ -440,6 +458,11 @@ export class Mirror {
         cy0: Math.floor(y0 / 256 / 32),
         cx1: Math.floor(x1 / 256 / 32),
         cy1: Math.floor(y1 / 256 / 32),
+        box,
+        bx0: x0 / 256,
+        by0: y0 / 256,
+        bx1: x1 / 256,
+        by1: y1 / 256,
       };
       this.lines.set(line.lineId, line);
       o = segAt + segCount * BeltSegmentCodec.SIZE;
