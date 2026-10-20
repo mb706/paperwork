@@ -3,7 +3,7 @@ Status: done
 
 ## Summary
 
-`game/` now holds the npm package and the Cargo workspace of 10 §2.2. From a clean clone, `npm ci` and `npm run ci` are green (30.5 s wall).
+`game/` now holds the npm package and the Cargo workspace of 10 §2.2. From a clean clone, `npm ci` and `npm run ci` are green (33.3 s wall, after the review r1 fixes).
 
 **Layout and toolchains**
 - **npm package:** exact pins from §2.1, installed with `npm ci` from the committed lockfile. Apart from the deviations below, every package resolves to the same version as in `design/round2/A-stack-test/`'s lockfile.
@@ -29,11 +29,11 @@ Status: done
   - the generated-file header hashes;
   - the crate graph (via `cargo metadata`) and `forbid(unsafe_code)`;
   - no I/O in `det`, `worldgen` or `sim`.
-- **`clippy.toml`:** every ban of 10 §4.1 for both `f64` and `f32`, plus `libm::fma`/`fmaf`, HashMap and HashSet, the clock, `thread::spawn` and the print macros. `scripts/check-clippy-bans.ts` runs clippy on a fixture crate (`test/clippy-bans/`) and requires all 70 bans to fire.
+- **`clippy.toml`:** every ban of 10 §4.1 for both `f64` and `f32`, plus `libm::fma`/`fmaf`, HashMap and HashSet, the clock, `thread::spawn` and the print macros. Since review r1 it also bans the standard library's I/O, environment and process APIs on resolved paths. `scripts/check-clippy-bans.ts` runs clippy on a fixture crate (`test/clippy-bans/`, with grouped and renamed imports) and requires all 112 bans to fire.
 - **`rustfmt.toml`.**
 
 **Commands** (`package.json`): `dev`, `build`, `preview`, `data`, `gen`, `check`, `test`, `e2e`, `ci`, `check-arch` and `format`. `check`, `test` and `ci` run `scripts/ci.ts`, which runs the steps in parallel lanes and prints per-step timings:
-- `ci` runs check and test, then the e2e smoke in Chrome and Firefox, then the release WebAssembly build with its gate.
+- `ci` runs check and test, then the data stage, then two lanes in parallel: the e2e smoke in Chrome and Firefox; and the release path (the release WebAssembly with its gate, `vite build`, `scripts/check-release.ts`, and a smoke of the bundle served by `vite preview`).
 - The release build is skipped when nothing it depends on changed since the last green run.
 - No git hook is installed.
 
@@ -143,7 +143,7 @@ Options:
     - PackEntry, 16 bytes: `u16 item, u16 0, u32 0, f64 per unit`, in tier order;
     - YieldEntry, 12 bytes: `u16 item, u16 0, u32 min, u32 max`, by item id;
     - prerequisite and unlock lists: one `u16` id each; placement tiles: one `u8` each.
-26. **`META`:** `u32 count`, then per record `u16 recordType, u32 length` and its field triples (COLD's framing without the serial), sorted by type. Record type 1, `start`, has field 1, the start inventory: a list of records {1: u16 item, 2: u32 count}, by item id.
+26. **`META`:** `u32 count`, then per record `u16 recordType, u32 length` and its field triples (COLD's framing without the serial), sorted by type. Record type 1, `start`, has field 1, the start inventory: a list of records {1: u16 item, 2: u32 count}, by item id. Record type 2, `contents` (review r1, finding 5), has field 1, the META blocks the file carries, and field 2, the design data it omits; both are lists of strings (`u32` count, then `u16` length and UTF-8 each).
 27. **`EXPR`:** expressions are packed with no padding, and `byteCount` includes END. Identical programs are stored once and share one `ExprRef`.
 28. **`NAMES`:** nine tables in ProtoKind order (item, fluid, recipe, entity, technology, resource, tile, world, signal), with no leading count.
 29. **The expression's runtime rules where §15.2 is silent:**
@@ -177,10 +177,11 @@ Options:
 
 ## Verification
 
-**Clean clone** (`git clone`, `npm ci`, `npm run ci`, at ab86234, `taskset -c 0-15`):
-- `npm ci` took 3.8 s. `npm run ci` was green in 30.5 s wall, with 64 s of step time.
+**Clean clone** (`git clone`, `npm ci`, `npm run ci`, `taskset -c 0-15`):
+- at ab86234: `npm ci` took 3.8 s. `npm run ci` was green in 30.5 s wall, with 64 s of step time.
+- at 49d10cb (review r1 fixes, release path added): `npm ci` 3.8 s; `npm run ci` green in 33.3 s wall, 78 s of step time.
 - The slowest steps: `cargo test (ntest)` 12.3 s (a first build with release LTO), Vitest 10.4 s, e2e 9.8 s, render_spec 7.9 s.
-- A warm `npm run ci` in the main tree takes 23–25 s; `npm run check` alone takes 12 s.
+- A warm `npm run ci` in the main tree takes 23–25 s at ab86234 and 27.6 s at 49d10cb; `npm run check` alone takes 12 s.
 
 **Incremental times** (the skeletons are tiny, so these are floors; A1 measured about 3 s for a 50k-line crate):
 
@@ -207,7 +208,7 @@ Options:
 - **Error cases** (each points at the file, line and data path): a wrongly typed field, a misspelt field, an unknown reference, a bad expression, an overlay that sets a design field, a capability manifest that does not close, `manifests.yaml` drifting from 10 §12, and 09's derived keys disagreeing with the data.
 - **The checks themselves:**
   - check-arch: 15 rule tests;
-  - the clippy bans: 70 of 70 fire, and a misspelt ban is caught;
+  - the clippy bans: 70 of 70 fire (112 of 112 since review r1), and a misspelt ban is caught;
   - the feature gate: a SIMD module fails, whether its target-features section declares SIMD or not;
   - the release manifest and the compressed siblings decompress correctly.
 - **Release build in the browser:** the build loaded in Chrome from `npm run preview` with every resource served brotli-compressed and no console messages.
@@ -263,3 +264,151 @@ Options:
 **Changed:**
 - `CLAUDE.md`: a new "The code" section, and the pinned-set line now points at `game/package-lock.json`. B2's uncommitted toolchain lines are left unstaged and untouched.
 - `tools/check-toolchain.sh`: four new checks.
+
+## Review response (codex C1a-r1)
+
+Fixes are in commit 49d10cb. Each finding has a regression test that fails on the code before the fix. The data-stage tests use a scratch copy of the data, so the real files are never edited.
+
+**1. Unit conversion can emit infinity — Fixed.**
+- `writePrototypesBin` checks every value against its column type at the writer: floats must be finite (NaN and infinities are refused), and integers must fit their width.
+- Every column names the YAML field it comes from, so a bad value becomes a diagnostic at `file:line:col` and that field.
+- An emitter's exception becomes a diagnostic for its prototype, and `prototypes.json` failures become diagnostics too.
+- Tests (`data-stage-review.test.ts`): `heat_capacity_kj_per_k: 1.0e+308` on water reports "Infinity is not a finite number", and `stack: 5000000000` reports "does not fit a u32".
+
+**2. A missing research count becomes zero-cost research — Fixed.**
+- A paid technology needs exactly one of `cost.count` and `count_formula`; a `count_formula` without a cost is refused too (`refs.ts`).
+- Test: removing `cost.count` from *Electric mining drill* is an error at its `cost`.
+
+**3. The capability closure overstates what is obtainable — Fixed.**
+- `playthrough.ts` ports `validate_spec.py`'s `producible`, `recipe_craftable`, `trigger_ok` and `playthrough`, rule for rule, restricted to the build's prototypes:
+  - a resource yields only if it is solid (mined by hand) or an included, placeable extractor can take it, with its required fluid;
+  - a recipe counts only once it is enabled: a start recipe, or unlocked by a technology the build researches;
+  - a technology must be researchable inside the build, and its trigger target must be in the build.
+- Tests: adding `water` without an offshore pump fails ("cannot be extracted", "not obtainable"); adding the `pipe` recipe and entity fails ("never enabled"); adding *Steam power* without its unlocks fails, and so does a trigger target outside the build.
+
+**4. Entity triggers can resolve to item ids — Fixed.**
+- `triggers.ts` resolves a target in the namespace its type names:
+  - `craft-item` and `launch`: `item`;
+  - `craft-recipe`: `recipe`;
+  - `build-entity`: `entity`;
+  - `mine-entity`: a resource or an entity; a name that is both is ambiguous.
+- A missing, misplaced, outside or ambiguous target is an error. The check runs early, over the whole data, in `refs.ts`; at the writer, an unresolved target is a diagnostic, never "none".
+- Tests:
+  - a `build-entity iron-chest` trigger emits target kind entity (3) and the entity's id;
+  - `{type: build-entity, item: iron-chest}` is an error at `trigger`;
+  - unit tests cover every case in `triggers.test.ts`.
+
+**5. Milestone binaries silently discard gameplay data — Deferred to C1b (gate item 1). The outputs now say exactly what they carry and omit.**
+
+What changed now:
+- `emit/contents.ts` classifies every field of every design kind as one of: binary, JSON, both, documentation, partial (with the omitted subfields listed) or omitted. `contents.test.ts` fails if any schema field is unclassified, so the list cannot go stale.
+- Every output declares its contents:
+  - `prototypes.bin`: META record 2, `contents`, holds field 1, the META blocks the file carries (`start.inventory`), and field 2, the omitted parts;
+  - `prototypes.json` and `build-manifest.json`: `contents: {meta, omitted}`.
+- `capabilities.yaml` gains `data`: the META blocks a milestone's engine reads (M0: `start.inventory`). The data stage refuses a manifest that reads a block the binary does not carry.
+- `--manifest` builds print how many parts their binary omits.
+- The M0 build carries everything M0 reads.
+
+Deferred to C1b: emit the omitted parts, and make the consumers refuse what is absent. `Protos::load` and the shell must check the contents record against the milestone's `data` and fail with `ERR_PROTOS`. The omitted parts are exactly these 50:
+- `enemies`, `text` (whole files);
+- entities:
+  - `allowed_effects`, `categories`, `consumes`, `produces`, `deploys`, `effect_receiver`, `staff_slots`, `staff_demand`;
+  - `energy.fuel_categories`, `energy.per_movement_kj`, `energy.per_rotation_kj`, `energy.priority`;
+  - `extra`: every type-specific field except chests' and wagons' slots and belts' `items_per_s`;
+  - `heat`: `coolant_in_min_c`, `coolant_out_c`, `emission`, `full_rate_dt_k`, `liquid_cooling`, `removes_kw`, `waste_heat`, `water_per_mj`, `while`;
+- items: `ammo`, `armor`, `equipment`, `module`, `spoil`, `staff`;
+- meta: `damage_categories`, `effects`, `endgame`, `heat` (every block except `classes`, which is carried as each entity's `t_star`), `hollow_work`, `quality`, `runaways`, `staffing`, `start.guarantees`, `start.salvage`, `town_classes`, `world` (including `model_collapse.speed_factor`, which is compiled and checked but not emitted), `world_settings`;
+- recipes: `victory`;
+- technologies: `branch`, `citation`, `unlocks.effects` (needs the registries);
+- tiles: `biome`, `placed_on`;
+- world objects: `gui`.
+
+Tests:
+- the binary's contents record decodes to `start.inventory` and to an omitted list containing `meta.world`, `technologies.unlocks.effects` and `enemies`, identical in the JSON and the manifest;
+- `data: [start.inventory, world]` is refused;
+- the classification is checked complete.
+
+**6. An empty level range bypasses validation and the cross-check — Fixed.**
+- `first_level` and `max_level` above 65,535 are errors, and an empty checked range is an internal error.
+- The fixture writer refuses a case with no points, and the Rust cross-check asserts that every case has points.
+- Test: `first_level: 65536` with `1/(L-65536)` is an error at `first_level`.
+
+**7. Half-up rounding changes integral costs — Fixed.**
+- `unitCount` rounds from the fractional part (`v - floor(v)` is exact for every finite double); `det::unit_count` is its Rust twin.
+- Both are pinned by hand-written goldens in `test/fixtures/expr/unit-counts.txt`: 0.49999999999999994, 2^52 − 0.5, 2^52, 2^52 + 1, 2^52 + 3, 2^53 − 1, 2^53 and 2^53 + 2, among others (`expr.test.ts`; `crates/det/tests/unit_counts.rs`).
+- The cross-check fixture now carries a hash of every count formula's unit counts, which the Rust test reproduces.
+- The Python tools still use `floor(v + 0.5)`. That differs only at 2^52 and above, beyond the levels they evaluate. The agreement test is unchanged and passes.
+
+**8. The determinism bans have syntax bypasses — Fixed.** `check-arch/ts-rules.ts`, in the deterministic modules:
+- **Aliases and keys:**
+  - globals resolve through `globalThis`, `self`, `window` and `global`, with static keys (string literals and constant templates);
+  - Math may be used only as `Math.<allowed function>`; a computed key, destructuring, aliasing or passing Math as a value is refused;
+  - a value use of the global object is refused, and so is a computed key on it;
+  - `crypto` randomness is refused in every form; `crypto.subtle` stays allowed.
+- **Imports:**
+  - a computed key on an imported namespace is refused;
+  - `import()`, `require`, `createRequire`, `eval` and `Function` are refused;
+  - a randomness name imported or re-exported (even renamed) is refused, and so is `export *` of a package;
+  - a deterministic module may import only deterministic modules (type-only imports excepted) and the reviewed packages `yaml` and `zod`. `scripts/build-manifest.ts` joined the deterministic set for that reason.
+
+Tests: 27 negative fixtures, one per form the review named plus their siblings, and positive fixtures for what the code really uses. Splitting check-arch into `scripts/check-arch/{ts-rules,rust-rules,generated,crates}.ts` kept each part small.
+
+**9. Dynamic imports bypass layer boundaries — Fixed.**
+- Constant template literals count as static specifiers.
+- Computed specifiers in `import()`, `require()`, `import.meta.glob` and `new Worker(...)` are refused (rule `dynamic-import`). An exception needs a justified `check-arch-ignore`.
+- Tests: ``import(`../render/a.ts`)`` from `ui/` is a layer violation; `import(p)`, an interpolated template, `require(p)`, `new Worker(url)` and a glob across layers are refused.
+
+**10. The Rust I/O guard misses grouped imports — Fixed, in two layers.**
+- **Clippy:** `clippy.toml` bans the resolved APIs, so every import spelling fires:
+  - methods: `std::fs` (18), `std::env` (12), `std::process` `exit`/`abort`/`id`, and the standard streams;
+  - types: `File`, `OpenOptions`, `TcpStream`, `TcpListener`, `UdpSocket`, `Command`.
+
+  The fixture crate exercises them through grouped, nested and renamed imports, and all 112 bans fire. `simtool` and fixture-reading test files allow them.
+- **check-arch:**
+  - `rust-rules.ts` strips comments and strings, then parses `use` trees (groups, nesting, renames, globs);
+  - it flags `std::fs`, `std::net`, `std::env`, `std::process` and the standard streams, globs and aliases of `std`, `extern crate std as …`, absolute paths, and `io::stderr()` after `use std::io`.
+- Tests: ten negative cases and one with comments, strings and harmless paths.
+
+**11. Generated-file hashes do not establish ownership — Fixed.**
+- `check-arch/generated.ts` checks the generated directories against the generators' inventory: `schema-gen`'s outputs (now importable) and the data stage's `proto-ids.ts`.
+- Every file there must be in the inventory, and its header must name the expected generator and source. A schema-gen file must also carry the current schema hash, and its content hash must match.
+- Extra files and missing outputs are errors.
+- Tests: an extra file with a valid data-stage header and hash; the wrong generator; a stale schema hash; a missing output.
+
+**12. Release builds omit `gen.wasm` — Fixed.**
+- The cargo plugin emits both release modules at `buildStart`, whether or not code imports them. The release plugin fails a build whose manifest lacks either.
+- CI now builds the bundle and runs `scripts/check-release.ts` on it. The checker requires:
+  - both modules and the contents;
+  - every served file listed with its SHA-256;
+  - a build hash that recomputes;
+  - `.br` and `.gz` siblings for every text-like file and for no other, each decompressing to the original.
+- CI then runs `e2e/release.spec.ts` against `vite preview` (Chrome): both modules are in the manifest, the page and the data come brotli-encoded, and there are no console messages.
+- Tests: `release.test.ts` (a bundle without `gen.wasm`, a tampered file, a missing sibling) and the release smoke.
+
+**13. The release cache can skip an invalid artifact set — Fixed.**
+- The key (`scripts/ci-release-cache.ts`) covers:
+  - crates, schema, the Cargo files, the toolchain pin, and the release and gate scripts;
+  - `.cargo/config.toml` and `$CARGO_HOME/config.toml`;
+  - the cargo and rustc environment variables (`RUSTFLAGS`, `CARGO_ENCODED_RUSTFLAGS`, `CARGO_BUILD_*`, `CARGO_PROFILE_*`, `CARGO_TARGET_*`, `RUSTC*`, `RUSTUP_TOOLCHAIN`);
+  - `rustc -vV` and `wasm-opt --version`.
+- A skip needs both outputs present, with the hashes the last green run recorded. The feature gate runs on every invocation.
+- Tests (`ci-release-cache.test.ts`): a missing or changed output forces a rebuild, and the key changes with `RUSTFLAGS`, a profile variable, the optimizer version, `.cargo/config.toml` and a source edit.
+
+**14. Watch inputs exclude compiler and schema dependencies — Fixed.**
+- The data stage watches its own code: `scripts/data-stage*`, `scripts/lib`, `scripts/build-manifest.ts`, and the schema identity `src/shared/gen/schema.ts`.
+- It re-runs after `schema-gen` succeeds.
+- All generators share a registry (`scripts/dev-generators.ts`). Scheduled and running builds count as busy, and held requests (`/data/`, `/__wasm/`, the dev manifest) wait until none is left.
+- Tests (`dev-generators.test.ts`): a follower runs after its leader and requests wait for it; the watched list includes the implementation.
+
+**15. Failed rebuilds keep serving earlier results — Fixed.**
+- A failed run's error persists until a run succeeds. Meanwhile:
+  - held requests get a 503 with the error: `/data/*` while `schema-gen` or the data stage has failed; `/__wasm/*` and the dev manifest while any generator has;
+  - every new WebSocket connection gets the error overlay.
+- The cargo plugin's build command is injectable, for tests.
+- Test: a failing generator makes `/data/…` answer 503 with its message and sends a new connection the overlay; after a successful run, requests pass and connections get nothing.
+
+**New in this round:**
+- **Files:** `scripts/data-stage/{playthrough,triggers,outputs,emit/contents}.ts`; `scripts/check-arch/{common,ts-rules,rust-rules,generated,crates}.ts`; `scripts/{dev-generators,ci-release-cache,check-release}.ts`; `playwright.release.config.ts`; `e2e/release.spec.ts`; `test/fixtures/expr/unit-counts.txt`; `crates/det/tests/unit_counts.rs`; `test/helpers/data-stage.ts`; the tests above.
+- **Behaviour:** the dev smoke now waits for the first builds (about 4 s instead of 1 s).
+- **Size:** Vitest now has 12 files and 186 tests (it had 7 and 96).
+- **Time:** CI is about 5 s longer, for the release path.
