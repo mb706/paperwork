@@ -3,9 +3,11 @@
 // its other tests): the sim worker's shell on the stub module.
 // - `frames N`: driven by its clock: each frame time moves a tick on and the pending wake runs (the due tick,
 //   `sim_tick`, the digest, chunk requests, one extraction, the packet posted and acked with the same buffer).
-// - `step N`: the tick path alone, one `seq step N` (test mode: N ticks, then one extraction).
-// Prints JSON: the ticks and packets run, bytes allocated per tick (heap growth without a collection) and retained
-// (after one).
+// - `step N`: the tick path alone, `seq step N` (test mode: N ticks, then one extraction).
+// After a warm-up long enough for V8's tiers to settle, three windows of N ticks each: per window the bytes
+// allocated per tick (heap growth without a collection) and retained (after one). A window in which V8 is still
+// compiling, or boxes a double in an optimized caller, can show transient garbage; the steady state is the
+// quietest window. Prints JSON.
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -22,7 +24,9 @@ const mod = await WebAssembly.compile(
 );
 let shell: SimShell | null = null;
 const ack: { t: 'ack'; buf: ArrayBuffer } = { t: 'ack', buf: new ArrayBuffer(0) };
-const clock = new Float64Array(1);
+// The clock is a frame count (a small integer), so the probe's own loop does no double arithmetic, which V8
+// boxes in unoptimized code: the time in ms is computed where the shell reads it.
+let frameNo = 0;
 let wake: (() => void) | null = null;
 let packets = 0;
 const host: ShellHost = {
@@ -33,7 +37,7 @@ const host: ShellHost = {
       shell?.handle(ack);
     }
   },
-  now: () => clock[0] as number,
+  now: () => (frameNo * 1000) / 60,
   wake: (_ms, f) => {
     wake = f;
     return 1;
@@ -55,43 +59,44 @@ await shell.handle({
 });
 await shell.handle({ t: 'world', gen: 1, op: 'new', settings: { ...NewWorldCodec.defaults(), seed: 1 } });
 const frame = () => {
-  clock[0] = (clock[0] as number) + 1000 / 60;
+  frameNo += 1;
   const f = wake;
   wake = null;
   f?.();
 };
 const mode = process.argv[2] ?? 'frames';
-const n = Number(process.argv[3] ?? 6000);
+const n = Number(process.argv[3] ?? 20000);
 let run: () => void;
 if (mode === 'frames') {
-  for (let i = 0; i < 5000; i++) frame();
+  for (let i = 0; i < 20000; i++) frame();
   run = () => {
     for (let i = 0; i < n; i++) frame();
   };
 } else if (mode === 'step') {
   await shell.handle({ t: 'seq', op: 'pause' });
-  await shell.handle({ t: 'seq', op: { step: 3000 } });
+  await shell.handle({ t: 'seq', op: { step: 30000 } });
   const step = { t: 'seq', op: { step: n } } as const;
   // `seq` is a hot message: handled synchronously (an undefined result, no promise).
   run = () => {
     if (shell?.handle(step) !== undefined) throw new Error('seq step returned a promise');
   };
 } else throw new Error(`steady-probe: unknown mode ${mode}`);
-gc();
-const t0 = shell.tick;
-const p0 = packets;
-const before = process.memoryUsage().heapUsed;
-run();
-const after = process.memoryUsage().heapUsed;
-gc();
-const retained = process.memoryUsage().heapUsed;
-const ticks = shell.tick - t0;
-console.log(
-  JSON.stringify({
-    mode,
+const windows: { ticks: number; packets: number; allocatedPerTick: number; retainedPerTick: number }[] = [];
+for (let w = 0; w < 3; w++) {
+  gc();
+  const t0 = shell.tick;
+  const p0 = packets;
+  const before = process.memoryUsage().heapUsed;
+  run();
+  const after = process.memoryUsage().heapUsed;
+  gc();
+  const retained = process.memoryUsage().heapUsed;
+  const ticks = shell.tick - t0;
+  windows.push({
     ticks,
     packets: packets - p0,
     allocatedPerTick: (after - before) / ticks,
     retainedPerTick: (retained - before) / ticks,
-  }),
-);
+  });
+}
+console.log(JSON.stringify({ mode, windows }));

@@ -3,10 +3,12 @@
 // fixed number of exports per tick", never per entity).
 //
 // Allocation is measured on V8's heap in a child `node --expose-gc` (test/shell/steady-probe.ts), away from
-// Vitest's own transform and its other tests: after a warm-up (so the JIT's feedback is in place) and a
-// collection, thousands of ticks run, and the heap may grow by a few bytes per tick at most (a per-tick object of
-// 16 bytes would be 16 B/tick) and keep nothing after a collection. The probe's host copies nothing and hands
-// each packet buffer straight back, as the main thread's `ack` does.
+// Vitest's own transform and its other tests: after a warm-up long enough for V8's tiers to settle, three windows
+// of 20,000 ticks, each between collections. The probe's host copies nothing and hands each packet buffer
+// straight back, as the main thread's `ack` does. The measurement itself allocates about 11 KB per window
+// whatever its length (0.56 B/tick over 20,000 ticks, 0.19 over 60,000, 2.2 over 5,000): the shell allocates
+// nothing per tick. A window in which V8 still compiles can show transient garbage, so the bound is on the
+// quietest window, with a looser one on all.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
@@ -62,41 +64,47 @@ function lean(instantiate?: ShellHost['instantiate']) {
   };
 }
 
-interface Probe {
-  mode: string;
+interface Window {
   ticks: number;
   packets: number;
   allocatedPerTick: number;
   retainedPerTick: number;
 }
 
-function probe(mode: 'frames' | 'step', n: number): Probe {
+function probe(mode: 'frames' | 'step', n: number): Window[] {
   const out = execFileSync(
     process.execPath,
     ['--expose-gc', join(GAME, 'test', 'shell', 'steady-probe.ts'), mode, String(n)],
     { encoding: 'utf8' },
   );
-  return JSON.parse(out.trim().split('\n').at(-1) as string) as Probe;
+  return (JSON.parse(out.trim().split('\n').at(-1) as string) as { windows: Window[] }).windows;
+}
+
+function expectNoAllocation(windows: Window[]): void {
+  const allocated = windows.map((w) => w.allocatedPerTick);
+  // Under 1 B/tick: the measurement's own 11 KB fit, a 4-byte object per tick would not.
+  expect(Math.min(...allocated), JSON.stringify(windows)).toBeLessThan(1);
+  expect(Math.max(...allocated), JSON.stringify(windows)).toBeLessThan(48);
+  expect(Math.max(...windows.map((w) => w.retainedPerTick)), JSON.stringify(windows)).toBeLessThan(1);
 }
 
 describe('the steady-state tick path allocates nothing (A1 open issue 7)', () => {
-  it('the clock runs 20,000 frames, a tick and a packet each, acked: nothing retained, a timestamp at most', () => {
-    const r = probe('frames', 20000);
-    expect(r.ticks).toBe(20000);
-    expect(r.packets).toBeGreaterThanOrEqual(19990);
-    // The clock's timestamps are doubles (performance.now()), which V8 may box: up to two 16-byte numbers per
-    // wake; everything else of the wake allocates nothing, and nothing is retained.
-    expect(r.allocatedPerTick).toBeLessThan(48);
-    expect(r.retainedPerTick).toBeLessThan(4);
+  it('the clock runs 20,000 frames, a tick and a packet each, acked: nothing allocated, nothing retained', () => {
+    const windows = probe('frames', 20000);
+    for (const w of windows) {
+      expect(w.ticks).toBe(20000);
+      expect(w.packets).toBe(20000);
+    }
+    expectNoAllocation(windows);
   });
 
-  it('the tick path alone (one step of 20,000 ticks): no growth beyond noise', () => {
-    const r = probe('step', 20000);
-    expect(r.ticks).toBe(20000);
-    expect(r.packets).toBe(1);
-    // Measured at ~2 B/tick, none of it from the shell's code (V8's sampling heap profiler finds no site).
-    expect(r.allocatedPerTick).toBeLessThan(8);
-    expect(r.retainedPerTick).toBeLessThan(4);
+  it('the tick path alone (a step of 20,000 ticks): nothing allocated, nothing retained', () => {
+    const windows = probe('step', 20000);
+    for (const w of windows) {
+      expect(w.ticks).toBe(20000);
+      expect(w.packets).toBe(1);
+    }
+    expectNoAllocation(windows);
   });
 });
 

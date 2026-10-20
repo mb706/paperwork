@@ -12,6 +12,8 @@ export const REBASE_BACKLOG = 6;
 export const SHORT_WAIT_MS = 4;
 /** Timers wake this much early. */
 export const TIMER_LEAD_MS = 2;
+/** In ticks (≈ 17 ns): a deadline computed by `nextAt` is due at that very time despite floating-point rounding. */
+const DUE_EPSILON = 1e-6;
 
 export class Clock {
   /** u16, raised by every transition. */
@@ -28,9 +30,12 @@ export class Clock {
     this.tick0 = tick;
   }
 
-  /** Ticks due at `now` beyond `tick` (may be negative before the next deadline). */
+  /**
+   * Ticks due at `now` beyond `tick` (may be negative before the next deadline). A wake at exactly `nextAt(tick)`
+   * finds that tick due: DUE_EPSILON absorbs the rounding of `(k × TICK_MS ÷ speed) × speed ÷ TICK_MS`.
+   */
   due(now: number, tick: number): number {
-    return Math.floor(((now - this.t0) * this.speed) / TICK_MS) - (tick - this.tick0);
+    return Math.floor(((now - this.t0) * this.speed) / TICK_MS + DUE_EPSILON) - (tick - this.tick0);
   }
 
   /** When the tick after `tick` is due. */
