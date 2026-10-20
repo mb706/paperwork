@@ -25,14 +25,14 @@ use crate::project::{Built, DebugInputs, ProjScratch, SeriesState, SubReq, build
 use crate::rules::{Move, fine, resource_band};
 use crate::world::World;
 use schema::ChunkData;
-use schema::codec::{EResult, Fixed, List, Packed, Writer};
+use schema::codec::{EncodeError, Fixed, List, Packed, Writer};
 use schema::packet::{
     AudioWorking, ChunkEntities, ChunkObjects, ChunkResources, ChunkTiles, EntityView, Mover, PacketBuilder,
     PacketFlags, PacketSection, ResourceView, ViewFlags, ViewRequest, held_chunks,
 };
 use schema::projections::{
-    Cadence, ProjectionKind, SLOW_CADENCE_TICKS, STATS_SUBSCRIPTIONS, SUBSCRIPTIONS, UI_SECTION_MAX,
-    UiInvalidReason, UiRecord, UiStatus,
+    Cadence, ProjectionKind, SLOW_CADENCE_TICKS, STATS_SUBSCRIPTIONS, SUBSCRIPTIONS, SubRequest,
+    UI_SECTION_MAX, UiInvalidReason, UiRecord, UiStatus,
 };
 use schema::{
     ChunkKey, Direction, EntityViewFlags, IconIndex, MoverFlags, MoverKind, PLAYERS, PlayerIndex, Serial,
@@ -57,19 +57,53 @@ struct Held {
 
 #[derive(Clone, Debug)]
 struct Sub {
+    /// The request; a refusal keeps no tail.
     req: SubReq,
     last_hash: Option<u64>,
     last_eval: Option<u32>,
+    /// The declared sources' revision when the record was last built (§15.5 "Source revisions").
+    last_rev: Option<u64>,
     series: SeriesState,
     /// A refusal to send once, then the subscription is dropped (§15.5: limits, unsupported kinds).
     refusal: Option<UiInvalidReason>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct HoverSub {
     serial: u32,
     last_hash: Option<u64>,
+    last_rev: Option<u64>,
     done: bool,
+}
+
+/// What a delivered packet changes in a subscription (staged until the packet is delivered, §15.4).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SubChange {
+    /// Its refusal, gone or invalid record went out: the subscription ends.
+    End,
+    /// Evaluated at the staged tick: `sent` is the hash of the record written, if one was; `rev` the declared
+    /// sources' revision the record was built at.
+    Evaluated { sent: Option<u64>, rev: Option<u64> },
+    /// Evaluated, its record changed, but the section was full: due again at the next extraction.
+    Capped,
+}
+
+/// A packet built and not yet delivered, with everything it changes in what the main thread holds (C2c-r1
+/// finding 4: §15.4's "what was sent advances only when a packet is"). `commit` applies it once the module has
+/// handed the packet over; a new extraction or a change of the subscriptions drops it.
+#[derive(Clone, Debug, Default)]
+struct Staged {
+    ready: bool,
+    packet: Vec<u8>,
+    tick: u32,
+    held: Vec<((SurfaceIndex, ChunkKey), Held)>,
+    hover: Option<HoverSub>,
+    ui_cursor: u32,
+    /// `(sub_id, version)` of each record written.
+    versions: Vec<(u32, u32)>,
+    subs: Vec<(u32, SubChange)>,
+    /// STATS series states to swap in, `(sub_id, state)`.
+    series: Vec<(u32, SeriesState)>,
 }
 
 /// Buffers extraction reuses.
@@ -92,9 +126,18 @@ struct Scratch {
     working: Vec<WorkingSource>,
     sounds: Vec<SoundSum>,
     audio: Vec<u8>,
-    /// The held set's generated chunks, and the pristine ones no cache holds yet with their distance.
+    /// The held set's generated chunks, and the unsent pristine ones no cache holds yet with their distance.
     keys: Vec<ChunkKey>,
     missing: Vec<(i64, ChunkKey)>,
+    /// `sim_subscribe`'s plan: the table's `(sub_id, kind, refused)` as the batch would leave it.
+    meta: Vec<(u32, ProjectionKind, bool)>,
+    /// Shared evaluation (§15.5): per order position, the earlier position with the same request, and the
+    /// records built this extraction that a later subscription reuses.
+    twin: Vec<Option<usize>>,
+    shared: Vec<(usize, Built, u64, usize, usize)>,
+    shared_bodies: Vec<u8>,
+    /// STATS series states not in use, so staging swaps instead of allocating.
+    series_pool: Vec<SeriesState>,
 }
 
 /// The pristine chunks extraction may generate per packet (§4.4, B1-r1 16).
@@ -253,13 +296,107 @@ fn audio_working(
     Ok(sums.len() as u32)
 }
 
-/// The extraction state of `PresentationState` (§3.6): written by extraction and by `sim_subscribe` /
-/// `sim_unsubscribe`, read by extraction.
+/// Refused requests waiting for their status-2 record, at most this many (C2c-r1 finding 1). With the 32 live
+/// subscriptions they bound what the table holds; a refusal keeps no tail.
+pub const REFUSALS_MAX: usize = SUBSCRIPTIONS;
+/// The most requests one `sim_subscribe` carries: each one lives or waits as a refusal.
+pub const SUBSCRIBE_BATCH_MAX: usize = SUBSCRIPTIONS + REFUSALS_MAX;
+
+/// Why `sim_subscribe` refused a batch; nothing changes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SubscribeError {
+    /// `ERR_INPUT`: a request for `sub_id` 0, the hover projection's (rule 30).
+    HoverId,
+    /// `ERR_LIMIT`: more than [`SUBSCRIBE_BATCH_MAX`] requests, or more than [`REFUSALS_MAX`] refusals waiting.
+    Limit,
+}
+
+/// The table's counts that §15.5's limits read: live subscriptions, live STATS ones, refusals waiting.
+#[derive(Clone, Copy, Debug, Default)]
+struct Counts {
+    live: usize,
+    stats: usize,
+    refused: usize,
+}
+
+impl Counts {
+    fn of(entries: impl Iterator<Item = (ProjectionKind, bool)>) -> Self {
+        let mut c = Self::default();
+        for (kind, refused) in entries {
+            c.add(kind, refused);
+        }
+        c
+    }
+
+    fn add(&mut self, kind: ProjectionKind, refused: bool) {
+        if refused {
+            self.refused += 1;
+        } else {
+            self.live += 1;
+            self.stats += usize::from(kind == ProjectionKind::Stats);
+        }
+    }
+
+    fn remove(&mut self, kind: ProjectionKind, refused: bool) {
+        if refused {
+            self.refused -= 1;
+        } else {
+            self.live -= 1;
+            self.stats -= usize::from(kind == ProjectionKind::Stats);
+        }
+    }
+
+    /// §15.5's limits for a request of `kind`, the entry it replaces already removed (rule 34).
+    fn refusal_for(&self, kind: ProjectionKind) -> Option<UiInvalidReason> {
+        if !projection_supported(kind) {
+            Some(UiInvalidReason::Unsupported)
+        } else if self.live + 1 > SUBSCRIPTIONS
+            || (kind == ProjectionKind::Stats && self.stats + 1 > STATS_SUBSCRIPTIONS)
+        {
+            Some(UiInvalidReason::OverLimit)
+        } else {
+            None
+        }
+    }
+}
+
+/// The declared sources' revision of a record (projections.yaml `sources`, §15.5): an inventory's version for
+/// `INVENTORY` and `HOVER` (whose other source, the entity's status, is constant for M0's chests). `None` for a
+/// kind without sources, or a target that is gone, which is then always built.
+fn source_rev(w: &World, kind: ProjectionKind, target: u32) -> Option<u64> {
+    match kind {
+        ProjectionKind::Inventory | ProjectionKind::Hover => {
+            let row = w.entity(Serial(target)).map(crate::handle::slot)?;
+            let inv = w.containers.inv[w.entities.pool_slot[row as usize] as usize];
+            Some(u64::from(w.heap.version(inv)))
+        }
+        ProjectionKind::Hud
+        | ProjectionKind::Character
+        | ProjectionKind::EntityPanel
+        | ProjectionKind::Research
+        | ProjectionKind::Stats
+        | ProjectionKind::Electric
+        | ProjectionKind::World
+        | ProjectionKind::Debug => None,
+    }
+}
+
+/// Whether two subscriptions share their evaluation (§15.5): the same kind, target, parameters and tail, and a
+/// record that depends on nothing of the subscription's own. A STATS record with series (`p2` bit 0) holds the
+/// points appended since that subscription's last record, so it is built per subscription.
+fn shares(a: &SubReq, b: &SubReq) -> bool {
+    let series = a.kind == ProjectionKind::Stats && a.p[2] & 1 != 0;
+    !series && a.kind == b.kind && a.target == b.target && a.p == b.p && a.tail == b.tail
+}
+
+/// The extraction state of `PresentationState` (§3.6): written by `sim_subscribe` / `sim_unsubscribe` and by
+/// delivered packets, read by extraction.
 #[derive(Clone, Debug)]
 pub struct Extractor {
-    held: Vec<(ChunkKey, Held)>,
+    /// The held set: per `(surface, chunk)`, the view versions the main thread holds (C2c-r1 finding 6).
+    held: Vec<((SurfaceIndex, ChunkKey), Held)>,
     subs: Vec<(u32, Sub)>,
-    /// Per sub_id: the records sent, over replacements too (§15.5 `version`).
+    /// Per live `sub_id` (and the hover's 0): the records sent, over replacements too (§15.5 `version`).
     versions: Vec<(u32, u32)>,
     hover: Option<HoverSub>,
     first_sent: bool,
@@ -268,6 +405,9 @@ pub struct Extractor {
     /// The UI section's cap: `UI_SECTION_MAX`, smaller only in tests.
     ui_cap: usize,
     view_cache: ViewCache,
+    staged: Staged,
+    /// How many records extraction has built (tests: source revisions and shared evaluation skip builds).
+    builds: u64,
     scratch: Scratch,
 }
 
@@ -283,14 +423,16 @@ impl Default for Extractor {
             ui_cursor: 0,
             ui_cap: UI_SECTION_MAX,
             view_cache: ViewCache::default(),
+            staged: Staged::default(),
+            builds: 0,
             scratch: Scratch::default(),
         }
     }
 }
 
-/// What one extraction needs besides the World and the request.
+/// What one extraction reads besides the World and the request.
 pub struct ExtractIo<'a> {
-    pub events: &'a mut EventSink,
+    pub events: &'a EventSink,
     pub moves: &'a [Move; PLAYERS],
     pub dbg: DebugInputs,
 }
@@ -305,53 +447,99 @@ impl Extractor {
         self.ui_cap = bytes;
     }
 
-    /// `sim_subscribe` (§15.5): adds or replaces each request. `false` (`ERR_INPUT`, nothing changes) when one
-    /// names sub_id 0, which belongs to the hover projection (rule 30). A request for a kind outside the
-    /// capability manifest, or over a limit, becomes a subscription that sends one status-2 record and is
-    /// dropped. The limits hold for the set a request leaves: a replacement is checked as if the subscription it
-    /// replaces were gone, and a refused replacement ends that subscription too (rule 34).
-    pub fn subscribe(&mut self, reqs: &[SubReq]) -> bool {
-        if reqs.iter().any(|r| r.sub_id == 0) {
-            return false;
+    /// `sim_subscribe` (§15.5): adds or replaces each request, in order. A request for `sub_id` 0 is refused
+    /// (rule 30). A request for a kind outside the capability manifest, or over a limit, waits as a refusal
+    /// that sends one status-2 record and is dropped. The limits hold for the set a request leaves: a
+    /// replacement is checked as if the subscription it replaces were gone, and a refused replacement ends that
+    /// subscription too (rule 34). Bounded (C2c-r1 finding 1): a batch of more than [`SUBSCRIBE_BATCH_MAX`]
+    /// requests, or one that would leave more than [`REFUSALS_MAX`] refusals waiting, is refused whole before
+    /// anything is copied.
+    pub fn subscribe(&mut self, reqs: &[SubRequest<'_>]) -> Result<(), SubscribeError> {
+        if reqs.iter().any(|r| r.sub_id.0 == 0) {
+            return Err(SubscribeError::HoverId);
         }
-        for req in reqs {
-            let mut refusal = None;
-            if !projection_supported(req.kind) {
-                refusal = Some(UiInvalidReason::Unsupported);
-            } else {
-                let others = self.subs.iter().filter(|(id, s)| *id != req.sub_id && s.refusal.is_none());
-                let (n, stats) = others.fold((0, 0), |(n, k), (_, s)| {
-                    (n + 1, k + usize::from(s.req.kind == ProjectionKind::Stats))
-                });
-                if n + 1 > SUBSCRIPTIONS
-                    || (req.kind == ProjectionKind::Stats && stats + 1 > STATS_SUBSCRIPTIONS)
-                {
-                    refusal = Some(UiInvalidReason::OverLimit);
-                }
+        if reqs.len() > SUBSCRIBE_BATCH_MAX {
+            return Err(SubscribeError::Limit);
+        }
+        // The plan, on the table's metadata: a refused batch changes and copies nothing.
+        let meta = &mut self.scratch.meta;
+        meta.clear();
+        meta.extend(self.subs.iter().map(|(id, s)| (*id, s.req.kind, s.refusal.is_some())));
+        let mut c = Counts::of(meta.iter().map(|m| (m.1, m.2)));
+        for r in reqs {
+            let at = meta.binary_search_by_key(&r.sub_id.0, |m| m.0);
+            if let Ok(i) = at {
+                c.remove(meta[i].1, meta[i].2);
+            }
+            let refused = c.refusal_for(r.kind).is_some();
+            c.add(r.kind, refused);
+            if c.refused > REFUSALS_MAX {
+                return Err(SubscribeError::Limit);
+            }
+            match at {
+                Ok(i) => meta[i] = (r.sub_id.0, r.kind, refused),
+                Err(i) => meta.insert(i, (r.sub_id.0, r.kind, refused)),
+            }
+        }
+        // The same decisions on the table.
+        self.drop_stage();
+        let mut c = Counts::of(self.subs.iter().map(|(_, s)| (s.req.kind, s.refusal.is_some())));
+        for r in reqs {
+            let id = r.sub_id.0;
+            let at = self.subs.binary_search_by_key(&id, |x| x.0);
+            if let Ok(i) = at {
+                let old = &self.subs[i].1;
+                c.remove(old.req.kind, old.refusal.is_some());
+            }
+            let refusal = c.refusal_for(r.kind);
+            c.add(r.kind, refusal.is_some());
+            let mut req = SubReq {
+                sub_id: id,
+                kind: r.kind,
+                target: r.target,
+                p: [r.p0, r.p1, r.p2, r.p3],
+                tail: None,
+            };
+            if refusal.is_none() {
+                req.tail = r.tail.map(<[u8]>::to_vec);
             }
             let sub = Sub {
-                req: req.clone(),
+                req,
                 last_hash: None,
                 last_eval: None,
+                last_rev: None,
                 series: SeriesState::fresh(),
                 refusal,
             };
-            match self.subs.binary_search_by_key(&req.sub_id, |x| x.0) {
+            match at {
                 Ok(i) => self.subs[i].1 = sub,
-                Err(i) => self.subs.insert(i, (req.sub_id, sub)),
+                Err(i) => self.subs.insert(i, (id, sub)),
             }
         }
-        true
+        Ok(())
     }
 
-    /// `sim_unsubscribe`: drops them; unknown ids are ignored.
+    /// `sim_unsubscribe`: drops them and their record counts; unknown ids are ignored.
     pub fn unsubscribe(&mut self, ids: &[u32]) {
+        self.drop_stage();
         self.subs.retain(|(id, _)| !ids.contains(id));
+        self.reclaim_versions();
     }
 
-    /// The number of live subscriptions (tests).
+    /// Forgets the record counts of `sub_id`s that ended (C2c-r1 finding 1); the hover's stays.
+    fn reclaim_versions(&mut self) {
+        let subs = &self.subs;
+        self.versions.retain(|(id, _)| *id == 0 || subs.binary_search_by_key(id, |x| x.0).is_ok());
+    }
+
+    /// The number of subscriptions, refusals waiting included (tests).
     pub fn subscriptions(&self) -> usize {
         self.subs.len()
+    }
+
+    /// How many `sub_id`s have a record count (tests).
+    pub fn versions(&self) -> usize {
+        self.versions.len()
     }
 
     /// How many pristine chunks extraction has generated into its view cache (§4.4; tests, `simtool bench`).
@@ -359,14 +547,22 @@ impl Extractor {
         self.view_cache.generated
     }
 
-    /// `sim_extract` (§15.4): the next packet, appended to `out`.
-    pub fn extract(
-        &mut self,
-        w: &World,
-        view: &ViewRequest,
-        io: &mut ExtractIo<'_>,
-        out: &mut Vec<u8>,
-    ) -> EResult {
+    /// How many records extraction has built, the hover's included (tests).
+    pub fn builds(&self) -> u64 {
+        self.builds
+    }
+
+    /// Drops a staged packet that was not delivered, keeping its series buffers.
+    fn drop_stage(&mut self) {
+        let st = &mut self.staged;
+        st.ready = false;
+        self.scratch.series_pool.extend(st.series.drain(..).map(|(_, x)| x));
+    }
+
+    /// `sim_extract` (§15.4), first half: builds the next packet and stages what it changes; nothing the main
+    /// thread is assumed to hold advances until [`Self::commit`]. Returns the packet.
+    pub fn stage(&mut self, w: &World, view: &ViewRequest, io: &ExtractIo<'_>) -> Result<&[u8], EncodeError> {
+        self.drop_stage();
         let tick = w.current_tick();
         let mut flags = PacketFlags::EMPTY;
         if !self.first_sent {
@@ -377,7 +573,8 @@ impl Extractor {
         }
         // The first packet holds nothing: the main thread's state starts empty (rule 31).
         let rect = if self.first_sent { held_chunks(view) } else { None };
-        let s = &mut self.scratch;
+        let surface = SurfaceIndex(view.surface.0);
+        let Self { held, view_cache, staged: st, scratch: s, .. } = self;
         for b in [
             &mut s.tiles,
             &mut s.entities,
@@ -386,26 +583,27 @@ impl Extractor {
             &mut s.movers,
             &mut s.events,
             &mut s.ui,
+            &mut s.audio,
         ] {
             b.clear();
         }
-        // Per-chunk deltas: the held set's generated chunks, ascending key.
-        self.held.retain(|(k, _)| {
-            let (cx, cy) = schema::chunk_xy(*k);
-            rect.is_some_and(|r| r.contains(cx, cy))
-        });
-        let surface = SurfaceIndex(view.surface.0);
+        st.held.clear();
+        let is_held =
+            |key: ChunkKey| held.binary_search_by_key(&(surface, key), |x| x.0).ok().map(|i| held[i].1);
         let (mut nt, mut ne, mut no, mut nr) = (0u32, 0u32, 0u32, 0u32);
         if let Some(r) = rect {
             held_generated(w, surface, r, &mut s.keys);
-            // §4.4: extraction cannot write the World. A pristine chunk that neither the World's cache nor the
-            // view cache holds is generated into the view cache, at most EXTRACT_GENERATIONS per packet, nearest
-            // the view's centre first; the rest follow in later packets (they are not held until sent).
+            // §4.4: extraction cannot write the World. A pristine chunk not sent yet that neither the World's cache
+            // nor the view cache holds is generated into the view cache, at most EXTRACT_GENERATIONS per packet,
+            // nearest the view's centre first; the rest follow in later packets. A pristine chunk already sent is
+            // unchanged (its view versions are 1 until a rule modifies it), so it needs no content (C2c-r1
+            // finding 5: evicted, already-sent chunks no longer take the budget from unsent ones).
             s.missing.clear();
             for &key in &s.keys {
                 if w.chunks.get(surface, key).is_none()
+                    && is_held(key).is_none()
                     && w.regen.peek(surface, key).is_none()
-                    && self.view_cache.get(surface, key).is_none()
+                    && view_cache.get(surface, key).is_none()
                 {
                     s.missing.push((centre_distance2(view, key), key));
                 }
@@ -413,14 +611,20 @@ impl Extractor {
             s.missing.sort_unstable();
             for &(_, key) in s.missing.iter().take(EXTRACT_GENERATIONS) {
                 if let Some(d) = w.regen.generate_detached(surface, key) {
-                    self.view_cache.put(d);
+                    view_cache.put(d);
                 }
             }
             for &key in &s.keys {
                 let modified = w.chunks.get(surface, key);
-                let pristine = match modified {
-                    Some(_) => None,
-                    None => match w.regen.peek(surface, key).or_else(|| self.view_cache.get(surface, key)) {
+                let sent = is_held(key);
+                let pristine = match (modified, sent) {
+                    (Some(_), _) => None,
+                    (None, Some(h)) => {
+                        st.held.push(((surface, key), h));
+                        continue;
+                    }
+                    (None, None) => match w.regen.peek(surface, key).or_else(|| view_cache.get(surface, key))
+                    {
                         Some(d) => Some(d),
                         None => continue,
                     },
@@ -432,13 +636,11 @@ impl Extractor {
                         objects: c.view.objects,
                         resources: c.view.resources,
                     });
-                let at = self.held.binary_search_by_key(&key, |x| x.0);
-                let sent = at.ok().map(|i| self.held[i].1);
                 if sent.is_none_or(|h| h.tiles != now.tiles) {
                     let tiles: &[TileId; 1024] = match (modified, &pristine) {
                         (Some(c), _) => &c.rec.tiles,
                         (None, Some(d)) => &d.tiles,
-                        (None, None) => unreachable!("a held chunk is modified or its content is at hand"),
+                        (None, None) => unreachable!("a chunk to send is modified or its content is at hand"),
                     };
                     ChunkTiles { chunk_key: key, surface, flags: 0, version: now.tiles, tiles: *tiles }
                         .write(&mut Writer::new(&mut s.tiles), "ChunkTiles")?;
@@ -503,18 +705,19 @@ impl Extractor {
                     .encode(&mut Writer::new(&mut s.resources))?;
                     nr += 1;
                 }
-                match at {
-                    Ok(i) => self.held[i].1 = now,
-                    Err(i) => self.held.insert(i, (key, now)),
-                }
+                st.held.push(((surface, key), now));
             }
         }
-        // MOVERS: every character in a held chunk, ascending serial (rule 32).
+        // MOVERS: every character on the view's surface in a held chunk, ascending serial (rule 32).
         let mut nm = 0u32;
         if let Some(r) = rect {
             s.chars.clear();
-            s.chars
-                .extend(w.players.iter().filter(|p| !p.character.is_none()).map(|p| (p.character, p.index)));
+            s.chars.extend(
+                w.players
+                    .iter()
+                    .filter(|p| !p.character.is_none() && p.surface == surface)
+                    .map(|p| (p.character, p.index)),
+            );
             s.chars.sort_unstable();
             let proto = schema::EntityId(w.character_proto() as u16);
             for &(serial, pi) in &s.chars {
@@ -545,17 +748,12 @@ impl Extractor {
                 nm += 1;
             }
         }
-        // EVENTS: everything queued since the last packet (§15.6).
-        let (nev, dropped) = io.events.drain(&mut s.events);
+        // EVENTS: everything queued since the last delivered packet (§15.6); the queue empties on delivery.
+        let (nev, dropped) = io.events.peek(&mut s.events);
         if dropped {
             flags = flags.union(PacketFlags::EVENTS_DROPPED);
         }
-        // UI: the subscriptions due (§15.5).
-        let nui = if self.first_sent { self.ui_records(w, view, tick, io.dbg)? } else { 0 };
-
         // AUDIO_WORKING: the working loops near the view, while audio is on (§15.6).
-        let s = &mut self.scratch;
-        s.audio.clear();
         let mut na = 0;
         if let Some(r) = rect
             && view.flags.contains(ViewFlags::AUDIO)
@@ -564,8 +762,10 @@ impl Extractor {
             w.working_sources(surface, &mut s.working);
             na = audio_working(view, r, &s.working, &mut s.sounds, &mut s.audio)?;
         }
+        // UI: the subscriptions due (§15.5).
+        let nui = if self.first_sent { self.stage_ui(w, view, tick, io.dbg)? } else { 0 };
 
-        let s = &self.scratch;
+        let Self { staged: st, scratch: s, .. } = self;
         let sections: [(PacketSection, u32, &Vec<u8>); 8] = [
             (PacketSection::ChunkTiles, nt, &s.tiles),
             (PacketSection::ChunkEntities, ne, &s.entities),
@@ -577,7 +777,8 @@ impl Extractor {
             (PacketSection::ChunkResources, nr, &s.resources),
         ];
         let present = sections.iter().filter(|x| x.1 > 0).count();
-        let mut wr = Writer::new(out);
+        st.packet.clear();
+        let mut wr = Writer::new(&mut st.packet);
         let mut pb = PacketBuilder::begin(&mut wr, present, tick, flags, M0_DAYLIGHT);
         for (t, n, bytes) in sections {
             if n == 0 {
@@ -588,75 +789,144 @@ impl Extractor {
             pb.end(&mut wr, n)?;
         }
         pb.finish(&mut wr)?;
-        self.first_sent = true;
-        self.last_tick = Some(tick);
-        Ok(())
+        st.tick = tick;
+        st.ready = true;
+        Ok(&self.staged.packet)
     }
 
-    fn next_version(&mut self, id: u32) -> u32 {
-        match self.versions.binary_search_by_key(&id, |x| x.0) {
-            Ok(i) => {
-                self.versions[i].1 = self.versions[i].1.wrapping_add(1);
-                self.versions[i].1
-            }
-            Err(i) => {
-                self.versions.insert(i, (id, 1));
-                1
+    /// `sim_extract`, second half: the staged packet was delivered, so what it carries is now held (§15.4): the
+    /// chunks' versions, the subscriptions' records, versions, hashes and series, the hover, the UI cursor; and
+    /// the event queue empties. Without a staged packet, nothing happens.
+    pub fn commit(&mut self, events: &mut EventSink) {
+        if !self.staged.ready {
+            return;
+        }
+        let st = &mut self.staged;
+        st.ready = false;
+        std::mem::swap(&mut self.held, &mut st.held);
+        self.hover = st.hover;
+        self.ui_cursor = st.ui_cursor;
+        self.first_sent = true;
+        self.last_tick = Some(st.tick);
+        for &(id, v) in &st.versions {
+            match self.versions.binary_search_by_key(&id, |x| x.0) {
+                Ok(i) => self.versions[i].1 = v,
+                Err(i) => self.versions.insert(i, (id, v)),
             }
         }
+        let mut ended = false;
+        for &(id, change) in &st.subs {
+            let Ok(i) = self.subs.binary_search_by_key(&id, |x| x.0) else { continue };
+            match change {
+                SubChange::End => {
+                    self.subs.remove(i);
+                    ended = true;
+                }
+                SubChange::Evaluated { sent, rev } => {
+                    let s = &mut self.subs[i].1;
+                    s.last_eval = Some(st.tick);
+                    s.last_rev = rev;
+                    if sent.is_some() {
+                        s.last_hash = sent;
+                    }
+                }
+                SubChange::Capped => self.subs[i].1.last_eval = None,
+            }
+        }
+        for (id, mut series) in st.series.drain(..) {
+            if let Ok(i) = self.subs.binary_search_by_key(&id, |x| x.0) {
+                std::mem::swap(&mut self.subs[i].1.series, &mut series);
+            }
+            self.scratch.series_pool.push(series);
+        }
+        if ended {
+            self.reclaim_versions();
+        }
+        events.clear();
     }
 
-    /// Writes one UI record unless the section would pass its cap; `false` when capped.
+    /// Writes one UI record unless the section would pass its cap (`false`); its version is staged.
     fn write_record(
         &mut self,
         id: u32,
         kind: ProjectionKind,
         status: UiStatus,
         body: &[u8],
-    ) -> Result<bool, schema::codec::EncodeError> {
+    ) -> Result<bool, EncodeError> {
         let len = 16 + body.len().div_ceil(4) * 4;
         if self.scratch.ui.len() + len > self.ui_cap {
             return Ok(false);
         }
-        let version = self.next_version(id);
+        let sent = self.versions.binary_search_by_key(&id, |x| x.0).map_or(0, |i| self.versions[i].1);
+        let version = sent.wrapping_add(1);
         UiRecord { sub_id: SubId(id), kind, status, version, body }
             .encode(&mut Writer::new(&mut self.scratch.ui))?;
+        self.staged.versions.push((id, version));
         Ok(true)
     }
 
-    fn ui_records(
+    /// Stages the UI section (§15.5): the hover projection (sub_id 0) and the subscriptions due, cyclically from
+    /// where the last capped section stopped; returns the record count.
+    fn stage_ui(
         &mut self,
         w: &World,
         view: &ViewRequest,
         tick: u32,
         dbg: DebugInputs,
-    ) -> Result<u32, schema::codec::EncodeError> {
+    ) -> Result<u32, EncodeError> {
         let mut count = 0u32;
-        // The hover projection (sub_id 0): the view request's hovered serial, 0 for none.
+        self.staged.versions.clear();
+        self.staged.subs.clear();
+        // The hover projection: the view request's hovered serial, 0 for none.
         let hovered = view.hovered_serial.0;
-        if hovered == 0 {
-            self.hover = None;
-        } else if self.hover.is_none_or(|h| h.serial != hovered) {
-            self.hover = Some(HoverSub { serial: hovered, last_hash: None, done: false });
-        }
+        let mut hover = match self.hover {
+            _ if hovered == 0 => None,
+            Some(h) if h.serial == hovered => Some(h),
+            _ => Some(HoverSub { serial: hovered, last_hash: None, last_rev: None, done: false }),
+        };
         let mut order = std::mem::take(&mut self.scratch.order);
         order.clear();
-        if self.hover.is_some() {
+        if hover.is_some() {
             order.push(0);
         }
         order.extend(self.subs.iter().map(|x| x.0));
-        // Cyclic, from where the last capped section stopped.
         let start = order.iter().position(|&id| id >= self.ui_cursor).unwrap_or(0);
         order.rotate_left(start);
-        self.ui_cursor = 0;
+        // Shared evaluation (§15.5): each subscription's first earlier twin in this order.
+        let mut twin = std::mem::take(&mut self.scratch.twin);
+        twin.clear();
+        for (k, &id) in order.iter().enumerate() {
+            let me = (id != 0).then(|| self.subs.binary_search_by_key(&id, |x| x.0).ok()).flatten();
+            let t = me.and_then(|i| {
+                let a = &self.subs[i].1;
+                (a.refusal.is_none())
+                    .then(|| {
+                        order[..k].iter().position(|&o| {
+                            o != 0
+                                && self.subs.binary_search_by_key(&o, |x| x.0).is_ok_and(|j| {
+                                    let b = &self.subs[j].1;
+                                    b.refusal.is_none() && shares(&a.req, &b.req)
+                                })
+                        })
+                    })
+                    .flatten()
+            });
+            twin.push(t);
+        }
+        self.scratch.shared.clear();
+        self.scratch.shared_bodies.clear();
         let mut body = std::mem::take(&mut self.scratch.body);
         let mut proj = std::mem::take(&mut self.scratch.proj);
         let mut capped = None;
-        for &id in &order {
+        for (k, &id) in order.iter().enumerate() {
             if id == 0 {
-                let Some(h) = self.hover else { continue };
+                let Some(h) = hover else { continue };
                 if h.done {
                     continue;
+                }
+                let rev = source_rev(w, ProjectionKind::Hover, h.serial);
+                if rev.is_some() && h.last_hash.is_some() && h.last_rev == rev {
+                    continue; // its sources are unchanged since its last record
                 }
                 let req = SubReq {
                     sub_id: 0,
@@ -665,21 +935,20 @@ impl Extractor {
                     p: [0; 4],
                     tail: None,
                 };
-                let built = build_record(w, &req, None, dbg, &mut proj, &mut body);
-                match built {
+                self.builds += 1;
+                match build_record(w, &req, None, dbg, &mut proj, &mut body) {
                     Built::Gone => {
                         if !self.write_record(0, ProjectionKind::Hover, UiStatus::Gone, &[])? {
                             capped = Some(0);
                             break;
                         }
                         count += 1;
-                        if let Some(h) = self.hover.as_mut() {
-                            h.done = true;
-                        }
+                        hover = Some(HoverSub { done: true, ..h });
                     }
                     Built::Ok => {
                         let hash = xxh64(&body);
                         if h.last_hash == Some(hash) {
+                            hover = Some(HoverSub { last_rev: rev, ..h });
                             continue;
                         }
                         if !self.write_record(0, ProjectionKind::Hover, UiStatus::Ok, &body)? {
@@ -687,9 +956,7 @@ impl Extractor {
                             break;
                         }
                         count += 1;
-                        if let Some(h) = self.hover.as_mut() {
-                            h.last_hash = Some(hash);
-                        }
+                        hover = Some(HoverSub { last_hash: Some(hash), last_rev: rev, ..h });
                     }
                     Built::Invalid(_) => {}
                 }
@@ -703,7 +970,7 @@ impl Extractor {
                     break;
                 }
                 count += 1;
-                self.subs.remove(i);
+                self.staged.subs.push((id, SubChange::End));
                 continue;
             }
             let every = kind.cadence() == Cadence::Every;
@@ -712,47 +979,75 @@ impl Extractor {
             if !due {
                 continue;
             }
-            let built =
-                build_record(w, &self.subs[i].1.req, Some(&self.subs[i].1.series), dbg, &mut proj, &mut body);
-            match built {
-                Built::Gone => {
-                    if !self.write_record(id, kind, UiStatus::Gone, &[])? {
-                        capped = Some(id);
-                        break;
-                    }
-                    count += 1;
-                    self.subs.remove(i);
+            let rev = source_rev(w, kind, self.subs[i].1.req.target);
+            if rev.is_some() && self.subs[i].1.last_hash.is_some() && self.subs[i].1.last_rev == rev {
+                continue; // its sources are unchanged since its last record (§15.5)
+            }
+            // Its twin's evaluation, when one was built this extraction; else its own.
+            let reuse = twin[k].and_then(|t| self.scratch.shared.iter().find(|x| x.0 == t).copied());
+            let (built, hash) = match reuse {
+                Some((_, built, hash, at, len)) => {
+                    body.clear();
+                    body.extend_from_slice(&self.scratch.shared_bodies[at..at + len]);
+                    (built, hash)
                 }
-                Built::Invalid(reason) => {
-                    if !self.write_record(id, kind, UiStatus::Invalid, &reason.value().to_le_bytes())? {
+                None => {
+                    self.builds += 1;
+                    let built = build_record(
+                        w,
+                        &self.subs[i].1.req,
+                        Some(&self.subs[i].1.series),
+                        dbg,
+                        &mut proj,
+                        &mut body,
+                    );
+                    let hash = xxh64(&body);
+                    if twin[k + 1..].contains(&Some(k)) {
+                        let at = self.scratch.shared_bodies.len();
+                        self.scratch.shared_bodies.extend_from_slice(&body);
+                        self.scratch.shared.push((k, built, hash, at, body.len()));
+                    }
+                    (built, hash)
+                }
+            };
+            match built {
+                Built::Gone | Built::Invalid(_) => {
+                    let (status, reason) = match built {
+                        Built::Invalid(r) => (UiStatus::Invalid, r.value().to_le_bytes()),
+                        Built::Gone | Built::Ok => (UiStatus::Gone, [0, 0]),
+                    };
+                    let b: &[u8] = if status == UiStatus::Invalid { &reason } else { &[] };
+                    if !self.write_record(id, kind, status, b)? {
                         capped = Some(id);
                         break;
                     }
                     count += 1;
-                    self.subs.remove(i);
+                    self.staged.subs.push((id, SubChange::End));
                 }
                 Built::Ok => {
-                    self.subs[i].1.last_eval = Some(tick);
-                    let hash = xxh64(&body);
                     if self.subs[i].1.last_hash == Some(hash) {
+                        self.staged.subs.push((id, SubChange::Evaluated { sent: None, rev }));
                         continue;
                     }
                     if !self.write_record(id, kind, UiStatus::Ok, &body)? {
-                        self.subs[i].1.last_eval = None;
+                        self.staged.subs.push((id, SubChange::Capped));
                         capped = Some(id);
                         break;
                     }
                     count += 1;
-                    let s = &mut self.subs[i].1;
-                    s.last_hash = Some(hash);
-                    proj.adopt_series(&mut s.series);
+                    self.staged.subs.push((id, SubChange::Evaluated { sent: Some(hash), rev }));
+                    if reuse.is_none() && proj.has_series() {
+                        let mut next = self.scratch.series_pool.pop().unwrap_or_default();
+                        proj.take_series(&mut next);
+                        self.staged.series.push((id, next));
+                    }
                 }
             }
         }
-        if let Some(id) = capped {
-            self.ui_cursor = id;
-        }
+        self.staged.ui_cursor = capped.unwrap_or(0);
+        self.staged.hover = hover;
         self.scratch.order = order;
+        self.scratch.twin = twin;
         self.scratch.body = body;
         self.scratch.proj = proj;
         Ok(count)

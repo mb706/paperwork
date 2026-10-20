@@ -27,6 +27,7 @@ pub mod extract;
 pub mod r#gen;
 pub mod handle;
 pub mod hash;
+pub mod hashjob;
 pub mod heap;
 pub mod index;
 pub mod players;

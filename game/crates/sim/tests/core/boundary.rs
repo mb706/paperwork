@@ -9,12 +9,12 @@ use schema::{SimFlags, SubFlags, SubId};
 use sim::SimContext;
 
 /// A decoded packet: its header and its sections' (type, count, bytes).
-struct Pkt {
-    header: PacketHeader,
-    sections: Vec<(PacketSection, u32, Vec<u8>)>,
+pub(crate) struct Pkt {
+    pub(crate) header: PacketHeader,
+    pub(crate) sections: Vec<(PacketSection, u32, Vec<u8>)>,
 }
 
-fn decode(bytes: &[u8]) -> Pkt {
+pub(crate) fn decode(bytes: &[u8]) -> Pkt {
     let mut r = Reader::new(bytes);
     let header = PacketHeader::read(&mut r, "PacketHeader").expect("a header");
     let sections = (0..header.section_count)
@@ -27,7 +27,7 @@ fn decode(bytes: &[u8]) -> Pkt {
 }
 
 /// The UI records of a packet: (sub_id, status, body).
-fn ui(p: &Pkt) -> Vec<(u32, UiStatus, Vec<u8>)> {
+pub(crate) fn ui(p: &Pkt) -> Vec<(u32, UiStatus, Vec<u8>)> {
     let Some((_, n, bytes)) = p.sections.iter().find(|s| s.0 == PacketSection::Ui) else {
         return Vec::new();
     };
@@ -41,7 +41,7 @@ fn ui(p: &Pkt) -> Vec<(u32, UiStatus, Vec<u8>)> {
 }
 
 /// The golden view without its hovered serial (no hover projection).
-fn plain_view() -> Vec<u8> {
+pub(crate) fn plain_view() -> Vec<u8> {
     let bytes = golden("view.bin");
     let mut v = ViewRequest::read(&mut Reader::new(&bytes), "ViewRequest").expect("the golden view");
     v.hovered_serial = schema::Serial(0);
@@ -50,7 +50,7 @@ fn plain_view() -> Vec<u8> {
     out
 }
 
-fn subscribe(c: &mut SimContext, subs: &[(u32, ProjectionKind, u32, u32)]) {
+pub(crate) fn subscribe(c: &mut SimContext, subs: &[(u32, ProjectionKind, u32, u32)]) {
     let reqs: Vec<SubRequest<'_>> = subs
         .iter()
         .map(|&(id, kind, target, p0)| SubRequest {
@@ -72,7 +72,7 @@ fn subscribe(c: &mut SimContext, subs: &[(u32, ProjectionKind, u32, u32)]) {
     c.subscribe(&input).expect("subscribes");
 }
 
-fn loaded() -> SimContext {
+pub(crate) fn loaded() -> SimContext {
     let mut c = ctx();
     c.load(&container_input(&golden("start.save"))).expect("start.save");
     c
@@ -214,7 +214,7 @@ fn the_dev_panic_traps_in_simcheck_builds() {
 }
 
 /// The chunk keys of a packet's `CHUNK_TILES` records.
-fn tile_keys(p: &Pkt) -> Vec<u32> {
+pub(crate) fn tile_keys(p: &Pkt) -> Vec<u32> {
     p.sections
         .iter()
         .find(|s| s.0 == PacketSection::ChunkTiles)

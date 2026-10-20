@@ -20,6 +20,7 @@ mod golden_rules;
 mod harness;
 mod review_c2a;
 mod review_c2b;
+mod review_c2c;
 mod scale;
 mod sched_equivalence;
 mod world_core;

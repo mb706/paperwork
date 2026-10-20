@@ -10,6 +10,10 @@
 //! - **Limit bars and filters** are sparse lists beside the arenas, sorted by `InvRef` (and slot).
 //!
 //! Ownership is derived (§8.1): the World rebuilds it on load from the containers' and players' `InvRef`s.
+//!
+//! **Inventory versions** (§15.5 "Source revisions"): every block carries a revision counter, raised by every
+//! change to its slots, limit bar or filters. They are presentation fields (§4.5): never saved, hashed or
+//! compared, read only by extraction to skip rebuilding an unchanged inventory's records.
 
 use crate::r#gen::{InvBar, SlotArena, SlotFilter, SlotHeap as SlotHeapRecord};
 use schema::codec::{EResult, Fixed, Writer};
@@ -54,6 +58,27 @@ struct Arena {
     owned: Vec<u32>,
     /// Derived: the lowest block that may be free (an allocation hint).
     first_free: u32,
+    /// Presentation: each block's inventory version.
+    versions: Versions,
+}
+
+/// The blocks' inventory versions, one per block. Presentation state (§4.5): equal whatever they hold, so two
+/// heaps with the same canonical content compare equal.
+#[derive(Clone, Debug, Default)]
+struct Versions(Vec<u32>);
+
+impl PartialEq for Versions {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
+impl Versions {
+    fn raise(&mut self, b: u32) {
+        if let Some(v) = self.0.get_mut(b as usize) {
+            *v = v.wrapping_add(1);
+        }
+    }
 }
 
 impl Arena {
@@ -139,8 +164,10 @@ impl SlotHeap {
             a.blocks += 1;
             let n = a.block_slots as usize;
             a.slots.resize(a.slots.len() + n, EMPTY_SLOT);
+            a.versions.0.push(0);
         }
         a.set_owned(b, true);
+        a.versions.raise(b);
         a.first_free = b + 1;
         inv_ref(class, b)
     }
@@ -154,6 +181,7 @@ impl SlotHeap {
         let base = block as usize * n;
         a.slots[base..base + n].fill(EMPTY_SLOT);
         a.set_owned(block, false);
+        a.versions.raise(block);
         if block < a.first_free {
             a.first_free = block;
         }
@@ -169,13 +197,23 @@ impl SlotHeap {
         &a.slots[base..base + n]
     }
 
+    /// The block's slots to change; raises its inventory version.
     pub fn block_mut(&mut self, r: InvRef) -> &mut [Slot] {
         let block = inv_block(r);
         let a = self.arenas.get_mut(usize::from(inv_class(r))).filter(|a| block < a.blocks);
         let a = a.unwrap_or_else(|| panic!("no slot-heap block {:#x}", r.0));
+        a.versions.raise(block);
         let n = a.block_slots as usize;
         let base = block as usize * n;
         &mut a.slots[base..base + n]
+    }
+
+    /// The inventory version of block `r` (§15.5): it changes whenever the block's slots, bar or filters may have;
+    /// 0 for a block the heap does not have.
+    pub fn version(&self, r: InvRef) -> u32 {
+        self.arenas
+            .get(usize::from(inv_class(r)))
+            .map_or(0, |a| a.versions.0.get(inv_block(r) as usize).copied().unwrap_or(0))
     }
 
     /// The limit bar of `r`: slots from it on are limited (§4.5; rule 16); `None` when unlimited.
@@ -186,6 +224,7 @@ impl SlotHeap {
     /// Sets or clears the limit bar of `r`. The caller keeps the canonical form: no entry when the bar is at
     /// or above the inventory's size (golden model decision: unlimited = no entry).
     pub fn set_bar(&mut self, r: InvRef, bar: Option<u16>) {
+        self.raise(r);
         match (self.bars.binary_search_by(|x| x.inv.cmp(&r)), bar) {
             (Ok(i), Some(b)) => self.bars[i].bar = b,
             (Ok(i), None) => {
@@ -205,6 +244,7 @@ impl SlotHeap {
 
     /// Sets (`Some`) or clears the filter of slot `slot` of `r`.
     pub fn set_filter(&mut self, r: InvRef, slot: u16, key: Option<ItemKey>) {
+        self.raise(r);
         let at = self.filters.binary_search_by(|x| (x.inv, x.slot).cmp(&(r, slot)));
         match (at, key) {
             (Ok(i), Some(k)) => self.filters[i].key = k,
@@ -214,6 +254,27 @@ impl SlotHeap {
             (Err(i), Some(k)) => self.filters.insert(i, SlotFilter { inv: r, slot, key: k }),
             (Err(_), None) => {}
         }
+    }
+
+    fn raise(&mut self, r: InvRef) {
+        if let Some(a) = self.arenas.get_mut(usize::from(inv_class(r))) {
+            a.versions.raise(inv_block(r));
+        }
+    }
+
+    /// Every slot of class `c`'s arena, block-major (what `SLOT_HEAP` saves; empty for a class never used).
+    pub fn arena_slots(&self, c: u8) -> &[Slot] {
+        self.arenas.get(usize::from(c)).map_or(&[], |a| a.slots.as_slice())
+    }
+
+    /// Every limit bar, ascending by inventory.
+    pub fn all_bars(&self) -> &[InvBar] {
+        &self.bars
+    }
+
+    /// Every filter, ascending by inventory and slot.
+    pub fn all_filters(&self) -> &[SlotFilter] {
+        &self.filters
     }
 
     /// The classes in use (`blocks > 0`), ascending, with their block size and high-water mark.
@@ -282,6 +343,7 @@ impl SlotHeap {
                 slots: a.slots,
                 owned: vec![0; (a.blocks as usize).div_ceil(32)],
                 first_free: 0,
+                versions: Versions(vec![0; a.blocks as usize]),
             };
         }
         for &r in owners {

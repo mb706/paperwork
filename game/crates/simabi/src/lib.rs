@@ -76,14 +76,6 @@ impl Module {
         self.err_at = pad;
     }
 
-    /// The request the shell wrote into the input buffer.
-    fn request(&self, len: u32) -> SimResult<Vec<u8>> {
-        self.input
-            .get(..len as usize)
-            .map(<[u8]>::to_vec)
-            .ok_or_else(|| SimError::new(SimStatus::ErrInput, "the request is longer than the input buffer"))
-    }
-
     fn status(&mut self, r: SimResult<()>) -> u32 {
         match r {
             Ok(()) => SimStatus::Ok.value(),
@@ -123,19 +115,47 @@ impl Module {
 
     /// Copies `bytes` into the arena as an envelope; 0 (`ERR_LIMIT`) when the arena cannot grow.
     fn put(&mut self, bytes: &[u8]) -> u32 {
-        self.out.clear();
-        let need = bytes.len() + 4 + 8;
-        if self.out.capacity() < need && self.out.try_reserve_exact(need).is_err() {
-            self.set_error(&SimError::new(SimStatus::ErrLimit, "the output arena cannot grow"));
-            return 0;
+        match put_into(&mut self.out, bytes) {
+            Ok(at) => at,
+            Err(e) => {
+                self.set_error(&e);
+                0
+            }
         }
-        let pad = (8 - self.out.as_ptr() as usize % 8) % 8;
-        self.out.resize(pad, 0);
-        self.out.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
-        self.out.extend_from_slice(bytes);
-        (self.out.as_ptr() as usize + pad) as u32
+    }
+
+    /// A status export over the borrowed request.
+    fn status_with(&mut self, len: u32, f: impl FnOnce(&mut SimContext, &[u8]) -> SimResult<()>) -> u32 {
+        let Self { ctx, input, .. } = self;
+        let r = request(input, len).and_then(|req| f(ctx, req));
+        self.status(r)
     }
 }
+
+/// The request the shell wrote into the input buffer, borrowed (C2c-r1 finding 10: nothing is copied before the
+/// export has checked it).
+fn request(input: &[u8], len: u32) -> SimResult<&[u8]> {
+    input
+        .get(..len as usize)
+        .ok_or_else(|| SimError::new(SimStatus::ErrInput, "the request is longer than the input buffer"))
+}
+
+/// Writes `{u32 len, bytes}` at an 8-byte-aligned address of `out` and returns that address; `ERR_LIMIT` when
+/// the arena cannot grow (then `out` is empty).
+fn put_into(out: &mut Vec<u8>, bytes: &[u8]) -> SimResult<u32> {
+    out.clear();
+    let need = bytes.len() + 4 + 8;
+    if out.capacity() < need && out.try_reserve_exact(need).is_err() {
+        return Err(SimError::new(SimStatus::ErrLimit, "the output arena cannot grow"));
+    }
+    let pad = (8 - out.as_ptr() as usize % 8) % 8;
+    out.resize(pad, 0);
+    out.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+    out.extend_from_slice(bytes);
+    Ok((out.as_ptr() as usize + pad) as u32)
+}
+
+impl Module {}
 
 /// The module's linear memory in bytes (`DEBUG.memory_bytes`).
 #[cfg(target_arch = "wasm32")]
@@ -271,7 +291,10 @@ impl SimAbi for Abi {
     fn sim_init(len: u32) -> u32 {
         host::install_panic_hook();
         with(|m| {
-            let r = m.request(len).and_then(|req| m.ctx.init(&req));
+            let r = {
+                let Module { ctx, input, .. } = &mut *m;
+                request(input, len).and_then(|req| ctx.init(req))
+            };
             m.ctx.set_memory_probe(memory_bytes);
             // PROFILE is for dev builds (§15.8): only they read the host's clock (D13, D15).
             #[cfg(feature = "simcheck")]
@@ -281,17 +304,11 @@ impl SimAbi for Abi {
     }
 
     fn sim_new_world(len: u32) -> u32 {
-        with(|m| {
-            let r = m.request(len).and_then(|req| m.ctx.new_world(&req));
-            m.status(r)
-        })
+        with(|m| m.status_with(len, |ctx, req| ctx.new_world(req)))
     }
 
     fn sim_load(len: u32) -> u32 {
-        with(|m| {
-            let r = m.request(len).and_then(|req| m.ctx.load(&req));
-            m.status(r)
-        })
+        with(|m| m.status_with(len, |ctx, req| ctx.load(req)))
     }
 
     fn sim_tick(len: u32) -> u32 {
@@ -326,10 +343,7 @@ impl SimAbi for Abi {
     }
 
     fn sim_supply_chunk(len: u32) -> u32 {
-        with(|m| {
-            let r = m.request(len).and_then(|req| m.ctx.supply_chunk(&req));
-            m.status(r)
-        })
+        with(|m| m.status_with(len, |ctx, req| ctx.supply_chunk(req)))
     }
 
     fn sim_pending_chunks() -> u32 {
@@ -342,37 +356,41 @@ impl SimAbi for Abi {
 
     fn sim_extract(len: u32) -> u32 {
         with(|m| {
-            let Module { ctx, input, scratch, .. } = m;
-            scratch.clear();
-            let r = match input.get(..len as usize) {
-                Some(view) => ctx.extract_into(view, scratch),
-                None => {
-                    Err(SimError::new(SimStatus::ErrInput, "the request is longer than the input buffer"))
+            // C2c-r1 finding 4: the packet is staged, copied into the arena, and only then committed, so a
+            // packet the arena cannot take (ERR_LIMIT) leaves every delta, record and event for the next one.
+            let r = {
+                let Module { ctx, input, out, .. } = &mut *m;
+                match request(input, len).and_then(|view| ctx.extract_stage(view)) {
+                    Ok(packet) => {
+                        let at = put_into(out, packet);
+                        if at.is_ok() {
+                            ctx.extract_commit();
+                        }
+                        at
+                    }
+                    Err(e) => Err(e),
                 }
             };
-            m.scratch_envelope(r)
+            match r {
+                Ok(at) => at,
+                Err(e) => {
+                    m.set_error(&e);
+                    0
+                }
+            }
         })
     }
 
     fn sim_subscribe(len: u32) -> u32 {
-        with(|m| {
-            let r = m.request(len).and_then(|req| m.ctx.subscribe(&req));
-            m.status(r)
-        })
+        with(|m| m.status_with(len, |ctx, req| ctx.subscribe(req)))
     }
 
     fn sim_unsubscribe(len: u32) -> u32 {
-        with(|m| {
-            let r = m.request(len).and_then(|req| m.ctx.unsubscribe(&req));
-            m.status(r)
-        })
+        with(|m| m.status_with(len, |ctx, req| ctx.unsubscribe(req)))
     }
 
     fn sim_query(len: u32) -> u32 {
-        with(|m| {
-            let r = m.request(len).and_then(|req| m.ctx.query(&req));
-            m.status(r)
-        })
+        with(|m| m.status_with(len, |ctx, req| ctx.query(req)))
     }
 
     fn sim_query_step(units: u32) -> u32 {
@@ -406,7 +424,10 @@ impl SimAbi for Abi {
 
     fn sim_save(len: u32) -> u32 {
         with(|m| {
-            let r = m.request(len).and_then(|req| m.ctx.save(&req));
+            let r = {
+                let Module { ctx, input, .. } = &mut *m;
+                request(input, len).and_then(|req| ctx.save(req))
+            };
             m.envelope(r)
         })
     }

@@ -143,6 +143,19 @@ impl<T: Ord + Copy> BlockList<T> {
         self.blocks.iter().flatten()
     }
 
+    /// The items from position `i` on, in order: O(n / BLOCK) to find the start.
+    pub fn iter_from(&self, mut i: usize) -> impl Iterator<Item = &T> + '_ {
+        let mut b = 0;
+        while b < self.blocks.len() && i >= self.blocks[b].len() {
+            i -= self.blocks[b].len();
+            b += 1;
+        }
+        self.blocks[b.min(self.blocks.len())..]
+            .iter()
+            .enumerate()
+            .flat_map(move |(k, x)| x[if k == 0 { i.min(x.len()) } else { 0 }..].iter())
+    }
+
     pub fn clear(&mut self) {
         while let Some(mut b) = self.blocks.pop() {
             b.clear();

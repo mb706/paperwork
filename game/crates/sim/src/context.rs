@@ -452,8 +452,18 @@ impl SimContext {
         Ok(out)
     }
 
-    /// [`Self::extract`] appended to `out`: once its buffers have grown, extraction allocates nothing (§2.5).
+    /// [`Self::extract`] appended to `out` and delivered: once its buffers have grown, extraction allocates
+    /// nothing (§2.5).
     pub fn extract_into(&mut self, view_bytes: &[u8], out: &mut Vec<u8>) -> SimResult<()> {
+        out.extend_from_slice(self.extract_stage(view_bytes)?);
+        self.extract_commit();
+        Ok(())
+    }
+
+    /// `sim_extract`'s first half (C2c-r1 finding 4): builds the next packet and returns it, staging what it
+    /// changes in what the main thread holds. Nothing is committed until [`Self::extract_commit`], so a packet
+    /// that cannot be handed over (the module's arena cannot grow) loses no delta, record or event.
+    pub fn extract_stage(&mut self, view_bytes: &[u8]) -> SimResult<&[u8]> {
         let dbg = self.debug_inputs();
         let Some(world) = self.world.as_ref() else {
             return Err(order("no world: call sim_new_world or sim_load first"));
@@ -463,21 +473,49 @@ impl SimContext {
             .and_then(|v| r.finish("ViewRequest").map(|()| v))
             .map_err(|e| input(format!("ViewRequest: {e}")))?;
         let PresentationState { events, moves, extract, .. } = &mut self.pres;
-        let mut io = crate::extract::ExtractIo { events, moves, dbg };
-        extract.extract(world, &view, &mut io, out).map_err(enc)
+        let io = crate::extract::ExtractIo { events, moves, dbg };
+        extract.stage(world, &view, &io).map_err(enc)
     }
 
-    /// `sim_subscribe` (§15.5, §15.8): `SubscribeInput`; `ERR_INPUT` for a malformed request or sub_id 0.
+    /// `sim_extract`'s second half: the staged packet was delivered.
+    pub fn extract_commit(&mut self) {
+        let PresentationState { events, extract, .. } = &mut self.pres;
+        extract.commit(events);
+    }
+
+    /// `sim_subscribe` (§15.5, §15.8): `SubscribeInput`; `ERR_INPUT` for a malformed request or sub_id 0;
+    /// `ERR_LIMIT` for a batch over the subscription table's bounds (C2c-r1 finding 1), checked before anything
+    /// is copied.
     pub fn subscribe(&mut self, input_bytes: &[u8]) -> SimResult<()> {
+        use crate::extract::{SUBSCRIBE_BATCH_MAX, SubscribeError};
         self.world_or_order()?;
         let v = schema::SubscribeInput::decode_exact(input_bytes)
             .map_err(|e| input(format!("SubscribeInput: {e}")))?;
-        let mut reqs = Vec::with_capacity(v.subs.len());
-        v.subs.for_each(|r| reqs.push(crate::project::SubReq::from_request(r)));
-        if !self.pres.extract.subscribe(&reqs) {
-            return Err(input("sub_id 0 belongs to the hover projection"));
+        let limit = || {
+            SimError::new(
+                SimStatus::ErrLimit,
+                format!(
+                    "a subscription batch of {} requests: at most {SUBSCRIBE_BATCH_MAX}, and at most \
+                     {} refusals waiting for their record",
+                    v.subs.len(),
+                    crate::extract::REFUSALS_MAX
+                ),
+            )
+        };
+        if v.subs.len() > SUBSCRIBE_BATCH_MAX {
+            return Err(limit());
         }
-        Ok(())
+        let mut reqs = [schema::projections::SubRequest::default(); SUBSCRIBE_BATCH_MAX];
+        let mut n = 0;
+        v.subs.for_each(|r| {
+            reqs[n] = *r;
+            n += 1;
+        });
+        match self.pres.extract.subscribe(&reqs[..n]) {
+            Ok(()) => Ok(()),
+            Err(SubscribeError::HoverId) => Err(input("sub_id 0 belongs to the hover projection")),
+            Err(SubscribeError::Limit) => Err(limit()),
+        }
     }
 
     /// `sim_unsubscribe` (§15.8): `UnsubscribeInput`; unknown ids are ignored.

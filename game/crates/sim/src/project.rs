@@ -95,8 +95,13 @@ pub struct ProjScratch {
 }
 
 impl ProjScratch {
-    /// Adopts the series state of the last built STATS record into `into` (a swap: no allocation).
-    pub fn adopt_series(&mut self, into: &mut SeriesState) {
+    /// Whether the last built record was a STATS one that leaves a series state to keep.
+    pub fn has_series(&self) -> bool {
+        self.has_next
+    }
+
+    /// Moves the series state of the last built STATS record into `into` (a swap: no allocation).
+    pub fn take_series(&mut self, into: &mut SeriesState) {
         if self.has_next {
             std::mem::swap(&mut self.next_series, into);
             self.has_next = false;
@@ -167,7 +172,9 @@ pub fn build_record(
             Ok(Built::Invalid(UiInvalidReason::Unsupported))
         }
     };
-    r.unwrap_or_else(|()| panic!("a {} record does not encode", req.kind.name()))
+    // A record that does not encode passes a list's schema maximum (C2c-r1 finding 3): over a limit, never a
+    // trap, whatever the request and the World hold.
+    r.unwrap_or(Built::Invalid(UiInvalidReason::OverLimit))
 }
 
 fn hud(w: &World, out: &mut Vec<u8>) -> Result<Built, ()> {
@@ -338,7 +345,9 @@ fn stats(
         return Built::Invalid(UiInvalidReason::BadParameters);
     }
     let ProjScratch { keys, entries, produced, consumed, next_series, has_next, .. } = scratch;
-    // The keys: the tail's (distinct, ascending, at most STATS_KEYS), or every key of the tab.
+    // The keys: the tail's (distinct, ascending, at most STATS_KEYS; more is bad parameters, as the golden model
+    // has it), or every key of the tab, which may hold more than STATS_KEYS: then the request is over a limit
+    // (reason 3) and the window asks for its keys in explicit pages of at most STATS_KEYS (C2c-r1 finding 3).
     keys.clear();
     match req.tail.as_deref() {
         Some(t) if !t.is_empty() => {
@@ -353,7 +362,11 @@ fn stats(
         }
         _ => {
             let kind = [StatKind::Item, StatKind::Fluid, StatKind::Entity, StatKind::Heat][p1 as usize];
-            keys.extend(w.stats().iter().filter(|s| s.key.0 >> 24 == kind as u32).map(|s| s.key));
+            let mut tab = w.stats().iter().filter(|s| s.key.0 >> 24 == kind as u32).map(|s| s.key);
+            keys.extend(tab.by_ref().take(STATS_KEYS));
+            if tab.next().is_some() {
+                return Built::Invalid(UiInvalidReason::OverLimit);
+            }
         }
     }
     let ring = |key: StatKey| {
@@ -429,7 +442,10 @@ fn stats(
         entries: List::from_slice(entries),
         series: MsgList::from_slice(&list[..n]),
     };
-    body.encode(&mut Writer::new(out)).unwrap_or_else(|e| panic!("a STATS record does not encode: {e}"));
+    if body.encode(&mut Writer::new(out)).is_err() {
+        out.clear();
+        return Built::Invalid(UiInvalidReason::OverLimit);
+    }
     *has_next = true;
     Built::Ok
 }

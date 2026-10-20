@@ -17,6 +17,7 @@
 #![allow(clippy::disallowed_macros, clippy::disallowed_methods, clippy::disallowed_types)]
 
 mod bench;
+mod inflate;
 
 use schema::container::{ClosureLog, ClosureLogFlags};
 use schema::{ClosureIter, SimFlags};
@@ -142,7 +143,25 @@ fn load(save_path: &str, a: &Args) -> Result<SimContext, String> {
     let protos = read(&a.protos)?;
     let save = read(save_path)?;
     let input = if save.starts_with(schema::SAVE_MAGIC) {
-        let (header, frames) = sim::save::read_container(&save).map_err(|e| format!("{save_path}: {e}"))?;
+        let (header, stored) = sim::save::read_container(&save).map_err(|e| format!("{save_path}: {e}"))?;
+        // The IO worker deflates sections (codec 1, §8.1): inflate each, bounded by its declared raw length.
+        let inflated: Vec<Option<Vec<u8>>> = stored
+            .iter()
+            .map(|f| match f.codec {
+                schema::SectionCodec::Raw => Ok(None),
+                schema::SectionCodec::Deflate => inflate::inflate(f.data, f.raw_length as usize)
+                    .map(Some)
+                    .map_err(|e| format!("{save_path}: section {}: {}", f.id, e.0)),
+            })
+            .collect::<Result<_, _>>()?;
+        let frames: Vec<schema::SectionFrame<'_>> = stored
+            .iter()
+            .zip(&inflated)
+            .map(|(f, raw)| match raw {
+                Some(data) => schema::SectionFrame { codec: schema::SectionCodec::Raw, data, ..*f },
+                None => *f,
+            })
+            .collect();
         let want = json_str(header, "prototypesHash").ok_or("the save header has no prototypesHash")?;
         let have = hex(&sim::sha256::sha256(&protos));
         if want != have && want.bytes().any(|c| c != b'0') {

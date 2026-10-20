@@ -463,8 +463,27 @@ fn check_records(w: &World) -> Result<(), String> {
         if !ok {
             return Err(format!("statistics key {:#x} lacks its nine rings", s.key.0));
         }
+        if !stat_key_known(&w.protos, s.key) {
+            return Err(format!("statistics key {:#x} names nothing the prototypes have", s.key.0));
+        }
     }
     Ok(())
+}
+
+/// Whether a statistics key (§5.20: `(StatKind << 24) | id`) names something of these prototypes (C2c-r1 finding
+/// 3): an item key of a known item at a known quality (0–4), a known fluid or entity; heat and papers keys (M1's
+/// tabs) are categories, not prototypes. Another kind is refused.
+pub fn stat_key_known(p: &Protos, key: schema::StatKey) -> bool {
+    let id = key.0 & 0x00FF_FFFF;
+    match schema::StatKind::from_value((key.0 >> 24) as u8) {
+        Some(schema::StatKind::Item) => {
+            id <= 0xFFFF && ((id >> 3) as usize) < p.item.stack_size.len() && id & 7 <= 4
+        }
+        Some(schema::StatKind::Fluid) => (id as usize) < p.fluid.len(),
+        Some(schema::StatKind::Entity) => (id as usize) < p.entity.len(),
+        Some(schema::StatKind::Heat | schema::StatKind::Papers) => true,
+        None => false,
+    }
 }
 
 /// Parses a raw `SaveOutput` (or `sim_load`'s sections without remaps): the frames and the lineage. For tests
@@ -489,7 +508,9 @@ pub fn load_input(frames: &[SectionFrame<'_>], r: u64) -> Vec<u8> {
     out
 }
 
-/// A save container (§8.1) split into its header JSON and its frames; codec raw only (deflate is the IO worker's).
+/// A save container (§8.1) split into its header JSON and its frames as stored: raw (codec 0) or deflated (codec
+/// 1, the IO worker's). The module never inflates (the IO worker hands `sim_load` raw frames); native tools that
+/// read containers inflate them (`simtool`, C2c-r1 finding 7).
 pub fn read_container(bytes: &[u8]) -> Result<(&str, Vec<SectionFrame<'_>>), String> {
     let mut r = Reader::new(bytes);
     let magic = r.take(8, "magic").map_err(|e| e.to_string())?;
@@ -506,13 +527,6 @@ pub fn read_container(bytes: &[u8]) -> Result<(&str, Vec<SectionFrame<'_>>), Str
     let mut frames = Vec::new();
     while !r.is_empty() {
         let f = SectionFrame::decode(&mut r).map_err(|e| e.to_string())?;
-        if f.codec != SectionCodec::Raw {
-            return Err(format!(
-                "section {} is compressed (codec {}); only raw sections are read natively",
-                f.id,
-                f.codec.value()
-            ));
-        }
         frames.push(f);
     }
     Ok((header.trim_end(), frames))

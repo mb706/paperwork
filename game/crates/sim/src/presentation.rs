@@ -67,6 +67,21 @@ impl EventSink {
         self.lens.is_empty()
     }
 
+    /// Appends the queued records to `out` without taking them; returns how many there are and whether any were
+    /// dropped since the queue last emptied (extraction stages a packet before it is delivered, §15.4).
+    pub fn peek(&self, out: &mut Vec<u8>) -> (usize, bool) {
+        out.extend_from_slice(&self.bytes[self.head..]);
+        (self.lens.len(), self.dropped)
+    }
+
+    /// Empties the queue (a packet carrying it was delivered).
+    pub fn clear(&mut self) {
+        self.bytes.clear();
+        self.head = 0;
+        self.lens.clear();
+        self.dropped = false;
+    }
+
     /// Appends the queued records to `out` and empties the queue; returns how many there were and whether
     /// any were dropped since the last drain.
     pub fn drain(&mut self, out: &mut Vec<u8>) -> (usize, bool) {

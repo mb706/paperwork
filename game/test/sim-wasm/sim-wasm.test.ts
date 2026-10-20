@@ -479,6 +479,22 @@ describe('sim.wasm: the boundary (extraction, projections, queries)', () => {
     expect(s.panics).toEqual([]);
   }, 120_000);
 
+  it('refuses huge query parameters without copying the request (C2c-r1 finding 10)', () => {
+    const s = fresh();
+    expect(s.status('sim_load', containerInput(golden('start.save')))).toBe('ok');
+    const params = new Uint8Array(48 << 20);
+    const q = QueryInputCodec.encode({ id: 5, header: { kind: QueryKind.inspect, flags: 0 }, params });
+    const at = (s.exports.sim_input?.(q.length) as number) >>> 0;
+    new Uint8Array(s.memory.buffer, at, q.length).set(q);
+    const before = s.memory.buffer.byteLength;
+    expect(s.exports.sim_query?.(q.length)).toBe(0);
+    // The reviewed module copied the 48 MiB request first: its memory grew by as much.
+    expect(s.memory.buffer.byteLength - before).toBeLessThan(1 << 20);
+    const step = QueryStepOutputCodec.decode(s.envelope('sim_query_step', undefined, 1).out as Uint8Array);
+    expect(step.results.map((r) => [r.id, r.ok, [...r.body]])).toEqual([[5, false, [2, 0]]]);
+    expect(s.panics).toEqual([]);
+  });
+
   it('describes its pool columns and counts its allocations (simcheck)', () => {
     const s = fresh();
     expect(s.envelope('sim_pool_dir').status).toBe('err_order');

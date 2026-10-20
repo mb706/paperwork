@@ -326,6 +326,25 @@ pub fn codec_tick(b: &mut Bench, t: u32, chest: u32) -> SimResult<()> {
     Ok(())
 }
 
+/// Generates `keys` on `surface` as committed pristine chunks (worldgen as phase 3 would), adding the surface
+/// when the World lacks it: for tests and factories that need generated land beyond a new world's.
+pub fn generate_chunks(
+    w: &mut crate::world::World,
+    surface: SurfaceIndex,
+    keys: impl Iterator<Item = schema::ChunkKey>,
+) {
+    while w.globals.surfaces.len() <= usize::from(surface.0) {
+        let index = SurfaceIndex(w.globals.surfaces.len() as u16);
+        w.globals.surfaces.push(crate::r#gen::Surface { index });
+    }
+    for key in keys {
+        if !w.chunks.is_generated(surface, key) {
+            let data = w.regen.generate(surface, key);
+            w.commit_generated(data);
+        }
+    }
+}
+
 /// `m0-load-30k`'s chunk count.
 pub const LOAD_CHUNKS: usize = 30_000;
 /// The version of [`m0_load_state`]: raise it with any change to the factory, so `simtool bench` rebuilds its
