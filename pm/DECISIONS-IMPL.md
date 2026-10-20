@@ -33,7 +33,7 @@ Numbered like DECISIONS.md. Each entry gives the decision, the reason and the so
 4. **Multiplayer: deterministic lockstep, sequenced by a relay, over WebSocket on TLS port 443** (A2; codex A2-r1).
    - No P2P and no NAT hole punching: browser P2P needs UDP, which the user's network penalises.
    - Single player runs through the same closure pipeline, with a local sequencer.
-   - The engine seams S1–S14 and determinism rules D1–D20 in `design/multiplayer/DESIGN.md` §7 are binding for M0, once the A2-r1 fixes are in.
+   - The engine seams S1–S15 and the determinism rules D1–D23 are binding for M0. They now live in 10 §3–§4 (D1–D23 in §4.1) and 11 §7; `design/multiplayer/DESIGN.md` became chapter 11.
 5. **Art direction: "Survey"** (A3; `design/art/DIRECTION.md`).
    - The world is the survey plate attached to the 1945 charter: rendered models washed in three flat tones, then inked and hatched on buff paper.
    - The HUD keeps Factorio's layout, skinned as 1945 federal paperwork.
@@ -46,3 +46,12 @@ Numbered like DECISIONS.md. Each entry gives the decision, the reason and the so
    - **Binding constraints:**
      - The audio CPU must come down to a budget the engine work package sets. It is 36–76% of a core here today; use lighter reverbs or pre-rendered stems.
      - Safari needs an Opus decode probe and an AAC fallback.
+7. **Worldgen is Rust too** (B1): the `worldgen` crate, used in the sim and as `gen.wasm` for the worldgen pool.
+   - A late chunk is generated inline.
+   - Pristine chunks regenerate lazily from a saved `GENERATED` set.
+8. **Formulas are bytecode interpreted in Rust** (B1). The data stage emits `prototypes.bin` and `prototypes.json`, so data edits need no Rust rebuild.
+9. **Ordering** (B1):
+   - Derived pools are ordered by canonical keys.
+   - Belt lines update in the downstream-first rank of 10 §5.3.
+10. **One fresh sim worker per world** (B1).
+11. **The M0 contracts in 10 §15 are binding for Phase C** (B1). Any change goes through the schema plus a note in the report of the WP that makes it.

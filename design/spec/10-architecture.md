@@ -1,17 +1,54 @@
 # 10 — Engine architecture and implementation plan
 
-*Round 2, agent R2-A; revised in round 4 by R4-arch. Binding inputs: `design/DECISIONS.md` (round 4: §21–§38); round-1 docs B (laws), D (economy), E (tech tree), F (pressure, Variant A), G (endgame), I (UI and controls), plus A (mods), C (spacetime) and H (tone) where they touch the engine. Companion specs: 00–09 and `spec/data/*.yaml`. The round-4 worklist was `design/round3/R3-implementability.md` (B1–B4, L1–L6, J1–J24, U1–U64, P1–P31 and its §9 architecture gaps), `R3-balance.md`, `R3-fun.md`, `R3-coherence-tone.md` and `R3-accuracy.md`.*
+*Round 2, agent R2-A; revised in round 4 by R4-arch; **version 2** by WP B1 (2026-10-20). Version 2 folds in WP A1 (the engine study: the simulation moves to Rust compiled to WebAssembly) and WP A2 (multiplayer, now chapter 11), and fixes the M0 contracts (§15). Binding inputs: `design/DECISIONS.md` (round 4: §21–§38), `pm/DECISIONS-IMPL.md` 1–6, round-1 docs B (laws), D (economy), E (tech tree), F (pressure, Variant A), G (endgame), I (UI and controls), plus A (mods), C (spacetime) and H (tone) where they touch the engine. Companion specs: 00–09, 11 and `spec/data/*.yaml`. The round-4 worklist was `design/round3/R3-implementability.md` (B1–B4, L1–L6, J1–J24, U1–U64, P1–P31 and its §9 architecture gaps), `R3-balance.md`, `R3-fun.md`, `R3-coherence-tone.md` and `R3-accuracy.md`. Version 2's inputs: `pm/reports/A1.md` with codex's review `pm/reviews/A1-r1.md`, and `design/multiplayer/DESIGN.md` with codex's review `pm/reviews/A2-r1.md` and the response in `pm/reports/A2.md`.*
 
-**Scope.** This document decides **how** the game is built. The other specs decide **what** it contains. Where a number belongs to the design (a recipe, a T\*, the formula for T(W)), this document names the engine module that consumes it and leaves the value to the spec that owns it (Appendix B).
+**Scope.** This document decides **how** the game is built. The other specs decide **what** it contains. Where a number belongs to the design (a recipe, a T\*, the formula for T(W)), this document names the engine module that consumes it and leaves the value to the spec that owns it (Appendix B). Chapter 11 owns the multiplayer protocol, the relay and the multiplayer UI; the engine seams that multiplayer needs are specified here, because M0 builds them.
 
-**Engine rules.** Where the design leaves an engine-relevant case open (an edge, a tie, an order, a state), this document states the exact rule, and the owning chapter is asked to carry the same sentence. The rules added in round 4 are tagged with the critique's number (e.g. *L3*, *U16*) so that they can be traced; most have a rule scenario in §10.8, and the rest are covered by the tests of the module that implements them (the doubling-time readout U24 by UI-G8, the run report's measurements by its golden accumulators, M4). Round 5's (R5-apply, DECISIONS §40) are tagged with R5-gate's decision number (*D9*, *D12f*), with scenarios R18–R20.
+**Engine rules.** Where the design leaves an engine-relevant case open (an edge, a tie, an order, a state), this document states the exact rule, and the owning chapter is asked to carry the same sentence. The rules added in round 4 are tagged with the critique's number (e.g. *L3*, *U16*) so that they can be traced; most have a rule scenario in §10.8, and the rest are covered by the tests of the module that implements them (the doubling-time readout U24 by UI-G8, the run report's measurements by its golden accumulators, M4). Round 5's (R5-apply, DECISIONS §40) are tagged with R5-gate's decision number (*D9*, *D12f*), with scenarios R18–R20. Version 2's determinism rules keep chapter 11's numbers **D1–D23** (§4.1) and its engine seams **S1–S15** (11 §7); in §4.1 and §10, "D9" means determinism rule 9, and R5-gate's decisions are always written "R5-gate D9".
 
-**Evidence.** Measured on this host on 2026-10-19:
+**Evidence.** Measured on this host on 2026-10-19 and 2026-10-20:
 - The toolchain in §2.1 installs and runs here (glibc 2.31, no AVX2).
 - WebGL2 benchmarks in headless Chrome 156 on SwiftShader.
-- Simulation-loop microbenchmarks in Node 24.
+- Simulation-loop microbenchmarks in Node 24 (round 4).
+- WP A1's engine study: equivalent TypeScript and Rust kernels with bit-identical state hashes, timed in Node 24, Chrome 156, Firefox 157 and natively, with render extraction, UI queries, threads, start-up, sizes and build times (`design/engine-study/`).
+- WP A2's multiplayer proof of concept: relay, lockstep clients, an impairment proxy and 12 scenarios (`design/multiplayer/poc/`, 11 §12).
+- B1's probe of the `libm` crate: ten transcendental functions at 10⁶ arguments each give bit-identical results natively and in WebAssembly under Node, Chrome 156 and Firefox 157, before and after binaryen's optimiser.
 
-The numbers are in Appendix A. They drive three decisions: expanded-quad sprite batching (§6.3), on-demand rendering in tests (§10.5) and the host-to-laptop calibration factor (§11).
+The numbers are in Appendix A. They drive the language decision (§0 #1), expanded-quad sprite batching (§6.3), on-demand rendering in tests (§10.5) and the host-to-laptop calibration factor (§11).
+
+## Changes in v2
+
+Every change of decision against version 1 (round 5), with its reason and source. Sources: **A1** (`pm/reports/A1.md`), **A1-r1** (`pm/reviews/A1-r1.md`), **A2** (`design/multiplayer/DESIGN.md`, now chapter 11), **A2-r1** (`pm/reviews/A2-r1.md`, numbered findings), **IMPL-n** (`pm/DECISIONS-IMPL.md` item n), and **B1** for calls made in this revision, each with its reason.
+
+| # | Where | Change | Reason | Source |
+|---|---|---|---|---|
+| 1 | §0 #1, §1, §2, §3.1, §4.5 | The simulation is **Rust 1.99.1 compiled to wasm32-unknown-unknown** (was TypeScript), as a clean split: one Cargo workspace owns all authoritative state and rules and runs in the sim worker on one thread. TypeScript keeps the worker shell, the data stage, UI, renderer, audio, network and tools | 1.35–1.75× faster per tick in Chrome, Firefox and Node; 2–4× faster first ticks after a load; no JIT stalls (TypeScript showed an 18–22 ms Firefox stall and a V8 deoptimisation storm); the same binary on every peer; typed handles, exhaustive enums and checked indexing. The coupled hot core (86% of the tick) cannot be ported one system at a time, so "TypeScript now, WebAssembly later" would be a rewrite | A1, A1-r1, IMPL-1 |
+| 2 | §3.6, §15.8 | **The five boundary rules** are engine law: Rust owns state and rules; one schema generates every contract; data leaves in bulk projections, never per-entity calls; view lifetimes are explicit; the boundary is testable from M0, trap recovery included | A clean split is only as safe as its boundary | IMPL-1 (A1-r1) |
+| 3 | §3.1, §5.18 | **Worldgen moves to Rust too**, as the crate `worldgen`: linked into the sim (the town layer and inline chunk commits) and built as `gen.wasm` for the worldgen pool | Worldgen's output becomes world state, and the sim queries the town layer synchronously; one language and one rule set for everything that decides state | B1, from IMPL-1 ("all authoritative state and rules") |
+| 4 | §4.1 | The determinism contract is restated per language. Rust's rule set (D19) replaces the TypeScript bans for the sim, and **D1–D23** join it as a table with owners and tests | A1 §5's Rust rules; A2's checklist, made binding for M0 | A1, A2, A2-r1, IMPL-1, IMPL-4 |
+| 5 | §4.1, §5.6, §5.11, §5.12 | `detmath.ts` becomes the crate **`det`**: the `libm` crate 0.2.16 for transcendentals plus a fixed-order integer power | `libm` is compiled into the module, so every engine runs the same instructions; B1 measured it bit-identical in native code, Node, Chrome and Firefox (Appendix A). `std`'s `f64::sin` calls the platform's libm natively, so native tests would disagree with the game | A1, B1 |
+| 6 | §4.6 | **Active sets are bitsets** iterated in pool order, not swap-remove lists. A1's wake rules are adopted. Derived pools (lines, segments, networks) are ordered by canonical keys, never by pool index | Swap-remove lists broke the spec's own NO_SLEEP equivalence within 200 ticks once inserters compete. Derived pools are rebuilt on load with different indices, so an order by index would break join equivalence | A1 findings 1–2, IMPL-2; B1 (derived pools) |
+| 7 | §5.3 | **Transport lines update downstream first**, by a canonical rank that survives load; a dead-end lane carrying two item types jams (ISO) | Otherwise compressed flow opens gaps at line boundaries. A1's kernel got the order from its generator's indexing; a game built in any order needs an explicit rule | A1 findings 3–4, IMPL-2; B1 (the rank) |
+| 8 | §2.4, §4.5, §15.1 | **One schema generates the contracts**: Rust SoA pools, TypeScript read views, save sections, action codecs, events, projection records, packet records and prototype tables. Every field declares saved or derived, order and canonical order | Two languages must never drift; the line that adds state is the cheapest place to prevent D3 and D8 bugs | A1 change 7, IMPL-1 rule 2, A2 D20 |
+| 9 | §2.4, §15.2 | The data stage (TypeScript, unchanged) emits **`prototypes.bin`** for the sim and `prototypes.json` for UI and renderer. **Expressions compile to bytecode** that the sim interprets | Data edits must not need a Rust rebuild (the release build takes about 67 s), the binary file is self-contained and covered by `prototypes.hash`, and the expressions run a few times per minute, so interpretation costs nothing | B1 |
+| 10 | §4.4, §4.5, §5.1 | `World.player` becomes **`World.players[]`**, with input generations, creation rings and `lastSeq`; `builtBy` gains player indices; offline characters get rules | Every action carries its player; multiplayer must not need a retrofit | A2 S1, A2-r1 3 and 12 |
+| 11 | §3.2, §3.3, §15.3 | **Closures are the only input.** Actions go to a sequencer (a `LocalSequencer` in single player). Actions have identity `(player, seq)`, per-player nondecreasing ticks, input fencing for held inputs, and targets by serial or creation id, never by position | Single player is multiplayer with a local transport, so the path is exercised by every test | A2 S2, S3, S5, D21–D23; A2-r1 2, 3 and 12 |
+| 12 | §3.3 | **Pacing by the closure horizon** with clock generations; pause and speed are sequencer state, never world state; in multiplayer a hidden tab never pauses | The World must not know about time outside ticks | A2 S3, S14; A2-r1 7 |
+| 13 | §3.4, §15.5 | **The world-replacement protocol**: a state generation on every packet, response and event; full invalidation and re-subscription on a new generation; every world replacement uses a fresh worker | Loads, joins and re-sync swaps must not mix two worlds' data; a fresh WebAssembly instance also returns the old world's memory, which linear memory cannot | A2 S11, S15; A2-r1 13; B1 (fresh worker) |
+| 14 | §3.2, §6.8, §15.4 | **The render packet** is one binary buffer per frame with a section table. Belt items travel as per-line gap arrays, expanded on the main thread. Positions are fixed point | A1 measured 85k sprites at about 0.75 ms of worker time on the reference machine against a 1.0 ms budget; gap arrays are 4 bytes per item against 16, and almost free to extract | A1 §4 and change 11; B1 (format) |
+| 15 | §3.2, §7.3, §15.5 | **UI data comes from projections** computed in Rust and decoded by generated TypeScript, through subscriptions; this replaces structured-clone `ui` deltas | No gameplay arithmetic may be duplicated in TypeScript | IMPL-1 rule 3, A1-r1; B1 (format) |
+| 16 | §3.2, §15.6 | **Events** carry `(player, seq)` and a historical flag; sounds, flying text and toasts are suppressed for historical events. Positional working sounds come as per-type aggregates | Catch-up, replays and joins must not replay hours of sound; a latency state must know which prediction failed | A2 S10, D15; A2-r1 13; A4 (audio feed) |
+| 17 | §4.8 (new) | **Digests**: a per-tick digest, a key-chosen slice hash and a rolling digest; checkpoints carry the digest lineage. The full state hash becomes XXH64 over canonical section bytes (was xxHash32 over pools and JSON) | Desync detection within a second for most divergence and within a minute for any; 64 bits because full-state equality is now compared at scale | A2 S7, A2-r1 5; B1 (hash width) |
+| 18 | §8.1 | **The save container is generated from the schema.** Cold data and globals become binary records (were canonical JSON). New sections: `PLAYERS` (was `PLAYER`), `WORLDGEN_PENDING`, and the roster and digest lineage in the header, outside the hash | Rust writes sections without a JSON library; a checkpoint must be complete (D8) | A1 change 7, A2 S9, A2-r1 11; B1 (binary records) |
+| 19 | §8.5 | **The input log becomes the closure log**, with its blobs and an optional digest ring | Replays, bug bundles and multiplayer share one format | A2 S8 |
+| 20 | §10 | **Tests**: scenario and golden tests are native Rust (`cargo test`); cross-engine digest traces compare native, Node, Chrome and Firefox; D18 (a)–(g) with full canonical state, not only digests | Native equals the browser bit for bit, so native tests are the fast loop; sampled digests cannot catch every transient divergence | A1, A2 D18, A2-r1 5 and 15 |
+| 21 | §10.6, §11 | The host runs at about **0.42× the reference** at its base clock (was 0.55×). A/B comparisons run interleaved in one session with the clock logged; the 10% gate against history is dropped | Turbo windows make single runs differ by about 25% | A1, A1-r1, IMPL-3 |
+| 22 | §4.7 | The per-tick cost model uses A1's **measured** per-entity costs | Measured beats projected | A1 §2 |
+| 23 | §11 | Budgets gain a **catch-up** row and the host factor 2.4; the audio-thread budget is left to §9.4 (WP B2) | Joins and re-syncs need catch-up headroom (11 §4.4) | A2 §4.4, A1, IMPL-6 |
+| 24 | §12 | **M0 is resized** for Rust, the schema and the multiplayer seams; M1–M4 gain 10% for the boundary; a new **MP milestone** comes after M4; M1c's music is the generative engine's two rule sets instead of 2–3 tracks | M0 v1 was about a third of its real size; Rust code is about 1.2× the TypeScript lines and features cross the boundary; multiplayer comes late, but its seams come first | A1 (M0 +20–30%), A1-r1, A2 §7; the user (multiplayer late); A4, IMPL-6 (music) |
+| 25 | §13 | Risks: "JS performance" goes; the boundary, WebAssembly debugging and traps, two toolchains and release build time come in | The risk moved | A1, A1-r1 |
+| 26 | §6.2, §6.7, §7.4, §15.7 | Style parameters (shadow and light composites, the night grade, the UI palette) become **named constants**, with A3's *Survey* values as their first setting | The art direction fills in style, not format | A3, IMPL-5 |
+| 27 | §15 (new) | **The M0 contracts**: schema and codegen, the prototype data path, action and closure formats, the render packet, projections and subscriptions, events and audio, projection and the sprite manifest, the WebAssembly ABI, the worldgen contract, fixtures, ownership and tests (the worker messages are §3.2) | M0's work packages build against them in parallel without talking to each other | The brief of WP B1 |
 
 ---
 
@@ -19,41 +56,44 @@ The numbers are in Appendix A. They drive three decisions: expanded-quad sprite 
 
 | # | Area | Decision | Main reason | Rejected |
 |---|---|---|---|---|
-| 1 | Language | **TypeScript** for the simulation, UI, renderer and tools. **Python** only for asset pipelines and the design validator | One language for the sim, UI and tests. V8 runs typed-array loops at 5–15 ns per entity here | A Rust/WASM sim now. The struct-of-arrays layout keeps a per-system port open if benchmarks ever demand it |
-| 2 | Build | **Vite 8.3.2** (Rolldown) for bundling and the dev server. **TypeScript 7.0.2** (native `tsc`) for type-checking only | Verified here; fast | webpack; esbuild alone |
-| 3 | Tests | **Vitest 5.0.3** (unit, scenario and property tests, the last with **fast-check 4.10.2**). **@playwright/test 1.64.1** with Chrome for Testing 156 (E2E and screenshots). A custom benchmark runner | Same runtime (V8) in Node and Chrome, so goldens agree | Jest; Cypress |
-| 4 | Lint and format | **Biome 2.5.15**, plus `check-arch` (**oxc-parser 0.153.0**) for determinism bans and import boundaries | One fast tool; verified here | ESLint + Prettier |
-| 5 | Threads | The **sim runs in one dedicated Worker** at a fixed 60 UPS. The **main thread** handles input, the DOM UI, WebGL2 and audio. A **worldgen worker pool** and an **IO worker** (compression and IndexedDB) complete the set | The UI and renderer cannot steal sim time, and vice versa | Sim on the main thread (kept only as a debug mode) |
-| 6 | Shared memory | **No SharedArrayBuffer.** Transferable `ArrayBuffer` ping-pong between threads | Works on any static host (dev server, Artifact) without COOP/COEP headers | SAB snapshots |
-| 7 | Sim state | **Per-system struct-of-arrays pools** of typed arrays, a thin entity table, and cold data in `Map`s | Cache-friendly, zero GC in the tick, trivially saved and hashed, portable to WASM | A generic ECS library; one class instance per entity |
-| 8 | Scheduling | **Factorio-style active lists plus sleep/wake** with explicit wake sources, a timer wheel and chunk buckets (heat 1/64, agents 1/20) | An idle factory costs ~0 | Updating everything every tick |
-| 9 | Determinism | **Fixed point** where Factorio uses it (belts in 1/256 tile), IEEE doubles elsewhere, transcendental `Math.*` banned in the sim, counter-based RNG | Saves and replays portable across browsers; tests reproducible | Floats with `Math.sin`; stateful global RNG |
-| 10 | Belts | **Factorio transport lines**: gap-encoded, O(1) per moving line per tick, with the wiki's geometry numbers | ISO throughput and compression | Per-item movement |
+| 1 | Language | **Rust 1.99.1 → wasm32-unknown-unknown** for the simulation and worldgen: one Cargo workspace, a clean split (§3.6). **TypeScript 7** for the worker shell, the data stage, UI, renderer, audio, network and tools. **Python** only for asset pipelines and the design validator | Measured (A1): 1.35–1.75× faster per tick in every engine, 2–4× faster first ticks after a load, no JIT stalls; one binary on every peer, so determinism holds by construction for the float class; guardrails for agent-written code | A TypeScript simulation (viable, but slower and with JIT tails, A1); a per-system hybrid with two writers to one state; wasm-bindgen (a raw C ABI is enough, A1) |
+| 2 | Build | **Vite 8.3.2** (Rolldown) for bundling and the dev server, with a cargo plugin (§2.3). **TypeScript 7.0.2** (native `tsc`) for type-checking only. **cargo** with `rust-toolchain.toml`; **binaryen 133** `wasm-opt -O3` for release WebAssembly | Verified here (A1); incremental Rust builds take 1–3 s | webpack; esbuild alone; wasm-pack |
+| 3 | Tests | **`cargo test`** natively for the simulation (unit, scenario, golden and property tests, the last with **proptest 1.11.0**). **Vitest 5.0.3** (with **fast-check 4.10.2**) for TypeScript. **@playwright/test 1.64.1** with Chrome for Testing 156 and Firefox 157 (E2E, screenshots, cross-engine digest traces). A custom benchmark runner | Native code equals WebAssembly in every engine bit for bit (A1; Appendix A), so the fast loop is native and the browsers confirm it | Jest; Cypress; testing only through the browser |
+| 4 | Lint and format | **Biome 2.5.15** plus `check-arch` (**oxc-parser 0.153.0**) for TypeScript; **rustfmt** and **clippy** with the determinism bans of `clippy.toml` at `-D warnings` for Rust; a WebAssembly feature gate on the release binary (§2.3) | Each ban verified to fire (A1, B1) | ESLint + Prettier |
+| 5 | Threads | The **sim worker** runs a TypeScript shell around one WebAssembly instance at a fixed 60 UPS, driven by closures. The **main thread** handles input, the DOM UI, WebGL2 and audio. A **worldgen pool** (running `gen.wasm`) and an **IO worker** (compression, hashing, storage) complete the set; a **second sim worker** takes every world replacement (§3.1). Multiplayer adds a **net worker** (11 §2.4) | The UI and renderer cannot steal sim time, and vice versa | Sim on the main thread (kept only as a debug mode); WebAssembly threads (A1 §8: one sim thread is right) |
+| 6 | Shared memory | **No SharedArrayBuffer and no WebAssembly threads.** Transferable `ArrayBuffer`s between threads; only the sim worker's shell reads linear memory | Works on any static host (dev server, Artifact) without COOP/COEP headers | SAB snapshots |
+| 7 | Sim state | **Per-system struct-of-arrays pools** (Rust `Vec` columns generated from the schema), a thin entity table, cold records keyed by serial; derived structures rebuilt in canonical order | Cache-friendly, no per-entity heap objects, saved and hashed as column bytes | A generic ECS library; one heap object per entity |
+| 8 | Scheduling | **Factorio-style sleep and wake** with **bitset active sets iterated in pool order** (canonical rank for derived pools), wake sources with sequence numbers, a timer wheel and chunk buckets (heat 1/64, agents 1/20) | An idle factory costs about 0; NO_SLEEP equivalence holds (A1) | Updating everything every tick; swap-remove active lists |
+| 9 | Determinism | **Fixed point** where Factorio uses it (belts in 1/256 tile), IEEE doubles elsewhere, transcendentals only through the `libm` crate, counter-based RNG, and rules **D1–D23** with their tests (§4.1) | Saves, replays and multiplayer bit-identical across engines; tests reproducible | Floats with platform `sin`; stateful global RNG |
+| 10 | Belts | **Factorio transport lines**: gap-encoded, O(1) per moving line per tick, with the wiki's geometry numbers, updated downstream first | ISO throughput and compression | Per-item movement |
 | 11 | Fluids | **Factorio 2.0 fluid segments** (FFF-416, FFF-430). **Connection categories** keep data lines separate from pipes | ISO; pipes cost nothing per tick | 1.1 per-pipe flow |
-| 12 | Rendering | **Custom WebGL2 immediate-mode sprite renderer**: expanded quads with a static index buffer and texture-array atlases. **No PixiJS** | Measured 5–30× faster than instancing on SwiftShader (Claude's verification renderer) and equal on real GPUs. No scene graph duplicating sim state | PixiJS 8.22; WebGPU |
-| 13 | UI | **DOM + SolidJS 1.9.15** (fine-grained signals), CSS 9-slice frames and **Titillium Web** (OFL, self-hosted). WebGL draws world-anchored icons; the minimap and GUI previews show through DOM "holes" | Text, IME, scrolling and search for free; 60 Hz updates without a virtual DOM | A canvas-drawn GUI; React |
-| 14 | Saves | **Binary sectioned container**, deflate via **fflate 0.8.3**. Save blobs in **OPFS** where available, with **IndexedDB** (via **idb 8.0.3**) for metadata and as the fallback (07-ui §19.2). Pools load by field name. Global scalars, timers and RNG states are saved; everything else not listed as derived is saved too (§8.1). Input logs give replays | Fast, versionable, debuggable | JSON saves; localStorage |
+| 12 | Rendering | **Custom WebGL2 immediate-mode sprite renderer**: expanded quads with a static index buffer and texture-array atlases, fed by binary packets (§15.4). **No PixiJS** | Measured 5–30× faster than instancing on SwiftShader (Claude's verification renderer) and equal on real GPUs. No scene graph duplicating sim state | PixiJS 8.22; WebGPU |
+| 13 | UI | **DOM + SolidJS 1.9.15** (fine-grained signals), CSS 9-slice frames and **Titillium Web** (OFL, self-hosted), fed by projections the sim computes (§15.5). WebGL draws world-anchored icons; the minimap and GUI previews show through DOM "holes" | Text, IME, scrolling and search for free; 60 Hz updates without a virtual DOM | A canvas-drawn GUI; React |
+| 14 | Saves | **Binary sectioned container generated from the schema**, deflate via **fflate 0.8.3** in the IO worker. Save blobs in **OPFS** where available, with **IndexedDB** (via **idb 8.0.3**) for metadata and as the fallback (07-ui §19.2). Pools load by field name. Everything not declared derived is saved (§8.1). **Closure logs** give replays; checkpoints carry their digest lineage | Fast, versionable, debuggable; one format for saves, joins and bug bundles | JSON saves; localStorage |
 | 15 | Assets | **Blender 5.2 Cycles** renders from Python model scripts: oblique 45° camera, colour, shadow and light passes. **SVG icons** via resvg. Atlases are texture-array pages. **Audio** via FluidSynth plus synthesized SFX | Fully scriptable, so Claude can author and verify it headlessly | Hand-drawn pixel art; runtime 3D |
-| 16 | Verification | Scenario goldens in Node. **NO_SLEEP equivalence**. Save/load and replay hashes. Playwright feel tests with deterministic `__game.step(n)`. Screenshot review by Claude. On the dev server, **user-side benchmark and bug-report endpoints** | The user's real GPU closes the loop the host cannot | Manual testing only |
-| 17 | Data contract | The engine reads **numbers, ids, enums and expressions** from `spec/data`, never English. One **expression compiler** serves every formula field (`count_formula`, `amounts_by_j`, `field_year`). Formulas that are not expressions live in code, named by the owning chapter's section. **Milestone builds are rule-based filters** over the full data, checked for closure (§2.4, §12) | Design and code cannot drift apart silently | Prose formulas read by hand; per-milestone data sets |
+| 16 | Verification | Native scenario goldens. **NO_SLEEP equivalence**, save/load, join and replay equivalence on full state. Cross-engine digest traces (native, Node, Chrome, Firefox). Playwright feel tests with deterministic `__game.step(n)`. Screenshot review by Claude. On the dev server, **user-side benchmark and bug-report endpoints** | The user's real GPU closes the loop the host cannot | Manual testing only |
+| 17 | Data contract | The engine reads **numbers, ids, enums and expressions** from `spec/data`, never English. One **expression compiler** serves every formula field (`count_formula`, `amounts_by_j`, `field_year`), emitting bytecode the sim interprets (§15.2). Formulas that are not expressions live in code, named by the owning chapter's section. **Milestone builds are rule-based filters** over the full data, checked for closure (§2.4, §12) | Design and code cannot drift apart silently | Prose formulas read by hand; per-milestone data sets |
+| 18 | Contracts | **One schema** (`game/schema/`) generates every cross-language contract: pools, views, save sections, action codecs, events, projections, packet records and prototype tables (§15.1) | Drift between Rust and TypeScript becomes a build error | Hand-maintained mirrors; JSON over the boundary |
+| 19 | Multiplayer | **Deterministic lockstep sequenced by a relay** over WebSocket on TLS 443 (chapter 11). **Single player is multiplayer with a `LocalSequencer`**; the seams S1–S15 and rules D1–D23 exist from M0 | Bandwidth independent of factory size; the multiplayer path is exercised by every test from day one | Server simulation; P2P UDP; adding players later |
 
 ---
 
 ## 1. Constraints that shape the engine
 
 **The player.**
-- One user, playing in a desktop browser on a mid-range laptop (the reference machine, §11).
+- One user, playing in a desktop browser on a mid-range laptop (the reference machine, §11), and later a group of two to eight friends and colleagues in multiplayer (chapter 11).
 - They reach the game through an SSH tunnel to the dev server, or through a published build.
 - **Browsers:** Chromium is primary (it has Keyboard Lock); Firefox is supported; Safari is best effort.
-- **WebGL2 is required.** There is no WebGL1 fallback.
+- **WebGL2 is required.** There is no WebGL1 fallback. **WebAssembly** with its 2023 baseline features (bulk memory, sign extension, non-trapping float-to-int, multi-value, reference types) is required; SIMD and threads are not used.
 
 **The builder: Claude, on cpuserver10.**
 - **No GPU.** On SwiftShader, about 5k sprites take 30 ms per frame and 20k take 70 ms (with expanded quads).
-- **CPU:** a Xeon E5-2650 v2, at roughly 0.55× the reference machine's single-thread speed (an estimate, to be confirmed by `bench.html`, §10.6), with 32 threads and 62 GB RAM.
+- **CPU:** a Xeon E5-2650 v2 at its 2.6 GHz base clock runs at about **0.42×** the reference machine's single-thread speed (A1: reference ≈ host ÷ 2.4; turbo windows at about 3.3 GHz make single runs differ by about 25%, so comparisons are interleaved, §10.6). 32 threads, 62 GB RAM.
+- **Rust 1.99.1** with the wasm32-unknown-unknown target and binaryen 133 install user-mode here (CLAUDE.md).
 - **Consequences:**
   - everything must be verifiable headlessly;
-  - simulation tests never render;
-  - performance is measured on the sim in Node and calibrated against the user's machine (§10.6).
+  - simulation tests never render, and run natively first;
+  - performance is measured natively, in Node and in headless Chrome and Firefox, and calibrated against the user's machine (§10.6).
 
 **Fidelity.**
 - Factorio 2.0 mechanics and numbers (ISO).
@@ -63,102 +103,140 @@ The numbers are in Appendix A. They drive three decisions: expanded-quad sprite 
 
 **Scale.** A late game of about 150k entities at 60 UPS on the reference laptop (§11).
 
-**Churn.** Rounds 3–5 will rename and rebalance. The engine absorbs that as data, so tests assert ratios and rules, not names.
+**Determinism.** One closure stream must produce bit-identical worlds natively and in every supported browser, because replays, bug bundles, joins and multiplayer all rest on it (§4.1).
+
+**Churn.** Rounds 3–5 will rename and rebalance. The engine absorbs that as data, so tests assert ratios and rules, not names, and a data edit never needs a Rust rebuild (§15.2).
 
 ---
 
 ## 2. Stack, layout and data pipeline
 
-### 2.1 Versions (pinned; installed and run on this host, 2026-10-19)
+### 2.1 Versions (pinned; installed and run on this host, 2026-10-19 and 2026-10-20)
 
-The rule: each pin is the newest release at least 14 days old (cutoff 2026-10-05). The one exception is Playwright, which matches the host's global 1.64.1. Every pin below was installed together and smoke-tested here: native binaries run on glibc 2.31 without AVX2; `tsc`, `vite build`, Vitest, Biome and `check-arch` all ran; Solid compiled; zod, fflate, fake-indexeddb, simplex-noise and maxrects-packer loaded.
+The rule: each npm or crate pin is the newest release at least 14 days old (cutoff 2026-10-05 for the round-4 set, 2026-10-06 for version 2's additions). The exceptions: Playwright, which matches the host's global 1.64.1, and the Rust toolchain, which takes the newest stable minor release at least 14 days old (1.99.0, 2026-10-01) at its newest patch (1.99.1), because patch releases only fix regressions. The npm pins were installed together and smoke-tested here in round 4 (`design/round2/A-stack-test/`): native binaries run on glibc 2.31 without AVX2; `tsc`, `vite build`, Vitest, Biome and `check-arch` all ran; Solid compiled; zod, fflate, fake-indexeddb and maxrects-packer loaded. The Rust pins were tested in A1's engine study (`design/engine-study/`) and B1's probes: cargo built natively and for wasm32, clippy ran with the bans, binaryen optimised, and the modules ran in Node, Chrome and Firefox.
 
 | Package | Pin | Role | Notes |
 |---|---|---|---|
-| Node | 24.22.0 (`~/.local/bin/node`) | Build, tests, benchmarks, data stage | Never `/usr/bin/node` (v10) |
+| Node | 24.22.0 (`~/.local/bin/node`) | Build, tests, benchmarks, data stage, schema generator | Never `/usr/bin/node` (v10) |
+| Rust | 1.99.1 (`rust-toolchain.toml`) | The simulation and worldgen crates; native tests and tools | rustup and cargo home in `~/.local/opt/` (CLAUDE.md). `rust-toolchain.toml`: channel 1.99.1, target wasm32-unknown-unknown, components clippy and rustfmt, profile minimal |
+| binaryen | 133 (wasm-opt) | `-O3` on the release WebAssembly; the feature gate (`--print-features`) | Static build in `~/.local/opt/binaryen-133` |
+| libm (crate) | 0.2.16 | The simulation's only runtime dependency: transcendental functions behind the crate `det` (§4.1) | MIT. Default features: its `arch` feature only substitutes exactly rounded instructions (sqrt, floor, ceil, trunc, rint, fma), so results do not change. Bit-identical natively and in every engine (Appendix A) |
+| proptest (crate, dev only) | 1.11.0 | Property tests in Rust | 1.12.0 is 10 days old |
+| ws | 8.22.0 | The multiplayer relay (MP milestone; 11 §6.1) and its Node tests | Pinned by A2's proof of concept |
 | typescript | 7.0.2 | `tsc -b --noEmit` type-check only | Native Go binary (`@typescript/typescript-linux-x64`). Fallback 6.0.3 if a TS 7 checker bug blocks |
-| vite | 8.3.2 | Dev server, production bundle, module workers | Rolldown inside |
-| vitest | 5.0.3 | Unit, scenario and property tests; `bench` mode | Runs from its own `vitest.config.ts` with `environment: 'node'` and **without** vite-plugin-solid. Verified: the Solid plugin silently switches Vitest to jsdom, which we neither need nor install, since UI is tested in real browsers |
-| @playwright/test | 1.64.1 | E2E, screenshots | Matches the global install (exception to the 14-day rule). Chrome via `launchOptions.executablePath: ~/.local/opt/chrome-current/chrome`; Firefox 157 via a user-mode `PLAYWRIGHT_BROWSERS_PATH` install (§10.5) |
-| @biomejs/biome | 2.5.15 | Lint and format | |
+| vite | 8.3.2 | Dev server, production bundle, module workers | Rolldown inside. `?url` imports with `WebAssembly.compileStreaming` in a module worker verified (A1) |
+| vitest | 5.0.3 | TypeScript unit, codec, shell and property tests; `bench` mode | Runs from its own `vitest.config.ts` with `environment: 'node'` and **without** vite-plugin-solid. Verified: the Solid plugin silently switches Vitest to jsdom, which we neither need nor install, since UI is tested in real browsers |
+| @playwright/test | 1.64.1 | E2E, screenshots, cross-engine traces | Matches the global install (exception to the 14-day rule). Chrome via `launchOptions.executablePath: ~/.local/opt/chrome-current/chrome`; Firefox 157 from Playwright's own cache (§10.5) |
+| @biomejs/biome | 2.5.15 | Lint and format (TypeScript) | |
 | oxc-parser | 0.153.0 | AST for `scripts/check-arch.ts` | Verified: flags `Math.random`, `Math.sin`, `Date.now` |
-| fast-check | 4.10.2 | Property tests | |
+| fast-check | 4.10.2 | Property tests (TypeScript) | |
 | solid-js / vite-plugin-solid | 1.9.15 / 2.11.14 | DOM UI | A 10-slot test app is 4.4 kB gzipped |
-| yaml | 2.9.1 | Data stage | |
-| zod | 4.6.5 | Engine-level prototype schema | |
+| yaml | 2.9.1 | Data stage and schema generator | |
+| zod | 4.6.5 | The data stage's prototype schema; the schema generator's own descriptor validation | |
 | fflate | 0.8.3 | Save compression (deflate), sync in Node and async in the IO worker | |
 | idb / fake-indexeddb | 8.0.3 / 6.2.5 | IndexedDB in the browser and in Node tests | |
 | pixelmatch / pngjs | 7.2.0 / 7.0.0 | Screenshot diffs | pixelmatch 8 is younger than 14 days |
-| simplex-noise | 4.0.3 | World generation noise | Uses only `+ − × floor`, so it is deterministic |
+| simplex-noise | 4.0.3 | **No longer in the game** (worldgen moved to Rust, §5.18). Kept as a dev dependency only to produce golden values for the Rust noise port | Uses only `+ − × floor` |
 | maxrects-packer | 2.7.4 | Atlas packing in the Node asset build | Import `maxrects-packer/dist/maxrects-packer.mjs` directly. 2.7.4 declares `"type": "module"` but its `main` is a UMD file, so the bare import yields no exports (verified). 3.0.0 is four days old |
 | @fontsource/titillium-web | 5.3.0 | GUI font (OFL), self-hosted | |
 | Python (`gamedev-python` 3.12) | numpy, pillow, pyyaml, pedalboard, pretty_midi, music21 | Asset post-processing, SFX synthesis, `tools/validate_spec.py` | |
 | Blender, resvg, magick, oxipng, cwebp, ffmpeg, fluidsynth, gifski | As in `CLAUDE.md` | Asset pipeline | Not available: `toktx`, `basisu`, `cmake` (§6.13) |
 
 **Policy.**
-- Pin exact versions and install with `npm ci` from the lockfile.
-- Upgrade only at milestone boundaries, and only to releases at least 14 days old.
-- There are no runtime network calls: fonts, data and assets are all self-hosted.
+- Pin exact versions: `npm ci` from `package-lock.json`, and `Cargo.lock` committed with `=` requirements for every crate (`libm = "=0.2.16"`), so `cargo build --locked` never resolves anew.
+- Upgrade only at milestone boundaries, and only to releases at least 14 days old. A toolchain upgrade reruns the cross-engine traces (§10.4) before it lands, because it changes the binary.
+- There are no runtime network calls: fonts, data, assets and the WebAssembly modules are all self-hosted.
+- **New crates need a reason.** The simulation crates depend on `libm` only; anything else (a hash map, a serializer, a random-number crate) is written in-crate or argued in a report, because every dependency is code that must be deterministic on every target.
 
 ### 2.2 Repository layout
 
-The repository root stays `/home/mewse/browsergame`. The code lives in `game/` as one npm package. Each layer has its own tsconfig, and the import boundaries are enforced by `check-arch`.
+The repository root stays `/home/mewse/browsergame`. The code lives in `game/`: one npm package and one Cargo workspace side by side. Each TypeScript layer has its own tsconfig, and the import boundaries are enforced by `check-arch`; each Rust crate has one job, and the crate graph enforces the rest.
 
 ```
 browsergame/
   CLAUDE.md  design/  tools/validate_spec.py  tools/render_spec.py  tools/check-toolchain.sh
   tools/ref/heat_calib3.py   # verbatim copy of round1/F-data/calib3.py: the heat field's golden reference (G15)
   game/
-    package.json  biome.json  vite.config.ts  playwright.config.ts
-    tsconfig.{sim,worldgen,worker,app,ui,scripts}.json   # per-layer libs: sim has NO DOM types
+    package.json  package-lock.json  biome.json  vite.config.ts  vitest.config.ts  playwright.config.ts
+    tsconfig.{shared,simworker,genworker,ioworker,app,ui,render,audio,scripts}.json   # per-layer libs
+    Cargo.toml  Cargo.lock  rust-toolchain.toml  clippy.toml  rustfmt.toml           # the workspace
+    schema/        # THE schema (§15.1): types, state, sections, actions, events, projections, packet, protos, registries
+    crates/
+      schema/      # GENERATED from schema/ (committed; never edited by hand): ids, enums, shared records (ChunkData),
+                   #   codecs, packet, event and projection writers, the Protos loader; used by every crate below
+      det/         # deterministic maths: libm re-exports, powi, piecewise tables (§4.1); the only crate using libm
+      worldgen/    # pure chunk generation, noise, climate, towns (§5.18); no World access, no I/O
+      sim/         # the World and every system (§4–§5), saves, digests, extraction, projections, queries
+        src/gen/   # GENERATED from schema/: the SoA pools and save sections, which only the sim uses
+      simabi/      # cdylib → sim.wasm: the C ABI of §15.8 over `sim`, the panic hook; the only `unsafe` code
+      genabi/      # cdylib → gen.wasm: the worldgen workers' ABI over `worldgen`
+      simtool/     # native binary: replay, state diff, digest bisect, benchmarks, golden runner (§10)
     src/
-      shared/      # types used across threads: ids, InputAction, protocol, packet layouts (no DOM, no sim internals)
-      sim/         # the World and every system (§4–§5); pure TS, lib es2024 only
-        core/      # world, surfaces, chunks, entity table, pools, scheduler, rng, hash, expr (§2.4)
-        systems/   # belts/ inserters/ crafting/ mining/ energy/ fluids/ thermal/ staffing/ worldtext/
-                   # research/ trains/ agents/ circuit/ quality/ runaways/ enemies/ stats/ construction/ player/
-        save/  actions/  snapshot/  queries/
-      worldgen/    # noise, climate, autoplace, towns; pure TS (runs in workers and Node)
+      shared/      # TypeScript types used across threads: ids, protocol, packet layout (no DOM, no linear memory)
+        gen/       # GENERATED from schema/: codecs, decoders, record types, layout constants, proto ids
+      simworker/   # the sim worker's shell: module loader, LocalSequencer, pacing, packets, subscriptions, checkpoints
+      genworker/   # the worldgen worker: loads gen.wasm, answers chunk requests
+      ioworker/    # compression, SHA-256, OPFS and IndexedDB
       render/      # WebGL2 renderer (main thread)
       ui/          # SolidJS GUI, HUD, windows, input system
       audio/       # Web Audio runtime
-      app/         # entry points: main.ts, sim.worker.ts, gen.worker.ts, io.worker.ts; wiring
-      dev/         # __game hooks, debug overlays, dev-server middleware (/__bench, /__report)
-      generated/   # data-stage output: proto-ids.ts (string-literal unions), prototype types
+      app/         # entry points (main.ts and the worker entries); wiring between threads
+      dev/         # __game hooks, debug overlays, dev-server middleware (/__bench, /__report, /__shot)
+      net/  relay/ # multiplayer (MP milestone; chapter 11): the net worker, the relay's RoomCore and Node adapter
     data/engine/   # engine overlay YAML (§2.4), including manifests.yaml (the milestone filters of §12)
     locale/en.yaml # UI strings (names come from the data)
     assets/        # sources: blender/ (rig, materials, parts, entities/*.py), svg/, audio/
-    public/        # build outputs served: data/prototypes.json, atlases/, audio/, fonts/
-    test/          # scenario tests and layouts (*.txt), goldens/
+    public/        # build outputs served: data/prototypes.{bin,json}, data/build-manifest.json, atlases/, audio/, fonts/
+    test/          # layouts (*.txt), goldens/, saves/, logs/ (closure logs), fixtures/ (codec and packet fixtures)
     e2e/           # Playwright specs and screenshot goldens
     bench/         # benchmark scenarios, runner, history.jsonl, user-results/
-    scripts/       # data-stage.ts, check-arch.ts, build-assets.ts, pack-atlas.ts, render-entities.sh
+    scripts/       # data-stage.ts, schema-gen.ts, check-arch.ts, cargo-plugin.ts, wasm-release.sh, build-assets.ts …
 ```
 
-**Boundary rules** (checked by `check-arch`):
-- `sim/` and `worldgen/` import only themselves and `shared/`.
-- `render/`, `ui/` and `audio/` may not import `sim/`. They see the sim only through `shared/` types and packets.
-- Only `app/` wires threads together.
-- `tsconfig.sim.json` has `"lib": ["es2024"]` and no `types`. A stray `document` or `window` in the sim is therefore a compile error. (A trial of the combined dom + webworker libs showed they clash in TS 7 anyway.)
+**Boundary rules** (checked by `check-arch` for TypeScript and by the crate graph for Rust):
+- `crates/schema` depends on nothing. `crates/det` depends on `libm` only. `crates/worldgen` depends on `det` and `schema`. `crates/sim` depends on `det`, `worldgen` and `schema`. The two ABI crates depend on what they wrap. `simtool` depends on `sim`. Nothing in `crates/` does I/O except `simtool`.
+- `#![forbid(unsafe_code)]` in `schema`, `det`, `worldgen` and `sim`; `unsafe` exists only in `simabi` and `genabi`, where raw pointers cross the ABI.
+- Only `src/simworker/` touches the sim module's linear memory (IMPL-1 rule 4). `render/`, `ui/` and `audio/` see the sim only through `shared/` types and decoded packets.
+- `render/`, `ui/`, `audio/` import only themselves and `shared/`. Only `app/` wires threads together.
+- `src/shared/gen/`, `crates/schema/` and `crates/sim/src/gen/` are written only by `scripts/schema-gen.ts`; `check-arch` refuses hand edits (a header hash per file).
+- `tsconfig.shared.json` and the worker configs have `"lib": ["es2024", "webworker"]` as needed and no DOM; the main-thread configs have DOM. (A trial of the combined dom and webworker libs showed they clash in TS 7.)
 
 ### 2.3 Commands
 
 | Command | Does |
 |---|---|
-| `npm run dev` | Data stage in watch mode, then the Vite dev server on `127.0.0.1:5173`. The user tunnels in (`CLAUDE.md`). The dev middleware serves `/__bench`, `/__report` and `/__shot` (§3.5) |
-| `npm run build` / `npm run preview` | Production bundle in `dist/` / serve it on the same port |
+| `npm run dev` | Data stage and schema generator in watch mode, the cargo plugin, then the Vite dev server on `127.0.0.1:5173`. The user tunnels in (`CLAUDE.md`). The dev middleware serves `/__bench`, `/__report` and `/__shot` (§3.5) |
+| `npm run build` / `npm run preview` | Release WebAssembly (`scripts/wasm-release.sh`), the production bundle in `dist/`, `build-manifest.json` / serve it on the same port |
 | `npm run data` | Data stage (§2.4) |
-| `npm run check` | `biome check`, `tsc -b`, `check-arch`, the data stage in strict mode, `gamedev-python ../tools/validate_spec.py ../design/spec/data`, and the generated-spec freshness checks `gamedev-python ../tools/render_spec.py --check` (02, 05) and `gamedev-python ../tools/render_slice.py --check` (09 §1–§2) |
-| `npm test` | Vitest: unit, scenario, property and determinism suites (Node) |
-| `npm run test:slow` | Worldgen seed sweeps (09 S-G1), long golden runs, the scripted opening's full replay. Nightly and at milestone exits |
+| `npm run gen` | Schema generator (§15.1): writes `crates/schema/`, `crates/sim/src/gen/` and `src/shared/gen/` |
+| `npm run check` | `biome check`, `tsc -b`, `check-arch`, `schema-gen --check`, `cargo fmt --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, the data stage in strict mode (run twice; the outputs must be byte-identical, D14), `gamedev-python ../tools/validate_spec.py ../design/spec/data`, and the generated-spec freshness checks `gamedev-python ../tools/render_spec.py --check` (02, 05) and `gamedev-python ../tools/render_slice.py --check` (09 §1–§2) |
+| `npm test` | `cargo test --workspace --locked` (native units, `dev` profile), `cargo test --workspace --locked --profile ntest` (scenario, golden, property and determinism suites), and Vitest (codecs, the shell against a dev build of `sim.wasm`, decoders, UI logic) |
+| `npm run test:slow` | Native long runs (heavy mode, NO_SLEEP and join equivalence at Mid and Late scale, D18 fuzzing), worldgen seed sweeps (09 S-G1), cross-engine traces on every recorded log in Node, Chrome and Firefox, the scripted opening's full replay. Nightly and at milestone exits |
 | `npm run e2e` | Playwright: feel tests, window screenshots, smoke. `--project firefox` runs the Firefox 157 suite with `?render=none` (§10.5) |
-| `npm run bench [-- --scenario X]` | Node benchmark runner; appends to `bench/history.jsonl` |
+| `npm run bench [-- --scenario X]` / `npm run bench:ab -- --base <rev>` | Benchmark runner (native, Node and browsers; §10.6) / a paired A/B of two builds in one session |
 | `npm run assets [-- --only id]` | Blender, SVG and audio pipelines. Incremental, using content hashes of each source script and its parameters |
-| `npm run ci` | `check`, `test`, `e2e --grep @smoke`, and `bench --quick` with a 10% regression gate. Installed as a git pre-commit hook once the repository is initialised |
+| `npm run ci` | `check`, `test`, `e2e --grep @smoke`, the cross-engine smoke trace (§10.4), the release WebAssembly build with its feature gate (skipped when nothing under `crates/` or `schema/` changed since the last green run, because it takes about a minute), and `bench --quick` against the §11 budgets (a budget gate, not a regression gate; §10.6). Installed as a git pre-commit hook once the repository is initialised |
+
+**Cargo profiles** (`game/Cargo.toml`):
+
+| Profile | Settings | Used for |
+|---|---|---|
+| `release` | opt-level 3, `lto = "fat"`, `codegen-units = 1`, `panic = "abort"`, `debug = false`, overflow checks off | `sim.wasm` and `gen.wasm` in production, then `wasm-opt -O3`. About 38 s plus 28.5 s for wasm-opt on a 50k-line crate (A1); never incremental |
+| `wasmdev` | inherits `release`; `lto = false`, `codegen-units = 16`, `incremental = true`, opt-level 2 | The dev server's modules, about 3 s incremental (A1). Same semantics as `release`: optimisation never changes results (§4.1) |
+| `dev` / `test` | opt-level 1, debug assertions and overflow checks on; dependencies at opt-level 3 | `cargo test`: fast to build, slow-ish to run |
+| `ntest` | inherits `release`; `debug-assertions = true`, `overflow-checks = true`; tests unwind (cargo ignores `panic = "abort"` for test targets) | Scenario, golden and determinism suites (`cargo test --profile ntest`): release speed with every assertion |
+
+**The `simcheck` cargo feature** turns on the checks that cost time: the NaN scans of D6, per-phase digests (§4.8), the counting allocator (§2.5) and the profiling scopes. It never changes results. Native tests always build with it, and so does the dev server's `wasmdev` module (the cargo plugin passes `--features simcheck`); release modules never do. "Dev builds" in this document means builds with `simcheck`.
+
+**Vite and cargo.**
+- **Dev.** `scripts/cargo-plugin.ts`, registered in `vite.config.ts`, builds both cdylibs with `cargo build --profile wasmdev --features simcheck --target wasm32-unknown-unknown -p simabi -p genabi` at server start and on every change under `crates/`, `schema/` or `Cargo.toml` (debounced 200 ms, one build at a time). It serves the results as virtual modules `virtual:sim-wasm` and `virtual:gen-wasm`, which export the module URL, and sends a full page reload after each build: there is no hot reload for the simulation (A1). A failed build shows Vite's error overlay with cargo's message.
+- **Build.** `scripts/wasm-release.sh` runs `cargo build --release --locked --target wasm32-unknown-unknown -p simabi -p genabi`, then `wasm-opt -O3`, then **the feature gate**: `wasm-opt <module> --print-features` must print exactly the allowed set (mutable globals, non-trapping float-to-int, bulk memory and its `-opt` variant, sign extension, reference types, multi-value, overlong call-indirect: the defaults of Rust 1.99's wasm32 target, measured). Anything else, SIMD, relaxed SIMD, threads or atomics above all, fails the build (D19). The plugin then emits the modules as content-hashed assets.
+- **Loading.** The sim worker calls `WebAssembly.compileStreaming(fetch(url))` (4.7 ms in Chrome, 8.9 ms in Firefox for A1's 70 kB module) and instantiates once per world (§3.1).
+- **`build-manifest.json`** (written by the build): `buildHash`, `protocolVersion`, `schemaHash`, `prototypesHash`, the SHA-256 of each WebAssembly module, and the asset list. `buildHash` is the SHA-256 of the sorted listing of `(path, SHA-256)` for every file in `dist/` except the manifest itself, so any change to code, data or modules changes it (D14). Dev builds hash the two modules, `prototypes.bin` and the schema instead, and set `dev: true` in the manifest; the hash is 32 bytes either way.
 
 ### 2.4 The data pipeline ("data stage")
 
-Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` → `data-final-fixes`). Ours does the same at build time.
+Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` → `data-final-fixes`). Ours does the same at build time, in TypeScript (`scripts/data-stage.ts`), and its output is the only way prototype data reaches the simulation.
 
 1. **Design data.** Source: every `design/spec/data/*.yaml`, in the schema of `SCHEMA.md`. R4-data owns all of them except `text.yaml`, which R4-ui owns.
    - **Kinds:** items, recipes, entities, technologies, resources, enemies, **tiles** (κ, buildability, walking speed, map colour, placing item; town streets and building blocks are tiles too; B3), **world** objects (trees, rocks, the campus, landmarks; J9), **text** (loading tips, tips and tricks, milestones, achievements with machine-readable conditions, town-name lists and the world objects' `world_text`), and `meta`, a mapping of global blocks (`tiers` and categories, start and salvage, `quality`, `heat`, `staffing`, `runaways`, `hollow_work`, `world`, `world_settings`, `endgame`, `effects`, `checks`, `citation_rules`). The UI's own strings (statuses, alerts, flying text, log lines, readouts) are 08's and live in `game/locale/en.yaml`, not in the data.
@@ -170,7 +248,8 @@ Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` �
    - inserter pickup and drop vectors and rotation and extension speeds. Their energy per movement and per rotation is design data (`energy.per_movement_kj`, `per_rotation_kj`; §5.4);
    - a drill's mining area and output vector, and the **pumping position** of offshore pumps and Water exchangers (U9);
    - belt lane geometry;
-   - animation definitions (sprite names, frame counts, speeds) and working sounds;
+   - animation definitions (sprite set names, frame counts, speeds) and working sounds;
+   - the **event-to-sound map** (§15.6): which sound each sim event plays, by entity type or material;
    - entity map colours (tile colours are design data) and circuit-connector positions;
    - `fast_replaceable_group`, `next_upgrade`, rotatable and flippable flags;
    - item group, subgroup and order (they drive the crafting grid, I §7.2);
@@ -184,11 +263,11 @@ Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` �
    - Most entities need no per-entity overlay.
 3. **Compile** (`scripts/data-stage.ts`). It runs in `npm run data` and as a Vite plugin with file watching.
    1. **Load and merge.** The overlay may add engine fields. It may not override a design number: that is an error, and the fix belongs in the design YAML.
-   2. **Compile expressions** (J18). One grammar serves every formula field: `count_formula` and `field_year` (variable L), `amounts_by_j` (variable j) and the model-collapse `speed_factor` (variables sigma and c; `meta.world.model_collapse`).
+   2. **Compile expressions** (J18) to **bytecode** (§15.2). One grammar serves every formula field: `count_formula` and `field_year` (variable L), `amounts_by_j` (variable j) and the model-collapse `speed_factor` (variables sigma and c; `meta.world.model_collapse`).
       - It allows numbers, `+ − * /`, `^`, parentheses and the field's variables, and nothing else.
-      - `^` needs an integer right operand after substitution and evaluates by repeated multiplication, so the result is exact in every engine (§4.1).
-      - Each expression compiles once to a closure over the allowed operations. Costs are cached per level, product tables per value of j (§5.5).
-      - An unknown variable, or a non-integer exponent at any level the technology can reach, is a data-stage error.
+      - `^` needs an integer right operand after substitution and evaluates by repeated multiplication in a fixed order, so the result is exact in every engine (§4.1).
+      - Each expression compiles once to a postfix program in `prototypes.bin`. The data stage evaluates the same bytecode with its own reference interpreter to validate it; costs are cached per level and product tables per value of j at runtime (§5.5).
+      - An unknown variable, a non-integer exponent at any level the technology can reach, or a non-finite value at any reachable level, is a data-stage error.
    3. **Derive.**
       - Belt speed in positions per tick from `items_per_s` (15 → 8).
       - Nothing for containers: every fill and empty recipe is explicit in the data (`container: fill | empty`; barrels for water, sulfuric acid, lubricant and coolant, drives for the four data fluids; none for steam or plasma, ISO).
@@ -204,28 +283,42 @@ Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` �
         - Spoil results (Scooped) and Wild loot are conditional. A recipe that needs only them is reported as inert, not as an error.
         - M1's list is generated from the data by `tools/render_slice.py` (09 §1, §2.7). Its derived keys (start recipes, items, entities, tiles, world objects, resources, scenery) are checked against the same rules.
         - The reference implementation of these rules, run against the current data, is `design/round4/arch-data/manifests.py`.
-   4. **Validate** with zod schemas. Every entity has boxes and sprite references. Fluid boxes match recipe fluids. Every recipe category has a machine. Every item has an icon or a placeholder. **Every technology effect type, trigger type, achievement condition (`text.yaml`) and `formula_ref` named in the data exists in the engine's registries.** This last check is what keeps design and code in sync. Also:
+   4. **Validate** with zod schemas. Every entity has boxes and sprite references. Fluid boxes match recipe fluids. Every recipe category has a machine. Every item has an icon or a placeholder. **Every technology effect type, trigger type, achievement condition (`text.yaml`) and `formula_ref` named in the data exists in the engine's registries.** The registries are part of the schema (`schema/registries.yaml`, §15.1), which also generates a Rust enum per registry with an exhaustive `match`, so a registry entry without an implementation does not compile. This last check is what keeps design and code in sync. Also:
       - a research-per-paper effect carries `multiplier_from: returns_to_research`. A literal multiplier there is an error (J14);
       - a catalyst product carries `affected_by_quality: false` (L5);
       - productivity applies only to recipes with `allow_productivity: true` (DECISIONS §30). The stage lists, per machine, the recipes a productivity module would block;
       - **no prose where the engine reads** (J1). The engine's zod schema names every field it consumes, typed as a number, an id, an enum or an expression, and a prose string in such a field is an error. Fields it does not consume (`rule`, `formula`, `note`, `line`, `desc`) are documentation for people.
-      - **Formulas that are not expressions** (T(W)'s clamp, j(W)'s breakpoints, the leak's selection rule) live in code, parameterised by the block's numbers. The block's `formula_ref` cites the chapter section that states the rule (e.g. "01 §8.1"). The code that implements it carries the same citation as a `@formula 01 §8.1` tag, and the stage fails when a `formula_ref`'s leading "NN §X.Y" has no tagged implementation.
+      - **Formulas that are not expressions** (T(W)'s clamp, j(W)'s breakpoints, the leak's selection rule) live in Rust code, parameterised by the block's numbers. The block's `formula_ref` cites the chapter section that states the rule (e.g. "01 §8.1"). The code that implements it carries the same citation as a `// @formula 01 §8.1` comment, and the stage fails when a `formula_ref`'s leading "NN §X.Y" has no tagged implementation under `crates/`.
    5. **Assign dense numeric ids** per kind, sorted by group, subgroup, order, then id.
-   6. **Emit:**
-      - `public/data/prototypes.json`;
-      - `src/generated/proto-ids.ts`: string-literal unions, so tests and code that name `'memo'` are checked at compile time;
-      - `prototypes.hash`, recorded in saves.
-4. **At runtime**, the sim, UI and renderer each build typed lookup tables (`Protos`) from the JSON. Example: `protos.entity.craftingSpeed: Float32Array`, indexed by entity prototype id.
+   6. **Emit** (§15.2 has the formats):
+      - `public/data/prototypes.bin`: every number, id, enum and expression the simulation reads, in the tables of `schema/protos.yaml`, with each kind's name table;
+      - `public/data/prototypes.json`: what the UI and the renderer read (names, groups, icons, sprite set names, boxes, display data);
+      - `src/shared/gen/proto-ids.ts`: string-literal unions, so tests and code that name `'memo'` are checked at compile time;
+      - `prototypes.hash`, the SHA-256 of `prototypes.bin`, into `build-manifest.json`. Saves, checkpoints and multiplayer handshakes carry it (§15.2).
+4. **At runtime**, the sim loads `prototypes.bin` into its `Protos` tables (Rust `Vec` columns indexed by dense id, e.g. `protos.entity.crafting_speed: Vec<f64>`), and the UI and renderer build their own lookup tables from `prototypes.json`. Rust never hard-codes a prototype id: names the engine must know (`frontier-checkpoint`, the `research-run` recipe, the rollback types) are listed in `schema/registries.yaml` under `well_known`, resolved by name at load, and checked to exist by the data stage.
 
 ### 2.5 Code rules
 
-- **TypeScript:** `strict`, `noUncheckedIndexedAccess` outside hot loops, and `exactOptionalPropertyTypes`.
-- **The sim tick allocates nothing:**
-  - no closures, arrays, objects or strings in the per-tick paths;
-  - pools grow only on build;
-  - a debug counter (`__game.allocs`, from a sampling heap snapshot in dev) guards it.
-- **No `any` in `sim/`.** Types for pool fields come from one descriptor table that also drives saving (§8.1).
+**Both languages.**
 - **Comments** state invariants and cite their source, e.g. `// FFF-430: 100 units per flow op, scaled by fullness`.
+- Generated code is never edited; change the schema (§15.1).
+- No player-facing string is ever written in code: strings come from `locale/en.yaml` (08) or the data (`pm/README.md`).
+
+**Rust** (`crates/`):
+- Edition 2024; rustfmt; clippy at `-D warnings` with the determinism bans of `clippy.toml` (§4.1) and `clippy::wildcard_enum_match_arm` denied in `sim`, so a new enum variant is handled everywhere.
+- **Typed handles.** Every id is a generated newtype (`Serial(u32)`, `EntityHandle(u32)`, `ItemKey(u16)`, `RecipeId(u16)`, `PlayerIndex(u16)` …); integers never stand in for each other. A giant `World` indexed by interchangeable integers would forfeit Rust's guardrails (A1-r1).
+- **No `unsafe`** outside `simabi` and `genabi`. Indexing stays checked in release builds: an out-of-range index panics (a trap, §3.6) instead of corrupting state silently.
+- **The tick allocates nothing**: no heap allocation in per-tick paths; pools grow only on build. A counting global allocator (feature `simcheck`) backs `__game.allocs()` and a test that runs 6,000 steady-state ticks of each benchmark save and asserts zero allocations.
+- **Integer discipline** (D7): counters that can pass their range use `wrapping_*` or `checked_*` explicitly, and say which; `as` casts from floats saturate (Rust semantics, identical in every target).
+- **No recursion** deeper than a constant bound (stack sizes differ between native and WebAssembly; D19): graph walks use explicit stacks.
+- **No I/O, no threads, no clock** in `det`, `worldgen` and `sim` (D13, D19). Logging goes through a `log!` macro to the host import (§15.8); `println!` does nothing in WebAssembly and is banned.
+- **Mutation only in the tick** (D1): `World` is mutated only by `World::tick(&mut self, closure)` and by loading; extraction, projections, queries and saving take `&World`. The borrow checker enforces D1 and D9 structurally.
+
+**TypeScript** (`src/`, `scripts/`):
+- `strict`, `noUncheckedIndexedAccess` outside hot loops, and `exactOptionalPropertyTypes`. No `any` in `shared/` and `simworker/`.
+- **The sim worker's per-tick path allocates nothing** (A1 open issue 7): buffers, views and message objects are pooled, so a GC pause never lands in a tick. The main thread's frame loop follows the same rule (§11's GC budget).
+- **TypeScript never computes world state.** It may compute *which actions to send* (drag-building, smart belts, the resolver) on the main thread, from the view model; those are quantised to integers before encoding (§15.3), so client arithmetic never enters the World.
+- **Determinism bans where TypeScript produces bytes that must be identical** (D14): the data stage and the schema generator must give byte-identical output for identical input, so `check-arch` bans `Math.random`, `Date`, `performance`, `Intl`, `localeCompare`, `toLocaleString`, unordered object-key iteration in emitters, and `**`/`Math.pow` in `scripts/data-stage*.ts`, `scripts/schema-gen.ts` and `src/shared/gen/`.
 
 ---
 
@@ -234,77 +327,118 @@ Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` �
 ### 3.1 Threads
 
 ```
- main thread                                          sim worker (1)                     worldgen pool (2–4)
- ─────────────────────────────────────────            ───────────────────────────────    ─────────────────────
- input capture → action map → context resolver  ─act→  World.tick() @ 60 UPS        ─req→ generateChunk(seed,
- SolidJS UI (store fed by packets)              ←pkt─  apply actions, run systems    ←chk─  settings, surface, cx, cy)
- WebGL2 renderer (view model + dynamic buffer)  ─view→ snapshot/extract for view           (pure, order-independent)
- Web Audio (events + visible working sounds)    ─ctl→  saves: copy pools ──────────┐
-                                                                                    └──→ IO worker: deflate,
-                                                                                         IndexedDB, export
+ main thread                                     sim worker (one per world)                    worldgen pool (2–4)
+ ──────────────────────────────────────          ─────────────────────────────────────────     ──────────────────────
+ input capture → action map → resolver           TS shell                                      gen.wasm:
+   → action encoder ───────────────── act ─────→   LocalSequencer (single player) ─┐          generateChunk(seed,
+ SolidJS UI (stores fed by decoded records)        closure k ──────────────────────┤ ─req──→   settings, surface,
+ WebGL2 renderer (mirror + per-frame data) ←pkt─   sim.wasm: World::tick(closure)  ▼ ←chunk─   cx, cy) (pure)
+ Web Audio (events, working sounds, music)          extract · project · query (&World)
+                       ── view / sub / query ──→   checkpoint copy (&World) ──────────────→  IO worker: deflate,
+                                                                                                SHA-256, OPFS / IndexedDB
+ multiplayer: net worker (sockets, RelaySequencer) ── closures over a MessagePort ──→ sim worker   (11 §2.4)
+ swaps: a second sim worker loads the next world (new game, load, trap recovery, re-sync) and replaces the first (§3.4)
 ```
 
-- **One simulation thread.** All game state lives there. Determinism is easy to guarantee because nothing else writes it.
-- **Worldgen workers** compute chunk contents as a pure function. They never touch the World (§5.18).
-- **The IO worker** compresses and stores saves. The sim worker only copies its typed arrays, which takes about 50 ms for a late game (§8.4).
-- **Debug and test mode:** `?sim=inline` runs the same sim on the main thread through an in-process transport. Node tests always use the in-process transport.
+- **One simulation thread.** All game state lives in the sim worker's WebAssembly instance. Determinism is easy to guarantee because nothing else writes it (D1).
+- **The sim worker** is a TypeScript shell (`src/simworker/`) around one instance of `sim.wasm`. The shell owns the closure intake, the `LocalSequencer` in single player, pacing, the packet pool, subscriptions, queries, checkpoint copies and trap handling. Everything that decides state happens inside the module.
+- **One world per worker** (S11). A new game, a load, a trap recovery and a multiplayer re-sync each start a **fresh** sim worker, initialise it, and swap it in through the world-replacement protocol (§3.4). A fresh instance is the only way to give back linear memory, which never shrinks: a late game leaves about 1 GB allocated. In single player the old worker is terminated **before** the new one loads (the loading screen covers the gap), so two late worlds never share the tab's memory budget; only multiplayer's background re-sync runs two worlds at once, and 11 §5.2 checks memory before it does. The swap is exercised by every load, so the shadow re-sync reuses a tested path.
+- **Worldgen workers** run `gen.wasm`, the `worldgen` crate's pure functions. They never touch the World (§5.18). Each pool belongs to one sim worker: the main thread creates the workers with it, passes their ports in `boot`, and terminates them with it, and every answer carries the world's hash (§15.9). The sim links the same crate and generates a chunk itself when a worker is late or absent (catch-up, replays, native tests), so the pool only saves time.
+- **The IO worker** compresses (fflate), hashes (WebCrypto SHA-256) and stores saves. The sim worker only copies the sections out of linear memory, which takes about 50 ms for a late game (§8.4).
+- **The net worker** (multiplayer, 11 §2.4) owns the sockets and the `RelaySequencer`, and feeds closures to the sim worker over a `MessagePort`: the same port and codec that the `LocalSequencer` uses in-process.
+- **Debug and test mode:** `?sim=inline` runs the same shell and module on the main thread through an in-process transport. Native tests use the `sim` crate directly, without a shell.
 
 ### 3.2 Protocol (`src/shared/protocol.ts`)
 
-```ts
-type MainToSim =
-  | { t: 'init'; protos: PrototypeJson; map: MapSettings; save?: ArrayBuffer; mode: 'play' | 'test' }
-  | { t: 'act'; actions: InputAction[] }        // applied at the start of the next tick, logged for replay
-  | { t: 'view'; v: ViewRequest }               // surface, rect (tiles), zoom, overlays, subscriptions
-  | { t: 'ctl'; id: number; op: CtlOp };        // pause | resume | speed | step(n) | save | load | hash | query(Q)
+Messages between threads are structured-clone objects whose bulk content is transferable `ArrayBuffer`s in the binary formats of §15. Every message that refers to a world carries the **state generation** it belongs to (§3.4); a receiver drops messages from any other generation.
 
-interface ViewRequest {
-  surface: number; rect: [number, number, number, number]; zoom: number;
-  overlays: OverlayId[];                        // heat, staffing, power, pipelines, logistics …
-  hovered: EntityRef | null;                    // live tooltip data
-  open: Subscription[];                         // character, entity GUI(s), tech, stats(range, tab), map search …
-}
+```ts
+type StateGen = number;                                   // u32, allocated only by the main thread (§3.4)
+
+type MainToSim =
+  | { t: 'boot'; build: BuildManifest; ioPort: MessagePort; genPorts: MessagePort[];
+      closurePort?: MessagePort }                         // once per worker; closurePort only in multiplayer (S11)
+  | { t: 'world'; gen: StateGen; op: 'new'; settings: NewWorldSettings }
+  | { t: 'world'; gen: StateGen; op: 'load'; sections: ArrayBuffer; meta: SaveMeta }     // raw sections from the IO worker
+  | { t: 'act'; gen: StateGen; firstSeq: number; actions: ArrayBuffer; blobs?: ArrayBuffer[] }
+                                                          // encoded actions (§15.3) with the seq of the first, and any
+                                                          // blobs they name (32-byte SHA-256, then the bytes)
+  | { t: 'seq'; op: 'pause' | 'resume' | { speed: number } | { step: number } }          // sequencer control (S14)
+  | { t: 'view'; gen: StateGen; v: ViewRequest }          // the camera and overlays (§15.4)
+  | { t: 'sub'; gen: StateGen; subs: SubRequest[] }       // add or replace subscriptions (§15.5)
+  | { t: 'unsub'; gen: StateGen; ids: number[] }
+  | { t: 'query'; gen: StateGen; id: number; q: ArrayBuffer }   // one-off, read-only (§15.5)
+  | { t: 'ack'; buf: ArrayBuffer }                        // a packet buffer returned for reuse
+  | { t: 'save'; id: number; reason: 'manual' | 'auto' | 'exit' | 'checkpoint' }
+  | { t: 'dev'; id: number; op: DevOp };                  // hash, digest, flags, bundle … (§3.5)
 
 type SimToMain =
-  | { t: 'pkt'; tick: number; chunks: ChunkView[]; dyn: ArrayBuffer; ui: UiDelta; ev: SimEvent[] }
-  | { t: 'res'; id: number; ok: boolean; value?: unknown }
+  | { t: 'ready'; abi: number; schemaHash: string; buildHash: string }
+  | { t: 'bound'; gen: StateGen; tick: number; players: { index: number; lastSeq: number; inputGen: number }[] }
+                                                          // a world is loaded and running (from sim_meta, §15.8)
+  | { t: 'loadReport'; gen: StateGen; report: ArrayBuffer }                             // §8.3
+  | { t: 'pkt'; buf: ArrayBuffer }                        // one render-and-UI packet (§15.4), transferred
+  | { t: 'res'; gen: StateGen; id: number; ok: boolean; value: ArrayBuffer }
+  | { t: 'clock'; gen: StateGen; clockGen: number; tick: number; speed: number; paused: boolean }   // §3.3
+  | { t: 'saved'; id: number; bytes: number; ms: number; sha256: string }
+  | { t: 'trap'; gen: StateGen; tick: number; message: string }                         // §3.6
   | { t: 'log'; level: 'info' | 'warn' | 'error'; msg: string; data?: unknown };
 ```
 
-- **`InputAction`** mirrors Factorio's `defines.input_action`, exactly as I §8.2 lists it. Our additions are in Appendix B.
-- **Validation.** Each action is validated in the sim against reach, items, collisions and permissions. Failures come back as `SimEvent`s: flying text with a reason, an error sound. The sim never calls UI code.
-- **Queries** (`ctl: query`) are read-only and are not logged. Examples: the rate calculator, map search, "where is X made", "total raw", Factoriopedia live counts.
-- **`dyn`** is one transferable `ArrayBuffer`. Its section table holds belt items, inserter hands, animated-entity frames, agents, trains, units, projectiles, smoke and lights. The main thread transfers it back for reuse, so it ping-pongs between three buffers.
-- **`ui`** carries only changed sections, as small structured-clone objects with versions. Examples: the player inventory when its version changes, the open entity's live panel every tick, the hovered tooltip every tick, stats series every 60 ticks while the statistics window is open.
-- **Backpressure.** If the main thread has not acknowledged the previous packet, the worker coalesces: it merges events and chunk changes and drops intermediate `dyn` data.
-- **Logging.** All worker logs and uncaught errors are forwarded as `log` messages, so the page console (and therefore Playwright) sees everything.
+- **`InputAction`** mirrors Factorio's `defines.input_action`, as I §8.2 lists it, with stable numbers of our own (§15.3). Our additions are in Appendix B. The main thread encodes each action with the generated encoder and sends it to the **sequencer port**: the sim worker's `LocalSequencer` in single player, the net worker in multiplayer. Actions never reach the World except as part of a closure (D2).
+- **Seqs are the main thread's.** It numbers its own player's actions, continuing from `bound`'s `lastSeq`, so it knows the seq of every action it sends and can name the entities an unconfirmed build creates by creation id (§15.3). The sequencer checks that seqs rise and stamps ticks.
+- **Closures from the network** arrive on the `closurePort` as `{ t: 'closures'; first: number; closures: ArrayBuffer[]; blobs: ArrayBuffer[] }` (11 §2.4): closure k is `closures[k − first]`, in the format of §15.3, and every blob they name comes with them.
+- **Validation.** Each action is validated in the sim against reach, items, collisions and permissions. Failures come back as events: flying text with a reason, an error sound (§15.6). The sim never calls UI code.
+- **Queries** are read-only and are not logged. Examples: the rate calculator, map search, "where is X made", "total raw", Handbook live counts. They run between ticks against `&World` (D9).
+- **Packets.** One transferable buffer per extracted frame holds every section the main thread needs: chunk view deltas, dynamic sprites, belt items as gap arrays, inserter hands, overlays, events, subscription records and working-sound aggregates (§15.4). The main thread transfers each buffer back with `ack`, so a pool of three buffers ping-pongs.
+- **Backpressure.** When no buffer is free, the shell skips extraction for that tick. Events and subscription changes accumulate in the module (bounded, §15.6) and go out with the next packet; chunk deltas are computed against what the main thread already holds, so nothing is lost.
+- **Logging.** The module's `log!` lines, the panic hook's message and every uncaught error in the shell are forwarded as `log` messages, so the page console (and therefore Playwright) sees everything.
 
 ### 3.3 The tick loop and pacing
 
-- **Timing.** The worker paces itself. The number of ticks due is `floor((now − t₀) × speed ÷ 16.667 ms)`, and each wake runs at most 3 of the outstanding ticks.
-  - If the backlog exceeds 6 ticks, `t₀` is rebased and the backlog dropped. Game time then slows, as in Factorio when UPS drops below 60, and there is no spiral of death.
-  - The debug overlay (F5) shows UPS and FPS.
-- **Waiting.**
-  - `setTimeout(nextTickTime − now − 2 ms)` when the next tick is more than 4 ms away.
-  - Otherwise a `MessageChannel` self-post, which avoids the 4 ms timer clamp.
-  - Accuracy is about 1 ms, without busy-spinning.
+- **Closures drive the loop** (D2, S3). The sim worker runs tick k only when it holds the closure of tick k, applies it with `sim_tick`, and never invents a tick. The *horizon* is the highest tick whose closure it holds.
+- **The `Sequencer` interface** (S3) is implemented twice:
+
+  ```ts
+  interface Sequencer {
+    submit(firstSeq: number, actions: ArrayBuffer, blobs?: ArrayBuffer[]): void;   // from the input layer
+    onClosures(cb: (first: number, closures: ArrayBuffer[], blobs: ArrayBuffer[]) => void): void;
+    clock(): { gen: number; tick: number; speed: number; paused: boolean };
+    control(op: 'pause' | 'resume' | { speed: number } | { step: number }): void;
+  }
+  ```
+
+  - **`LocalSequencer`** (single player, tests, replays; in the sim worker). It stamps each action for the next tick (margin 0) and closes ticks from its own clock, or on `step(n)` in test mode. It refuses seqs that do not rise, and it writes the player's current input generation into each held-input action as it stamps it (§15.3). In replay mode it feeds recorded closures (§8.5).
+  - **`RelaySequencer`** (multiplayer, in the net worker; 11 §3) closes nothing itself: the relay does, and the net worker forwards closed ticks through its playout buffer.
+- **The single-player clock** (the `LocalSequencer`, within one clock generation):
+  - ticks due = `floor((now − t₀) × speed ÷ 16.667 ms)`; each wake runs at most 3 of the outstanding ticks;
+  - if the backlog exceeds 6 ticks, `t₀` is rebased and the backlog dropped. Game time then slows, as in Factorio when UPS drops below 60, and there is no spiral of death;
+  - waiting: `setTimeout(nextTickTime − now − 2 ms)` when the next tick is more than 4 ms away, otherwise a `MessageChannel` self-post, which avoids the 4 ms timer clamp. Accuracy is about 1 ms, without busy-spinning;
+  - the debug overlay (F5) shows UPS and FPS.
+- **Clock generations** (S3). Pause, resume, a speed change and a rebase each start a new clock generation `{gen, fromTick, speed, paused}`. Old timing samples and deadlines are void in the new generation. The shell reports the clock to the main thread (`clock`), which shows pause and speed. **Pause and speed never reach the World** (S14): they are sequencer state, and a paused game simply receives no closures.
+- **Catch-up** (multiplayer joins and re-syncs, replay fast-forward). The shell runs ticks in slices of at most 12 ms with extraction off, yields between slices so messages keep flowing, and sets the module's **historical** flag, so events from those ticks are marked and suppressed (§15.6, D15). It leaves catch-up when the backlog is small again (11 §3.6).
 - **Rendering is decoupled.**
   - The main thread renders the latest packet on `requestAnimationFrame`. Camera pans and zooms animate at the display rate.
   - World content updates at 60 Hz, as in Factorio, which renders at its update rate.
-- **Hidden page** (07-ui §19.3). The game pauses when the page is hidden and autosaves if the last save is older than a minute. The Interface setting *Keep running in background tab* (default off) keeps the worker simulating, at whatever rate the browser allows, with packet extraction skipped.
-- **Pauses.** The technology screen and the game menu send `pause` in single player (I §4.0).
-- **Test mode** (`mode: 'test'`). The clock stops. `__game.step(n)` runs exactly *n* ticks synchronously and then emits one packet. E2E tests are deterministic whatever the frame rate.
+  - At most one extraction per wake: after a wake that ran several ticks, the shell extracts once, after the last.
+- **Hidden page** (07-ui §19.3).
+  - **Single player:** the `LocalSequencer` pauses when the page is hidden (a new clock generation), and the game autosaves if the last save is older than a minute. The Interface setting *Keep running in background tab* (default off) keeps it closing ticks at whatever rate the browser allows, with extraction skipped.
+  - **Multiplayer never pauses on a hidden tab** (11 §3.6): the worker is driven by arriving ticks, extraction stops while hidden, and on return the client catches up or re-syncs.
+- **Pauses.** The technology screen and the game menu send `seq pause` in single player (I §4.0). In multiplayer they do not pause (11 §3.6).
+- **Test mode** (`?test=1`). The clock stops. `__game.step(n)` closes n ticks, runs them synchronously and then emits one packet, so E2E tests are deterministic whatever the frame rate.
 
 ### 3.4 The view model (the main thread's mirror of what is on screen)
 
-The main thread keeps a per-chunk mirror of the chunks in the view rectangle plus a one-chunk margin.
+The main thread keeps a per-chunk mirror of the chunks in the view rectangle plus a one-chunk margin, built from packets (§15.4).
 
-- **Tiles:** one `Uint8` tile id per tile (the dense ids of `tiles.yaml`), for terrain textures, buildability and walking speed.
-- **Entity records:**
-  - id, prototype, position, direction, flip and quality;
-  - selection and collision boxes (from prototypes);
-  - sprite variant (pipe and belt connection masks), recipe or alt-mode icon, status code, and the ghost and deconstruction flags.
-- **Versioning.** Each chunk carries a version. The worker resends a chunk only when its version changed: built, removed, rotated, recipe changed or status changed.
+- **Tiles:** one `u8` tile id per tile (the dense ids of `tiles.yaml`), for terrain textures, buildability and walking speed.
+- **World objects, ground items, decoratives and resource tiles** (§15.4's `CHUNK_OBJECTS` and `CHUNK_RESOURCES`), for drawing, hover and mining previews.
+- **Entity records** (§15.4's chunk records):
+  - serial, prototype, position, direction, flip and quality;
+  - selection and collision boxes (from `prototypes.json`);
+  - sprite variant (pipe and belt connection masks), recipe or alt-mode icon, status code, and the ghost, deconstruction, upgrade and compromised flags.
+- **Versioning.** Each chunk carries view versions (§15.4). The worker resends a chunk's records only when a version changed (built, removed, rotated, recipe changed, status changed) or when the chunk enters the held set. **The held set** is the chunks that overlap the visible rectangle expanded by one chunk, computed by one generated function from the view request; the worker applies it when it extracts the packet answering a request, the main thread when it receives that packet, so both sides always agree on what the mirror holds.
+- **Belt line geometry** is cached per line and geometry generation, and dropped with the last held chunk the line touches (§15.4).
 
 **What the mirror buys** is instant feedback without a round trip:
 - **Hover selection,** by selection boxes and priority (I §3.1).
@@ -313,21 +447,77 @@ The main thread keeps a per-chunk mirror of the chunks in the view rectangle plu
   - drag-building lines, smart belts and underground pairing previews (I §3.4–3.5);
   - pole links and coverage.
 
-The sim re-validates every action authoritatively. Live values (a tooltip's resources remaining, an entity's contents) come from the `hovered` and `open` subscriptions.
+The sim re-validates every action authoritatively. Live values (a tooltip's resources remaining, an entity's contents) come from subscriptions (§15.5).
+
+**The world-replacement protocol** (S15; A2-r1 13). The main thread holds a **current state generation** (`u32`) and is the only thread that allocates one. A new generation starts whenever the world it shows is replaced: a new game, a load, a join, a re-sync swap, a rewind, a trap recovery. Each replacement goes through a fresh sim worker (§3.1):
+1. The main thread allocates the next generation g and sends the new worker its world (`world {gen: g, …}`). The current generation stays g − 1 meanwhile: in multiplayer's background re-sync the old world keeps playing and its packets keep being drawn; in single player the old worker is already gone and the loading screen shows.
+2. Every packet, response, event and trap carries the generation it came from, and the main thread **accepts only the current generation**, plus g's `ready`, `bound` and first packet.
+3. When g's first packet arrives, the generation switches to g, and the main thread:
+   1. drops the whole view model, so chunk versions are never compared across generations, even when the counters coincide;
+   2. re-sends its view request and every subscription; open entity windows rebind by serial and close if the entity is gone (§15.5);
+   3. rejects pending query responses from older generations;
+   4. discards the latency state (multiplayer, 11 §3.5) and rebuilds it from the new world plus the actions still pending;
+   5. resets audio state: working sounds stop, and the next packet's aggregates start them again (§15.6).
+4. The old worker is terminated.
+
+Sounds, flying text and toasts are never played for historical events (§15.6), so the fast-forward after a load or a join is silent.
 
 ### 3.5 Dev hooks and dev-server endpoints
 
 **`window.__game`** exists in dev builds, and in production builds behind `?dev=1`. It exposes:
-- `step(n)`, `dispatch(action)`, `query(q)`, `hash()` and `allocs()`;
+- `step(n)`, `dispatch(action)` (encoded and submitted to the sequencer, so it runs in the next tick), `query(q)`, `hash()` (the full state hash, §4.8), `digest()` (this tick's digest and rolling digest), `allocs()` (the counting allocator, §2.5) and `memory()` (linear memory size and pool capacities);
 - `loadScenario(name | json)`, `save()` and `load(buf)`;
+- `inspect(serial)`: every saved field of one entity, decoded by the generated views (§15.1);
 - `ui.open(name)` and `ui.close()`;
 - `render.mode('on-demand' | 'continuous')`, `render.frame()` and `camera(x, y, zoom)`;
-- `speed(x)`, `replay(log)` and `exportBugBundle()`.
+- `speed(x)`, `replay(log)` and `exportBugBundle()`;
+- `flags({noSleep})`, for tests only (NO_SLEEP, §4.6).
 
 **The Vite dev server's middleware** writes into the project, so Claude can read it directly:
 - `POST /__bench`: results of the in-game benchmark page `bench.html`, run by the user on their laptop, go to `bench/user-results/<date>.json`.
-- `POST /__report`: from the console command `/report`, or Ctrl+Alt+F12. A bug bundle is saved to `bench/reports/<ts>/`: the last autosave, the input log since it, the console log, a screenshot from the user's real GPU, the build hash and the browser string.
+- `POST /__report`: from the console command `/report`, or Ctrl+Alt+F12. A bug bundle is saved to `bench/reports/<ts>/`: the last autosave, the closure log since it with its blobs and digest ring (§8.5), the console log, a screenshot from the user's real GPU, the build hash and the browser string. `simtool replay` reproduces it natively.
 - `POST /__shot`: screenshots on demand from the user's session.
+
+### 3.6 The language boundary
+
+The split between Rust and TypeScript follows IMPL-1's five rules. Each has an owner and a test.
+
+| # | Rule | How | Test |
+|---|---|---|---|
+| 1 | **Rust owns the authoritative state and the rules.** Closures enter through one validated API (`sim_tick`). Queries, extraction and TypeScript views never mutate state or influence future results | `World` is mutated only by `World::tick` and loading; extract, project, query and save take `&World` (§2.5) | D18 (a)–(e); the D9 test: the full state hash is unchanged by a burst of extractions, every query kind and every projection kind |
+| 2 | **One schema generates the contracts** with fixed widths, units, ids, ordering and versions, never Rust's incidental layout | `schema/` and `scripts/schema-gen.ts` (§15.1) | `schema-gen --check` in `npm run check`; the schema-hash handshake at start-up; cross-language codec fixtures |
+| 3 | **Data leaves the sim in bulk**: render packets, projections and query results, through reusable writers. No per-entity calls across the boundary and no gameplay arithmetic in TypeScript | §15.4–§15.6 | A Vitest audit: the shell calls at most a fixed number of exports per tick; review |
+| 4 | **View lifetimes are explicit.** Only the sim worker's shell touches linear memory, and it reacquires every view after memory growth or pool reallocation. No pointer survives an invalidating call | The `MemoryLease` below | A Vitest test that grows memory mid-session and checks that stale views throw in dev builds |
+| 5 | **The boundary is reviewable and testable from M0**: real inventory and statistics projections, save and load, structured errors, trap recovery, native goldens and browser traces | M0 exit criteria (§12) | §10.4, §10.5 |
+
+**View lifetimes.** WebAssembly memory growth detaches the old `ArrayBuffer`, and a pool that reallocates moves its columns. So:
+- every view the shell holds (generated pool views, the output arena, the input buffer) is obtained through a `MemoryLease` that records `memory.buffer` and `sim_memory_epoch()` (§15.8), which the module increments whenever any exported column or buffer moves;
+- after **every** call into the module, the shell compares both and reacquires its views if either changed. The check is two comparisons;
+- in dev builds a stale view throws on access;
+- packets and responses leave the worker as copies (one `memcpy` into a pooled buffer, 1.7 ns per sprite record, A1), so no other thread ever sees linear memory.
+
+**Structured errors.** Every export that can fail returns a status code; `sim_last_error()` returns `{code, message}` (§15.8). Examples: a save from a newer format, a closure that fails framing, prototypes that do not match the save and cannot be remapped. The shell turns them into `log` messages and the main thread into user-facing notices whose strings come from 08.
+
+**Traps.** Release builds use `panic = "abort"`: a Rust panic (an index out of range, a failed assertion in a check that stays on) ends in a WebAssembly `unreachable` trap, and the instance is unusable afterwards (A1: its panic state stays set).
+1. `sim_init` installs a **panic hook** that passes the message, file and line to the host import `host_panic` before the abort (A1 demonstrated it: "index out of bounds: the len is 3 but the index is 7", with file and line).
+2. The shell catches the `RuntimeError`, stops its loop, never calls the instance again, and posts `trap {gen, tick, message}`.
+3. **Single player:** the main thread shows the trap notice with *Send report*, and loads the last autosave into a fresh worker (§3.4). The bug bundle holds that autosave and the closure log up to the trapping tick, which reproduces the trap natively (`simtool replay`). Progress since the autosave is lost; that is the price of a bug, and the bundle is how it gets fixed.
+4. **Multiplayer:** a trap is a desync on oneself (11 §5.2).
+5. **Native tests** unwind and report the panic normally (`ntest`, §2.3).
+
+### 3.7 Generations: a glossary
+
+Several counters are called "generations". They are different things.
+
+| Name | Width | Owner | Raised when | Where |
+|---|---|---|---|---|
+| Handle generation | 10 bits of an entity handle | the sim | a pool slot is reused | §4.3 |
+| State generation | `u32` | the main thread | the world it shows is replaced | §3.4, §15.5 |
+| Clock generation | `u16` | the sequencer (`LocalSequencer` or the relay) | pause, resume, speed change, rebase, relay restart | §3.3, 11 §3.1 |
+| Input generation | `u16` per player | the sim (world state) | `release_inputs(p)` | §4.4, §15.3, D22 |
+| Geometry generation | `u32` per transport line | the sim (derived) | a line's shape changes | §15.4 |
+| Digest epoch | `u16` per player | the relay | a join snapshot or re-sync is ordered for that player | §4.8, 11 §5.1 |
+| Room generation | `u32` per room | the relay | every relay start | 11 §6.9 |
 
 ---
 
@@ -335,25 +525,19 @@ The sim re-validates every action authoritatively. Live values (a tooltip's reso
 
 ### 4.1 The determinism contract
 
-1. **One thread mutates the World.** Within each phase, entities are iterated in a fixed order: pool index order, which is deterministic because allocation and free-list reuse depend only on history.
-2. **Banned in `sim/` and `worldgen/`** (enforced by `check-arch`):
-   - `Math.random`, `Date`, `performance`, `crypto`;
-   - transcendental `Math` functions: `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `exp`, `expm1`, `log`, `log1p`, `log2`, `log10`, `pow`, `cbrt`, `hypot`, `sinh`, `cosh`, `tanh`. Engines implement these differently. Measured on this host: 492 of 16,000 results differ between Firefox 157 and Chrome 156, in `exp`, `cbrt`, `sin`, `cos`, `log` and `atan2` (Appendix A);
-   - the `**` operator on non-integer exponents;
-   - `for…in`;
-   - iteration over `WeakMap` or `WeakSet`;
-   - `Array.prototype.sort` without a total comparator.
-3. **Allowed:**
-   - `+ − × ÷`, `Math.sqrt`, `Math.fround` (all correctly rounded under IEEE 754);
-   - `floor`, `ceil`, `round`, `trunc`, `abs`, `min`, `max`;
-   - `Math.imul` and `Math.clz32`.
-   - Many curves need nothing transcendental. The throttle `clamp(1 − (T − T*)/50, 0.5, 1)` and radiators' T⁴ are plain arithmetic. Geometric costs such as 1.5^L are repeated multiplication, cached per level. The solar day curve is piecewise linear.
-   - **`sim/core/detmath.ts`** covers the rest: `exp2`, `log2`, `pow(a, b)` (as `exp2(b·log2 a)`), `sin`, `cos` and `atan2`, implemented with range reduction and fixed polynomials using only the allowed operations, so results are bit-identical in every engine. It serves the exchange floor `2^((W−40)/20)`, the field's γ(W), and orientation maths for trains and agents. Unit tests pin its outputs against golden values.
+**The contract.** From the same start state and the same closures, the World evolves **bit-identically** natively (x86-64, where tests run) and in WebAssembly under V8 (Chrome, Node), SpiderMonkey (Firefox) and JavaScriptCore (Safari, best effort and untested on this host). Replays, bug bundles, save/load, joins and multiplayer all rest on this, and the tests of D18 check it on every scenario.
+
+**Why Rust and WebAssembly make the arithmetic part easy.** One `sim.wasm` runs on every peer, and WebAssembly fixes IEEE 754 semantics for every instruction the module may use (the feature gate of §2.3 refuses SIMD, relaxed SIMD and threads). The remaining sources of difference are NaN payloads (we keep NaN out of state), transcendental functions (we compile them into the module from the `libm` crate) and native tests (which must use the same code paths). The class that dominates in practice, ordering, unsaved state and impure caches, does not depend on the language (A1, A2 §1.4), which is what D1–D23 are for.
+
+**Arithmetic rules** (the crates `det`, `worldgen` and `sim`; D19 in full):
+1. **Allowed:** `+ − × ÷` on integers (with D7) and floats; `sqrt`, `floor`, `ceil`, `round`, `trunc`, `abs` and `copysign` (exact under IEEE 754); comparisons; `as` conversions (float to integer saturates and maps NaN to 0, identically on every target). Rust never contracts `a * b + c` into a fused multiply-add, and optimisation levels never change results.
+2. **Transcendentals only through `det`**, which wraps the `libm` crate (0.2.16): `det::exp2`, `log2`, `pow`, `sin`, `cos` and `atan2`, plus `det::powi(x, n)`, which multiplies left to right `|n|` times and takes the reciprocal for negative n (|n| ≤ 1024), and `det::fmax`/`fmin`, defined as comparisons (`if a > b { a } else { b }`). `libm` is plain Rust compiled into the module, so every engine runs the same instructions; B1 measured ten functions over 10⁶ arguments each bit-identical natively, in Node, Chrome 156 and Firefox 157, before and after `wasm-opt -O3` (Appendix A). `det` serves the exchange floor `2^((W−40)/20)`, the field's γ(W), m = g^r, and orientation maths for trains and agents. Unit tests pin its outputs against golden values.
+3. **Banned** (`clippy.toml`, each verified to fire): on `f64` and `f32`, `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `exp`, `exp2`, `exp_m1`, `ln`, `ln_1p`, `log`, `log2`, `log10`, `powf`, `powi`, `cbrt`, `hypot`, `sinh`, `cosh`, `tanh` and their inverses (`std` calls the platform's libm natively but musl's code in WebAssembly; LLVM's `powi` has unspecified rounding), `mul_add`, `max`, `min` and `clamp` (native and WebAssembly differ on −0 and NaN); `libm::fma`; `std::collections::HashMap` and `HashSet` (randomly seeded per process); `std::time::Instant::now` and `SystemTime::now`; `std::thread::spawn`.
 4. **Integers where Factorio uses them:**
    - belt positions in 1/256 tile;
-   - item counts as `int32`;
-   - circuit signals as `int32` with wrap-around (`|0`, `Math.imul`);
-   - tile coordinates as `int32`.
+   - item counts as `i32`;
+   - circuit signals as `i32` with explicit `wrapping_*` arithmetic;
+   - tile coordinates as `i32`.
 5. **Doubles elsewhere:**
    - energy in joules;
    - fluid amounts in units;
@@ -361,40 +545,76 @@ The sim re-validates every action authoritatively. Live values (a tooltip's reso
    - research progress in units;
    - continuous positions (character, agents, trains, units) in tiles.
 6. **RNG** (§4.3) is either stream-based, with each stream seeded from the world seed and a stream id, or counter-based for per-event draws. No draw ever depends on update order.
-7. **The state hash** `__game.hash()` is xxHash32 over every pool's bytes, the cold sections (canonical JSON) and the scalars. Tests compare hashes (§10.4).
-   - It covers saved state only (§8.1). Optimisation state (sleep flags, active lists, wake registrations) and derived caches (`speedEff`, network topology) are excluded; the contents of lines, segments and networks are saved state and hashed. That is what lets a NO_SLEEP run, a sleeping run and a run continued from a save be compared bit for bit.
+7. **The state hash and the digests** are defined in §4.8. They cover saved state only (§8.1): optimisation state (active bits, wake registrations) and derived caches (`speed_eff`, network topology) are excluded, while the contents of lines, segments and networks are saved state and hashed. That is what lets a NO_SLEEP run, a sleeping run and a run continued from a save be compared bit for bit.
 
-Under this contract, a save and its input log are designed to replay bit-identically in Chrome, Firefox and Node. CI checks Chrome against Node; Firefox is checked by an occasional hash spot-check on the user's machine.
+**TypeScript** never computes world state (§2.5). Where TypeScript must produce identical bytes on every machine (the data stage, the schema generator and generated code, D14), `check-arch` keeps the bans of §2.5.
+
+**The rules D1–D23** (chapter 11's numbering; A2 §5.4, revised after A2-r1). They make desyncs structurally rare and keep single-player replays exact. **All are M0-mandatory.** The owners are the work packages of §15.11: *schema* (the schema and generator), *sim* (the Rust crates), *shell* (the sim worker), *relay* (the MP milestone).
+
+| # | Rule | Why | Enforced by | Owner |
+|---|---|---|---|---|
+| D1 | **One writer.** Only `World::tick(closure)` mutates world state (plus `sim_load` and `sim_new_world`, which replace it), only in the sim worker. Extraction, projections, queries and saving take `&World`; TypeScript reads generated views and never writes | Anything else is an input the other clients never see | The borrow checker (§2.5); `forbid(unsafe_code)` in `sim`; the ABI has no other mutating export (§15.8) | sim |
+| D2 | **Closures are the only input.** A tick's result depends only on the previous state and that tick's closure. Main-thread messages other than closures (`view`, `sub`, `query`, `seq`) never change world state. Sim-affecting settings are world state, changed by actions (D11). Pause, speed and clock generations never reach the World (S14) | Replays, joins and other clients see only the closure stream | `MainToSim` has no mutating variant besides `act`, which goes to the sequencer; replay test D18(e) | sim, shell |
+| D3 | **Canonical iteration order** wherever order can matter: ascending pool index (for saved pools), ascending serial, or a saved order. (a) Entity active sets are bitsets iterated in pool order (A1 finding 1: the swap-remove list broke NO_SLEEP equivalence within 200 ticks when inserters compete). (b) Wake-ups only mark entities active and never do work; watch-list nodes carry the entity's wake sequence number, and stale nodes are dropped (A1's wake rules, §4.6). (c) Timers that do work fire in `(dueTick, serial, eventCode)` order, not insertion order. (d) No iteration over hash tables; where iteration is needed, ordered maps or sorted vectors. (e) Network member lists used in reductions are in ascending serial. (f) **Derived pools** (transport lines, fluid segments, networks, rail blocks) are processed in an order defined by canonical keys of saved state, never by their pool index, which differs after a load (§4.6; B1) | A world loaded from a checkpoint must behave exactly like the world that produced it; with two inserters competing for one item, order decides the winner | Join and NO_SLEEP equivalence D18(a, b); clippy's map bans; the review checklist | sim |
+| D4 | **Float reductions in canonical order.** Every float sum or product over a set (network demand and satisfaction, heat, statistics) accumulates in D3's order, or uses integers or fixed point | IEEE addition is not associative: the same members in a different order give different last bits, then different satisfaction, then a desync | D18(a); the "incremental equals rebuilt" property test (§10.4 #10) compares the floats a network computes, not only its membership | sim |
+| D5 | *Retired with the TypeScript simulation.* Its bans (`**`, `Math.pow`, `Math.hypot`, `Intl`, `localeCompare` …) now apply only where TypeScript must produce identical bytes (§2.5) | — | `check-arch` | schema |
+| D6 | **No NaN in saved state.** WebAssembly NaN payloads are nondeterministic, and NaN breaks comparisons | Raw-byte hashing and saving would differ between engines | Builds with `simcheck` (§2.3) scan the float columns of active pools after each phase (generated per pool); the hash maps every NaN to one bit pattern, so a NaN fails the scan in tests rather than desyncing | sim |
+| D7 | **Integer discipline.** Explicit `wrapping_*` or `checked_*` arithmetic where a value can leave its range: release builds wrap silently, debug builds panic. Counters that can pass 2³¹ say how they wrap | "It wrapped" against "it didn't" is a classic divergence, and here also debug against release | Review; property tests at the boundaries; overflow checks in `dev`, `test` and `ntest` builds | sim |
+| D8 | **Checkpoints are complete,** including everything that orders future work: pool high-water marks and handle generations (§4.5; allocation is canonical lowest-free-slot, so no free list needs saving), the serial counter, RNG stream states, timers with their owners, the order of every order-relevant list, per-player state (input generations, creation rings, `lastSeq`, inventory versions, crafting queues, undo stacks), the blueprint store, **the set of generated chunks** and the chunks' rule versions (§4.4), each electric network's **satisfaction from the last tick** (phase 2 reads it before phase 4 recomputes it), and **pending worldgen requests** with their commit ticks. Derived state is rebuilt on load *in canonical order*. The digest lineage (r) is saved beside the state but not hashed (§4.8) | A joiner, a re-synced client and a resumed room must continue bit-identically. OpenTTD's first-listed desync cause is an incomplete savegame | D18(a); heavy mode D18(c); the save/load test compares full state for 10,000 ticks after load | sim |
+| D9 | **Caches are pure.** A cache gives identical values whenever it is (re)computed, and is never filled as a side effect of a query or of extraction in a way that changes later results | Clients extract different views and run different queries | `&World` for every read path (D1); the full state hash is unchanged by a burst of extractions, every query and every projection kind | sim |
+| D10 | **No local player in the simulation.** The sim never branches on which player is "us"; events carry player indices and the client filters them | Each client has a different local player | Structural: the ABI has no such input (§15.8); the multi-client harness gives each world a different viewer (D18 f) | sim |
+| D11 | **Rule-affecting personal settings are world state** (per player, set by actions): auto-sort inventory and "Pick ghost item if no items are available"; game settings such as trimmed collision are world state too. The smart-belt flag travels in the build action. The audit table is §7.6. Client-only settings may change *which actions are sent*, never how they execute | Otherwise one setting yields two results | The audit table (§7.6); R29 | sim, UI |
+| D12 | **Worldgen stays pure and is committed at sim-determined ticks** (§5.18: commit at t + 30; a late chunk is generated inline). The worker-pool size never influences results | Clients have different core counts | Test: no pool, 1 worker and 4 workers give the same chunk hashes and the same world hash | sim |
+| D13 | **Game time is ticks.** No wall clock in world state; play time and save timestamps go to save metadata outside the hash | Clients' clocks differ | clippy bans (`Instant::now`, `SystemTime::now`); the host import `host_now` is visible only to the profiling module, whose output never reaches state | sim |
+| D14 | **One build per room.** Every client in a room runs the same build hash, which covers both WebAssembly modules, the protocol version, `prototypes.hash` and the schema hash (§2.3). The data stage's and the schema generator's outputs are byte-identical for identical inputs | Data or code differences are desyncs by definition | The relay compares them in `HELLO` (11 §3.2); `npm run check` runs the data stage twice and compares the bytes | schema, relay |
+| D15 | **Outputs are outputs.** Events, packets and projections never feed back into the simulation. Events produced while catching up or replaying are marked historical and suppressed at the boundary (S15) | The UI differs per client | Of the module's imports only `host_now` returns a value, and only the profiling module sees it (§15.8, D13); the D9 test | sim, shell |
+| D16 | **No ordering by identity.** Nothing is ordered by a pointer, an address, or the insertion order of objects whose history is not saved | Allocation history differs after load and between native and WebAssembly | D18(a) and (d): native and WebAssembly allocate at different addresses, so any address-dependent order shows up as a cross-engine mismatch | sim |
+| D17 | **Strings never decide rules**, except as equality on data ids. Sorting, if ever needed, is by bytes, never by locale | Locales differ between players | Rust's `str` ordering is bytewise and `std` has no locale collation; a unit test pins the order of non-ASCII names | sim |
+| D18 | **The tests that enforce the rest**, from M0, on every scenario and on fuzzed action sequences, comparing **full canonical state**, not only digests: (a) join equivalence; (b) NO_SLEEP equivalence; (c) heavy mode; (d) cross-engine traces, native against Node, Chrome and Firefox; (e) replay of every recorded session; (f) the multi-client harness; (g) wire and codec probes. §10.4 defines each | Rules without tests rot; sampled digests cannot catch every transient divergence | `cargo test` and `npm test` (a, b, e, f, g); `npm run test:slow` (c, d); `npm run ci` (a smoke of d) | sim, shell |
+| D19 | **The Rust and WebAssembly rule set:** the arithmetic rules above; no random-state maps; no NaN in state (D6); never SIMD or relaxed SIMD; explicit wrapping (D7); no pointer-dependent logic (D16); no recursion beyond a constant bound (stack limits differ between native and WebAssembly); one thread; no `std::time` (D13). A panic aborts the module (§3.6) | WebAssembly is deterministic except where it explicitly is not, and native tests are only worth something if native and WebAssembly agree | `clippy.toml` (verified); the feature gate (§2.3); D18(d) | sim, schema |
+| D20 | **Every new piece of state declares** whether it is saved or derived (and how it is rebuilt), whether its order matters, and its canonical order | The cheapest place to prevent D3 and D8 bugs is the line that adds the state | The schema requires the attributes, and the generator refuses a field without them (§15.1) | schema |
+| D21 | **Per-player action order.** The sequencer assigns each player's actions nondecreasing ticks and keeps their send order within a tick (11 §3.4). The sim checks in every build that each batch's first seq is above the player's saved `last_seq` (a framing rule, §15.3), so each player's `(tick, seq)` rises strictly | Otherwise a stop can run before the start it answers (A2-r1 2) | Relay unit tests (11 §9); the framing check; R27 | sim, relay |
+| D22 | **Held inputs are fenced** by a per-player input generation: `release_inputs` raises it, and a held-input action carrying another generation is a no-op with an event (§15.3) | An action stamped before a release but scheduled after it must not undo the release (A2-r1 3) | R23 | sim |
+| D23 | **Targets by identity.** Actions name existing entities by serial and just-predicted ones by creation id; the sim never falls back to "whatever stands there". Positions only for actions defined on positions (§15.3) | A position fallback acts on another player's replacement entity (A2-r1 12) | R24, R25 | sim |
 
 ### 4.2 Units and numeric types
 
 | Quantity | Unit | Storage |
 |---|---|---|
-| Time | tick (1/60 s) | `int32` world tick (overflows after 414 days of play); `float64` where needed |
-| Position (buildings) | tile; centres stored ×2 so odd and even footprints are integers | `int32` |
-| Position (moving things) | tile | `float64` |
-| Belt item position and gaps | 1/256 tile ("positions") | `int16` slack per gap (negative while squeezed; a 32-tile line is 8,192 positions), `int32` totals |
-| Direction | 16 directions (Factorio 2.0 `defines.direction`); most entities use 0/4/8/12 | `uint8` |
-| Orientation (rolling stock, agents) | turns | `float64` |
-| Item count | items | `int32` |
-| Fluid amount | units | `float64` |
-| Energy | J | `float64` |
-| Power | W, as J per tick × 60 | `float64` |
-| Temperature (heat-pipe network; thermal field) | °C | `float64` |
-| Research progress | units | `float64` (takeoff reaches ~10⁷ units/s: fine) |
+| Time | tick (1/60 s) | `u32` world tick (overflows after 828 days of play); `f64` where needed |
+| Position (buildings) | tile; centres stored ×2 so odd and even footprints are integers | `i32` |
+| Position (moving things) | tile | `f64` in the World; `i32` in 1/256 tile in actions and packets (§15.3, §15.4) |
+| Belt item position and gaps | 1/256 tile ("positions") | `i16` slack per gap (negative while squeezed; a 32-tile line is 8,192 positions), `i32` totals |
+| Direction | 16 directions (Factorio 2.0 `defines.direction`); most entities use 0/4/8/12 | `u8` |
+| Orientation (rolling stock, agents) | turns | `f64` |
+| Item count | items | `i32` |
+| Fluid amount | units | `f64` |
+| Energy | J | `f64` |
+| Power | W, as J per tick × 60 | `f64` |
+| Temperature (heat-pipe network; thermal field) | °C | `f64` |
+| Research progress | units | `f64` (takeoff reaches ~10⁷ units/s: fine) |
 
 ### 4.3 Identifiers and RNG
 
-**Prototype ids** are dense `uint16` per kind (items, fluids, recipes, entities, technologies, virtual signals, tiles), assigned by the data stage. Saves store name tables and remap on load (§8.3).
+**Prototype ids** are dense per kind, assigned by the data stage: `u16` for items, fluids, recipes, entities, technologies and virtual signals, `u8` for tiles (at most 255 tile types). Saves store name tables and remap on load (§8.3).
 
-**Item key** (`uint16`) = `(itemIndex << 3) | quality`, where quality is the tier *index* 0–4 (H's tiers, Standard to Reference). The tier's *level* (0, 1, 2, 3, 5; ISO legendary = 5) is a separate lookup that scales stats (§5.16); "one tier higher" always means index + 1 (L5). That allows 8,192 items. Belts, slots, hands and filters all store item keys. Items of different quality never stack (ISO).
+**Surface index:** fewer than 256 surfaces; `u8` in the entity table and event headers, `u16` in packet and request records.
 
-**Entity handle** (`uint32`) = `(generation << 22) | slot`: 4M slots, with 1,024 generations to catch stale references.
+**Item key** (`u16`) = `(itemIndex << 3) | quality`, where quality is the tier *index* 0–4 (H's tiers, Standard to Reference). The tier's *level* (0, 1, 2, 3, 5; ISO legendary = 5) is a separate lookup that scales stats (§5.16); "one tier higher" always means index + 1 (L5). That allows 8,192 items. Belts, slots, hands and filters all store item keys. Items of different quality never stack (ISO).
 
-**Entity serial** (`uint32`): a never-reused creation counter, saved. It is used for RNG keys, undo records and stable references in saves.
+**Entity handle** (`u32`) = `(generation << 22) | slot`: 4M slots, with 1,024 generations to catch stale references. Handles never leave the module: packets, projections, actions and saves use serials.
+
+**Entity serial** (`u32`): a never-reused creation counter, saved. It is used for RNG keys, undo records, stable references in saves, **and for every reference across the boundary**: actions (S5), events, projections and packets. A derived lookup table maps serial to handle: open addressing with a fixed hash and no iteration API, rebuilt on load (D3 d). One action's creations take consecutive serials (the counter advances only in creation order), which the creation ring relies on.
+
+**Player index** (`u16`): 0 to 31 for players (a room holds at most 32, 11 §6.5); `0xFFFF` for system actions injected by the sequencer.
+
+**Action id** = `(player, seq)`: `seq` is a `u32` that rises by one per action over a player's stay in a world, across reconnects and reloads (11 §3.3). The World keeps each player's `lastSeq`.
+
+**Creation id** = `(seq, index)`: "the index-th entity created by this player's action seq". Each player's **creation ring** holds the last 256 actions that created entities, as `(seq u32, firstSerial u32, count u16)`; it is saved (D8). A creation id resolves to `firstSerial + index` when the entry exists and `index < count`, and fails otherwise (D23).
 
 **RNG:**
-- **Streams:** `xoshiro128**`, seeded with `splitmix32(hash(worldSeed, streamId))`. Used where a sequence is natural: enemy AI (Wild), worldgen regions.
+- **The world seed** is a `u32` (07 §17's seed field).
+- **Streams:** `xoshiro128**`, whose four 32-bit state words are four successive outputs of `splitmix32` started from `hash(worldSeed, streamId)`. Used where a sequence is natural: enemy AI (Wild), worldgen regions.
 - **Counter-based:** `rand(a, b, c, d)` = a 32-bit avalanche hash (Murmur3 finalizer chain) of the world seed and four keys. Used for every per-event draw, so the result is independent of update order and of sleeping:
   - probabilistic recipe products (D's uranium 0.7%; A's experiment-media loop at 0.05/0.95 with catalyst returns): `rand(serial, craftCount, productIndex, 0) / 2³² < p`;
   - quality rolls: `rand(serial, craftCount, productIndex, 1)`;
@@ -408,15 +628,35 @@ Under this contract, a save and its input log are designed to replay bit-identic
 ### 4.4 World, surfaces, chunks and spatial queries
 
 ```
-World { tick, seed, mapSettings, surfaces[], force (single), research, bonuses, globals (below),
-        stats, player, timers, rng, systems… }
-Surface { id, chunks: Map<number, Chunk>, thermal params (ambient model, vacuum?), electric/fluid/rail graphs… }
-Chunk  { cx, cy, tiles: Uint8Array(1024), resources: sparse (tile → proto, amount u32), trees: sparse list
+World { tick, seed, mapSettings, gameSettings, surfaces[], force (single), research, bonuses, globals (below),
+        stats, players[] (PlayerState, by player index), timers, rng, serialCounter, worldgenPending, systems… }
+Surface { id, chunks (ordered by chunk key), thermal params (ambient model, vacuum?), electric/fluid/rail graphs… }
+Chunk  { cx, cy, tiles: [u8; 1024], resources: sparse (tile → proto, amount u32), trees: sparse list
          (tree → species, leaf stage 0–4), world objects: sparse list (rocks, campus, landmarks, salvage pieces),
          decor seed, ambientTheta, sunlight, kappa, H (heat MJ), leafTimer (s above 45 °C), charted/visible
-         counters, entity list (Int32 growable), occupancy: Int32Array(1024) | null (entity slot per tile,
-         object layer), version, pristine flag }
+         counters, entity list (growable, ascending slot), occupancy: [u32; 1024] or none (entity slot per tile,
+         object layer), rule version (saved), view versions (derived, §15.4), pristine flag }
 ```
+
+**Players** (S1). `World.players` replaces round 5's single `player`, indexed by the `u16` player index; every action carries its acting player (§15.3). Single player is player 0. A `PlayerState` holds (A2 §3.7):
+
+| Per player, in the World (saved, hashed) | Per force, in the World (one force) | Per client, never in the World |
+|---|---|---|
+| Player index and online flag; the character's serial (0 = none) | Research queue, progress, levels, the scheduling toggle | Camera, zoom, map view, alt-mode, overlays |
+| Main inventory, hand (cursor stack), origin-slot marker, trash (later) | Bonuses (reach, mining, crafting speed, …) | Open windows, hovered and selected entity |
+| Quickbar pages | Production, electric and pollution statistics (shared, 07 §11) | Keybindings, Interface, Graphics and Sound settings |
+| Crafting queue with reservations (I §3.9) | Charted chunks, map tags (ISO: tags per force) | The latency state (11 §3.5) |
+| Mining, walking and picking state; drag-build state (`drag_id`) | Alerts' sources (each client filters and displays them) | Chat history; other players' cursors and selections |
+| Undo and redo stacks (§5.2: sim-side, per player) | World text, heat, the leak, runaways: global as before | Run history and achievement records (07 §19.2: per browser) |
+| **Input generation** (`u16`, D22), **`lastSeq`** (`u32`), and the **creation ring** (§4.3) | | |
+| Entity-settings clipboard (the source's serial; Factorio pastes from the source entity, which must still exist) | | |
+| Blueprint and planner records in the hand; pins (I §4.11: per player, saved) | | |
+| Rule-affecting personal settings (D11, §7.6): auto-sort inventory, "Pick ghost item if no items are available" | | |
+| Per-player accumulators: hand-crafted count, last-action tick (08 §8.5 "Last action by you"), achievement progress for per-player conditions (§5.20) | | |
+
+- **Names and colours** are not world state. They live in the room roster at the relay and in the save header, outside the hash, so that re-hosting a save restores them.
+- **Selection** is client UI state; other players' selections travel as presence (11 §8.3).
+- **Permissions are trusted**: every player may do everything in the world, and nothing is checked per player in the simulation. Admin operations (kick, pause, room settings) belong to the relay.
 
 **Global simulation state** (`World.globals`; saved whole in the `GLOBALS` section, §8.1):
 - the world's text: W split into W_own and W_pub, Y_pub, the queue of pending publication releases, Σ, σ, j, the race state (§5.11);
@@ -426,10 +666,10 @@ Chunk  { cx, cy, tiles: Uint8Array(1024), resources: sparse (tile → proto, amo
 
 **Surfaces from day one.** The base game uses one surface. The expansion (spec/06: orbit, the Stacks, Mercury, an outer moon) adds more without engine surgery. Every position carries a surface index.
 
-**Chunks** are 32×32 tiles. The key is `(cx + 2¹⁵) × 2¹⁶ + (cy + 2¹⁵)`, which covers ±1,048,576 tiles, Factorio's map size.
+**Chunks** are 32×32 tiles. The key is `(cx + 2¹⁵) × 2¹⁶ + (cy + 2¹⁵)`, which covers ±1,048,576 tiles, Factorio's map size. Chunks are kept in an ordered map by key, so every walk over chunks is canonical (D3 d).
 
 **Tiles** (B3; 01 §2.1) are design data: `tiles.yaml` gives each tile id its κ, `buildable`, `walking_speed` (null: not walkable), `map_color`, `placed_by`, `minable_back` and biome.
-- The data stage assigns dense `uint8` ids. A chunk's κ is the mean of its 1,024 tiles' κ plus its trees' contribution (§5.9); it is recomputed when a tile or a tree changes.
+- The data stage assigns dense `u8` ids. A chunk's κ is the mean of its 1,024 tiles' κ plus its trees' contribution (§5.9); it is recomputed when a tile or a tree changes.
 - **Placed tiles** (concrete, refined and hazard concrete, landfill) come from items with `places_tile`. A tile with `placed_on` (landfill: water and deep water) may be placed only there (ISO). Picking up a placed tile restores the tile underneath, which the chunk keeps in a sparse "hidden tile" map (ISO).
 - **Town tiles** (a street tile and a building-block tile, flagged `town`) are never buildable. Streets are walkable and drivable; building blocks block the player and vehicles (01 §5.3).
 - **The out-of-map tile** fills chunks outside the map bounds (§5.18). Nothing may be built, walked or driven there.
@@ -439,9 +679,11 @@ Chunk  { cx, cy, tiles: Uint8Array(1024), resources: sparse (tile → proto, amo
 - The campus and landmarks are not minable. The campus opens the University window.
 - Town buildings are not objects: they are building-block tiles (above), drawn as era-skinned buildings (§6.5). The **salvage** is not in `world.yaml`: its single definition is `meta.start.salvage` (DECISIONS §33; §5.18).
 
-**Pristine chunks** (generated and never modified: no build, no mining, no tile change, no tree removed or stripped of a leaf stage) are not saved. They regenerate from the seed on load. Their charted bits and nonzero heat are saved separately (§8.1). This keeps an "endless" map affordable in both memory and saves.
+**Pristine chunks** (generated and never modified: no build, no mining, no tile change, no tree removed or stripped of a leaf stage, no ground item) are not saved. **Which chunks exist is saved**: the hashed `GENERATED` section lists every generated chunk key per surface (§8.1), because heat flows into generated chunks and to the Map edge past ungenerated ones, and agents skip ungenerated chunks (D8). A pristine chunk's content (tiles, resources, trees, objects, κ) is a pure function of the seed, so the sim regenerates it **lazily**, inline, the first time a rule or an extraction needs it. Regeneration is a pure cache (D9) and never changes state; a load therefore costs nothing per pristine chunk, and only the chunks a rule touches, the characters' surroundings first, are rebuilt (§11). Their charted bits and nonzero heat are saved separately (§8.1). This keeps an "endless" map affordable in both memory and saves.
 
-**Spatial queries** (`entitiesInArea`, `entityAt`, collision tests):
+**Versions.** Each chunk keeps a saved **rule version** (`u32`), raised whenever its entities, ghosts, tiles or resources change; the only rule that reads it is the Area scanner's (§5.2). The view versions of §15.4 are derived presentation counters and never read by a rule.
+
+**Spatial queries** (`entities_in_area`, `entity_at`, collision tests):
 - per-chunk entity lists;
 - a per-tile occupancy grid for object-layer buildings (O(1) for hover and placement);
 - sparse lists for trees, rocks and other world objects, cliffs, rails (which overlap at crossings) and ground items.
@@ -450,7 +692,7 @@ Chunk  { cx, cy, tiles: Uint8Array(1024), resources: sparse (tile → proto, amo
 
 **The player-collision box** is separate. It holds the ISO collision box by default and never affects building.
 
-**Trimmed collision** (A §10, 07-ui §16; a runtime setting stored in the save, default on). 07-ui assigns the per-type trims to this document:
+**Trimmed collision** (A §10, 07-ui §16; a game setting stored in the save, default on, changed by an action, D11). 07-ui assigns the per-type trims to this document:
 - The rule: the character's box is the ISO collision box intersected with the footprint **inset by 0.25 tiles on every side**.
 - The character is Factorio's 0.4 tiles wide (±0.2). Two buildings placed edge to edge then leave at least 0.5 tiles, so it fits: solar fields, furnace and assembler rows, boiler and steam-engine banks, pipe runs.
 - **Exempt** (they keep their ISO boxes): chests, walls and gates, rocks, trees and cliffs. Belts never block the character anyway.
@@ -458,41 +700,45 @@ Chunk  { cx, cy, tiles: Uint8Array(1024), resources: sparse (tile → proto, amo
 
 ### 4.5 Entity storage
 
+All of it is generated from `schema/state.yaml` (§15.1): the Rust structs and their allocation, saving, loading and hashing, the TypeScript read views, and the save sections. Hand-written code implements behaviour and the rebuild functions of derived fields.
+
 **Entity table:** struct-of-arrays, one row per entity, about 40 bytes.
 
-```ts
-proto: Uint16Array   kind: Uint8Array   surface: Uint8Array   dir: Uint8Array   flip: Uint8Array
-x2: Int32Array       y2: Int32Array     chunk: Int32Array     poolSlot: Int32Array
-flags: Uint32Array   // active, sleeping, ghost, deconstruct, upgrade, compromised (locks the entity, §5.17), indestructible …
-serial: Uint32Array  gen: Uint16Array   quality: Uint8Array
-builtTick: Uint32Array   builtBy: Uint8Array   // player | agent | constructor; for the age/builder overlay (07-ui §3.1),
-                                               // achievements 16–17 and the save description (08-text §6, §8.5)
+```
+proto: EntityProto(u16)  kind: u8  surface: u8  dir: Direction(u8)  flip: u8
+x2: i32   y2: i32   chunk: u32   pool_slot: u32
+flags: EntityFlags(u32)  // ghost, deconstruct, upgrade, compromised (locks the entity, §5.17), indestructible …
+serial: Serial(u32)      gen: u16      quality: u8
+built_tick: Tick(u32)    built_by: u8  // 0 unknown, 1 agent, 2 Constructor, 16 + i = player i (S1); for the
+                                       // age/builder overlay (07-ui §3.1), achievements 16–17 and 08-text §6, §8.5
 ```
 
-**System pools:** one per entity *type* family, holding only that system's hot fields as typed arrays, grown by capacity doubling, with a free list. Examples:
+**System pools:** one per entity *type* family, holding only that system's hot fields as columns (`Vec<T>` per field), grown by capacity doubling. Slots are allocated **lowest free slot first** (a free-slot bitset derived from the live slots), so allocation is canonical and needs no saved free list (D8). Each pool's **high-water mark** (the number of slots ever used) is saved, and saving writes exactly that many rows. A freed slot's columns are reset to their defaults, except the entity table's handle generation, which survives so that stale handles stay detectable; so pool bytes are canonical too. Examples (schema notation: `field: type`, with *derived* fields marked):
 
-```ts
-CraftingPool { entity, recipe: Int16, progress: F64, prodBar: F64, speedEff: F32 /* cached product of all multipliers */,
-               energyBuf: F64, inv: Int32 /* slot-heap offset */, status: U8, sleep: U8, crafts: U32, activeIx: Int32 }
-InserterPool { entity, state: U8, theta: F64, ext: F64, held: U16, heldN: U8, src: Int32, dst: Int32,
-               srcPos: Int32, dstPos: Int32 /* cached pickup/drop targets */, energyBuf: F64, stackCap: U8 }
+```
+CraftingPool { entity: EntityHandle, recipe: RecipeId, progress: f64, prod_bar: f64,
+               speed_eff: f32 (derived: product of all multipliers but electric satisfaction, §5.5),
+               energy_buf: f64, inv: u32 (slot-heap block: size class << 24 | block index), status: Status(u8), crafts: u32 (wrapping),
+               anim: f32 (presentation: animation phase for extraction; derived, unsaved, unhashed) }
+InserterPool { entity: EntityHandle, state: u8, theta: f64, ext: f64, held: ItemKey, held_n: u8,
+               src: u32, dst: u32, src_pos: i32, dst_pos: i32 (derived: the resolved pickup and drop targets,
+               which may name a transport line, §5.4), energy_buf: f64, stack_cap: u8 }
 TransportLinePool (§5.3), ElectricNet arrays (§5.7), FluidSegment arrays (§5.8), AgentPool (§5.14) …
 ```
 
-- **Inventories** live in a shared **slot heap** (`Int32Array` of item key and count pairs). Each inventory owns an `(offset, size)` from a size-class allocator. Filters, the limit bar and the hand-marker slot are parallel sparse arrays.
+Each pool also carries derived scheduling columns: the `active` bitset and a `wake_seq: u32` per slot (§4.6).
+
+- **Inventories** live in a **slot heap** (`Slot = {key: ItemKey, count: i32}`) made of one arena per size class (powers of two up to 128 slots, then multiples of 64). An inventory owns one block of its class, named by `(class, block index)`; allocation takes the **lowest free block** of the class, and a block is free exactly when no live inventory owns it, so the free state is a function of the live inventories and each arena's saved high-water mark. Freed blocks are zeroed. Filters, the limit bar and the hand-marker slot are parallel sparse arrays.
   - Inventories are typed, and each type has its own acceptance rule: input, output, fuel, modules (ISO), **staff** (a Seminar's single slot: a Researcher only, never filled by inserters; 07 §6.2), **accelerators** (a Research hall's 20 single-item slots), **weights** (its single frontier-checkpoint slot), and the hidden **rollback input** (one slot that exists only while the entity is compromised; §5.17).
-  - The rules live in one table, `acceptance(inventoryType, entity, itemKey, actor)`, shared by hand transfer, fast transfer, inserters and agent item requests. A refusal returns the reason string the UI shows.
-- **Cold data** goes in `Map<serial, …>`, saved as canonical JSON: labels, circuit conditions, combinator settings, train schedules and interrupts, display-panel messages, logistic request sections, blueprint records.
-- **Low-count, graph-shaped state is ordinary classes:** networks (electric, fluid segment, circuit, logistic, rail blocks), trains, research, the player, the world-text scalars.
+  - The rules live in one table, `acceptance(inventoryType, entity, itemKey, actor)`, shared by hand transfer, fast transfer, inserters and agent item requests. A refusal returns the reason code the UI shows (§15.6).
+- **Cold data** goes in ordered maps keyed by serial (`BTreeMap<Serial, Record>`), one per record type in the schema, saved as binary records in ascending serial: labels, circuit conditions, combinator settings, train schedules and interrupts, display-panel messages, logistic request sections, blueprint records.
+- **Low-count, graph-shaped state is ordinary Rust structs**: networks (electric, fluid segment, circuit, logistic, rail blocks), trains, research, the players, the world-text scalars. Their topology is derived and rebuilt in canonical order (§8.1).
 
 **Why this shape.**
-- Hot loops read contiguous typed arrays.
-- There is no per-entity garbage.
-- Saving is a typed-array copy.
-- The hash runs over the same bytes.
-- Any single system can later move to WASM without changing its data. Rust is installable user-mode if benchmarks ever demand it.
-
-V8 no longer unboxes double fields in objects (pointer compression), so object-per-entity layouts pay an indirection on every float. Typed arrays do not.
+- Hot loops read contiguous columns.
+- There is no per-entity heap object and no garbage.
+- Saving is a column copy, and the hash runs over the same bytes.
+- The TypeScript views read the same columns, in the sim worker only (§3.6), for debugging and `__game.inspect`.
 
 ### 4.6 Update scheduling
 
@@ -500,14 +746,14 @@ V8 no longer unboxes double fields in objects (pointer compression), so object-p
 
 | # | Phase | Contents |
 |---|---|---|
-| 1 | Input | Apply the tick's `InputAction`s (validated) and emit feedback events |
+| 1 | Input | Apply the tick's closure (D2): its batches in closure order, each batch's actions in seq order (§15.3). Validate each action and emit feedback events tagged `(player, seq)` (S10) |
 | 2 | Timers | Pop the timer-wheel bucket: wake-ups, scheduled events (ghost expiry, chain-signal re-checks, agent arrivals, runaway spread per infection and escape per machine, §5.17; these read the previous tick's electric satisfaction, since phase 4 has not run yet) |
-| 3 | Chunk commits | Worldgen results whose commit tick is now (§5.18) |
+| 3 | Chunk commits | Worldgen results whose commit tick is now; a chunk whose data has not arrived is generated inline (§5.18) |
 | 4 | Energy distribution | Electric networks fill consumer buffers by class: normal, accumulator charging, interruptible (§5.7). Energy drawn, and twice each generator's electrical output, go into chunk emission accumulators (§5.9). Zero-power counters of compromised machines advance. Heat-pipe networks conduct |
 | 5 | Fluids | Boundary flows between fluid boxes and segments; pumps (§5.8) |
 | 6 | Burners and converters | Fuel → energy buffers; boilers and heat exchangers → steam; reactors → heat |
 | 7 | Crafting machines, furnaces, labs, drills | Progress, consumption, production (several crafts per tick allowed, FFF-402); research progress |
-| 8 | Transport lines | Movement, line-to-line transfers, splitters, side-loading |
+| 8 | Transport lines | Movement, line-to-line transfers, splitters, side-loading, in downstream-first rank (§5.3) |
 | 9 | Inserters | Pickup and drop state machines |
 | 10 | Agents | Agents in this tick's bucket; roboports; logistic and construction dispatch within budget |
 | 11 | Trains | Movement, signals, reservations, schedules and interrupts |
@@ -515,12 +761,18 @@ V8 no longer unboxes double fields in objects (pointer compression), so object-p
 | 13 | Slow fields | In this order: the thermal bucket (`tick & 63`); on `tick % 60 == 0` staffing (§5.10), then world text (§5.11), then the leak with any compromise it causes (§5.17); every tick, the Monitors' clean cycles (§5.17, 03 §3.4); radar sectors |
 | 14 | Units | Wild preset only |
 | 15 | Statistics and achievements | Flush per-tick counters; condition checks every 60 ticks |
-| 16 | Snapshot | Extract the packet for the current view (skipped while the page is hidden) |
+| 16 | Digest | The per-tick digest, this tick's slice hash and the rolling digest (§4.8) |
 
-**Active sets and sleep.**
-- Each system keeps a dense `active` list (`Int32Array`) plus a position index, so removal is O(1).
+**Extraction is not a phase.** After the tick, the shell may call `sim_extract` (packets, events, subscriptions; §15.4–§15.6), which reads `&World` and never changes it (D1, D9). It is skipped while the page is hidden, during catch-up and when no packet buffer is free.
+
+**Active sets** (A1 finding 1; IMPL-2).
+- **Entity pools:** each system keeps an `active` bitset over its pool slots (one bit per slot in `u32` words) and iterates it in ascending slot order: take the lowest set bit of a word, update that entity, then re-read the word masked above that bit. An entity woken during its own phase therefore runs in this tick if its slot is higher than the cursor, and in the next tick otherwise. This is the loop A1 measured; it is O(active + words) per tick.
+- **Swap-remove active lists are banned.** They reorder entities by the history of sleeps and wakes, which differs between a sleeping run and a NO_SLEEP run, and between a world and its reload. A1 measured divergence by tick 200 in three of four regimes, with different research totals at the end.
+- **Derived pools** (transport lines, fluid segments, electric, circuit and logistic networks, rail blocks) are rebuilt on load, so their pool indices are not stable (D3 f). Wherever their processing order can change a result, they are processed in a **rank** derived from saved state, and their active bitset is indexed by rank. Transport lines: the downstream-first rank of §5.3. Networks: ascending lowest member serial.
+
+**Sleep.**
 - A system puts an entity to sleep only when a whole update would provably change nothing.
-- The entity records a `sleepReason` and registers with exactly one wake source:
+- The entity records a sleep reason and registers with exactly one wake source:
 
 | Sleeper | Sleeps when | Woken by |
 |---|---|---|
@@ -537,13 +789,22 @@ V8 no longer unboxes double fields in objects (pointer compression), so object-p
 | Fluid boundary | Segment and box both empty, or both full, with the machine idle | Segment level crossing a threshold; machine state change |
 | Train | Waiting at a stop or signal | Wait-condition timer; signal or block state change |
 
-**The invariant is NO_SLEEP equivalence.** A debug flag updates every entity every tick and bypasses all wake logic. Every scenario test must produce bit-identical state hashes with and without it (§10.4). So sleeping is a pure optimization, never a rule. Update *cadences* that are rules stay the same in both modes: agents every 20 ticks, the thermal field every 64.
+**Wake rules** (A1 finding 2; NO_SLEEP equivalence held only with all of them):
+1. **Waking only marks.** A wake-up sets the entity's active bit and does no work; the entity's own phase does the work (D3 b).
+2. **Wake sequence numbers.** Each entity has a `wake_seq` (`u32`, wrapping) that increments every time it wakes. A watch-list or timer node records the sequence at registration; when the list fires, a node whose sequence differs from the entity's current one is stale and dropped.
+3. **Arrival timers are lower bounds.** An inserter sleeping for a belt item schedules a timer at the earliest tick the item can arrive (`distance ÷ speed`); on waking it re-checks and re-arms if the item is not there.
+4. **Insertion into a line.** Inserting mid-line wakes the line's timer-holding waiters (their estimates may now be early). Inserting at the back wakes only waiters that have no item upstream of their pickup point.
+5. **Dropping onto a belt.** An inserter dropping onto a moving belt polls each tick; dropping onto a stalled belt, it waits for the line to restart.
+6. **A partially filled hand keeps polling.** An inserter gathering a stack from a belt does not sleep between items.
+
+**The invariant is NO_SLEEP equivalence.** A test flag updates every entity every tick and bypasses all wake logic. Every scenario test must produce bit-identical per-tick digests and full states with and without it (D18 b). So sleeping is a pure optimization, never a rule. Update *cadences* that are rules stay the same in both modes: agents every 20 ticks, the thermal field every 64. Active bits and wake registrations are derived and unsaved: after a load every entity starts awake and goes back to sleep within a tick, which NO_SLEEP equivalence makes harmless.
 
 **Timers.**
 - A 4,096-bucket timer wheel (one bucket per tick, modulo 4,096).
 - A binary heap for longer delays: ghost expiry after one week is 36,288,000 ticks.
-- Entries are `(dueTick, entityHandle, eventCode)` at runtime. Stale handles are dropped on generation mismatch.
-- Saves store `(dueTick, entitySerial, eventCode)` and re-key by serial on load (§8.1). Timers owned by no entity (an infection's spread timer, the publication release) use serial 0 and an owner id in the event.
+- Entries are `(dueTick, entityHandle, eventCode, owner, wakeSeq)` at runtime. `owner` (`u32`) is 0 for entity timers; timers owned by no entity use serial 0 and name their owner there (an infection's id, which is its first member's serial; a publication release's index). Stale handles are dropped on generation mismatch, stale wake timers on sequence mismatch.
+- **Fire order** (D3 c): timers that only wake entities fire in any order, because waking only sets bits; timers that do work (ghost expiry, spread, escape, agent arrival, releases) fire in `(dueTick, serial, eventCode, owner)` order, which is total, sorted within the bucket.
+- Saves store `(dueTick, entitySerial, eventCode, owner)` for timers that do work, in that order, and re-key by serial on load (§8.1). Wake timers are derived and not saved.
 
 **Bucketed systems:**
 - the thermal field: 1/64 of chunks per tick, Factorio's pollution cadence;
@@ -553,34 +814,57 @@ V8 no longer unboxes double fields in objects (pointer compression), so object-p
 
 ### 4.7 Per-tick cost model (reference machine; §11 defines it)
 
-**Measured on this host** with simplified hot loops (Appendix A): transport lines 6.6 ns per line, active inserters 14.6 ns, crafting machines 11.6 ns, electric consumers 8.1 ns per consumer (two passes), thermal chunks 43 ns per chunk update.
+**Measured** by A1 in WebAssembly, Chrome 156, on this host at its base clock, at Late scale in the "busy" regime, per active entity per tick: transport lines 28 ns, inserters 72 ns, crafting machines 22 ns, electric consumers 8.5 ns per consumer (two passes, all consumers). Firefox is 11–19% slower, Node equal, native 1.15–1.34× faster.
 
-**Projected cost on the reference machine** = host × 3 (real branches and indirections) ÷ 1.8 (machine speed, §11). On the 2022 target machine, divide by about 1.4 more.
+**Projected cost on the reference machine** = host ÷ 2.4 (§11). On the 2022 target machine, divide by about 1.4 more. Rows marked *est.* are not measured yet and keep round 4's TypeScript-era estimates unchanged: A1-r1 warns that the kernel's speed-up need not carry over to other systems, so the table does not assume it.
 
 | System (late-game base, §11) | Count | Updated per tick | Cost each (reference) | ms/tick |
 |---|---|---|---|---|
-| Transport lines (60k belt tiles → ~8k lines, 32-tile cap) | 8k | ~50% moving | 10 ns + transfers (~500 per tick × 50 ns) | 0.1 |
-| Inserters | 25k | ~60% active | 25 ns + pickups/drops (~360 per tick × 300 ns) | 0.5 |
-| Crafting machines, furnaces, labs, drills | 13k | ~70% | 20 ns + completions | 0.3 |
-| Electric consumers (2 passes) | 50k | all | 12 ns | 0.6 |
-| Fluid boundaries | 4k | ~70% | 30 ns | 0.1 |
-| Heat-pipe network | 500 | all | 30 ns | 0.02 |
-| Thermal field | 64 chunks per tick | — | 100 ns | <0.01 |
+| Transport lines (60k belt tiles → ~8k lines, 32-tile cap) | 8k | 25–46% moving (A1 typical–busy) | 12 ns, transfers included (measured) | 0.04 |
+| Inserters | 25k | 20–39% active | 30 ns, pickups and drops included (measured) | 0.3 |
+| Crafting machines, furnaces, labs, drills | 13k | 65–99% | 9 ns, completions included (measured) | 0.12 |
+| Electric consumers (2 passes) | 50k | all | 3.5 ns (measured) | 0.18 |
+| Fluid boundaries | 4k | ~70% | 30 ns (est.) | 0.1 |
+| Heat-pipe network | 500 | all | 30 ns (est.) | 0.02 |
+| Thermal field | 64 chunks per tick | — | 100 ns (est.) | <0.01 |
 | Staffing, world text, leak | every 60 ticks | — | O(Seminars + universities + Terminals) | <0.01 |
 | Runaways (*Contained*) | per infection timer | a few nearest-machine queries per second | O(cluster) | <0.05 |
-| Agents | 5k | 1/20 moving, 1/60 idle | 1 µs per update | 0.3 |
-| Logistic and construction dispatch | ~100 tasks per tick | — | 2 µs | 0.2 |
-| Trains | 100 | ~60 moving | 2 µs; pathfinding amortised 0.1 ms | 0.2 |
-| Circuit network | 2k combinators | ~30% dirty | 300 ns | 0.2 |
-| Statistics, achievements | — | — | — | 0.05 |
-| Snapshot extraction | 20k visible sprites + 50k belt items | per frame | — | 1.0 |
-| **Total** | | | | **≈ 4 ms** of a 12 ms budget (per-entity costs here are rounded from the ÷ 1.8 projection) |
+| Agents | 5k | 1/20 moving, 1/60 idle | 1 µs per update (est.) | 0.3 |
+| Logistic and construction dispatch | ~100 tasks per tick | — | 2 µs (est.) | 0.2 |
+| Trains | 100 | ~60 moving | 2 µs; pathfinding amortised 0.1 ms (est.) | 0.2 |
+| Circuit network | 2k combinators | ~30% dirty | 300 ns (est.) | 0.2 |
+| Statistics, achievements, digest | — | — | — | 0.05 |
+| Extraction (outside the tick) | 25k visible sprites + 60k belt items at 0.3× | per frame | 8 ns per sprite (19 ns on the host, A1); belt items as gap arrays cost a copy (§15.4) | 0.25 |
+| **Total** | | | | **≈ 2.0 ms** of a 12 ms budget (≈ 1.8 ms without extraction); Firefox about 15% more |
 
-At about 0.3 ms per tick, the slice is effectively free.
+A1's own projection for the full simulation at Late on the reference machine is 1.4 ms (its four measured systems at 37% of the total); this table is more conservative. The 12 ms budget therefore leaves room for real code being slower than a study kernel, for catch-up (11 §4.4 needs a joiner to run at several times game speed) and for Firefox. The slice costs about 0.1–0.3 ms per tick and is effectively free.
 
-**Spikes.** Two events are bursty rather than steady, and each has a budget of its own:
-- **Effect bursts** (balance m10). After the capstone, Π ≈ 10⁶, and an infinite technology can complete 13–20 levels within seconds. Research effects are therefore coalesced per tick and per effect type (§5.12), so 6,000 affected machines cost one `speedEff` recompute each: ≤ 2 ms in the worst tick.
-- **Autosave**: the pool copy, ≤ 100 ms (§8.4, §11).
+**Spikes.** Four events are bursty rather than steady, and each has a budget of its own:
+- **Effect bursts** (balance m10). After the capstone, Π ≈ 10⁶, and an infinite technology can complete 13–20 levels within seconds. Research effects are therefore coalesced per tick and per effect type (§5.12), so 6,000 affected machines cost one `speed_eff` recompute each: ≤ 2 ms in the worst tick.
+- **Autosave**: the section copy, ≤ 100 ms (§8.4, §11).
+- **The first ticks after a load**: 3–6 ms for the first tick and about 2.4 ms on average for ticks 2–10 at Late on the host, settling within about 100 ticks (A1; TypeScript took 11–13 ms).
+- **First use of a code path.** WebAssembly is still compiled in tiers (V8 compiles a baseline first and optimises hot functions later), so a path first taken hours into a game can run slower once; what WebAssembly removes is speculative deoptimisation, not compilation (A1-r1). `compileStreaming` at load and the benchmark saves' warm-up keep this out of the steady state.
+
+Host-only effects are not budgeted: on this two-socket server, NUMA page migration causes rare worst ticks of 4–6 ms at Late and 17–21 ms at the 400k stretch in every language (A1 §3).
+
+### 4.8 The state hash and digests
+
+**The full state hash** is XXH64 (seed 0) over the canonical bytes of every hashed section of a save (§8.1), in ascending section id, each prefixed by its id and raw length (`u32` each). It covers exactly the saved state: not the header, the thumbnail, the closure log or the digest lineage. XXH64 is implemented in `sim` (about 100 lines, checked against the reference test vectors), so native and WebAssembly agree. `__game.hash()` and `simtool hash` print it in hexadecimal. Tests compare it (§10.4); two worlds with equal hashes are equal for every purpose of this document, and the D18 tests also compare the sections byte for byte when a hash differs, to name the first differing field.
+
+**Digests** (S7; A2 §5.1; A2-r1 5) are computed by the sim in phase 16 of every tick, in single player too, where replays and bug bundles use them:
+1. **Per-tick digest** `d_t` (`u64`, XXH64 over a fixed record): the tick number; a checksum of the closure applied; every RNG stream state; the entity count; this tick's nonzero production and consumption counters (§5.20's per-tick arrays); each online character's position bits and its player's saved inventory version (a `u32` in `PLAYERS`, raised on every change to the main inventory or the hand); the research progress bits; and the global scalars of §4.4. Cost: about a microsecond.
+2. **Slice hash, chosen by key.** Every tick also hashes about 1/3,600 of the state:
+   - the saved fields of every entity whose serial ≡ t (mod 3,600), from a derived index of 3,600 buckets kept in ascending serial;
+   - every modified chunk and every cold record whose key ≡ t (mod 3,600);
+   - the global sections when t ≡ 0.
+
+   All in canonical order, with NaN mapped to one bit pattern (D6). The schedule is a pure function of the tick and the current state, so there is no cursor to save, and everything that exists for a whole cycle is checked once a minute. For 100 MB of state that is about 28 kB per tick, a few microseconds in WebAssembly. Sampling cannot catch every *transient* divergence (an entity that diverges and is destroyed before its slice comes round), which is why D18's tests compare full state.
+3. **Rolling digest** `r_t = XXH64(r_{t−1} ‖ d_t ‖ slice_t)` over the three `u64` values. A divergence anywhere stays visible in every later r.
+4. **Lineage.** Because r depends on history, a world loaded from identical state cannot reconstruct it. Every save and checkpoint therefore carries its **digest lineage**, r at its tick, in the header beside the state but outside the hash (§8.1), and `sim_load` takes it back, so a joiner's or a re-synced client's digests continue the room's sequence (S7, S9). Digest *epochs* are not world state: the relay assigns them and the net worker attaches them to its reports (11 §5.1).
+5. **Per-phase digests** in builds with `simcheck` (§2.3): a digest after each of the 16 phases, to name the system in which two runs first differ (`simtool bisect`, 11 §5.3).
+6. **The digest ring**: the last 36,000 per-tick digests (288 kB), kept by the shell for bug bundles (§8.5) and desync reports (11 §5.3).
+
+Multiplayer reports r every 30 ticks and votes on it (11 §5.1).
 
 ---
 
@@ -590,12 +874,14 @@ Each subsection gives the data structures, the algorithm, the update cadence and
 
 ### 5.1 The character, inventories, the hand and the crafting queue
 
+**Players and characters** (S1). Each player in `World.players` (§4.4) has one character, created by the system action `player_joined` (§15.3). Everything in this section applies per player, and the simulation never singles out a local player (D10).
+
 **Movement.**
 - The character has a position (`f64` tiles) and walks in 8 directions at 0.15 tiles per tick × bonuses (ISO, I §2.1).
 - Collision uses the player-collision boxes (§4.4). Belts carry the character (ISO).
 
 **State.**
-- **Inventories:** the main inventory (80 slots plus bonus rows, auto-sorted by group, subgroup and order), the cursor stack ("hand"), and the origin-slot marker.
+- **Inventories:** the main inventory (80 slots plus bonus rows, auto-sorted by group, subgroup and order while the player's auto-sort setting is on, D11), the cursor stack ("hand"), and the origin-slot marker.
 - **Quickbar:** 10 pages × 10 links, saved in the game.
 - **Reach constants** (I §3.1): reach 10, build 10, resource 2.7, pickup 1.
 
@@ -612,7 +898,16 @@ Each subsection gives the data structures, the algorithm, the update cadence and
 - **Fluid-requiring resources** (uranium ore) can be mined by hand without the fluid (ISO; U56). Drills need the fluid (§5.6).
 - The campus, landmarks and town tiles are not minable; neither is a compromised entity (§5.17).
 
-**Cost:** one character, O(1) per tick.
+**Targets by identity** (S5, D23). Every action that names an entity (mine, rotate, open, transfer, paste settings) names it by serial or by creation id and resolves it that way (§15.3), never by position; a missing target fails the action with "target gone".
+
+**Offline characters** (A2 §3.7; this section states the rule). When a player leaves (`player_left`), the character stays in the world with its inventories:
+- it neither walks, mines nor crafts: its held inputs are released (D22), and its crafting queue pauses, keeping its reservations, until the player returns;
+- its hand returns to the main inventory if it fits, and otherwise stays in the hand;
+- a returning player gets the same character back (11 §4.5). R26 tests this.
+
+**Scratch functions** (S10). Movement, collision and placement checks are pure functions over `&World` and a scratch character, so multiplayer's latency state (11 §3.5) can run them without touching the World.
+
+**Cost:** one character per player, O(1) per tick.
 
 ### 5.2 Construction: building, mining, ghosts, fast-replace, undo, blueprints and the Constructor
 
@@ -643,7 +938,7 @@ Failure returns a reason string from I §3.3, or the design's own (`text.yaml`).
 **Blueprints.**
 - A **blueprint record** is canonical data: entities with relative positions, direction, quality and settings, plus tiles, wires and parameters (2.0 parametrisation, later).
 - Records live in a sim-side store, so blueprint *items* can sit in chests (the Constructor needs this).
-- The library ("My blueprints", shared across saves) lives in IndexedDB outside the sim. Placing a library blueprint sends its record inside the `place_blueprint` action.
+- The library ("My blueprints", shared across saves) lives in IndexedDB outside the sim. Placing a library blueprint sends its record inside the `place_blueprint` action: inline up to 65,531 bytes, as a blob above that (§15.3).
 - `place_blueprint(record, pos, dir, flip, mode)` is the one code path for the player, the paste tool and the Constructor.
 
 **The Constructor** (`deployer`; DECISIONS §19: the name for 04 §2.5's blueprint-placing building, finale-gated; A §3.3; unlocked after closure by *Self-reproducing automata*). An entity holding a blueprint or blueprint book and driven by circuit signals. Its commands (the data's `extra.circuit`):
@@ -651,7 +946,7 @@ Failure returns a reason string from I §3.3, or the design's own (`text.yaml`).
 - deconstruct or upgrade an area (deconstruction and upgrade orders);
 - copy a blueprint.
 
-**The Area scanner** (`area-scanner`, a separate combinator-type entity unlocked by the same technology; N18) reports the resources, entities and ghosts in a rectangle set by signals, as signals: a read-only spatial query, evaluated when its input signals change and when the version of any chunk in its rectangle changes (§4.4; R5-gate D12e).
+**The Area scanner** (`area-scanner`, a separate combinator-type entity unlocked by the same technology; N18) reports the resources, entities and ghosts in a rectangle set by signals, as signals: a read-only spatial query, evaluated when its input signals change and when the rule version of any chunk in its rectangle changes (a saved counter, §4.4; R5-gate D12e).
 
 **Signal tables** (R5-gate D12e). The Constructor's commands and the Area scanner's inputs and outputs follow the Recursive Blueprints mod's tables (its deployer chest and its scanner), with Factorio's item and virtual signals mapped to ours through `mirrors` (the data's `extra.signals`). A veteran's circuit programs for the mod therefore carry over.
 
@@ -678,7 +973,7 @@ The Constructor is not a computing machine (its recipe holds no accelerator), so
 - **Calibration targets** (wiki): an underground pair across a gap of 4 holds 44 items; an express pair at maximum gap holds 72.
 
 **Transport lines.**
-- A line is a maximal chain of lane segments of the same speed with no splitter in between, **capped at 32 tiles** (configurable).
+- A line is a maximal chain of lane segments of the same speed with no splitter in between, **capped at 32 tiles** (configurable). The cap splits a chain canonically, counting from its downstream end, so incremental and rebuilt lines agree (§10.4 #10). A closed loop of belts has no downstream end: its chain starts at the loop's belt with the lowest serial, whose lane ends there, and the split counts from that point.
   - FFF-176 (0.16) planned lines of about 9 tiles near inserters and side-loads, and up to about 100 tiles elsewhere, with dynamic merging and splitting.
   - Our single cap keeps the worst-case position scan per pickup at 128 items (~0.3 µs) without any dynamic re-splitting.
 - Each lane of a belt is in a different line. Curves therefore need no special case.
@@ -687,12 +982,13 @@ The Constructor is not a computing machine (its recipe holds no accelerator), so
 
 **Data per line:**
 
-```ts
-// items are a ring buffer, front (downstream) → back
-key: Uint16Array (item keys)   gap: Int16Array   // gap[0] = front slack to the line end; gap[i] = slack between item i−1 and i
-len: Int32 (positions)   backSlack: Int32   count: Int32   head: Int32   activeGap: Int32 (cached first gap > 0 from front)
-speed: Uint8   next: Int32 + nextOffset: Int32 + nextLane: Uint8   prevs: small list   segs: belt tiles covered (for rendering)
-sleeping flag, watchers (inserters registered for arrival estimates)
+```
+// items are a ring buffer, front (downstream) → back; the whole line record is derived except its contents
+key: ring of ItemKey   gap: ring of i16   // gap[0] = front slack to the line end; gap[i] = slack between item i−1 and i
+len: i32 (positions)   back_slack: i32   count: i32   head: u32   active_gap: i32 (cached first gap > 0 from front)
+speed: u8   next: line + next_offset: i32 + next_lane: u8   prevs: small list   segs: belt tiles covered (for rendering)
+identity: (entity serial, belt index, lane)   rank: u32 (downstream-first, below)   geom_gen: u32 (§15.4)
+watchers (inserters registered for arrival estimates)
 ```
 
 **Per tick** (O(1) for a moving line; FFF-176):
@@ -704,6 +1000,14 @@ sleeping flag, watchers (inserters registered for arrival estimates)
    - When the front moves again, the first negative slack grows back toward 0 before the items behind it move.
    - That is one more cached index; the update stays O(1).
 5. **Sleep:** if nothing moved and the front is blocked, sleep. The downstream line wakes its `prevs` when it frees entry space.
+
+**Update order: downstream first** (A1 finding 3; IMPL-2). A line that hands items to another (end to end, by side-loading, or through a splitter) must update **after** the line it feeds. Otherwise the receiving line has not moved yet when the feeder offers its front item, and compressed flow opens a one-tick gap at every line boundary. A1's kernel got this order from its generator's numbering; the engine states it:
+- **Identity.** A line is identified by `(entity serial, belt index, lane)` of its front (most downstream) belt piece: the belt index is 0, or 0 and 1 for the two sides of a splitter, whose input halves end two lines each. Identities are built from saved state, so a loaded world rebuilds the same ones (D3 f).
+- **Rank.** The lines and their feed edges (line → the line it feeds) form a directed graph. Ranks come from Kahn's algorithm run from the sinks, on the reversed graph, with a min-heap of ready lines keyed by identity: take the lowest ready line, give it the next rank, and make ready every line whose fed lines all have ranks. When no line is ready but some are unranked (cycles: belt loops, or splitter and side-load circuits with several in-edges), take the unranked line with the lowest identity, rank it, ignore its remaining unranked in-edges, and continue. Each such cut is the one place in a cycle where compressed flow can open a one-tick gap (§14 #16).
+- Ranks are recomputed at the start of phase 8 whenever the topology changed since the last computation, and on load. The line pool's active bitset is indexed by rank (§4.6), so phase 8 runs downstream first at bitset speed.
+- R21 checks compression across boundaries for every build order.
+
+**Mixed lanes** (A1 finding 4; ISO). A dead-end lane that carries two item types jams once items that no inserter takes reach its front and fill the pickup window, exactly as in Factorio. Nothing in the engine sorts or skips items on a lane. R22 pins it.
 
 **Splitters.**
 - Four input lanes (2 belts × 2 lanes) and four output lanes; lanes are preserved (ISO).
@@ -718,7 +1022,7 @@ sleeping flag, watchers (inserters registered for arrival estimates)
 
 **Readers.** The circuit belt reader, including 2.0's whole-line reader, reads a cached `counts[]` per line, maintained incrementally on insert and remove. Cost: free per tick.
 
-**Rendering extraction.** One walk per visible line, emitting `(x, y, itemKey)` per item along the segment polylines (arcs on curves).
+**Rendering extraction.** Per visible line, the ring's keys and gaps go into the packet as they are, with the line's geometry whenever it changes (§15.4); the main thread expands them along the segments (§6.8). The sim emits no per-item positions.
 
 **Cost.** About 10 ns per moving line per tick. Sleeping lines cost nothing. A transfer is about 50 ns.
 
@@ -874,7 +1178,7 @@ papers consumed   = units            before Interpretability
 
 ### 5.6 Mining and resources (ores, archives, exchanges)
 
-**Resource tiles** are stored per chunk as a sparse map: tile → (resource prototype, amount `uint32`).
+**Resource tiles** are stored per chunk as a sparse map: tile → (resource prototype, amount `u32`).
 
 **Mining drills.**
 - The mining area, `resource_searching_radius` and output vector come from the overlay (ISO: electric 5×5, burner 2×2).
@@ -887,7 +1191,7 @@ papers consumed   = units            before Interpretability
 **Exchanges** (the Crawl; D §4, 01 §7).
 - **The tap's state** is a resource point holding the backlog A (300,000 = 100%), the town's writing floor *f*, the closure threshold σ_c, and the flag `closed`.
 - **Yield:** `y = max(A ÷ 300,000, F(W))` with `F(W) = f × max(1, 2^((W − 40)/20))`.
-  - `2^x` comes from the engine's deterministic `detmath.exp2` (§4.1), never `Math.pow`.
+  - `2^x` comes from `det::exp2` (the `libm` crate, §4.1), never from `std`'s float methods.
   - Output = 10 units/s × y × speed × (1 + productivity) × D_syn, where D_syn = 1 − σ after *Synthetic detection* and 1 before (03 §2.2).
   - Each cycle removes 10 from A while A ÷ 300,000 is above F(W) (ISO depletion; productivity output does not deplete).
   - The floor F(W) replaces Factorio's minimum yield: the engine never reads a `min_yield` on the exchange (01 §13).
@@ -1028,7 +1332,7 @@ All numbers are 03 §1's and the data's. The golden reference is `tools/ref/heat
   - With q = received ÷ needed (needed = ℓ × the draw, at 1 coolant unit per MJ), the air gets `draw × (1 − ℓ·q)` each tick. The throttle's T\*_eff (step 6) uses q over the ticks since the chunk's last update (Σ received ÷ Σ needed). q is clamped to [0, 1], and q = 1 when nothing was needed.
   - Dry coolers take hot coolant and emit its heat into their own chunk's air. Water exchangers emit it into the chunk of the water tile at their pumping position (U9). Both work up to their capacity × Π `multiplier` × (1 + Σ `value`) over the `cooling-capacity` effects whose `entities` list them (×2 each from *Two-phase* and *Microfluidic cooling*, +10% per *Thermal management* level).
 
-**Update** (Factorio's cadence: each chunk once every 64 ticks, in bucket `chunkIndex & 63`; Δt = 64/60 s). The order is 03 §1.2's:
+**Update** (Factorio's cadence: each chunk once every 64 ticks, in bucket `(cx + 8·cy) mod 64` with a non-negative modulo, a function of the chunk's coordinates, so generating new chunks never moves an old one to another bucket; Δt = 64/60 s). The order is 03 §1.2's:
 1. **Emission.** `H += emissions + incoming`. Clear both accumulators.
 2. **Diffusion.** If `H ≥ 15 MJ`, move 2% of H to each of the 4 neighbours' incoming accumulators (U10):
    - to an **ungenerated** neighbour, the share leaves the field and is booked under the **Map edge** sink;
@@ -1115,7 +1419,7 @@ A staffing network is a connected component that contains at least one Seminar. 
 **Global scalars,** integrated every 60 ticks (phase 13) with the equations of 01 §12 and the numbers of `meta.world`:
 - **W = W_own + W_pub** (J6). The two terms are kept apart for the Field tooltip, and γ(W) scales only the field's own pace.
   - Each second, W_own += (v₀ ÷ 3,600) × γ(W). v₀ comes from the world setting (normal, Race or Race hard).
-  - γ(W) = 1 for W < 80, (m/g)^((W − 80)/0.5) for 80 ≤ W < 90, and 1 again from W = 90 (01 §12.1). A non-integer power, it uses `detmath` (§4.1).
+  - γ(W) = 1 for W < 80, (m/g)^((W − 80)/0.5) for 80 ≤ W < 90, and 1 again from W = 90 (01 §12.1). A non-integer power, it uses `det::pow` (§4.1).
   - Race mode adds `race_spoil_w` (0.002) to W_own for each Significant result that spoils (03 §5).
 - **Publication** (J6). Y_pub starts at `meta.world.y_pub_start` (1945). A technology's *year* is the latest `year` in its structured `citation` list (DECISIONS §35).
   - When a technology completes that is `regime: cited` and whose cost includes at least one paper other than System cards, ΔY = max(0, year − Y_pub) and Y_pub rises to that year. Trigger technologies have no cost and never publish.
@@ -1171,7 +1475,7 @@ A staffing network is a connected component that contains at least one Seminar. 
   - **Coalesced per tick** (balance m10). When several levels or technologies complete in one tick, their effects are summed per effect type first, and each affected entity's `speedEff` is recomputed once.
 - **Multiple completions per tick** with carry-over (G Appendix A; 04 §3.2). During takeoff the last ten technologies fall in under a minute.
 - **Research per paper** (04 §0): `Π = m^k × (1 + 0.1·L_rp) × (1 + Seminar productivity)`. It applies to every paper in every Seminar.
-  - m = g^r, with g = `meta.world_settings.returns_to_research.g` (1.5), computed once with `detmath.pow` (§4.1), where r comes from the world setting *Returns to research*. The data's `research-per-paper` effects say `multiplier_from: returns_to_research`, never a literal (J14).
+  - m = g^r, with g = `meta.world_settings.returns_to_research.g` (1.5), computed once with `det::pow` (§4.1), where r comes from the world setting *Returns to research*. The data's `research-per-paper` effects say `multiplier_from: returns_to_research`, never a literal (J14).
   - The default r is ln 2 / ln g, shown as 1.71 (R5-gate D12b), so its m is exactly 2: the engine sets m = 2 for that preset instead of computing the power, so that m^k is an exact power of two on every browser.
   - Powers come from per-level cached products (§4.1).
 - ***Research scheduling*** (L6; 04 §5.1; R5-gate D10). It runs in phase 7 after research progress: right after a research completes, and otherwise every 60 ticks, while the queue holds fewer than 7 entries and at least one Researcher is installed.
@@ -1261,7 +1565,7 @@ The repath triggers follow the wiki, e.g. a chain-signal wait of 5 or 30 s. Path
 
 **Wires.** Red and green wires connect circuit connectors. Networks are connected components per colour, maintained by union-find; a removal rebuilds the component.
 
-**Signals.** A signal frame is a sparse sorted array of `(signalKey uint32, value int32)` pairs. The key packs signal type (item, fluid, virtual, recipe, entity), prototype index and quality. Arithmetic wraps at 32 bits (ISO).
+**Signals.** A signal frame is a sparse sorted array of `(signalKey: u32, value: i32)` pairs. The key packs signal type (item, fluid, virtual, recipe, entity), prototype index and quality. Arithmetic wraps at 32 bits (ISO).
 
 **Per tick.**
 - Each network's frame for tick *t* is the sum of its members' outputs written at *t*−1. Every combinator therefore adds one tick of latency (ISO).
@@ -1401,13 +1705,13 @@ Target: 1,000 active units in ≤ 2 ms per tick. **Deferred to M5** (§14).
 
 ### 5.18 Map generation
 
-**A pure function** `generateChunk(seed, settings, surface, cx, cy) → ChunkData`. It runs in the worldgen workers and in Node, and its output never depends on generation order.
+**A pure function** `generate_chunk(seed, settings, surface, cx, cy) → ChunkData`, in the Rust crate `worldgen` (§2.2). It runs in the worldgen workers as `gen.wasm`, inside the sim for inline commits (below), and natively in tests, and its output never depends on generation order or on where it ran (D12).
 
 - **Region-based features** (towns, resource spots, records stores) come from coarse cells, e.g. 8×8 chunks for towns. Each cell is seeded by `hash(seed, layer, rx, ry)`. A chunk queries the cells overlapping it.
 - **Overlaps** resolve by a fixed priority. They never depend on which chunk was generated first.
 - **The town layer is queryable without generating chunks.** The sim asks it for campus positions (staffing, §5.10, U4) and footprints. A town's cell key is its stable id.
 
-**Stages per chunk** (noise from simplex-noise 4.0.3, fractal sums; FFF-390's ideas, written as TS functions rather than a string DSL):
+**Stages per chunk** (2D simplex noise ported to Rust with `+ − × floor` only and pinned by golden values from simplex-noise 4.0.3; fractal sums; FFF-390's ideas, written as Rust functions rather than a string DSL):
 1. **Climate** (01 §3), evaluated at the chunk centre.
    - `θ = clamp(14 + y/80 + n, −15, 35)` °C. The noise n is one octave of simplex noise at a 512-tile wavelength and ±3 K amplitude, on its own seed stream `ambient` (P9). The numbers come from `meta.heat.ambient`.
    - Sunlight `s = clamp(1 + y/5,700, 0.6, 1.3)`, also per chunk centre (P8).
@@ -1426,7 +1730,7 @@ Target: 1,000 active units in ≤ 2 ms per tick. **Deferred to M5** (§14).
 9. **Towns** (01 §5).
    - **Grid:** 256×256-tile cells, with spawn at the centre of cell (0, 0). Each other cell holds a town with probability P(d), and the class table gives footprint and institutions by distance band.
    - **Site:** up to 8 seeded candidates in the cell's central 160×160 square. A candidate must be ≥ 85% land, contain no cliff, overlap resource patches by ≤ 5%, and keep 64 tiles from every other footprint.
-   - **Order independence.** The 64-tile rule couples neighbouring cells. It is resolved by a fixed priority, the cell hash: a candidate is tested only against higher-priority neighbours' accepted footprints, which are computed recursively and memoised per worker. The land, cliff and resource tests sample the same pure functions. The result never depends on which chunk generates first.
+   - **Order independence.** The 64-tile rule couples neighbouring cells. It is resolved by a fixed priority, the cell hash: a candidate is tested only against higher-priority neighbours' accepted footprints, which are computed through those neighbours with an explicit work stack (no native recursion, D19) and memoised per worker. The land, cliff and resource tests sample the same pure functions. The result never depends on which chunk generates first.
    - **Footprint** (U51). Every footprint tile becomes a town tile, water included.
    - **Layout** (P10). Streets 2 tiles wide every 8 tiles, both ways. The blocks between them are building-block tiles; a generator seeded per cell picks each block's building sprite. Streets are walkable and drivable; building blocks block the player and vehicles like rocks. Nothing is buildable on either (§4.4).
    - **Institutions at the edge** (01 §5.4):
@@ -1436,8 +1740,8 @@ Target: 1,000 active units in ≤ 2 ms per tick. **Deferred to M5** (§14).
    - **Records stores** in old mines (01 §6.2) appear away from towns, by spot noise, each with a cosmetic mine entrance. A store with any blob tile out of the map is rejected (U58).
    - Campuses, exchange offices and mine entrances are world objects, and town buildings are tiles (§4.4). None of them is an entity.
    - **Era skins** are global, switched by W at 01 §5.3's thresholds (U57).
-   - **Names** (R5-gate D1; 01 §5.3, 08 §10.4). Drawn from `text.yaml`'s pools on the cell's own name stream. A name held by a higher-priority town within `town_names.uniqueness.within_cells` (8) cells is rejected and redrawn, up to `redraws` (8) times; then `suffix` (" II", then " III" …) is appended. Priority is the cell hash of the footprint rule above, and a town's name depends only on higher-priority towns within 8 cells whose possible draws contain it, so it is computed recursively and memoised like footprints and never depends on generation order. Unique within 8 cells (2,048 tiles), not per map.
-10. **The starting area** (01 §9; DECISIONS §32). Every guarantee is constructive: the stage places the feature and then checks it, and S-G1 sweeps 1,000 seeds (§10.4).
+   - **Names** (R5-gate D1; 01 §5.3, 08 §10.4). Drawn from `text.yaml`'s pools on the cell's own name stream. A name held by a higher-priority town within `town_names.uniqueness.within_cells` (8) cells is rejected and redrawn, up to `redraws` (8) times; then `suffix` (" II", then " III" …) is appended. Priority is the cell hash of the footprint rule above, and a town's name depends only on higher-priority towns within 8 cells whose possible draws contain it, so it is computed the same way (an explicit stack, memoised) and never depends on generation order. Unique within 8 cells (2,048 tiles), not per map.
+10. **The starting area** (01 §9; DECISIONS §32). Every guarantee is constructive: the stage places the feature and then checks it, and S-G1 sweeps 1,000 seeds (§10.4). `sim_new_world` generates every chunk within the pre-generation radius of spawn inline, before tick 1, so the character never stands on ungenerated ground.
     - **The starting college town.** Its campus is on the footprint edge that faces spawn, with spawn 16–32 tiles from the campus edge (at most 16 tiles to the side), so that spawn and the footprint lie in the coverage square.
     - The **four starting patches** (iron, copper, coal, quartz; whole blobs) and the **80,000-record archive** also lie inside that coverage square.
     - The coverage holds the buildable land 01 §9 requires (≥ 7,500 buildable tiles and a 40 × 40 buildable square; U54 as amended).
@@ -1451,13 +1755,13 @@ Target: 1,000 active units in ≤ 2 ms per tick. **Deferred to M5** (§14).
 **Map size.** Factorio's width and height settings bound the map, e.g. *Ribbon world*'s 128-tile height (07-ui §17). Chunks outside the bounds are filled with the out-of-map tile. The sim refuses building, walking and driving there, and heat is not diffused into them: the edge reflects (§5.9, U10).
 
 **The commit protocol** keeps determinism with asynchronous workers.
-- The sim asks for a chunk at tick *t*: on charting, on a radar scan, or when the chunk enters the character's pre-generation radius. Agents and heat diffusion never trigger generation. Agents skip ungenerated chunks, and heat sent toward them is lost to the Map edge sink (§5.9).
-- It commits the chunk at tick *t* + 30.
-- If the worker is late, the sim *waits*: it stalls the tick and reports the stall in F5.
-- Generation is pure and the commit tick depends only on sim state, so replays are identical.
-- Pre-generation keeps a radius of 7 chunks around the character and radar targets 2 chunks ahead.
+- The sim asks for a chunk at tick *t*: on charting, on a radar scan, or when the chunk enters a character's pre-generation radius. Agents and heat diffusion never trigger generation. Agents skip ungenerated chunks, and heat sent toward them is lost to the Map edge sink (§5.9).
+- The request `(surface, cx, cy, commit tick t + 30)` is world state: it is saved in `WORLDGEN_PENDING` and survives a load (D8). The shell sends it to the worldgen pool (§15.9).
+- At the commit tick (phase 3), the sim commits the worker's result. **If the result has not arrived, the sim generates the chunk itself** with the same crate, and the late answer is ignored. That is a stall of about 1–2 ms per chunk, reported in F5. It replaces round 5's "the sim waits for the worker", which would need a blocking wait across threads.
+- Generation is pure and the commit tick depends only on sim state, so replays, joins and native tests are identical with or without a pool (D12, R28). Catch-up, replays and native tests generate inline throughout.
+- Pre-generation keeps a radius of 7 chunks around each character and radar targets 2 chunks ahead.
 
-**Map preview** (I §4.20) samples the same functions at 1 sample per 8 tiles over 1,024×1,024 tiles in a worker, in about 0.3 s.
+**Map preview** (I §4.20) samples the same functions at 1 sample per 8 tiles over 1,024×1,024 tiles in a worldgen worker (`gen_preview`, §15.9), in about 0.3 s.
 
 **Cost:** about 1–2 ms per chunk per worker. The initial area of about 15×15 chunks takes under 1 s with 4 workers.
 
@@ -1466,7 +1770,7 @@ Target: 1,000 active units in ≤ 2 ms per tick. **Deferred to M5** (§14).
 - **Charting:**
   - each chunk has a *charted* bit and *keep-revealed* counters (FFF-421). Characters, radars and hubs register areas, and overlaps cost nothing;
   - radars also sweep distant sectors on their own cadence.
-- **The chart image** is 32×32 RGBA per chunk: tile map colours plus entity map colours. It is generated in the sim worker when a chunk is charted or changes while watched, and sent in packets.
+- **The chart image** is 32×32 RGBA per chunk: tile map colours plus entity map colours. Extraction generates it when a chunk is charted or changes while the map view or minimap watches it, and sends it in the packet's `CHART` section (§15.4).
 - **Fog (ISO, I §3.15).** A charted chunk that is not watched shows its **last snapshot**. The worker freezes the chunk's view data (§3.4) when the chunk stops being watched and serves that copy until it is watched again.
   - In the peaceful slice nothing can change unseen in a way that matters, so the slice renders the live state under a fog tint. The frozen snapshots arrive in M2 (§14); radar itself is in the slice.
 
@@ -1474,14 +1778,14 @@ Target: 1,000 active units in ≤ 2 ms per tick. **Deferred to M5** (§14).
 
 **Production statistics** (I §4.12).
 - Per-tick counters, produced and consumed, per item, fluid, building, heat source and sink (the Map edge included, §5.9), and the **Papers** pseudo-item: research progress actually produced, counted in papers with productivity included (FFF-408's "science" item; 07-ui §11).
-- Flushed every 60 ticks into ring buffers at 9 precisions (5 s to 1000 h, and All) of 300 points each, by hierarchical downsampling. They are `Float32` and saved. They are display data: beside them the sim keeps exact all-time totals per item, for production and for hand-crafting (float64, integer-valued, saved in `STATS`), and the run report reads only those (Float32 is exact only to 2²⁴, and 07 §13.3 prints exact integers).
+- Flushed every 60 ticks into ring buffers at 9 precisions (5 s to 1000 h, and All) of 300 points each, by hierarchical downsampling. They are `f32` and saved. They are display data: beside them the sim keeps exact all-time totals per item, for production and for hand-crafting (float64, integer-valued, saved in `STATS`), and the run report reads only those (Float32 is exact only to 2²⁴, and 07 §13.3 prints exact integers).
 - Electric statistics per network likewise.
 - The two model-collapse windows (P_crawl, P_syn; §5.11) are separate, exact 10-minute rings, because the statistics rings are display data.
 - **Cost:** a few µs per tick.
 
 **Achievements** (08-text §6, canonical per DECISIONS §20).
 - Their conditions are machine-readable data in `text.yaml` (R4-ui): `condition: {type, …}` with ids and thresholds. The condition types form an engine registry, listed in 08-text §6's table (craft-while, power-rise-after-install, install-before-compromise, takeoff-time and the rest). The data stage checks that every type exists (§2.4).
-- They are evaluated on events and every 60 ticks, and persisted per save (`GLOBALS`) and globally (IndexedDB `runHistory`, the *Run history* of 07-ui §19.2).
+- They are evaluated on events and every 60 ticks, and persisted per save (`GLOBALS`) and globally (IndexedDB `runHistory`, the *Run history* of 07-ui §19.2). Per-player conditions (hand-crafting) read the per-player accumulators of §4.4; in multiplayer each client records its own player's achievements (11 §8.3).
 - `win`'s `race_won` (R5-gate D12c) holds when a race mode is on and the field had not reached W = 90 when the Final-report run completed. A victory after a race loss shows the run report again without the race line.
 - The **achievements window** (07-ui §13.7, M4; R5-gate D12i) reads the same records.
 - Example: *Jevons paradox* (U63) compares the mean electricity consumption over the 60 min after the 100th Distilled controller is installed with the mean over the 60 min before. It needs an event hook plus a statistics query.
@@ -1494,12 +1798,12 @@ Target: 1,000 active units in ≤ 2 ms per tick. **Deferred to M5** (§14).
 - **Peak research rate**: the largest number of technology completions in any 600-s window sliding per tick, × 6 per hour (P22). Every level of a finite technology counts; infinite technologies and the hidden *Loop closed* do not (R5-gate D12a). A ring of recent completion ticks and the best count so far are saved.
 - **Fastest doubling**: the minimum of the doubling-time readout (§5.11), taken only at new maxima of R̄ (R5-gate D11).
 - **Peak power**: the highest 60-s sliding mean of the surface's total electric production, from per-tick totals (P21).
-- **Hand-crafted items**: every item the character crafted, intermediates included.
+- **Hand-crafted items**: every item the characters crafted, intermediates included: the sum of the per-player accumulators (§4.4), which multiplayer also shows per player (11 §8.3).
 - **Most-produced item**: the real item (not a fluid, not the Papers pseudo-item) with the highest exact all-time production total. Ties (equal totals) go to the item that comes first in data order (U64). This gives *Objective, inferred*.
 
 **The rate calculator** (07-ui §16.1; Alt+X).
 - The selection tool sends a read-only `query(rates, entities)`, not an `InputAction`.
-- The worker computes each selected machine's current and full-speed rates with the **same** `effectiveRate(entity)` functions the sim uses for production. That covers modules, Switches (with their throttle), quality, bonuses and productivity, plus the current-mode multipliers for energy, thermal throttling, staffing and model collapse.
+- The sim answers it between ticks (§15.5), computing each selected machine's current and full-speed rates with the **same** `effective_rate(entity)` functions it uses for production. That covers modules, Switches (with their throttle), quality, bonuses and productivity, plus the current-mode multipliers for energy, thermal throttling, staffing and model collapse.
 - Machines covered: crafting machines, furnaces, Keypunches, drills, Crawlers, offshore pumps, boilers, generators, solar panels and Seminars.
 - It also returns power, heat and staff demand.
 - The window shows net rates per item and the balancing machine counts. Tooltips and the rate calculator can never disagree with the simulation.
@@ -1513,7 +1817,7 @@ Target: 1,000 active units in ≤ 2 ms per tick. **Deferred to M5** (§14).
 ### 6.1 Decision: a custom WebGL2 renderer, without PixiJS
 
 **Why custom.**
-- **Immediate mode matches the data flow.** Every frame the renderer turns the view model plus the `dyn` buffer into draw lists. A retained scene graph (PixiJS's `Sprite` objects) would duplicate 10⁵ objects of simulation state and churn them.
+- **Immediate mode matches the data flow.** Every frame the renderer turns the view model plus the packet's dynamic sections (§15.4) into draw lists. A retained scene graph (PixiJS's `Sprite` objects) would duplicate 10⁵ objects of simulation state and churn them.
 - **Measured on this host** (Appendix A): instanced quads in Chrome 156 on SwiftShader are 5–30× slower than expanded indexed quads. For example, 20k sprites of 32 px take 382 ms against 73 ms, and 150k sprites of 8 px take 3.1 s against 0.10 s.
   - Claude verifies visuals on this exact stack, so the batcher uses **expanded quads**.
   - On real GPUs the two paths cost the same for sprites.
@@ -1527,14 +1831,14 @@ Target: 1,000 active units in ≤ 2 ms per tick. **Deferred to M5** (§14).
 Each frame, for each viewport (the world, the minimap, GUI previews, pin cameras):
 
 1. **Terrain:** one quad per visible chunk through the terrain shader (§6.5); water animated.
-2. **Ground layers:** decals and decoratives, resource sprites, floor entities (belts, rail beds, pipe covers), ground items, then **belt items**.
-3. **Shadow pass** into an R8 render target with `MAX` blending, so overlapping shadows never double-darken. Composited over the ground layers before objects are drawn, so shadows fall on the ground, belts and items but not on other buildings, as in Factorio.
+2. **Ground layers:** decals and decoratives, resource sprites, floor entities (belts, rail beds, pipe covers), ground items, then **belt items**, expanded from the packet's gap arrays (§15.4).
+3. **Shadow pass** into an R8 render target with `MAX` blending, so overlapping shadows never double-darken. Composited over the ground layers before objects are drawn, with the style's `SHADOW_COMPOSITE` (§15.7; *Survey* hatches shadows), so shadows fall on the ground, belts and items but not on other buildings, as in Factorio.
 4. **Objects,** y-sorted: buildings, trees, poles, chests, inserter bases.
 5. **Higher objects:** inserter arms and held items, pole wires (catenary strips), signals.
 6. **Air objects:** agents and their shadows.
-7. **Lights (night):** an additive light render target at half resolution (lamps, machine light sprites). Composite: `colour × (ambient(dayTable) + light)`.
+7. **Lights:** a light render target at half resolution (lamps, machine light sprites), composited by the style's day and night rules (`LIGHT_COMPOSITE_DAY`, `NIGHT_GRADE`, §15.7) from the packet's daylight. Round 5's composite, `colour × (ambient(dayTable) + light)`, is the plain style's.
 8. **World overlays:** ghosts (hologram shader), build previews (I's tints), selection brackets, coverage (power, staffing), thermal overlay, alt-mode icons and arrows, the status-light layer, warning icons, edge arrows.
-9. **Post:** the colour-blind LUT (a 3D texture) when enabled.
+9. **Post:** the night grade's LUT when the style uses one (*Survey*'s cyanotype, A3 §4.4), and the colour-blind LUT when enabled (3D textures).
 
 Flying text and labels near the cursor are DOM (I §8.1).
 
@@ -1542,7 +1846,7 @@ Flying text and labels near the cursor are DOM (I §8.1).
 
 - **Expanded quads** go into one growable `ArrayBuffer`, viewed as `Float32Array` and `Uint32Array`.
 - **The vertex format** is 20 bytes:
-  - `pos: 2 × f32`, camera-relative;
+  - `pos: 2 × f32`, camera-relative (subtracted from the camera in `f64` from the packet's integer positions, §15.7);
   - `uv: 2 × u16` normalized;
   - `layer: u16` (the texture-array page) plus `flags: u16` (shader variant bits);
   - `tint: RGBA8`.
@@ -1561,7 +1865,7 @@ Flying text and labels near the cursor are DOM (I §8.1).
   - shadow masks (R8);
   - lights (RGBA8);
   - icons (RGBA8; also exported as PNG/WebP sheets for CSS, I §8.1).
-- **The manifest** `public/atlases/sprites.json` maps each name to page, rectangle, anchor offset, frame count and **frame stride**. Animation sheets are packed as units.
+- **The manifest** `public/atlases/sprites.json` maps each sprite set to its frames (array, layer, rectangle and anchor) by direction, variant and animation frame, with base, idle, animated-layer, shadow and light parts; its shape is §15.7's. Animation sheets are packed as units.
 - **Lazy loading by tier.** Each prototype's `tier` decides its atlas group: the slice's pages load first, the rest on demand.
 - **Decoding:** `createImageBitmap`, off the main thread, then `texSubImage3D`.
 - **Context loss:** atlases are re-uploaded from cached `ImageBitmap`s on `webglcontextrestored`.
@@ -1591,16 +1895,17 @@ Flying text and labels near the cursor are DOM (I §8.1).
 
 ### 6.7 Shadows and lights
 
-- **Shadows** are pre-rendered alpha masks from Blender's shadow-catcher pass (§9.1), cast to the east, as in Factorio, from a key light in the north-west.
+- **Shadows** are pre-rendered alpha masks from Blender's shadow-catcher pass (§9.1), cast to the east, as in Factorio, from a key light in the north-west, and drawn with the style's shadow composite (§15.7).
 - **Air objects** cast offset shadows.
-- **Lights:** lamps and machine light sprites (from Blender's emission pass) are additive. Their intensity follows the day table and the entity's state (working or idle).
+- **Lights:** lamps and machine light sprites (from Blender's emission pass), applied by the style's light composite (§15.7). Their intensity follows the packet's daylight and each entity's `light` value in `DYN` (§15.4).
 
 ### 6.8 Animation and dynamic objects
 
-- **Machine animations** advance only while working, by `speedEff`. This is an animation progress per entity, exported in `dyn`.
+- **Machine animations** advance only while working, by `speed_eff`: a presentation field per entity (§4.5), exported as the phase in `DYN` (§15.4).
 - **Belts:** `frame = (tick × speed × framesPerTile ÷ 256) mod frames`.
+- **Belt items** are expanded on the main thread from per-line gap arrays and the line's cached geometry (§15.4), inside the batcher's fill loop.
 - **Inserter arms** are drawn from (θ, *r*) as rotated part sprites (base, arm, hand open or closed), with oblique compensation.
-- **Agents** and **trains** are extrapolated or set from `dyn`:
+- **Agents** and **trains** are extrapolated from `MOVERS` records (§15.4):
   - rolling stock uses 64 pre-rendered orientations;
   - agents 16.
 - Smoke and particles are render-only: seeded from events, never simulated.
@@ -1609,9 +1914,9 @@ Flying text and labels near the cursor are DOM (I §8.1).
 
 - **Alt-mode** (I §3.14): recipe and product icons on a dark backdrop; arrows for drills, inserters and fluid connections; module icons; and the status-light layer (A §10). All are drawn from the icon array.
 - **Build previews** use I's tints and context previews: pole supply areas, drill areas, inserter pickup and drop markers, underground pairing lines (green at maximum range), and the offshore pump facing water.
-- **The coverage overlays** (power, staffing and agent areas) draw the union of rectangles into a coverage target, then tint it. Staffing coverage squares get one hue per network: palette index (lowest university id in the network) mod 8, computed sim-side (§5.10, J24; 07-ui §3.3).
+- **The coverage overlays** (power, staffing and agent areas) draw the union of rectangles into a coverage target, then tint it. Staffing coverage squares get one hue per network: palette index (lowest university id in the network) mod 8, computed sim-side and sent as `OVERLAY_STAFFING` (§5.10, §15.4, J24; 07-ui §3.3).
 - **The thermal overlay** (07-ui §3.2):
-  - It uploads visible chunks' `T` into a small texture each time the sim publishes the field (every 64 ticks), and draws it **bilinearly interpolated between chunk centres**.
+  - It uploads visible chunks' `T` (the packet's `OVERLAY_CHUNK`, §15.4) into a small texture each time the sim publishes the field (every 64 ticks), and draws it **bilinearly interpolated between chunk centres**.
   - The colour scale, its alpha rule and its contour lines are 07-ui §3.2's, uploaded as a 1D lookup texture so that 07 can change them without shader edits.
   - In the game view, a contextual tint (alpha ≤ 0.25) appears while a computing or cooling building is held or hovered. That building's T\*_eff isotherm is drawn as a contour, and a cooling building's chunk is outlined.
 - **The registry** (I BEND-6, 07-ui §3.1): each overlay has up to four renderers (map, minimap in alt-mode, world contextual, world alt-mode), so the age/builder, paths-out, monitor-range and exchange overlays plug in.
@@ -1645,7 +1950,7 @@ Flying text and labels near the cursor are DOM (I §8.1).
 | Furthest world zoom (≈ 0.3×), late base | ~25k sprites + 60k belt items | ≤ 12 ms | ≤ 25 ms | ≥ 30 FPS |
 | Chart view | ≤ 4k chunk quads + overlays | ≤ 2 ms | ≤ 3 ms | 60 FPS |
 
-- The main-thread total includes packet decode (≤ 0.5 ms) and the UI (≤ 2 ms).
+- The main-thread total includes packet decode and belt-item expansion (≤ 0.5 ms, more at 0.3× with 60k items) and the UI (≤ 2 ms).
 - On the target machine everything should hold 60 FPS.
 - Fill rate is the risk on the weak iGPU. Mitigations: half-resolution light and shadow targets, mip-selected Normal sprites when zoomed out, and decorative culling below 0.5×.
 
@@ -1690,21 +1995,22 @@ Flying text and labels near the cursor are DOM (I §8.1).
   - the World window and strip, the University window, the charter screen, the run report (07-ui §4, §7, §13, §14);
   - map (remote view chrome), electric network, settings, controls, saves;
   - later: blueprint library, logistics, trains, alerts, bonuses. (The rate calculator's window ships in M1, 07 §16.1.)
-- `store/`: Solid stores fed by packets, with versioned sections and immutable snapshots.
+- `store/`: Solid stores fed by decoded projection records (§15.5), keyed by subscription.
 - `input/`: §7.5.
 - `i18n/`: `locale/en.yaml` for UI strings. Display names come from the data.
 
 ### 7.3 Data flow
 
-1. A packet arrives and `ui` deltas update the stores.
-2. Signals propagate only to mounted components.
-3. Windows mount on open and unmount on close.
-4. **No layout reads in the frame loop.** Viewport holes are measured with a `ResizeObserver`.
-5. **UI budget:** ≤ 2 ms per frame with the character screen and one entity window open. A window opens in ≤ 100 ms and a Handbook search keystroke takes ≤ 50 ms (§11). Search indexes are built once from prototype data at startup.
+1. A window that opens subscribes to the projections it shows (§15.5); closing it unsubscribes.
+2. A packet arrives, and its `UI` records, decoded by the generated decoders, update the stores. Records from another state generation are dropped (§3.4).
+3. Signals propagate only to mounted components.
+4. Windows mount on open and unmount on close; an entity window whose target is gone closes.
+5. **No layout reads in the frame loop.** Viewport holes are measured with a `ResizeObserver`.
+6. **UI budget:** ≤ 2 ms per frame with the character screen and one entity window open. A window opens in ≤ 100 ms and a Handbook search keystroke takes ≤ 50 ms (§11). Search indexes are built once from prototype data at startup.
 
 ### 7.4 Styling
 
-- **CSS variables** hold the Factorio-like palette: dark grey frames, deep and shallow panels, the orange highlight, green confirm, red destructive.
+- **CSS variables** hold the skin's palette. The layout and metrics stay Factorio's; the skin is IMPL-5's *Survey* (1945 federal paperwork: manila folders, index cards, printed labels; `design/art/DIRECTION.md` §12), in place of round 5's dark grey frames.
 - **Frames** use CSS `border-image` 9-slices drawn by us in SVG. No Factorio art is reused.
 - **Metrics** follow I §4.0 exactly: 40 px slots with 32 px icons, 4 px grid, 8 px padding, fonts at 12/14/15/18 px, tooltips at 88% opacity with background blur and a maximum width of 356 px.
 - **Font:** Titillium Web (OFL), a technical sans close to Factorio's GUI type, self-hosted from `@fontsource/titillium-web` 5.3.0.
@@ -1720,7 +2026,7 @@ Implemented exactly as I §1 specifies:
 - **Bindings** store `KeyboardEvent.code`. Labels come from `navigator.keyboard.getLayoutMap()`, with a fallback table.
 - **The wheel** is normalised into notches of about 100 px.
 - **Event semantics:** auto-repeat ignored; held controls released on `blur` and `visibilitychange`; game controls suspended while a text field has focus, with I's exceptions.
-- **The context resolver** (I §1.4) runs on the main thread against the view model and UI state, in I's precedence order: text, GUI, modal, tool, placeable, usable, other item, empty. It produces exactly one **UI command** or **sim `InputAction`**.
+- **The context resolver** (I §1.4) runs on the main thread against the view model and UI state, in I's precedence order: text, GUI, modal, tool, placeable, usable, other item, empty. It produces exactly one **UI command** or **sim `InputAction`**; an action is encoded with the generated encoder and sent to the sequencer port (§3.2, §15.3).
 - **The capture layer** (I §1.5) applies `preventDefault` to Tab, Space, Alt (keydown and keyup), Alt+letters, Alt+arrows, Mouse4/5 (`mouseup` and `auxclick`), RMB (`contextmenu`), MMB, Ctrl+Wheel (`passive: false`), Ctrl+Z/Y/C/X/V/F and F1–F10.
   - In fullscreen on Chromium, it calls `navigator.keyboard.lock()`.
   - At startup it runs a self-test of the capture, and the Controls screen lists keys reserved by the browser.
@@ -1729,8 +2035,23 @@ Implemented exactly as I §1 specifies:
 
 ### 7.6 Rules
 
-- **Pure UI state never enters the sim:** windows, hover, camera, scroll and search.
+- **Pure UI state never enters the sim** (S4): windows, hover, selection, camera, alt-mode, overlays, scroll, search, chat and interface settings.
 - **The sim never calls the UI.** All UI behaviour comes from prototype data and entity kinds; there is no per-item UI code.
+- **The settings audit** (D11, S4; M0). Every setting of I §4.20 and 07 §20 is either world state, changed by an action, or client-only, which may change which actions are sent but never how they execute:
+
+| Setting (source) | Class | How it reaches the World |
+|---|---|---|
+| Auto-sort main inventory (I §4.20, Interaction) | World state, per player | `set_player_setting` (Appendix B) |
+| Pick ghost item if no items are available (I §4.20) | World state, per player | `set_player_setting` |
+| Trimmed collision (07 §20, per save) | World state, global | `set_game_setting` |
+| Map settings and presets: Heat, runaways, r, staffing off, the generator's sliders (07 §17) | World state, global, fixed at creation | the new-world record (§15.8) |
+| Smart belt building; lock belt building to line (I §4.20) | Client-only | the drag computation chooses the `build` actions; the smart-belt flag travels in them |
+| Even distribution (07 §20) | Client-only | chooses whether one `distribute` action is sent (§5.20) |
+| Change quickbar slot by clicking with a different item (I §4.20) | Client-only | chooses which quickbar action is sent |
+| Vehicle driving mode, heading or steering (I §4.20, Controls) | Client-only | chooses which riding actions the keys send |
+| Keep running in background tab (07 §20); technology-gui-pauses-game and the other pause behaviours (I §4.20, Other) | Client-only | sequencer behaviour, single player only (§3.3, S14) |
+| Autosave interval and slots (I §4.20, Other) | Client-only | the shell |
+| Every other Interface, Graphics, Sound and Controls option (I §4.20, 07 §20) | Client-only | never sent |
 
 ---
 
@@ -1738,31 +2059,48 @@ Implemented exactly as I §1 specifies:
 
 ### 8.1 The save container
 
-The container is binary: header, then sections, PNG-style.
+The container is binary: header, then sections, PNG-style. Its sections and their layouts are generated from `schema/sections.yaml` and `schema/state.yaml` (§15.1). The sim writes and reads raw section bytes; the IO worker adds the header, compresses and stores.
 
 ```
-magic "SITESAV\0" | u32 formatVersion | u32 headerLength | header JSON
-  (game version, build hash, prototypes.hash, tick, seed, map settings, play time, thumbnail section id,
-   name tables per prototype kind, pool descriptors: [{pool, field, type, length}])
-sections: [u32 id | u32 rawLength | u32 storedLength | u8 codec | bytes]   codec 1 = deflate (fflate level 6)
-  POOLS (raw typed arrays, little-endian)   ENTITY_TABLE   SLOT_HEAP   COLD (canonical JSON)
-  CHUNKS (modified chunks: tiles, hidden tiles, resources, trees with leaf stages, world objects, leafTimer;
-          occupancy rebuilt on load)   CHARTED (bitsets)
-  THERMAL (sparse H, the emission and incoming accumulators, and leafTimer for pristine chunks, wherever nonzero)
-  NETWORKS (what topology cannot rebuild: wires, switch states, belt contents, fluid-segment contents, circuit frames, train state)
-  GLOBALS (canonical JSON; below)   TIMERS   RNG
-  PLAYER   RESEARCH   STATS (ring buffers)   BLUEPRINTS (records in this save)   UNDO
-  INPUT_LOG (optional, dev setting)   THUMBNAIL (WebP from the renderer)
+magic "SITESAV\0" (8) | u32 formatVersion (2) | u32 headerLength | header (UTF-8 JSON, keys sorted)
+sections, repeated: u32 id | u16 version | u8 codec (0 raw, 1 deflate: fflate level 6) | u8 flags (bit 0 HASHED)
+                    | u32 rawLength | u32 storedLength | bytes[storedLength] | zero padding to a multiple of 8
 ```
 
-**The rule** (J2): everything not listed as derived below is saved. A new piece of state either gets a section or field, or is added to the derived list with its rebuild function; the save/load hash test (§10.4) catches anything forgotten. Section by section:
+A section's `version` is the schema version (§15.1) at which its layout last changed; the loader reads older versions through `since` defaults and migrations (§8.3).
+
+**The header** holds metadata, outside the state hash: format version, game version, `buildHash`, `protocolVersion`, `schemaHash`, `prototypesHash`, tick, seed, map settings and presets (copies, for the load screen; the originals are in `GLOBALS`), play time, the wall-clock save time, the thumbnail section's id, the **name tables** per prototype kind (§8.3), the **roster** (each player's index, name and colour; names are not world state, §4.4), and the **digest lineage** (`r` at the save's tick, as 16 hexadecimal digits; §4.8). Rust never reads the header: the shell strips it and passes the sections (§15.8).
+
+**Sections** (ids are stable and listed in `schema/sections.yaml`; all are hashed except the last two):
+
+```
+ENTITY_TABLE   POOL_* (one per pool)   SLOT_HEAP   COLD (binary records, by record type then serial)
+CHUNKS (modified chunks: tiles, hidden tiles, resources, trees with leaf stages, world objects, leafTimer;
+        occupancy rebuilt on load)   CHARTED (bitsets)
+THERMAL (sparse H, the emission and incoming accumulators, and leafTimer for pristine chunks, wherever nonzero)
+NETWORKS (what topology cannot rebuild: wires, switch states, belt contents, fluid-segment contents, circuit frames, train state)
+GLOBALS (one record; below)   TIMERS   RNG   PLAYERS (one record per player; was PLAYER)   RESEARCH
+STATS (ring buffers and exact totals)   BLUEPRINTS (records in this save)   UNDO (per player)
+WORLDGEN_PENDING (requested chunks and their commit ticks)   GENERATED (every generated chunk key, per surface)
+unhashed: CLOSURE_LOG (optional; §8.5, with its blobs inside)   THUMBNAIL (WebP from the renderer)
+```
+
+**Two encodings**, both canonical (equal state gives equal bytes):
+- **Column tables** for the entity table and every pool: `u32 rows, u16 fields, u16 reserved`, then per field `u8 nameLength, name, u8 type, u8 reserved, u32 offset, u32 length`, then the columns, each starting at a multiple of 8. Offsets count from the start of the section. `rows` is the pool's saved high-water mark; free slots hold their default values, except handle generations (§4.5). Type codes: 1 `u8`, 2 `u16`, 3 `u32`, 4 `u64`, 5 `i8`, 6 `i16`, 7 `i32`, 8 `i64`, 9 `f32`, 10 `f64`, 11 `bool` (one byte); id, enum and flag types are stored as their base type.
+- **Records** for everything else: a section holds `u32 count`, then per record `u32 length` (the bytes that follow for this record) and its fields as `(u16 fieldId, u32 length, value)` triples in ascending field id, every field present. In `COLD`, each record is `u16 recordType, u32 serial, u32 length`, then its triples, sorted by `(recordType, serial)`. Field ids are declared in the schema and never reused (§8.3). A list value is a `u32` count followed by its items in the field's declared order (D3, D20); an item that is itself a record is encoded as a record (`u32 length`, then triples), so lists nest.
+
+Floats are stored as their IEEE bits (there is no NaN in state, D6); strings as a `u16` length and UTF-8; padding bytes are zero.
+
+**The rule** (J2): everything not declared derived is saved. The schema enforces it, because a field without `saved` does not generate (D20); the save/load test (§10.4) catches what slips through. Section by section:
 - **`GLOBALS`**, the global simulation state of §4.4, defined by 01 §13.1 and 03:
   - the world's text: W_own, W_pub, Y_pub, the pending publication releases [(start tick, amount)], Σ, the two model-collapse windows (P_crawl and P_syn rings) and the crawl share c held from the last world-text pass (c is global, 03 §2.2);
   - the race state: v₀ preset, and the tick the race was finished or lost;
   - the leak L. The infections: {id, tier, member serials, next firing tick; Wild only, the tick of its last nest, for the 10-minute cap}. Wild only: nests, evolution T and its three terms;
   - the closure tick and the overhang snapshot, milestone times, achievement progress;
-  - the run-report accumulators: the 60-s power ring, recent research completion ticks with the best 600-s count, the doubling-time rings and history string, the hand-crafted count;
-  - the research scheduling toggle and the queue bylines (the queue itself is in `RESEARCH`).
+  - the run-report accumulators: the 60-s power ring, recent research completion ticks with the best 600-s count, the doubling-time rings and history string;
+  - the research scheduling toggle and the queue bylines (the queue itself is in `RESEARCH`);
+  - the world's identity and settings: the tick, the seed, the map settings and presets, the game settings (trimmed collision, D11) and the surfaces with their parameters;
+  - the serial counter, `last_system_seq` (§15.3) and the map tags (per force).
 - **Entity state** in the pools and the slot heap includes:
   - each deploying building's share ℓᵢ;
   - each machine's compromised flag and infection id, its consecutive zero-power tick count and (Wild) its escape due tick;
@@ -1770,17 +2108,27 @@ sections: [u32 id | u32 rawLength | u32 storedLength | u8 codec | bytes]   codec
   - the values cached at a cadence point and used until the next one: each Seminar's applied staff, each computing machine's throttle m (its chunk's last thermal update);
   - the Frontier cluster's run progress;
   - hall inventories: accelerators, weights and output.
-- **`TIMERS`**: every timer-wheel and heap entry as (dueTick, entitySerial, eventCode), re-keyed by serial on load (§4.6).
+- **`PLAYERS`**: every `PlayerState` of §4.4, including the input generation, `last_seq`, the inventory version (§4.8), the creation ring, the crafting queue, the clipboard, pins, the rule-affecting settings and the per-player accumulators. The hand-crafted count of the run report is the sum over players (§5.20).
+- **`NETWORKS`** also holds each electric network's satisfaction per class from the last tick, keyed by the network's lowest member serial (phase 2's timers read it before phase 4 recomputes it, §4.6), and the per-network electric statistics under the same key. Round-robin cursors and task queues (logistics, M3) are saved fields of their owners.
+- **`CHUNKS`** holds each modified chunk's ground items and rule version (§4.4) with its tiles and objects.
+- **`GENERATED`**: every generated chunk key per surface, sorted; chunks in it but not in `CHUNKS` are pristine and regenerate lazily (§4.4).
+- **`TIMERS`**: every timer that does work as `(dueTick, entitySerial, eventCode, owner)`, sorted in that order (D3 c), re-keyed by serial on load (§4.6). Wake timers are derived.
 - **`RNG`**: the states of every xoshiro stream (§4.3). Counter-based draws need no state.
+- **`WORLDGEN_PENDING`**: every requested chunk as `(surface, cx, cy, commitTick)`, sorted by commit tick, then surface, cx, cy (D8, §5.18). The data in flight is not saved: a loaded world regenerates it.
 
 **Derived, rebuilt on load and never saved:**
-- the topology of transport lines, fluid segments, data networks, electric, circuit and logistic networks and rail blocks; link clusters; active lists. What they hold is saved (in `NETWORKS`): belt items and gaps per lane in canonical order from each line's front, each fluid segment's amount and temperature keyed by its lowest member serial, each circuit network's output frame of the last tick, and each train's motion, path, reservations and schedule position. A load rebuilds the topology and then refills it;
+- the topology of transport lines, fluid segments, data networks, electric, circuit and logistic networks and rail blocks, with their canonical ranks (§4.6); link clusters. What they hold is saved (in `NETWORKS`): belt items and gaps per lane in canonical order from each line's front, keyed by the line's identity `(entity serial, belt index, lane)` (§5.3); each fluid segment's amount and temperature keyed by its lowest member serial; each circuit network's output frame of the last tick; each train's motion, path, reservations and schedule position. A load rebuilds the topology and then refills it;
+- active bits, wake sequence numbers and wake timers (§4.6); the serial index (§4.3); the slice-hash buckets (§4.8);
 - the staffing graph and the Terminal links (rebuilt at the next recompute; the applied staff values are saved);
-- u_p (recomputed every tick), `speedEff` (from saved inputs);
+- `speed_eff` (from saved inputs); u_p and the satisfactions are recomputed every tick in phase 4, but the last tick's values are saved (above);
+- the view versions of §15.4 and the content of pristine chunks (§4.4);
 - σ (from Σ), j and every F(W) floor (from W);
-- κ (from tiles and trees), T (from H).
+- κ (from tiles and trees), T (from H);
+- presentation fields (§4.5), which restart at their defaults.
 
 Saves stay small, and "incremental equals rebuilt" is tested (§10.4).
+
+**The state hash** (§4.8) is computed over the raw bytes of the hashed sections, so it is a property of the save, not of the machine that wrote it.
 
 **Size:** about 10–25 MB compressed for a late game, from 50–100 MB raw. At the slice's end it is ≤ 5 MB (§11).
 
@@ -1792,15 +2140,17 @@ Storage follows 07-ui §19.2. Everything runs in the IO worker.
 - **IndexedDB** via `idb` 8.0.3 holds database `game`, version 1, with stores:
   - `saves` (name → metadata, plus the blob when OPFS is missing);
   - `settings` (Interface, Graphics, Sound, Controls);
-  - `blueprints` (the library);
+  - `blueprints` (the library; records store prototype **names**, remapped to ids when placed, so a data edit never breaks a stored blueprint);
   - `runHistory` (the *Run history* of 07-ui §19.2: completed runs and achievements, exportable with the saves; R5-gate D4 renamed it, since a records store is an in-world archive);
-  - `bench`.
+  - `bench`;
+  - `rooms` (multiplayer: player tokens per room, recent games; 11 §6.3).
 - **Persistence and quota.**
   - `navigator.storage.persist()` is requested at the first save.
   - `navigator.storage.estimate()` feeds the main menu's "storage 41 MB of 2 GB" line.
   - A save that would exceed the quota is refused, with export or deletion offered.
 - **One tab at a time.** A `BroadcastChannel` lock: a second tab offers *Take over*, and the first saves and drops to a read-only notice.
-- **Offline.** A service worker caches the build, so a loaded game keeps working offline. Saves never leave the machine.
+- **Offline.** A service worker caches the build, so a loaded game keeps working offline. Single-player saves never leave the machine; multiplayer checkpoints go to the relay (11 §4).
+- **Integrity.** The IO worker computes the SHA-256 of every container it writes (WebCrypto) and keeps it with the metadata; a checkpoint's manifest carries it (§8.6).
 
 **Export and import:**
 - the File System Access API where available (Chromium);
@@ -1808,30 +2158,55 @@ Storage follows 07-ui §19.2. Everything runs in the IO worker.
 
 The file is the container itself, named `<name>.save`. Import refuses a newer format with a message, and older formats migrate forward (§8.3).
 
-**Settings that affect the simulation** (map settings, the presets for Heat, runaways and r, trimmed collision) live in the save. Interface settings live in IndexedDB.
+**Settings that affect the simulation** (map settings, the presets for Heat, runaways and r, trimmed collision, the rule-affecting personal settings) live in the save as world state (D11). Interface settings live in IndexedDB.
 
 ### 8.3 Versioning
 
-- **Pools load by field name** using the descriptors in the header. Added fields take defaults and removed fields are dropped, like protobuf.
-- **Semantic changes** run migration functions registered by format version, in sequence.
-- **Prototypes are remapped by name.** An entity whose prototype disappeared is removed with a load report (Factorio's mod-removal behaviour). An item disappears from inventories, also with a report.
+- **Pools load by field name** using each column table's directory. Added fields take their schema defaults and removed fields are dropped, like protobuf.
+- **Records load by field id.** Unknown ids are skipped (their lengths are known), and missing ones take their defaults (`since`, §15.1).
+- **Semantic changes** run migration functions in `sim::migrate`, registered by format version, in sequence.
+- **Prototypes are remapped by name.** When a save's `prototypesHash` differs from the build's, the shell builds remap tables (old id → new id, or "removed") from the save's name tables and passes them to `sim_load` (§15.8), one per kind of the `ProtoKind` enum (item, fluid, recipe, entity, technology, resource, tile, world object, signal). The generated loader remaps every field whose type is a prototype id or an item key. An entity whose prototype disappeared is removed, and an item disappears from inventories; the sim lists both in a **load report** (`sim_load_report`, §15.8), which the shell forwards to the main thread (`loadReport`, §3.2) for 08's notice (Factorio's mod-removal behaviour).
 - **Golden saves** from each milestone are kept in `test/saves/` and must load in every later build (§10.4).
 
 ### 8.4 Autosave
 
 - Every 5 minutes, into 3 rotating slots (I §4.20; both settable).
-- **Non-blocking:** the sim worker copies its pools at a tick boundary (about 50 ms for a late game; the stall target is in §11) and transfers the buffers to the IO worker. That worker compresses and writes while the game keeps running.
+- **Non-blocking:** at a tick boundary the shell calls `sim_save`, copies the sections out of linear memory into transferable buffers (about 50 ms for a late game; the stall target is in §11), and transfers them to the IO worker, which compresses, hashes and writes while the game keeps running.
 - A toast reports the save. Saving on exit is attempted on `pagehide`.
+- In multiplayer, client autosaves stay on, and the stall is invisible: the client falls a few ticks behind and catches up (11 §4.6).
 
 ### 8.5 Replays and bug bundles
 
-- **Input logs.** Every `InputAction` is stored with its tick. `__game.replay(save, log)` reproduces any session bit-identically (§4.1).
+**The closure log** (S8) replaces round 5's input log: it stores closures verbatim, with every blob they name, so single-player replays and bug bundles share one self-contained format, and the relay's room log (11 §6.4), which stores closed ticks in the wire format, converts to it entry by entry. A closure log replays only under the build and `prototypesHash` it names.
+
+```
+CLOSURE_LOG (a save section, or a file *.pwlog with the same bytes)
+  header:  u32 magic "PWCL" | u16 formatVersion (1) | u8 actionSchemaVersion | u8 flags (bit 0 HAS_DIGESTS)
+           | u32 startTick (the tick of the start checkpoint) | u32 endTick
+           | u8 buildHash[32] | u8 prototypesHash[32] | u32 startStateHash.lo | u32 startStateHash.hi
+  records: for each tick in (startTick, endTick] with a non-empty closure, ascending:
+           u32 tick | u32 length | closure bytes (§15.3)
+  digests: if HAS_DIGESTS: u32 firstTick | u32 count | count × (u32 lo, u32 hi) per-tick digests d_t
+  blobs:   u32 count | count × (u8 sha256[32] | u32 length | bytes)   every blob a closure references
+```
+
+- **Replay.** `__game.replay(log)` and `simtool replay save log` load the start checkpoint, then run every tick from `startTick + 1` to `endTick` through a `LocalSequencer` in replay mode, with the recorded closure or an empty one, supplying blobs as their ticks come. With `HAS_DIGESTS`, each tick's digest is compared and the first mismatch reported. The result is bit-identical in every engine (§4.1).
+- **Recording.** In single player the shell records the closure log since the last autosave whenever the dev setting is on or a bug bundle may be needed (always in dev builds); its cost is the closures themselves, a few kilobytes per minute of play. Autosaves may embed it as the `CLOSURE_LOG` section.
 - **Bug bundles** (`/report` or Ctrl+Alt+F12) contain:
-  - the last autosave plus the log since it;
+  - the last autosave plus the closure log since it, with digests;
+  - the shell's digest ring (§4.8);
   - the console log;
   - a screenshot and the build hash.
 
-  They are POSTed to the dev server (§3.5), where Claude replays them headlessly in Node to the reported tick and inspects state. This is the main debugging channel for anything the user sees.
+  They are POSTed to the dev server (§3.5), where Claude replays them natively (`simtool replay`) to the reported tick and inspects state; `simtool bisect` finds the first tick where a replay's digests leave the recorded ones, and per-phase digests name the system. This is the main debugging channel for anything the user sees.
+
+### 8.6 Checkpoints
+
+A **checkpoint** (S9) is a complete save written at a tick boundary: "write a checkpoint after tick T" copies the state exactly as the next tick would see it. It is the ordinary container of §8.1 with every section (cold data, timers, RNG, the blueprint store, per-player state and pending worldgen requests included; D8) and the digest lineage in its header. Serialization is canonical and section-wise; no page layout for delta transfer is committed (11 §5.2).
+
+**The manifest** travels with a checkpoint whenever it leaves the machine (joins, re-syncs, server saves; 11 §4.3), and is kept beside the container (in the save's metadata), never inside it, since it holds the container's own SHA-256: checkpoint id, tick, build hash, protocol version, schema hash, `prototypesHash`, rolling digest at the tick, the full state hash (§4.8), total bytes, chunk size, chunk count and the SHA-256 of the compressed container. In multiplayer it also names the room and the room generation.
+
+**Fast-forward.** "Load and run ticks up to H as fast as possible": load into a fresh worker, then run the buffered closures with extraction off and events historical, in time slices of at most 12 ms that yield to messages (§3.3). Joins, re-syncs, resumed rooms and replays all use it.
 
 ---
 
@@ -1938,6 +2313,10 @@ They are normalised and encoded the same way.
 - **GPU memory:** §6.13.
 - **Asset builds** are reproducible from the scripts. Outputs are cached outside git by content hash, and only the sources are committed.
 
+### 9.7 Loading and streaming
+
+*Stub: WP B2 writes this section (code splitting, assets on demand by tier and era, caching, compression and memory). It may rely on the sprite manifest's `group` field (§15.7), `build-manifest.json` (§2.3) and the one-world-per-worker rule (§3.1).*
+
 ---
 
 ## 10. Testing and verification
@@ -1946,26 +2325,31 @@ They are normalised and encoded the same way.
 
 | Level | Tool | Runs | Share |
 |---|---|---|---|
-| Unit | Vitest (Node) | Gap encoding, segment merging, satisfaction, RNG, the save codec, parsers | many, milliseconds each |
-| Scenario | Vitest + the scenario DSL (sim in-process) | Golden ratios, rule behaviour, determinism | hundreds, ≤ 1 s each |
-| Property | fast-check | Random build, rotate and remove sequences against invariants | dozens |
-| E2E | Playwright 1.64.1 + Chrome 156 (SwiftShader) | I's feel tests F1–F28, window screenshots, smoke | dozens, seconds each |
+| Unit (Rust) | `cargo test` (native) | Gap encoding, segment merging, satisfaction, RNG, `det`, the save codec, the expression interpreter, codecs | many, milliseconds each |
+| Unit (TypeScript) | Vitest (Node) | Codecs and decoders, the shell against a dev build of `sim.wasm`, the sequencer, subscriptions and generations, the data stage, UI logic | many, milliseconds each |
+| Scenario | `cargo test --profile ntest` with the scenario DSL | Golden ratios, rule behaviour, determinism (each scenario also runs under NO_SLEEP and through a mid-run save and load) | hundreds, ≤ 1 s each |
+| Property | proptest (Rust), fast-check (TypeScript) | Random build, rotate and remove sequences against invariants; fuzzed closures; codec limits | dozens |
+| Cross-engine | `simtool` and Playwright | The same closure logs natively, in Node, Chrome and Firefox: per-tick digest traces and full state hashes | nightly; one smoke trace in `ci` |
+| E2E | Playwright 1.64.1 + Chrome 156 (SwiftShader), Firefox 157 (`?render=none`) | I's feel tests F1–F28, window screenshots, smoke | dozens, seconds each |
 | Visual | Playwright + pixelmatch + Claude review | Galleries, windows, overlays | per change |
-| Benchmark | Node runner; `bench.html` on the user's laptop | ms per tick, heap, frame time | per milestone and on hot-path changes |
+| Benchmark | `simtool bench` (native), the Node and browser runners, `bench.html` on the user's laptop | ms per tick, memory, frame time | per milestone and on hot-path changes |
 
 ### 10.2 The scenario DSL
 
-```ts
-test('memo block makes 60/min', () => {
-  const w = Scenario.fromLayout('test/layouts/memo-60.txt', { power: 'infinite', seed: 1 });
-  w.run(minutes(2));                                    // warm-up
-  const n0 = w.stats.produced('memo');
-  w.run(minutes(10));
-  expect(Math.abs(w.stats.produced('memo') - n0 - 600)).toBeLessThanOrEqual(1);
-});
+Scenarios are Rust tests against the `sim` crate. They drive the World **through closures**: every helper that changes the world encodes an action with the generated codec and runs it through a `LocalSequencer`, so every scenario exercises the action pipeline (S2).
+
+```rust
+#[test]
+fn memo_block_makes_60_per_min() {
+    let mut w = Scenario::from_layout("test/layouts/memo-60.txt", Opts { power: Power::Infinite, seed: 1 });
+    w.run(minutes(2));                                        // warm-up
+    let n0 = w.stats().produced("memo");
+    w.run(minutes(10));
+    assert!((w.stats().produced("memo") - n0 - 600).abs() <= 1);
+}
 ```
 
-**Layouts are ASCII grids.** A legend header maps characters to `entity[:dir][:recipe]`, and multi-tile entities are anchored at their top-left character:
+**Layouts are ASCII grids** (`test/layouts/*.txt`, shared with the TypeScript tools). A legend header maps characters to `entity[:dir][:recipe]`, and multi-tile entities are anchored at their top-left character:
 
 ```
 # legend: C=iron-chest  i=inserter:E  A=assembler-1:recipe=iron-gear-wheel  >=transport-belt:E  E=electric-interface
@@ -1975,9 +2359,11 @@ C i A . . i C
 ```
 
 **Helpers:**
-- `place(id, pos, opts)`, `insert(entity, items)`, `run(ticks)`, `stats.*`, `entityAt(pos)`;
+- `place(id, pos, opts)`, `insert(entity, items)`, `run(ticks)`, `stats()`, `entity_at(pos)`, `act(action)`;
 - `infinite power` and `infinite source/sink` test entities;
-- `hash()`.
+- `hash()`, `digest()`, `save()` and `load()`.
+
+**Every scenario runs three ways** by default (`Scenario::check_equivalence`, on in `ntest`): as written; under NO_SLEEP; and saved and loaded into a fresh World at a seeded random tick. The three must agree on every per-tick digest and on the full state at the end (D18 a, b). Each scenario also records its closure log in `test/logs/`, which the cross-engine runs replay (§10.4).
 
 ### 10.3 Golden ratio tests (expected values from Factorio and the wiki, frozen after the first pass)
 
@@ -1997,7 +2383,7 @@ C i A . . i C
 | G12 | Brownout | At 80% supply, an assembler runs at 80% ± 1% averaged |
 | G13 | Fluids | 10 chemical plants on one segment get equal shares ±10%; a pump moves exactly 1,200/s; a 251-tile pipeline carries no flow |
 | G14 | Labs | Research rate = Σ speed ÷ unit time; packs drain per unit |
-| G15 | Thermal field (F's calibration) | TS and `tools/ref/heat_calib3.py` (F's `calib3.py`, verbatim) agree within **0.5 K at steady state**, the one tolerance shared with 09 S-G4. Cases: 09 S-G4's (grass, ambient 15 °C, 2 chunks × 18 MW + 3 × 3 chunks × 2 MW: plant chunks (28, 32) +24.7 K and (29, 32) +25.4 K, the empty chunk (30, 32) +13.0 K, the consumer block's corner nearest the plant (31, 32) +10.1 K, the block's centre (32, 31) +9.0 K, steady within 30 game-minutes) and 03 §1.6's table |
+| G15 | Thermal field (F's calibration) | The engine and `tools/ref/heat_calib3.py` (F's `calib3.py`, verbatim) agree within **0.5 K at steady state**, the one tolerance shared with 09 S-G4. Cases: 09 S-G4's (grass, ambient 15 °C, 2 chunks × 18 MW + 3 × 3 chunks × 2 MW: plant chunks (28, 32) +24.7 K and (29, 32) +25.4 K, the empty chunk (30, 32) +13.0 K, the consumer block's corner nearest the plant (31, 32) +10.1 K, the block's centre (32, 31) +9.0 K, steady within 30 game-minutes) and 03 §1.6's table |
 | G16 | Staffing | Supply 2, four working speed-1 Seminars → each at 0.5 speed. With +40% speed from modules in each, demand is 4 × 1.4 = 5.6 → 0.357. A Researcher in the slot → 1.0 and demand 0 (§5.10) |
 | G17 | Takeoff (M4) | A scripted takeoff from the reference closure state reproduces 04 §0's reference within 5%: the takeoff time and the time of the last 10 technologies, whose current values 04 §0 owns. The reference is `design/round4/world-sim/takeoff_r4.py` (00 §10), which imports round 2's `r2w_full.py` and G's `takeoff.py` and runs them at 60 s per unit with the round-4 closure state |
 | G18 | Quality | A 10⁶-craft run matches the analytic tier distribution within 3σ, with the verifier cap (§5.16) and catalysts returned at their own quality |
@@ -2011,14 +2397,25 @@ C i A . . i C
 
 ### 10.4 Determinism and structural invariants
 
-1. **Repeatability:** the same scenario run twice gives the same hash.
-2. **Save/load:** run to tick *t*, save, load, continue to *T*; the hash equals an uninterrupted run.
-3. **NO_SLEEP equivalence** on every scenario (§4.6).
-4. **Replay:** recorded E2E sessions replay in Node to the same hash.
-5. **Incremental equals rebuilt** (property tests). After random edit sequences, transport lines, fluid segments, electric, circuit, logistic and data networks and rail blocks equal a from-scratch rebuild in canonical form.
-6. **Conservation:** total items across inventories, belts, hands, the ground, agents and machine slots (staff, accelerator, weights and rollback inputs included) change only through recorded production, consumption, mining, crafting, rollback and destruction. Fluids likewise.
-7. **Old saves:** every golden save from earlier milestones loads and runs 1,000 ticks without error.
-8. **Worldgen sweeps** (09 S-G1). Every guarantee of 01 §9 is checked over 1,000 seeds, including DECISIONS §32's compactness (the four starting patches and the starting archive inside the starting college's coverage square) and the lake rule. The same seed must give identical chunk hashes twice. The sweep runs in the worker pool, about a minute on this host's 32 threads, in `npm run test:slow`. It is run nightly and before milestone exits, not in `ci`.
+The D18 suites (§4.1) compare **full canonical state**, not only digests: a full-state mismatch also reports the first differing section and field, decoded by the generated readers.
+
+| # | Test | What | Where |
+|---|---|---|---|
+| 1 | Repeatability | The same scenario run twice gives the same per-tick digests and hash | every scenario (`cargo test`) |
+| 2 | Save/load | Run to tick t, save, load into a fresh World, continue to T: equal to an uninterrupted run; also 10,000 ticks after load on the benchmark saves (D8) | every scenario; `test:slow` |
+| 3 | **Join equivalence** D18(a) | Save at seeded random ticks, load, and compare per-tick digests and the full state every 600 ticks and at the end against the uninterrupted run | every scenario and fuzz case |
+| 4 | **NO_SLEEP equivalence** D18(b) | Per-tick digests and full state equal with and without sleeping (§4.6) | every scenario; Mid and Late saves in `test:slow` |
+| 5 | **Heavy mode** D18(c) | Every k ticks, serialize, load into a second World, step both and compare full state; finds unsaved state and order-dependent rebuilds (after Factorio's heavy mode) | `test:slow` on long runs; `?heavy=1` in the browser |
+| 6 | **Cross-engine** D18(d) | The same closure logs natively (`simtool replay --trace`), in Node, Chrome and Firefox (the trace page, §10.5): identical per-tick digest traces and final hashes | `ci`: one 10,000-tick log; `test:slow`: every log in `test/logs/`, on the release build too |
+| 7 | **Replay** D18(e) | Every recorded session (E2E closure logs, bug bundles, the scripted opening) replays to its recorded digests and hash | `npm test`, `test:slow` |
+| 8 | **Multi-client harness** D18(f) | N Worlds in one process fed one closure stream through a simulated sequencer; joins by checkpoint mid-run; full-state agreement after every injected fault. M0 builds it natively in Rust; the MP milestone adds the relay's `RoomCore` and a simulated network (11 §9) | `cargo test`; MP |
+| 9 | **Codec and wire probes** D18(g) | Every action, event, projection and packet record at its field limits; refusal of over-long payloads, truncated batches, unknown types and versions; fuzzed closures never trap. The MP milestone adds the relay's wire probes (11 §9) | `cargo test`, Vitest |
+| 10 | Incremental equals rebuilt | After random edit sequences, transport lines (with their ranks), fluid segments, electric, circuit, logistic and data networks and rail blocks equal a from-scratch rebuild in canonical form, **including the floats each network computes** (D4) | property tests |
+| 11 | Conservation | Total items across inventories, belts, hands, the ground, agents and machine slots (staff, accelerator, weights and rollback inputs included) change only through recorded production, consumption, mining, crafting, rollback and destruction. Fluids likewise | property tests |
+| 12 | Old saves | Every golden save from earlier milestones loads and runs 1,000 ticks without error (§8.3) | `npm test` |
+| 13 | Pure reads (D9) | The full state hash is unchanged by a burst of extractions over random views, every query kind and every projection kind | `cargo test` |
+| 14 | Worldgen | Sweeps (09 S-G1): every guarantee of 01 §9 over 1,000 seeds, including DECISIONS §32's compactness and the lake rule; the same seed gives identical chunk hashes twice; no pool, 1 worker and 4 workers give identical chunks and world hash (D12) | `test:slow` (about a minute on this host's 32 threads) |
+| 15 | Allocation | Zero heap allocations in 6,000 steady-state ticks of each benchmark save (§2.5) | `test:slow` |
 
 ### 10.5 E2E and screenshots
 
@@ -2027,17 +2424,19 @@ C i A . . i C
   - Measured: 20k sprites per frame take about 70 ms on SwiftShader with expanded quads.
 - **Feel tests:** I §6's F1–F28 drive the **real input layer** (keyboard and mouse events), step the sim with `__game.step(n)`, and assert with `__game.query`.
 - **Window screenshots:** `__game.ui.open(name)` for every window and state, with golden diffs (pixelmatch, threshold 0.1, ≤ 0.1% pixels).
-- **Every E2E test fails on any console error or warning** from the page or the worker (forwarded, §3.2).
+- **Every E2E test fails on any console error or warning** from the page or the workers (forwarded, §3.2).
 - **Smoke** (`@smoke`): new game, walk, mine, craft, place, save, reload, hash. It runs in `npm run ci`.
 - **Firefox.** 09's S-G13 needs Firefox determinism hashes and S-G14 needs a Firefox capture self-test.
-  - Playwright 1.64's Firefox 157 build installs user-mode (`PLAYWRIGHT_BROWSERS_PATH`, with the `ubuntu22.04-x64` override) and **launches on this host**, but has **no WebGL2** in headless mode, even with `webgl.force-enabled`.
+  - Playwright 1.64's Firefox 157 build lives in Playwright's own cache and **launches on this host** with Workers and WebAssembly, but has **no WebGL2** in headless mode, even with `webgl.force-enabled`.
   - Firefox runs therefore use `?render=none`, a renderer stub that keeps the canvas and DOM but draws nothing. The sim, input and UI paths are fully exercised.
   - Firefox *rendering* is checked on the user's machine (§10.7).
-- **The scripted opening** (09 §7.1) is a recorded input log on a fixed seed, replayed through the real input layer on every build. Its milestone times and state hashes are regression goldens.
+- **The trace page** (`test/trace.html`): loads a closure log and its start save in the real sim worker, replays it with extraction off, and posts the per-tick digest trace and final hash. Playwright runs it in Chrome and Firefox; `simtool replay --trace` produces the native trace and Node runs the same worker code in-process. All four must be identical (D18 d).
+- **The scripted opening** (09 §7.1) is a recorded **input script** (keyboard and mouse events by game tick) on a fixed seed, replayed through the real input layer on every build. The closure log it produces, its milestone times and its state hashes are regression goldens; a data edit that renumbers prototypes changes the closure log, never the script.
+- **Trap recovery** (§3.6): a dev-only action that panics the module must show the trap notice, reload the last autosave in a fresh worker and leave a bug bundle that reproduces the panic natively.
 
 ### 10.6 Benchmarks and calibration
 
-**Scenarios** are generated by `bench/factories/*.ts` and stored as saves:
+**Scenarios** are generated by `bench/factories/*` (A1's seeded generator, `design/engine-study/gen/`, is the starting point) and stored as saves:
 
 | Scenario | Content |
 |---|---|
@@ -2051,29 +2450,35 @@ C i A . . i C
 | `circuits-2k` | Combinators |
 | `takeoff-500` | 500 compute halls |
 
-**Runner:** `node bench/run.ts --scenario X --ticks 3600` reports the median and p95 ms per tick, per-phase ms, heap and allocations. Results append to `bench/history.jsonl` with the git hash. `npm run ci` fails on a regression above 10% against the host baseline.
+**Runners.** `simtool bench --scenario X` (native), the Node runner (WebAssembly in a worker thread) and the browser runner (WebAssembly in a module worker in Chrome and Firefox, driven by Playwright; A1's `harness/bench-core.ts` is the starting point) report the mean, p50, p90, p99 and maximum ms per tick, per-phase µs, linear-memory bytes and allocations. Results append to `bench/history.jsonl` with the git hash, the host's clock log and the load during the run.
+
+**Method** (A1; IMPL-3).
+- Pin to socket 0 (`taskset -c 0-7`); other agents use socket 1. Check the load first.
+- Warm up 6,000 ticks (the regimes are steady by then), time 3,600 ticks one by one, then 600 with per-phase timers; repeat at least 3 times.
+- The host runs at its 2.6 GHz base clock with turbo windows of minutes, so single runs differ by up to about 25%. **Comparisons are paired within one session**: the variants alternate within each repetition, in alternating order, with the clock logged (`freqlog.sh`) during every timed window; runs with turbo in their window are flagged and kept out of absolute numbers.
+- **No gate against history.** `history.jsonl` is a log, not a baseline. `npm run ci` runs `bench --quick` only as a **budget gate**: a scenario fails when its p99 exceeds its §11 budget times the host factor (2.4). A hot-path change must come with a paired A/B (`npm run bench:ab -- --base <rev>`: both builds, interleaved, reporting the paired ratio and its spread) in its report.
 
 **Calibration with the user's laptop.**
 - The user opens `http://127.0.0.1:5173/bench.html` through the tunnel once per milestone.
-- The page runs the same scenarios in a worker, plus a render benchmark (synthetic scenes at the §6.12 sizes, frame times by `performance.now` around `gl.finish` sampling).
+- The page runs the same scenarios in a worker (WebAssembly, as in the game), a render benchmark (synthetic scenes at the §6.12 sizes, frame times by `performance.now` around `gl.finish` sampling), the audio benchmark (A4) and, from the MP milestone, the hidden-tab check (11 §9).
 - It POSTs to `/__bench`.
-- The measured host/laptop ratio (estimated at about 1.8 for §11's reference machine) turns host numbers into laptop predictions. The render numbers are the only GPU truth available.
+- The measured host/laptop ratio (estimated at 2.4 for §11's reference machine at the host's base clock) turns host numbers into laptop predictions. The render numbers are the only GPU truth available.
 
 ### 10.7 The verification loops
 
 **Claude's loop, per feature:**
 1. Write or extend scenario tests from the spec (red).
-2. Implement until they pass (green).
+2. Implement until they pass (green), natively: `cargo test` builds incrementally in 1–3 s (A1).
 3. Run `npm test`. Run `npm run e2e -- --grep <area>` when input or UI changed.
 4. Take screenshots of the affected scenes and windows with Playwright or MCP. **Read the PNGs.** Check the console.
-5. Run `npm run bench -- --quick` if a hot path changed.
+5. Run `npm run bench:ab` if a hot path changed.
 6. Run `npm run ci` before committing.
 
 Software rendering here is visually faithful but slow, so Claude judges frames, never frame rates.
 
 **The user's loop, per milestone or on request:**
 1. Play through the tunnel on a real GPU.
-2. Use `/report` for anything wrong. Claude replays it headlessly.
+2. Use `/report` for anything wrong. Claude replays it natively.
 3. Run `bench.html` for performance truth.
 4. Use `/shot` for visual issues seen only on real hardware.
 
@@ -2081,7 +2486,7 @@ Playtest checkpoints are part of each milestone's exit criteria (§12).
 
 ### 10.8 Rule scenarios (one per engine rule that the design left open until round 4)
 
-Each is a scenario test (§10.2) in `test/rules/`, named by the critique's tag, and each also runs under NO_SLEEP and through a save/load in the middle (§10.4 #2–#3).
+Each is a scenario test (§10.2) in `crates/sim/tests/rules/`, named by the critique's tag, and each also runs under NO_SLEEP and through a save/load in the middle (§10.2).
 
 | # | Rule | Scenario and pass condition |
 |---|---|---|
@@ -2105,6 +2510,15 @@ Each is a scenario test (§10.2) in `test/rules/`, named by the critique's tag, 
 | R18 | Closure gate (R5-gate D9) | With *Automated research* researched and 20,000 System cards in Seminars but no hall card, no System-card-only technology is available and none can be queued. The first *Research run* completes the hidden *Loop closed* in the same tick as `loopClosed`; *Model generation 6* and the gated hardware become available; no toast, no research log line, no Peak-research-rate count |
 | R19 | Doubling readout (R5-gate D11) | A scripted rate R̄ that doubles every 60 s, dips to 10% for 30 s, then recovers: DT never reads less than the true doubling time during or after the dip, and *Fastest doubling* and the history change only at new maxima of R̄ |
 | R20 | *Wild* gaps (R5-gate D13; M5) | A compromised machine with no path out keeps re-arming its escape timer and founds a nest within one interval of gaining a path out. With no agent hub, a nest lands 3 chunks beyond the built area. A laser-damage bonus changes the laser turret's damage and not the arc turret's |
+| R21 | Line order (A1 finding 3; §5.3) | A compressed belt of 8 lines built upstream-first, downstream-first and in random order carries the same items per minute with no gap at any line boundary; a belt loop opens at most its one documented gap; results are identical after a save and load |
+| R22 | Mixed dead-end lane (A1 finding 4) | A dead-end lane carrying two item types, with an inserter that takes one of them, jams once unwanted items fill the pickup window, as in Factorio |
+| R23 | Input fencing (D22) | A player walking with a start-walking action stamped for tick 1,010 in flight is released at tick 1,003: the character stops at 1,003 and the later start is fenced (no movement, an `input_fenced` event) |
+| R24 | Targets by identity (D23) | Player A mines an entity and player B builds the same prototype in its place in the same tick; A's queued rotate naming the old serial fails with "target gone" and never rotates B's entity |
+| R25 | Creation ids (S5) | Rotate an entity by creation id before its build is confirmed: it rotates the right one; if the build failed, the rotate fails cleanly |
+| R26 | Offline characters (§5.1) | A player leaves while walking, mining and hand-crafting: the character stays, stops and keeps its inventory; the hand returns to the inventory if it fits; the queue resumes on return |
+| R27 | Per-player order (D21) | A batch whose first seq is not above the player's saved `last_seq` is refused with `ERR_FRAMING` in every build, also right after a save and load (a negative test); the same actions in order apply in send order |
+| R28 | Inline commits and pristine chunks (§4.4, §5.18, D12) | A chunk whose worker answer is withheld is generated inline at its commit tick with the same chunk hash; a late answer, or one carrying another world's hash, is ignored; with no pool at all the world hash is unchanged. A save and load with pristine chunks next to a heat source and under an agent's path continues bit-identically, and loading a save with 30,000 generated chunks regenerates none of them until a rule or the view touches them |
+| R29 | Per-player settings (D11) | Two players with different auto-sort settings: each inventory sorts by its owner's setting. A client-only setting (smart belts, even distribution) changes which actions are sent, never how an action executes |
 
 ---
 
@@ -2115,17 +2529,19 @@ This section is the **single source** of the game's performance targets (J7). 09
 **Machines.**
 - **Reference** (every budget below unless stated): a 2019–2020 mid-range laptop with 4 cores, an integrated GPU of the Intel UHD 620 class, 8 GB RAM, current Chrome or Firefox, and a 1920×1080 window.
 - **Target:** a 2022 or newer machine, for example a laptop with an i5-1240P, Iris Xe graphics and 16 GB. Everything should hold 60 FPS there, and the megabase stretch is measured there.
-- **This host** runs at roughly 0.55× the reference's single-thread speed, so host budgets are reference budgets × 1.8. This is an estimate from published single-thread scores until `bench.html` confirms it on the user's machine (§10.6).
+- **This host** runs at about **0.42×** the reference's single-thread speed at its 2.6 GHz base clock, so host budgets are reference budgets × **2.4** (A1; round 5 assumed 0.55× and × 1.8, which holds only in turbo windows). This is an estimate from A1's measurements and published single-thread scores until `bench.html` confirms it on the user's machine (§10.6). The target machine is about 1.4× the reference.
 
 **Budgets by scale** (reference machine):
 
-| Scale | Typical counts | Sim (ms/tick) | Frame | Worker heap | UPS |
+| Scale | Typical counts | Sim (ms/tick) | Frame | Sim worker memory | UPS |
 |---|---|---|---|---|---|
 | **Slice** (M1: the end of 09's tree) | About 3k entities: 2k belt tiles, 4k belt items, 400 inserters, 100 machines, 60 drills, about 24 Seminars; ≤ 2k charted chunks and about 60 generated towns. A stress save at 5k entities must still hold 60 UPS | mean ≤ 1, p99 ≤ 2 | 60 FPS at 1× | ≤ 150 MB | 60 |
 | **Mid** (end of Article) | 40k entities, 20k belt tiles, 60k items, 6k inserters, 1.5k machines, 30 trains, 300 combinators | ≤ 5 | 60 FPS at 1×; ≥ 30 at 0.3× | ≤ 400 MB | 60 |
 | **Late** (Model card) | 150k entities, 60k belt tiles, 250k belt items, 25k inserters, 6k machines, 5k agents, 100 trains, 2k combinators, 30k explored chunks. A 1–1.5 SPS closure base is 60–90k entities (R3-balance §7), so this leaves room for a 3–5 SPS player | ≤ 12 | 60 FPS at 1×; ≥ 30 at 0.3× | ≤ 1 GB | 60 |
 | **Takeoff** | Late + 250–500 Research halls + 2 GW. 04's reference grows from 100 to 245 halls | ≤ 14 | as Late | ≤ 1 GB | 60 |
 | **Megabase stretch** (target machine) | 400k entities. A *Hard takeoff* megaproject (1,000+ halls, 5 GW, about 12k more entities; 04 §7) fits here, not in the Takeoff row | ≤ 25 | — | ≤ 2 GB | ≥ 40 |
+
+"Sim worker memory" is the WebAssembly linear memory plus the shell's buffers. Linear memory never shrinks, which is one reason every world gets a fresh worker (§3.1).
 
 **Slice acceptance** (M1's exit; reference machine, the typical slice-end base above):
 
@@ -2136,57 +2552,65 @@ This section is the **single source** of the game's performance targets (J7). 09
 | Frame at zoom 1× | 60 FPS: main thread ≤ 4 ms, GPU ≤ 6 ms (§6.12) |
 | UI time per frame, character screen and one entity window open | ≤ 2 ms (§7.3) |
 | Chart pan and zoom; the minimap with an overlay | 60 FPS |
-| Worker heap | ≤ 150 MB |
+| Sim worker memory | ≤ 150 MB |
 | GPU textures | ≤ 256 MB at High (§6.13) |
 | Heat field | < 0.01 ms per tick for 4,096 chunks (§5.9) |
 | Staffing recompute (every 60 ticks) | ≤ 50 µs (§5.10) |
 | Input to visible response | ≤ 2 frames (I §1.3) |
 | First frame of a new slice game | ≤ 8 s cold, ≤ 3 s warm |
-| Autosave stall | ≤ 100 ms (the pool copy only) |
+| Autosave stall | ≤ 100 ms (the section copy only) |
 | A window opens; a Handbook search keystroke | ≤ 100 ms; ≤ 50 ms |
 | Save size at the slice's end | ≤ 5 MB |
 | Download | ≤ 30 MB |
+| Audio | the audio-thread budget of §9.4 (set by WP B2) |
 
 **Every scale:**
-- **Loading** a late save ≤ 3 s.
-- **Autosave stall** ≤ 100 ms (the pool copy only).
-- **Garbage collection:** the sim tick allocates nothing (§2.5); main-thread GC pauses ≤ 2 ms.
-- **Input latency** ≤ 2 frames from key to rendered effect.
+- **Loading** a late save ≤ 3 s; `WebAssembly.compileStreaming` of `sim.wasm` ≤ 50 ms (A1: 4.7 ms in Chrome, 8.9 ms in Firefox for a 70 kB study module). Pristine chunks are not regenerated at load (§4.4): at 1–2 ms per chunk, regenerating a late game's 30k explored chunks would take far longer than the budget, so they come back lazily, the characters' surroundings first (about 50 chunks, under 0.1 s).
+- **Autosave stall** ≤ 100 ms (the section copy only).
+- **Garbage collection:** the sim tick allocates nothing (§2.5), and neither does the shell's per-tick path; main-thread GC pauses ≤ 2 ms.
+- **Input latency** ≤ 2 frames from key to rendered effect in single player (multiplayer: 11 §3.4).
 - **Memory:** the whole tab ≤ 1.5 GB in a late game, plus GPU textures (§6.13).
 - **Spikes:** a research effect burst costs ≤ 2 ms in its worst tick (§4.7).
+- **Audio** (IMPL-6): A4 measured the audio thread at 36–76% of a core on this host, about 20–42% on the reference. Its budget and the cuts that meet it belong to §9.4 (WP B2); `bench.html` measures it before M1 exits.
+- **Catch-up** (multiplayer joins and re-syncs; 11 §4.4): the sim must run at **≥ 3× game speed** with extraction off (≤ 5.5 ms per tick) at Late scale on the reference machine, so that the backlog of a 20-s download and load (1,200 ticks) clears in about 10 s. §4.7's model predicts about 1.8 ms per tick without extraction, i.e. about 9×.
 
 ---
 
 ## 12. Milestones
 
 **Sizes:**
-- Production and test TypeScript lines are estimates.
+- Production and test lines (Rust and TypeScript together, generated code excluded) are estimates.
 - **One agent-day** is one long Claude Code session producing about 1.5–2.5k lines of reviewed, tested code, or the equivalent asset work.
 - The uncertainty is ±50%. Asset work (Blender, SVG, audio) is included and runs at about 20% of each milestone.
+- **Version 2 resized the plan** (Changes in v2, row 24). M0 is itemised below and is about three times round 5's estimate: round 5 counted neither the schema and generator, the boundary, the worker shell, nor the multiplayer seams and D18's tests, and A1 already expected Rust to add 20–30%. M1–M4 gain 10%: Rust takes about 1.2× the TypeScript lines for the same logic (A1's two kernels), and features cross the boundary as projections and schema entries (A1-r1).
 
-**Parallel streams.** After M0, four streams can run as parallel agents against the M0 contracts:
-1. the sim;
+**Parallel streams.** M0 starts with the *schema* work package alone (§15.11): the scaffold, the schema and generator, the data stage and CI. Then the sim, the shell, the renderer, the UI, the asset pipeline and audio run as parallel agents against the contracts of §15, with the fake sim (§15.10) standing in for the real one until integration. After M0, four streams continue:
+1. the sim (Rust);
 2. the renderer and assets;
 3. the UI and input;
 4. worldgen and tooling.
 
-The contracts are the `shared/` types, the prototype JSON and the sprite manifest. The critical path is sim → UI integration. With three agents, calendar time is about 45–55% of the agent-days.
+The critical path is sim → UI integration, through projections. With three agents, calendar time is about 45–55% of the agent-days.
 
 | Milestone | Theme | Production / test LOC | Agent-days |
 |---|---|---|---|
-| **M0** | Foundations | 8k / 3k | 6–8 |
-| **M1** | Vertical slice: Memo + Report, peaceful (DECISIONS §15 and §17, 09) | 41k / 20k | 38–48 |
+| **M0** | Foundations (itemised below) | 28k / 10k | 24–32 |
+| **M1** | Vertical slice: Memo + Report, peaceful (DECISIONS §15 and §17, 09) | 45k / 22k | 42–53 |
 | **M1.5** | Veteran pass (the rest of I's M2) | 4k / 2k | 3–4 |
-| **M2** | Article tier: fluids, data, rails, logic | 32k / 15k | 28–36 |
-| **M3** | Preprint and Model card: agents, quality, nuclear, containment | 27k / 12k | 23–29 |
-| **M4** | System card: takeoff and victory | 12k / 6k | 12–16 |
-| **M5** | *Wild* preset (military loop) | 18k / 6k | 16–22 |
+| **M2** | Article tier: fluids, data, rails, logic | 35k / 17k | 31–40 |
+| **M3** | Preprint and Model card: agents, quality, nuclear, containment | 30k / 13k | 25–32 |
+| **M4** | System card: takeoff and victory | 13k / 7k | 13–18 |
+| **MP** | Multiplayer (chapter 11) | 12k / 8k | 14–18 |
+| **M5** | *Wild* preset (military loop) | 20k / 7k | 18–24 |
 | **M6** | Scale and polish | 8k / 3k | 8–12 |
 | **M7** | Expansion (spec/06) | not estimated | — |
 
+**Order.** M0 → M1 → M1.5 → M2 → M3 → M4 → **MP** → M6, with M5 optional between them and M7 last. Multiplayer comes late, as the user asked, but its seams exist from M0 (11 §7), so MP adds the network, the relay and the multiplayer UI without touching the simulation's structure.
+
 **Totals:**
-- The complete base game with *Contained* (M0–M4) is about 124k + 58k lines and **110–141 agent-days**.
-- With *Wild* and polish it is about 150k + 67k lines and **134–175 agent-days**.
+- The complete base game with *Contained* (M0–M4) is about 155k + 71k lines and **138–179 agent-days**.
+- With multiplayer it is about 167k + 79k lines and **152–197 agent-days**.
+- With *Wild* and polish as well, about 195k + 89k lines and **178–233 agent-days**.
 - Round 4 added about 2 agent-days: the data contract (expression compiler, manifests, tiles, world objects, text data; M0) and the containment rules (rollback input, locks, linear spread; M3).
 
 **Milestone builds are filters** (J17). Each milestone ships the full data filtered by a manifest, checked for closure by the data stage (§2.4); `design/round4/arch-data/manifests.py` runs the same check on the current data. M1's manifest is 09 §2.7's explicit list. The later ones are rules, kept in `game/data/engine/manifests.yaml`:
@@ -2219,28 +2643,38 @@ manifests:
 
 ### M0 — Foundations (no gameplay)
 
-**Contents:**
-- the repository and pinned toolchain, `npm run` scripts, `check-arch`, the pre-commit `ci`;
-- the **data stage** on `spec/data`, covering every kind including tiles, world objects and text; the expression compiler; the manifest closure check (§2.4);
-- the sim core: World, surfaces, chunks, entity table, pools, scheduler, timer wheel, RNG, hash, the save container v1 (`GLOBALS`, `TIMERS` and `RNG` included), the action pipeline, worker and in-process transports, pacing, `__game`;
-- worldgen v0: terrain, water, ore spots; no towns;
-- renderer v0: batcher, atlases, terrain shader, camera and zoom, layers, F4/F5 debug overlays;
-- UI v0: the Solid shell, Window and Slot, input core (action map, capture layer, resolver skeleton);
-- the asset pipeline v0: the rig, greybox auto-models, the projection calibration test, atlas packing, contact sheets;
-- the test harness: the scenario DSL, the rule-scenario folder (§10.8), Playwright config, golden helpers, the benchmark runner and `bench.html`;
-- the dev-server endpoints.
+**Contents**, by work package (§15.11 names the owners; the manager assigns ids):
+
+| Work package | Contents | Production / test LOC | Agent-days |
+|---|---|---|---|
+| **Schema** (first, alone) | The repository and pinned toolchains (npm and the Cargo workspace), Vite with the cargo plugin, `check-arch`, `clippy.toml`, the WebAssembly feature gate, the `npm run` scripts and the pre-commit `ci`; **the schema** with M0's records and **the generator** (§15.1); **the data stage** on `spec/data`, covering every kind including tiles, world objects and text, the expression compiler with its bytecode and reference interpreter, the manifest closure check, `prototypes.bin`, `prototypes.json` and `build-manifest.json` (§2.4, §15.2); the codec fixtures; **the fake sim** (§15.10) | 6k / 2k | 5–6 |
+| **Sim** | The crates `det`, `worldgen` v0 (terrain, water, ore spots; no towns) and `sim`: World with `players[]`, surfaces, chunks, the entity table and pools, the scheduler (bitsets, wake sequence numbers, the timer wheel), RNG, digests and the state hash (§4.8), the save container v2 and checkpoints, the action pipeline (framing, references, input fencing, the creation ring, system actions), character movement and collision, chests and inventories, hand mining and crafting, inline chunk commits, extraction, the M0 projections (`HUD`, `CHARACTER`, `INVENTORY`, `ENTITY_PANEL`, `HOVER`, `STATS`, `DEBUG`), queries; `simabi`, `genabi` and `simtool` (replay, hash, bisect, bench) | 9k / 4k | 7–9 |
+| **Shell** | The sim worker: module loading and the schema handshake, `MemoryLease`, the `LocalSequencer` with pacing and clock generations, packets and pooling, subscriptions, the world-replacement protocol (S15) and the worker swap (S11), checkpoint copies, closure logs and replay, trap recovery (§3.6); the worldgen and IO workers; `__game` | 3.5k / 1.5k | 3–4 |
+| **Renderer v0** | The batcher, atlases from the manifest (§15.7), the terrain shader, camera and zoom, layers, belt-item expansion from gap arrays, F4/F5 debug overlays; built against the fake sim | 2.5k / 0.5k | 2–3 |
+| **UI and input v0** | The Solid shell, Window and Slot, the character screen's skeleton on real projections, the input core (action map, capture layer, resolver skeleton, action encoder); built against the fake sim | 2k / 0.5k | 2 |
+| **Asset pipeline v0** | Per §9 (WP B2): the rig, greybox auto-models, the projection calibration test, atlas packing, the sprite manifest, contact sheets | 1.5k / 0.3k | 1–2 |
+| **Audio v0** | Per A4 and §9.4 (WP B2): the engine port, the mixer and buses, the event-to-sound map, working sounds from `AUDIO_WORKING` | 2k / 0.5k | 2–3 |
+| **Integration and QA** | The test harness (the scenario DSL, the rule-scenario folder (§10.8), D18's suites, the trace page, the Playwright config, golden helpers), the benchmark runners and `bench.html`, the dev-server endpoints, the exit review | 1.5k / 1k | 2–3 |
+| **Total** | | **28k / 10k** | **24–32** (about 14–18 calendar days with the parallel packages) |
+
+**Mandatory multiplayer seams in M0** (11 §7): S1–S10, S12, S14 and S15, S11's port and swap, D1–D23 with D18's tests (a)–(e), (f) natively and (g) for the codecs, and rule scenarios R23–R29.
 
 **Exit:**
-- A placeholder character walks on generated terrain at 60 UPS.
-- Chests can be placed and mined through actions in tests.
-- Save, load and hash match.
+- A placeholder character walks on generated terrain at 60 UPS, driven by closures from the `LocalSequencer`, in Chrome, and in Firefox with `?render=none`.
+- Chests can be placed, filled and mined through actions in native scenario tests, in Node through the shell, and through the real input layer in Playwright.
+- The chest's `INVENTORY` and the character's `STATS` (hand-mined and crafted items) come from real projections (IMPL-1 rule 5).
+- Save, load and the state hash match natively and in the browser. Join equivalence, NO_SLEEP equivalence, heavy mode and replay (D18 a, b, c, e) pass on every M0 scenario; the cross-engine trace (D18 d) is identical natively, in Node, Chrome and Firefox on a 10,000-tick log; R23–R29 pass.
+- World replacement works through a fresh worker for a new game, a load and trap recovery: a dev-only panic shows the trap notice, reloads the last autosave and leaves a bundle that reproduces the panic natively.
+- The schema handshake refuses a stale module; `schema-gen --check` is clean; the release modules pass the feature gate.
 - Every manifest passes the closure check (R17).
 - The smoke screenshot has been reviewed.
 - `npm run ci` is green.
 
 **Risks:**
+- The boundary's first version: the schema's shape will move while the first systems arrive. Mitigation: the schema package lands first and alone, and the generator's `--check` makes every change explicit.
 - TS 7 checker gaps (fallback 6.0.3).
 - The SwiftShader speed (measured, mitigated by on-demand rendering).
+- Release builds of about a minute: `ci` uses them only for the feature gate; the loop uses `wasmdev` (§2.3).
 
 ### M1 — Vertical slice: Memo + Report, peaceful
 
@@ -2281,7 +2715,7 @@ The three phases below group those steps for sizing: M1a ≈ S0 and S2's hand, M
 **M1c — Slice content, art and audio:**
 - Blender art for about 45 slice entities and the town and salvage world objects;
 - about 70 item icons and the slice's technology icons;
-- about 30 SFX and 2–3 music tracks;
+- about 30 SFX, and the music engine with its Era I and Era II rule sets (A4, IMPL-6; WP B2 sizes it);
 - night lighting;
 - golden tuning;
 - **playtests with the user** through the tunnel, and `bench.html` on their laptop.
@@ -2392,18 +2826,33 @@ DECISIONS §17 moved smart belts, fast-replace, copy/paste of settings and undo 
 - Balance of the spatial thermal field against G's aggregate model (G §4.8).
 - The spectacle rendering of the final 40 s.
 
+### MP — Multiplayer
+
+After M4 and before M6's polish (the user's wish: multiplayer comes late). Chapter 11 is the design; the seams it needs are already in the engine from M0, so this milestone adds the network, the relay and the multiplayer UI.
+
+**Contents:**
+- **The relay** (11 §6): `RoomCore` (pure TypeScript: the clock and its generations, acceptance with per-player order, deduplication and watermarks, system actions and grace timers, digest votes with epochs, snapshot coordination and transactions, held-input release), the Node adapter with `ws` 8.22.0, write-before-broadcast persistence with room generations, rooms, invites and tokens, limits, metrics and admin endpoints; deployment behind Caddy on a small VPS (11 §6.7).
+- **The client** (11 §2–§5): the net worker with both sockets, reconnects and resume, the `RelaySequencer` with client stamping, margin and playout controllers; joins (donor checkpoints with manifests, paced uploads with a tuned LEDBAT, catch-up); desync detection, votes and the background re-sync through a shadow worker with its convergence check and foreground fallback; desync bundles and `simtool bisect` on them.
+- **The latency state** (11 §3.5), in the sim crate: the predicted character, placements and hand, rebuilt each confirmed tick from the confirmed world and pending actions, reconciled through `(player, seq)`.
+- **The UI** (11 §8): the Multiplayer menu, hosting and joining, the Players window, chat and console commands, pings, other players' characters and selections, connection indicators, per-player text; the strings come from 08 once 11 §8.4's proposals are adopted.
+- **Tests** (11 §9): the in-process multi-client harness with a deterministic simulated network, the relay's unit tests and wire probes, real-browser sessions through an impairment proxy, the real-engine resource tests on 2-, 4- and 8-core machines, fuzzing, a soak and a load test.
+
+**Exit:** 11 §9's "Green before multiplayer ships" list, in full, and a user playtest with colleagues.
+
+**Risks:** 11 §10, chiefly repairs that do not converge on machines with few cores, slow donor uplinks, and background-tab suspension in browsers we cannot test here.
+
 ### M5 — *Wild* preset (optional)
 
 **Contents:** the `wild_roots` technologies and everything that depends on them (the manifest's rule): units, spawners, hierarchical pathfinding, groups and expansion, damage and resistances, turrets, artillery, interceptors, unit art. Fences, gates and the containment side of Branch M ship in M3, and repair packs (*Maintenance*) in M2.
 
 **Exit:** Factorio-like attack and expansion behaviour; 1,000 units in ≤ 2 ms per tick; R20.
 
-**Risks:** pathfinding cost in JS, and the art volume.
+**Risks:** pathfinding cost, and the art volume.
 
 ### M6 — Scale and polish
 
 **Contents:**
-- megabase profiling (static chunk vertex buffers, WASM for one system if needed);
+- megabase profiling (static chunk vertex buffers; hot systems profiled natively and in the browsers);
 - save size;
 - a main-menu background simulation;
 - tips and tricks with simulations;
@@ -2433,16 +2882,22 @@ Not estimated until 06 goes beyond an outline.
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| Scope: about 150k lines of TS plus assets | High | High | Data-driven systems, milestone exits, parallel agents on fixed contracts, ruthless deferral (*Wild*, expansion) |
-| Feel fidelity (belts, inserters, drag-building) | Medium | High | Wiki goldens G1–G7, I's F-tests, early user playtests in M1 |
-| UI breadth (about 25 screens) | High | Medium | Generic kinds, data-generated grids and tooltips, screenshot goldens |
-| Art quality and consistency from procedural Blender scripts | Medium | High | Parts library, style checks, contact sheets, greybox-first, user review per batch |
-| JS performance in the late game | Low–medium | High | SoA, sleeping, cadences, benchmarks with a regression gate, the WASM escape hatch |
-| Determinism bugs | Medium | Medium | `check-arch` bans, NO_SLEEP equivalence, save/load and replay hashes, counter RNG |
+| Scope: about 195k lines of Rust and TypeScript plus assets | High | High | Data-driven systems, milestone exits, parallel agents on fixed contracts (§15), ruthless deferral (*Wild*, expansion) |
+| **The two-language boundary**: generated layouts, features that cross both languages, the schema's shape moving while systems arrive (A1-r1) | High | Medium | One schema for every contract (§15.1) with `--check`, a runtime hash handshake and cross-language fixtures; bulk projections instead of per-entity calls; the schema package lands first; the fake sim lets UI and renderer start early |
+| Feel fidelity (belts, inserters, drag-building) | Medium | High | Wiki goldens G1–G7, R21–R22, I's F-tests, early user playtests in M1 |
+| UI breadth (about 25 screens) | High | Medium | Generic kinds, data-generated grids and tooltips, generated projection decoders, screenshot goldens |
+| Art quality and consistency from procedural Blender scripts | Medium | High | Parts library, style checks, contact sheets, greybox-first, user review per batch (A3's *Survey* rules) |
+| **Logic-level desyncs and replay breaks**: order, unsaved state, impure caches, in any language (A2's dominant class) | High during development | High | D1–D23 from M0; join, NO_SLEEP and replay equivalence and heavy mode on full state; cross-engine traces; digests and bug bundles turn the rest into reproducible reports |
+| **WebAssembly debugging and traps**: weak in-browser source debugging; a panic poisons the instance (A1) | Medium | Medium | Develop and test natively; the panic hook forwards message, file and line; trap recovery from the autosave with a bundle that reproduces natively (§3.6); checked indexing kept in release |
+| **Two toolchains and build time**: cargo and npm, about 67 s per release WebAssembly build | Medium | Low | `wasmdev` builds of about 3 s for the loop; native tests first; release builds only in `ci` and nightly; pinned toolchains (§2.1) |
+| Determinism in browsers this host cannot test (Safari's JavaScriptCore) | Low | Medium | WebAssembly's semantics leave no float freedom once NaN, SIMD and transcendentals are excluded; the user's `bench.html` runs a trace check on their browsers |
+| Late-game performance | Low | High | Measured headroom (§4.7: about 2 ms of 12 at Late), sleeping, cadences, budget gates in `ci` and paired A/B benchmarks |
+| Multiplayer-specific risks (non-converging repairs, slow uplinks, background throttling) | Medium | Medium | Chapter 11 §10 |
 | SwiftShader slowness limits visual testing | Certain | Low | Expanded quads, on-demand rendering, small viewports, the user's `/shot` |
-| Browser constraints (key capture, storage eviction, memory) | Medium | Medium | Capture self-test, `storage.persist()`, export, a memory budget |
-| Design churn from rounds 3–5 | High | Medium | YAML-first, generated ids, rule-based tests rather than name-based ones |
-| Parallel agents colliding | Medium | Medium | Layer boundaries enforced by `check-arch`; one owner per directory per milestone |
+| Hosting a build as a claude.ai Artifact needs a content security policy that allows WebAssembly compilation (wasm-unsafe-eval); unverified | Medium | Low | The dev server through the tunnel and ordinary static hosting are unaffected; check the Artifact's policy before relying on it (§1) |
+| Browser constraints (key capture, storage eviction, memory that never shrinks) | Medium | Medium | Capture self-test, `storage.persist()`, export, a memory budget, a fresh worker per world |
+| Design churn from rounds 3–5 | High | Medium | YAML-first, generated ids, bytecode expressions without Rust rebuilds, rule-based tests rather than name-based ones |
+| Parallel agents colliding | Medium | Medium | Layer boundaries enforced by `check-arch` and the crate graph; generated code owned by the generator; one owner per directory per milestone |
 | Rules invented at implementation time | Medium | High | Every open case the design left is stated here with a rule scenario (§10.8); the data stage refuses prose where the engine reads (§2.4); the owning chapters carry the same sentences |
 
 ---
@@ -2453,7 +2908,7 @@ Not estimated until 06 goes beyond an outline.
 2. **Resolved: boiler data** (J3). The data carries 2.0's water per steam (`extra.water_per_s`: 6 for the boiler, 10.309 for the heat exchanger) and the fluids' heat capacity, and the round-1 boiling pseudo-recipe is gone. The engine reads the ratio from the data (§5.8).
 3. **Resolved: interruptible compute and accumulator charging** (U16). The order is normal → accumulator charging → interruptible, with discharge serving normal first and then interruptible, and never charge and discharge in one tick (§5.7). 04 §3.1 states the same rule. A Researcher-staffed Seminar uses min(sat_normal, u_p) (§5.5).
 4. **Spoilage for *Scooped* (cost note, 03 §5).** 03 adopts Space Age spoilage for exactly one item (`significant-result` → `baseline` after 54,000 ticks).
-   - The engine stores spoil ticks only for spoilable item types: a side table keyed by inventory slot, and a parallel `Uint32` spoil-tick array allocated only for transport lines that have carried a spoilable item.
+   - The engine stores spoil ticks only for spoilable item types: a side table keyed by inventory slot, and a parallel `u32` spoil-tick array allocated only for transport lines that have carried a spoilable item.
    - About 2–3k lines in M4, with zero cost when *Scooped* is off.
    - No objection beyond the cost.
 5. ***Wild* preset.** About 18k lines plus unit art and pathfinding. The plan ships version 1.0 with *Off* and *Contained* (DECISIONS' default) and *Wild* as M5. The user should know the price before choosing.
@@ -2473,10 +2928,478 @@ Not estimated until 06 goes beyond an outline.
 13. **Linear spread needs a per-infection timer** (DECISIONS §27). "Each compromised machine infects at most one new target per spread interval" is linear only if the timer belongs to the infection: with one timer per machine, a dense cluster still doubles every interval. §5.17 therefore keeps one timer per infection, as 03 §3.3 now states. Each machine still infects at most one target per interval.
 14. **Resolved: the leak's "working" is a fraction** (L4, U27). L4 accrued every 60 ticks for buildings whose progress "advanced this tick". Sampling one tick in sixty would make the leak depend on where a craft cycle happens to stand. §5.17 uses wᵢ, the fraction of the last 60 ticks with progress: the same shape as staffing's working share (U1), which is measured on readiness (job, papers, power) rather than on progress, so the two differ, for instance for a Researcher Seminar at u_p = 0; equally deterministic, with the same mean. 03 §3.2 now states it.
 15. **Round-1 document I remains normative for M1** (J8). Controls, GUIs, the feel tests and the `InputAction` list are I §1–§8's, and this document implements them by reference (§3.2, §5.1–§5.2, §7.5). 09's M1 reading list makes the cited sections normative. Any later change to I needs a spec round, like a change to the data. D §12's legibility rules now live in 07-ui §23, and F's heat script in `tools/ref/`.
+16. **Belt loops** (B1; §5.3). Downstream-first update order is undefined on a cycle. The engine breaks each cycle at its lowest-identity unranked line, so compressed flow may open a one-tick gap at that one boundary per cycle. Factorio's behaviour in this corner is not documented; R21 pins ours, and a playtest that notices a difference reopens it.
+17. **Offline characters' crafting queues** (B1; §5.1). A2 says only that offline characters neither walk, mine nor craft. The engine pauses the queue with its reservations and resumes it on return, rather than cancelling it with refunds; Factorio, whose characters persist on a server, gives no direct precedent. 11 §11 lists the related open question of new players' starting items.
 
 ---
 
-## Appendix A — Measurements on this host (2026-10-19)
+## 15. The M0 contracts
+
+M0's work packages (§15.11) build against these interfaces in parallel, without talking to each other. They are binding. A change goes through the schema (§15.1) and a note in the changing work package's report; a change that breaks another package's build needs the manager. All binary formats are **little-endian**. "Packed" means no padding unless a field is written out. Widths are in bytes unless stated.
+
+### 15.1 The schema and its generator
+
+**One schema** in `game/schema/` describes every value that crosses the boundary between Rust and TypeScript, every saved field and every wire record (IMPL-1 rule 2). `scripts/schema-gen.ts` (Node) reads it, validates it with zod, and writes Rust into the crate `crates/schema/` (everything more than one crate uses: ids, enums, shared records such as `ChunkData`, codecs, record writers and the `Protos` loader) and into `crates/sim/src/gen/` (the pools and save sections, which only the sim uses, so that the sim can implement behaviour on them), and TypeScript into `src/shared/gen/`. In both languages it generates readers **and** writers for every record, so tests and the fake sim (§15.10) can produce what the other side consumes.
+
+| File | Declares | Generates |
+|---|---|---|
+| `types.yaml` | Scalars, id newtypes (`Serial: u32`, `ItemKey: u16`, `RecipeId: u16` …), enums with explicit values (`Direction`, `Status`, `InventoryType` …), flag sets with explicit bits, small fixed records (`EntityRef`, `TilePos2`, `FinePos`) | Rust newtypes and `#[repr(u8/u16)]` enums with checked conversions; TypeScript `const` objects, numeric types and reader and writer functions |
+| `state.yaml` | The entity table, every pool, the singleton records (`globals`, `player`, …), cold record types, chunk records | Rust SoA structs with lowest-free-slot allocation, defaults, save, load and hash per section, the per-entity slice hash (§4.8) and the NaN scans (D6); TypeScript read-only views for the sim worker (§3.6) |
+| `sections.yaml` | Save sections: id, name, version, codec, hashed or not, content | Rust section writers and readers; TypeScript section ids and names for the IO worker and tools |
+| `actions.yaml` | Action types: stable id, name, fields, flags (`held`, `system`, `blob`) | The Rust decoder (a typed enum, framing validation) and encoder (tests); the TypeScript encoder |
+| `events.yaml` | Event types and payloads (§15.6) | Rust writers; TypeScript decoders and writers |
+| `projections.yaml` | Subscription kinds, their parameters, record layouts and cadence; query kinds and results (§15.5) | Rust record writers; TypeScript decoders, writers and parameter encoders |
+| `packet.yaml` | The packet header, section types and record layouts (§15.4) | Rust writers; TypeScript decoders, writers and layout constants |
+| `protos.yaml` | The prototype tables the sim reads, per kind, with the data-stage source path of each field (§15.2) | The TypeScript writer the data stage uses; the Rust loader (`Protos`) |
+| `registries.yaml` | Effect types, trigger types, achievement condition types, formula references, well-known names | Rust enums matched exhaustively; TypeScript lists for the data stage's checks (§2.4) |
+
+**Field attributes.** Every field in `state.yaml` must state:
+- `type` (required): a scalar (`u8 u16 u32 u64 i8 i16 i32 i64 f32 f64 bool`), a declared type, a fixed array `[T; N]`, or, in records only, `list<T>` (a `u32` count, then the items), `str` (a `u16` length, then UTF-8) or `bytes` (a `u32` length, then bytes). Every `list`, `str` and `bytes` declares `max`.
+- `saved` (required, D20): `true`; or `false` together with either `derived: <rebuild function>`, which names the hand-written Rust function that rebuilds it on load, or `presentation: true`, for values that systems write and only extraction reads (never saved, hashed or read by a rule).
+- `order` (required for every list-valued or keyed field, D3, D20): `none` (order cannot matter) or the canonical key (`serial`, `key`, `slot` or `saved`, the last meaning that the stored order is itself state).
+- `id` for every field of a record (not a pool column): a `u16`, stable and never reused, because saves store records by field id (§8.1, §8.3).
+- `default` (when not zero), `unit` (documentation and debug formatting: `J`, `tick`, `pos256` …), `wraps: true` for counters that wrap (D7), `since: <schema version>` for fields added after the first save format (the loader fills the default, §8.3), and `view: true` to export it to the TypeScript views.
+
+**Versions.** `schema/types.yaml` carries `schema_version` (`u16`), which the author raises with every change that alters a save section's layout; `since` refers to it, and every save records it per section (§8.1). `ACTION_SCHEMA_VERSION` (`u8`, `actions.yaml`) and `PACKET_VERSION` (`u16`, `packet.yaml`) version the wire formats separately. The schema hash (below) identifies the whole schema.
+
+The generator refuses a field without the required attributes, a duplicate or reused id, and a change to an existing id's layout without a version bump.
+
+**Example** (excerpts; the real files grow with every system):
+
+```yaml
+# schema/state.yaml
+pools:
+  crafting:
+    doc: "Crafting machines, furnaces, labs and drills (§5.5)"
+    fields:
+      entity:     { type: EntityHandle, saved: true }
+      recipe:     { type: RecipeId, saved: true, default: 0xFFFF }
+      progress:   { type: f64, saved: true, unit: craft }
+      prod_bar:   { type: f64, saved: true }
+      speed_eff:  { type: f32, saved: false, derived: crafting::recompute_speed_eff }
+      energy_buf: { type: f64, saved: true, unit: J }
+      status:     { type: Status, saved: true, view: true }
+      crafts:     { type: u32, saved: true, wraps: true }
+      anim:       { type: f32, saved: false, presentation: true }
+records:
+  player:
+    fields:
+      online:        { id: 1, type: bool, saved: true }
+      character:     { id: 2, type: Serial, saved: true }
+      input_gen:     { id: 3, type: u16, saved: true, wraps: true }
+      last_seq:      { id: 4, type: u32, saved: true }
+      creation_ring: { id: 5, type: "list<CreationEntry>", max: 256, saved: true, order: saved }
+cold:
+  label: { key: Serial, fields: { text: { id: 1, type: str, max: 200, saved: true } } }
+
+# schema/actions.yaml
+version: 1                       # ACTION_SCHEMA_VERSION: bump on any layout change (u8 in the batch header)
+actions:
+  - { id: 1,  name: start_walking, held: true, fields: { dir: Direction } }
+  - { id: 2,  name: stop_walking,  held: true }
+  - { id: 20, name: build, fields: { item: ItemKey, pos: TilePos2, dir: Direction, flip: u8, mode: BuildMode, drag_id: u32 } }
+  - { id: 21, name: rotate_entity, fields: { target: EntityRef, reverse: bool } }
+  - { id: 0xFF01, name: player_joined, system: true, fields: { player: PlayerIndex, flags: u8, reserved: u8 } }
+```
+
+**Layout rules.**
+- Action and event payloads are packed in declaration order.
+- Records in packets, saves and projections are packed too, but the generator inserts explicit padding so that every record's size is a multiple of 4 and every array meant for a typed-array view starts at a multiple of its element size; sections start at multiples of 8. It prints the padding it inserted, so authors can reorder fields instead.
+- Readers never assume alignment (Rust `from_le_bytes`, TypeScript `DataView`), except for the arrays the layout declares aligned.
+
+**Drift is caught four ways.**
+1. **Freshness:** `npm run check` runs `schema-gen --check`, which regenerates in memory and fails on any difference with the committed files.
+2. **Hand edits:** every generated file starts with `@generated by scripts/schema-gen.ts from schema/<file>`, the schema hash and the file's own content hash; `check-arch` and a cargo test fail on a mismatch.
+3. **Runtime handshake:** the generator writes `SCHEMA_HASH`, the SHA-256 of the canonicalised schema (keys sorted, numbers normalised), into both outputs. The shell compares `sim_schema_hash()` with its own at start-up and refuses to run a module from another schema, naming both hashes. `build-manifest.json` and every save header carry it.
+4. **Cross-language fixtures:** a Vitest test encodes every action type at its field limits into `test/fixtures/codec/actions.bin`; `cargo test` decodes and re-encodes it byte for byte. In the other direction, `cargo test` writes every event, projection and packet record type into `test/fixtures/codec/records.bin`, and Vitest decodes it and compares field by field. `npm run gen` regenerates both fixtures.
+
+Generated files are committed, so cargo builds without Node and every change is reviewable.
+
+### 15.2 The prototype data path
+
+```
+design/spec/data/*.yaml + game/data/engine/*.yaml
+        │  scripts/data-stage.ts (TypeScript; §2.4: merge, compile, derive, validate, ids)
+        ├──→ public/data/prototypes.bin    the sim's tables (schema/protos.yaml)          → Rust Protos::load
+        ├──→ public/data/prototypes.json   names, groups, icons, sprite sets, boxes, display → UI and renderer
+        ├──→ src/shared/gen/proto-ids.ts   string-literal unions                           → TypeScript code and tests
+        └──→ prototypesHash = SHA-256(prototypes.bin)                                       → build-manifest.json
+```
+
+**`prototypes.bin`** has a binary header, so that Rust needs no JSON: `magic "PWPROTO\0"` (8), `u32 formatVersion`, `u8 schemaHash[32]`, `u32 dataVersion`, `u32 sectionCount`, then its sections in the save container's section framing (§8.1) with codec 0 (raw). The sections:
+- one per kind (`PROTO_ITEM`, `PROTO_FLUID`, `PROTO_RECIPE`, `PROTO_ENTITY`, `PROTO_TECH`, `PROTO_RESOURCE`, `PROTO_TILE`, `PROTO_WORLD`, `PROTO_SIGNAL`), each a column table like a pool section, indexed by dense id;
+- `LISTS`: the variable-length parts (ingredients and products as `(key, amount)` pairs, technology prerequisites, effects, fluid boxes), addressed from the columns by `(offset u32, count u16)`;
+- `META`: one record per `meta` block the engine reads (`heat`, `staffing`, `world`, `runaways`, `quality`, …), each a schema record;
+- `EXPR`: the expression bytecode pool;
+- `NAMES`: each kind's name table in id order (`u16` count, then `u16` length and UTF-8 per name), for saves (§8.3), well-known names (§2.4) and debugging.
+
+Only fields listed in `schema/protos.yaml` go in, and that file names each one's source in the YAML, so the data stage's writer and Rust's loader come from one description. `Protos::load` checks the header's `schemaHash` against the module's and fails with `ERR_PROTOS` otherwise.
+
+**Expressions compile to bytecode** (B1's call). The alternative was to compile each expression to Rust code at build time. Bytecode wins because:
+- a data edit must not need a Rust rebuild (balance churn, §1; a release build takes about 67 s, A1);
+- `prototypes.bin` stays self-contained, so `prototypes.hash` covers the formulas;
+- expressions are evaluated rarely (costs once per level, product tables when j changes, the collapse factor every 60 ticks), so interpretation costs nothing measurable;
+- one bytecode, one semantics: the data stage validates with a reference interpreter of the same bytecode, and a cross-language test compares both on every expression at every reachable value.
+
+**The bytecode.** An expression is an `ExprRef` (`u32` offset into `EXPR`; `0xFFFFFFFF` = none). At that offset: `u16 byteCount` (the length of the op stream that follows), `u8 varCount, u8 maxStack`, then the ops, each a one-byte opcode followed by its operands:
+
+| Opcode | Operands | Effect (stack of `f64`) |
+|---|---|---|
+| `0x01 CONST` | `f64` (8 bytes, IEEE bits) | push the constant |
+| `0x02 VAR` | `u8` index | push variable k of the field: `count_formula` and `field_year` [L]; `amounts_by_j` [j]; `speed_factor` [sigma, c] |
+| `0x10 ADD`, `0x11 SUB`, `0x12 MUL`, `0x13 DIV` | — | pop b, pop a, push a ∘ b |
+| `0x14 NEG` | — | negate the top |
+| `0x20 POWI` | — | pop e, pop b; e must be an integer in [−1024, 1024]; push `det::powi(b, e)` (§4.1) |
+| `0xFF END` | — | the result is the single value left |
+
+The data stage guarantees for every reachable variable value: `maxStack` ≤ 16, integer exponents, finite results. The Rust interpreter checks the same and panics on a violation, which is a data-stage bug. Rounding rules stay with the consumer (costs round half up to whole units, §5.12).
+
+**Ids.** Dense `u16` per kind, assigned by the data stage (§2.4 step 5). The same ids appear in `prototypes.bin`, `prototypes.json`, `proto-ids.ts`, packets, projections, actions and saves. Rust never hard-codes one (§2.4 step 4).
+
+**The `prototypes.hash` handshake.**
+1. The build writes `prototypesHash` into `build-manifest.json`.
+2. The sim worker fetches `prototypes.bin`, computes its SHA-256 with WebCrypto, and refuses a mismatch (a stale cache) with a reload.
+3. Every save and checkpoint header carries the hash (§8.1). Loading a save with the same hash loads directly; with another, the shell builds remap tables from the save's name tables (§8.3) and the load reports what was removed.
+4. Multiplayer's `HELLO` carries it; the relay refuses a different one (11 §3.2, D14).
+
+### 15.3 Actions and closures
+
+**Shared field types** (`types.yaml`):
+
+| Type | Width | Layout |
+|---|---|---|
+| `EntityRef` | 8 | `u32 a`, `u16 b`, `u8 tag`, `u8 reserved` (0). Tag 0: none. Tag 1: an existing entity, `a` = serial. Tag 2: a creation id, `a` = the seq of an earlier action **by the same player**, `b` = the index among the entities that action created (§4.3) |
+| `TilePos2` | 8 | `i32 x2`, `i32 y2`: a building centre in doubled tile units (§4.2) |
+| `FinePos` | 8 | `i32 x`, `i32 y` in 1/256 tile |
+| `ItemKey`, prototype ids | 2 | dense ids (§4.3) |
+| `Direction` | 1 | 0–15 (§4.2) |
+| `blob` | 32 | the SHA-256 of a content-addressed blob (below) |
+| `str` | 2 + n | `u16` length, UTF-8; at most the field's `max` |
+| `bytes` | 2 + n | `u16` length, bytes; at most `max` |
+| `list<T>` | 2 + n·size(T) | `u16` count, then fixed-size items; at most `max` items |
+| `blob_or_bytes` | 1 + … | `u8` tag: 0, then `u16` length and the bytes inline; 1, then a 32-byte SHA-256 naming a blob |
+
+An action has at most one variable-length field (`str`, `bytes`, `list<T>` or `blob_or_bytes`), and it is the last one: `distribute` carries its entities as a `list<EntityRef>`, and `place_blueprint` its record as `blob_or_bytes`.
+
+No action carries a float: the client quantises positions to `TilePos2` or `FinePos` before encoding, so no number the client computed reaches the World unrounded (11 §3.3).
+
+**An action** is `u16 type, u16 len`, then `len` bytes of payload. Type ids are explicit in `actions.yaml`, append-only and never reused; names mirror Factorio's `defines.input_action` (I §8.2) plus Appendix B's additions. Factorio's own numeric values are not used, because they are not a stable published contract. A **held-input action** (`held: true`: start and stop walking, begin and stop mining, picking state; shooting and driving later) starts its payload with `u16 input_gen` (D22).
+
+**A batch** is one player's consecutive actions within one tick:
+
+| Offset | Field | Meaning |
+|---|---|---|
+| 0 | `u8 version` | `ACTION_SCHEMA_VERSION`; any other value is a framing error |
+| 1 | `u8 flags` | bit 0 `SYSTEM` (player must be `0xFFFF`); other bits 0 |
+| 2 | `u16 player` | 0–31, or `0xFFFF` for system actions |
+| 4 | `u32 tick` | the tick this closure belongs to |
+| 8 | `u32 first_seq` | the seq of the first action; the i-th action has `first_seq + i` |
+| 12 | `u16 count` | 1–65,535 |
+| 14 | `u16 reserved` | 0 |
+| 16 | actions | `count` × (`u16 type, u16 len, payload`) |
+
+**A closure** is the batches of one tick, back to back, in execution order; an empty closure is zero bytes. Execution order is the sequencer's: within a tick, the relay's queueing order (11 §3.4) and, in single player, submission order. A player's actions may form several batches in one tick when other players' actions interleave.
+
+**Limits.** A payload is at most 65,531 bytes, so that an encoded action (its 4-byte header plus the payload) fits every `u16` length field, including the wire's (11 §3.2); larger payloads are blobs. A batch holds at most 65,535 actions. A closure is at most 1 MiB: the `LocalSequencer` moves overflowing actions to the next tick in order, and the relay's `TICKS` framing gives the same bound (11 §3.2). Strings respect their schema `max`.
+
+**Framing validation** (`sim_tick`, before any state changes; a failure returns `ERR_FRAMING` and the tick does not run):
+1. every batch: `version`, `flags`, `reserved` and `tick == world.tick + 1` as above; `count ≥ 1`; `player ≤ 31` unless `SYSTEM`;
+2. every action: a known type; system types only in system batches and vice versa; `len` equal to the type's fixed size, or, for a type with a variable-length tail, consistent with it;
+3. the batches consume exactly the closure's bytes;
+4. **seqs rise** (D21): each batch's `first_seq` is above the player's saved `last_seq` (or `last_system_seq`), and `last_seq` advances batch by batch, so a player's seqs rise strictly across the tick's batches and across ticks. This holds in every build, because `last_seq` is saved state.
+
+A framing error means a bug in a sequencer or a codec. Every client decodes the same bytes, so every client fails identically; the shell treats it like a trap (§3.6). The codec tests (D18 g) and fuzzing exist to keep it impossible.
+
+**Semantic validation** happens in phase 1 as each action applies (§4.6): the player must exist and be online; reach, items, collisions and acceptance rules hold; references resolve. A refusal changes nothing and emits `action_failed` with a reason (§15.6), identically everywhere.
+
+**References** (S5, D23). An `EntityRef` with tag 1 resolves through the serial index; a missing serial fails the action with the reason "target gone", even if another entity of the same prototype now stands there. Tag 2 resolves through the acting player's creation ring (§4.3) and fails cleanly if the creating action failed or left the ring. There is **no position fallback**: positions appear only in actions defined on positions (build, mine a tile or resource, drop an item, place a blueprint, place a ping or tag).
+
+**Input fencing** (D22). A held-input action whose `input_gen` differs from `players[p].input_gen` is a no-op with an `input_fenced` event. `release_inputs(p)` stops p's walking, mining and picking and increments the generation (wrapping; only equality is compared). **The sequencer writes `input_gen`** into each held-input action when it stamps it, from the generation it tracks: the world's value at load (`bound`, §3.2) plus the `release_inputs(p)` it has seen since in the closure stream. An action stamped before the release arrived therefore carries the old generation and is fenced; the client re-sends any input still held (11 §2.6). The main thread never needs to know generations.
+
+**Blobs.** A payload larger than 65,531 bytes (a large blueprint record) travels as a blob: the action carries the blob's SHA-256. The shell supplies the blob with `sim_blob_put` before the tick that uses it, after verifying the hash; the module keeps supplied blobs only until that tick ends. Retention for replays and resumes is the shell's and the relay's job (§8.5, 11 §6.5). A missing blob is `ERR_BLOB_MISSING`, a shell bug.
+
+**Identity and seq** (11 §3.3). An action is `(player, seq)`. The World keeps each player's `last_seq` and a `last_system_seq`, set by phase 1 to the seq of every action it applies, refused or not; the `LocalSequencer` continues from them after a load, so seqs never repeat within a world. System actions take their seqs from the sequencer's own counter.
+
+**System actions** (player `0xFFFF`; ids from `0xFF00`):
+
+| Id | Name | Payload | Effect |
+|---|---|---|---|
+| `0xFF01` | `player_joined` | `u16 player, u8 flags` (bit 0: returning), `u8 reserved` | Creates or re-activates the player's state and character. Single player's `LocalSequencer` issues `player_joined(0)` in a new world's first tick |
+| `0xFF02` | `player_left` | `u16 player` | Marks the player offline and releases held inputs; the hand returns to the inventory if it fits (§5.1) |
+| `0xFF03` | `release_inputs` | `u16 player` | Stops walking, mining and picking; increments the input generation |
+| `0xFF04` | `snapshot_marker` | `u32 snapshot_id, u16 donor` | Nothing in the World; the donor's shell writes a checkpoint after this tick (11 §4.1) |
+| `0xFF05` | `debug_dump` | `u32 dump_id` | Nothing in the World; clients write desync bundles after this tick (11 §5.3) |
+
+**The `act` message** (main thread → sequencer, §3.2) carries `firstSeq` and actions without ticks: `u16 type, u16 len, payload`, back to back, the i-th with seq `firstSeq + i`. The main thread numbers its player's actions itself, continuing from `bound`'s `lastSeq`, so it can name its own unconfirmed creations by creation id; the sequencer refuses seqs that do not rise, stamps ticks, fills input generations and builds batches. Blobs named by `blob_or_bytes` fields travel beside the actions in `act.blobs`.
+
+### 15.4 The render packet
+
+One packet per extraction: a transferable `ArrayBuffer` with a header, a section directory and sections. `sim_extract` writes the whole packet into the module's output arena, header included, leaving `state_gen` and `view_seq` zero; the shell copies it into a pooled buffer and fills those two fields (§3.2). Offsets in the directory count from the start of the packet.
+
+**Header** (32 bytes):
+
+| Offset | Field | Meaning |
+|---|---|---|
+| 0 | `u32 magic` | `0x4B505750` ("PWPK") |
+| 4 | `u16 version` | `PACKET_VERSION` from the schema |
+| 6 | `u16 flags` | bit 0 `FULL` (drop the mirror before applying: set on a world's first packet, when every held chunk is sent afresh), bit 1 `EVENTS_DROPPED`, bit 2 `COALESCED` (ticks passed without extraction) |
+| 8 | `u32 state_gen` | §3.4 |
+| 12 | `u32 tick` | the tick after which this was extracted |
+| 16 | `u32 view_seq` | the view request this packet answers |
+| 20 | `u16 daylight` | the sim's daylight factor (§5.7) × 65,535, so the renderer never recomputes the day table |
+| 22 | `u16 section_count` | |
+| 24 | `u32 byte_length` | the whole packet |
+| 28 | `u32 reserved` | 0 |
+
+**Section directory**: `section_count` × 16 bytes: `u16 type, u16 record_version, u32 offset, u32 byte_length, u32 count`. Sections start at multiples of 8.
+
+**Sections** (type ids are append-only; records in bytes):
+
+| Type | Section | Record | Sent |
+|---|---|---|---|
+| 1 | `CHUNK_TILES` | `u32 chunk_key, u16 surface, u16 flags, u32 version`, then `u8 tiles[1024]` (1,036) | when a chunk enters the held set or its tiles change |
+| 2 | `CHUNK_ENTITIES` | per chunk: `u32 chunk_key, u16 surface, u16 count, u32 version, u32 reserved`, then `count` × EntityView (24) | when a chunk enters the held set or its version changes; replaces the chunk's records |
+| 3 | `DYN` | `i32 x2, i32 y2, u32 serial, u16 proto, u16 phase, u8 dir, u8 state, u8 light, u8 quality` (20) | every packet, for visible entities that are animated, lit or working |
+| 4 | `HANDS` | `i32 x2, i32 y2, u32 serial, u16 proto, u16 held` (`ItemKey`, `0xFFFF` none), `u16 theta` (turns × 65,536), `u16 ext` (tiles × 4,096), `u8 dir, u8 held_count, u16 reserved` (24) | every packet, for visible inserters that are not at rest |
+| 5 | `BELT_GEOM` | per line: `u32 line_id, u32 geom_gen, u16 seg_count, u8 lane, u8 speed, u32 length` (positions), then `seg_count` × (`i32 x, i32 y` (1/256 tile), `i32 len` (positions), `u8 dir, i8 turn, u16 reserved, i32 radius` (1/256 tile; arcs only)) (20 each) | when a line touching a held chunk is new to the main thread or its `geom_gen` changed |
+| 6 | `BELT_ITEMS` | per line: `u32 line_id, u32 geom_gen, i32 front_gap, u16 count, u16 reserved`, then `count` × `u16 key`, then `count − 1` × `i16 gap`, padded to 4 | every packet, for visible lines that hold items |
+| 7 | `MOVERS` | `u32 serial, u16 proto, u8 kind` (0 character, 1 agent, 2 rolling stock, 3 unit, 4 projectile), `u8 flags, i32 x, i32 y` (1/256 tile), `i16 vx, i16 vy` (1/256 tile per tick), `u32 base_tick, u16 orientation` (turns × 65,536), `u16 aux` (player index for characters, held item for agents), `u32 reserved` (32) | every packet; the renderer extrapolates from `base_tick` (§6.8) |
+| 8 | `OVERLAY_CHUNK` | `u32 chunk_key, u16 surface, u16 flags, f32 temperature` (12) | while the thermal overlay or the heat tint (07 §3.2) is on, after each chunk's 64-tick update |
+| 9 | `OVERLAY_STAFFING` | `i32 x0, i32 y0` (campus corner), `u16 radius, u8 hue, u8 flags` (12) | while the staffing overlay is on, on change |
+| 10 | `CHART` | `u32 chunk_key, u16 surface, u16 reserved, u32 version`, then 32 × 32 RGBA8 (4,108) | while the view request asks for chart data: when a charted chunk enters the chart rectangle or changes |
+| 11 | `EVENTS` | §15.6 | every packet with events |
+| 12 | `UI` | §15.5 | every packet with subscription records |
+| 13 | `AUDIO_WORKING` | §15.6 (16) | every packet while audio is on |
+| 14 | `CHUNK_OBJECTS` | per chunk: `u32 chunk_key, u16 surface, u16 count, u32 version, u32 reserved`, then `count` × ObjectView (16) | when a chunk enters the held set or its objects change; replaces the chunk's objects |
+| 15 | `CHUNK_RESOURCES` | per chunk: `u32 chunk_key, u16 surface, u16 count, u32 version, u32 reserved`, then `count` × (`u16 tile` (index in the chunk), `u16 resource, u8 band` (the richness band that picks the sprite, 0–7), `u8 reserved, u16 reserved`) (8) | when a chunk enters the held set, or a tile changes band or is depleted; exact amounts come from `HOVER` and queries |
+
+**Per-chunk versions.** Each per-chunk section (`CHUNK_TILES`, `CHUNK_ENTITIES`, `CHUNK_OBJECTS`, `CHUNK_RESOURCES`) has its own version counter in the chunk, so a status change resends the chunk's entities and nothing else. Resource amounts change with every mining operation, so the view carries only each tile's richness band.
+
+**ObjectView** (16 bytes): `u16 id` (a world-object, tree-species, decorative or item key), `u8 kind` (0 tree, 1 rock or other world object, 2 cliff, 3 ground item, 4 decorative), `u8 variant` (a tree's leaf stage, a variant index), `i32 x, i32 y` (1/256 tile), `u16 count` (ground items), `u16 reserved`. Decoratives are generated by the `worldgen` crate from the chunk's decorative seed during extraction, so their rule exists once.
+
+**EntityView** (24 bytes): `u32 serial, i32 x2, i32 y2, u16 proto, u16 alt_icon` (alt-mode's recipe or product, as an index into `prototypes.json`'s icon table, `0xFFFF` none), `u8 dir, u8 flip, u8 quality, u8 variant` (the connection mask of belts and pipes), `u8 status` (§5.5's code), `u8 flags` (bit 0 ghost, 1 marked for deconstruction, 2 marked for upgrade, 3 compromised), `u16 reserved`. For a ghost, `proto` is the prototype it will build.
+
+**`DYN`.** `phase` is the animation phase of the entity's loop × 65,536 (from the presentation field `anim`, which advances with `speed_eff` while working and freezes otherwise); `state` is 0 idle, 1 working, 2 no power or fuel; `light` is the emitter strength 0–255. The renderer draws the static base from the mirror and the animated layer and light from `DYN`, sorting both within the object layer by `(bottom y, x, serial, part)`, the base before its animated part (§6.6), so it needs no lookup.
+
+**Belt items as gap arrays** (A1 change 11). A line's items are sent as the line holds them: `front_gap` is gap[0], the distance in positions from the line's downstream end to its first item, and `gap[i]` for i ≥ 1 is the slack beyond the 64-position saturated spacing (§5.3). Item i lies at distance dᵢ from the end, with d₀ = `front_gap` and dᵢ = dᵢ₋₁ + 64 + gap[i]. Segments are listed from the line's downstream end; each gives its own downstream end point `(x, y)` on the lane's centreline, its length in positions, its direction of travel at that end (`dir`), and, for an arc (`turn` = −1 left, +1 right), its radius. The main thread walks the segments from the front, maps each distance to a point on the centreline (straight runs linearly, arcs by angle about the centre that `dir`, `turn` and `radius` fix), culls points outside the view and writes quads in the same loop (§6.8). The sim supplies every length and shape, so the renderer does no gameplay arithmetic. Per item this sends 4 bytes and costs the worker a copy, against 16 bytes and about 8 ns per sprite on the reference machine for expanded records; at §6.12's 60k visible belt items that saves about 0.5 ms of worker time per frame.
+
+**Line identity.** `line_id` is the line's pool index; `geom_gen` is taken from a **global** counter each time a line is built, rebuilt, split, merged or reshaped, so `(line_id, geom_gen)` never repeats even when a pool slot is reused (§3.7). The main thread caches geometry by that pair and drops a line's entry when the last held chunk the line touches leaves the held set; the worker applies the same rule, so it knows which geometry the main thread holds. All entries go on a new state generation.
+
+**The view request** (main → shell → `sim_extract`), 52 bytes: `u32 view_seq, u16 surface, u16 flags` (bit 0 thermal overlay, 1 staffing overlay, 2 chart, 3 audio, 4 alt-mode), `i32 x0, i32 y0, i32 x1, i32 y1` (tiles: the **visible** rectangle, no margin, the upper bounds exclusive), `f32 zoom, u32 hovered_serial` (0 none), `f32 audio_half_range` (tiles), `i32 chart_x0, i32 chart_y0, i32 chart_x1, i32 chart_y1` (chunks, when bit 2 is set). **The held set** is the chunks overlapping the visible rectangle expanded by one chunk on every side, computed by one generated function in both languages; the worker applies a request when it extracts the packet that answers it, the main thread when that packet arrives, and both evict the chunks that leave the set (§3.4).
+
+**Pooling and transfer.** The shell keeps three packet buffers, starting at 256 KiB and doubling on demand. It copies the arena into a free buffer (`Uint8Array.set`, one `memcpy`), fills the header and posts it with the buffer in the transfer list. The main thread decodes, copies what it keeps into its mirror and per-frame arrays, and transfers the buffer back with `ack`; it never holds a view into a packet after `ack`. With no free buffer, extraction is skipped (§3.2).
+
+### 15.5 Projections, subscriptions and queries
+
+The UI never reads simulation state directly. Open windows **subscribe** to projections, and the sim answers in the packet's `UI` section (IMPL-1 rule 3).
+
+**A subscription request** (main → shell → `sim_subscribe`): `u32 sub_id, u16 kind, u16 flags` (bit 0: a tail follows), `u32 target` (an entity serial, a player index or 0), `u32 p0, u32 p1, u32 p2, u32 p3`, then, when flagged, a tail (`u16 len`, bytes) for list parameters. The main thread allocates `sub_id`s from 1 and never reuses one within a state generation; `sub_id` 0 is the hover projection that the view request's `hovered_serial` drives. Sending an existing `sub_id` replaces that subscription.
+
+**A `UI` record** (in the packet): `u32 sub_id, u16 kind, u16 status` (0 ok, 1 gone, 2 invalid), `u32 version, u32 len`, then the kind's record (`len` bytes, padded to 4). `version` counts the records sent for that subscription.
+
+**Rules** (A2-r1 13).
+- **Evaluation.** Each subscription is evaluated during extraction, in `sub_id` order, at its kind's cadence: every packet (`HOVER`, `ENTITY_PANEL`, `CHARACTER`, `INVENTORY`), or on subscribing and then at the first extraction at least 60 ticks after its last evaluation (`HUD`, `RESEARCH`, `STATS`, `ELECTRIC`, `WORLD`), so a skipped extraction delays a slow projection but never loses it.
+- **Change detection.** The module hashes each record it writes (XXH64) and sends it only when the hash differs from the last one sent for that `sub_id`. No per-kind version bookkeeping is needed.
+- **Targets that disappear.** If a subscription's target no longer exists, the module sends one record with status 1 (gone) and drops the subscription; the window closes. Entity windows bind by serial, never by handle or position.
+- **State generations.** Every `sub`, `unsub` and `query` carries the state generation (§3.2); the shell drops those from another generation. A fresh worker starts with no subscriptions, so after a new generation the main thread re-sends all of its subscriptions and its view request (§3.4). Records and responses from an old generation are rejected by the main thread.
+- **Content.** Records contain no handles or pointers: entities by serial, items by `ItemKey`, strings as locale ids (08) or, for player text such as labels, UTF-8.
+
+**Kinds** (ids append-only; M0 builds the ones marked):
+
+| Id | Kind | Target and parameters | Record (summary; layouts in `projections.yaml`) | M0 |
+|---|---|---|---|---|
+| 1 | `HUD` | — | tick; research in progress (tech, level, progress); world strip values (Field, Literature, Your year, years ahead); alert counts by type; the music feed (Literature year, activity = mean electric consumption over 60 s in W, doubling time in s or 0, takeoff level, closed and victory flags) | yes (tick only) |
+| 2 | `CHARACTER` | player index | character serial, main inventory slots, hand (key, count, origin slot), quickbar, crafting queue (recipe, count, progress), mining progress, input generation | yes |
+| 3 | `INVENTORY` | entity serial; `p0` = inventory type | slots (`ItemKey`, `i32` count, filter), limit bar | yes |
+| 4 | `ENTITY_PANEL` | entity serial | prototype, status, recipe, progress, crafts per second now, energy satisfaction, buffer and draw, productivity bar, modules, every inventory's slots inline, fluid boxes, and a kind-specific tail (staff, throttle, resources remaining …) | yes (chests) |
+| 5 | `HOVER` | entity serial (the view request's `hovered_serial` uses `sub_id` 0) | the tooltip's live values for the entity's kind | yes |
+| 6 | `RESEARCH` | — | queue (tech, level, progress, byline), and a state table for the technology screen (tech, state, level, progress) | |
+| 7 | `STATS` | `p0` precision (0–9), `p1` tab; tail: up to 256 keys | per key: produced and consumed totals over the precision's window and, when `p2` bit 0 is set, the 300-point series of each | yes (hand-mined and hand-crafted items) |
+| 8 | `ELECTRIC` | a pole's serial | satisfaction by class, production and consumption by prototype, accumulator charge, series | |
+| 9 | `WORLD` | — | the World window's values (W_own, W_pub, Y_pub, j, σ, Field, Literature …) | |
+| 10 | `DEBUG` | — | per-system active counts, pool sizes, linear-memory bytes, per-phase µs (dev builds), this tick's digests | yes |
+
+M0 must ship real `INVENTORY` and `STATS` projections (IMPL-1 rule 5), not fixtures.
+
+**Queries** (one-off, read-only, not logged): `query {gen, id, q}` with `q` = `u16 kind, u16 flags`, then the kind's parameters; the result is `res {gen, id, ok, value}` with the kind's record, both laid out in `projections.yaml`. The shell answers between ticks, in arrival order. Kinds (ids append-only): 1 `rates` (entities or an area; §5.20's rate calculator), 2 `map_search` (text), 3 `total_raw` (recipe, count), 4 `where_made` (item), 5 `patch_info` (a resource tile), and, in dev builds, 6 `inspect` (every saved field of one entity), 7 `hash`, 8 `digest`. A1 measured query latency at p50 0.45–0.73 ms and p99 about one tick plus a message hop against a worker paced at 60 UPS, which is why open windows subscribe instead of polling.
+
+### 15.6 Events, feedback and audio
+
+**Event records** (the packet's `EVENTS` section): a 16-byte header, `u16 type, u16 len, u32 tick, u32 seq` (the action answered, 0 if none), `u16 player` (`0xFFFF` none), `u8 flags` (bit 0 `HISTORICAL`), `u8 surface`, then `len` bytes of payload, padded to 4. Positions in payloads are `FinePos` or `TilePos2`.
+
+**Types** (ids append-only; the slice's set, more per milestone):
+
+| Id | Type | Payload | Typical use |
+|---|---|---|---|
+| 1 | `action_failed` | `u16 reason` (`FailReason`, a schema enum whose values map to 08's strings in `locale/en.yaml`), `u16 reserved, FinePos pos, u32 serial` | flying text and the error sound; tells the latency state which prediction failed (11 §3.5) |
+| 2 | `flying_text` | `u16 text` (`FlyingText`, likewise mapped to 08), `u16 item, i32 count, FinePos pos` | "+3 Iron plate", "Swapped" |
+| 3 | `entity_built` | `u32 serial, u16 proto, u8 dir, u8 flags` (bit 0 ghost), `TilePos2 pos` | build sound by size; prediction reconciliation |
+| 4 | `entity_mined` | `u32 serial, u16 proto, u16 reserved, TilePos2 pos` | mine sound by material |
+| 5 | `entity_rotated` | `u32 serial, u8 dir, u8 reserved, u16 reserved, TilePos2 pos` | rotate sound |
+| 6 | `item_crafted` | `u16 recipe, u16 count` | craft-finished sound (the player's own) |
+| 7 | `research_completed` | `u16 tech, u16 level` | sound and toast |
+| 8 | `milestone` | `u16 milestone` (a dense id of `text.yaml`'s milestones, assigned by the data stage) | log line toast (07 §15) |
+| 9 | `alert_raised` | `u16 alert` (`AlertType`, a schema enum), `u16 reserved, u32 serial, TilePos2 pos` | alert sound (the alert list itself is in `HUD`) |
+| 10 | `player_joined`, 11 `player_left` | — (the player is in the header) | system lines (11 §8.3) |
+| 12 | `input_fenced` | — | debug log (D22) |
+| 13 | `loop_closed`, 14 `victory` | — | the closure cue and the end (A4; M4) |
+
+**Delivery.** Events accumulate in the module from the tick that produced them until the next extraction drains them. The queue holds at most 8,192 events or 512 KiB; on overflow the oldest are dropped and the packet carries `EVENTS_DROPPED`.
+
+**Suppression** (D15, S15). The shell sets the module's `HISTORICAL` flag (§15.8) while it runs catch-up, replay or the fast-forward after a load or a join; events from those ticks carry the flag. The main thread never plays a sound, shows flying text or raises a toast for a historical event, nor for any event more than 30 ticks older than the packet that carries it (a hidden page that kept running). Log-type events are appended to their logs silently. After a new state generation, audio state is reset (§3.4).
+
+**Sounds are data.** The event-to-sound map (event type plus entity type or material → sound id) is engine overlay data (§2.4), so the audio module needs no per-event code (A4 DIRECTION §10). Rate and voice limits are the audio module's (A4 §7.3).
+
+**Working sounds** (`AUDIO_WORKING`, 16 bytes per sound): `u16 sound, u16 n, f32 cx, f32 cy, f32 wsum`, one record per working-sound id with n > 0 among the visible working entities. (cx, cy) is their centroid relative to the view centre in tiles, and wsum = Σ 1 ÷ (1 + (d ÷ R)²) over them, with d each one's distance from the view centre and R the view request's `audio_half_range`, so that one entity at R counts half (−6 dB). The audio module turns n, wsum and the centroid into loop gain and pan (A4 §7.3: gain from n, pan by the centroid, distance weighting); extraction only aggregates.
+
+**The music feed** is part of `HUD` (§15.5): the Literature year picks the era, activity gates layers, the doubling time drives the takeoff's tempo, and `loop_closed` and `victory` are events (A4 §5).
+
+### 15.7 World-to-screen projection and the sprite manifest
+
+**Projection.** World x points east and y south, in tiles (1 tile = 1 m, A3). For a camera at (cx, cy) in tiles and zoom z:
+
+```
+screen_x = (x − cx) · PX_PER_TILE · z · dpr          device pixels from the canvas centre
+screen_y = (y − cy) · PX_PER_TILE · z · dpr
+a point at height h tiles is drawn HEIGHT_SCALE · h · PX_PER_TILE · z · dpr higher (oblique; §9.1's camera)
+```
+
+Sprites are pre-rendered in this projection, so the renderer only places them: a frame's anchor pixel `(ax, ay)` lands on the entity's ground anchor (its footprint centre, from `x2, y2`), scaled by `PX_PER_TILE · z ÷ SOURCE_PX_PER_TILE`. Positions are subtracted from the camera in `f64` and stored in vertices as `f32` (§6.3), so precision does not depend on distance from the origin.
+
+**Named constants.** Format constants live in `src/render/projection.ts`; style constants in `src/render/style.ts`, which the art direction sets (IMPL-5) without changing any format.
+
+| Constant | Value | Kind | Source |
+|---|---|---|---|
+| `PX_PER_TILE` | 32 (CSS px at zoom 1) | format | I §3.15 |
+| `ZOOM_MAX`, `ZOOM_MIN_WORLD`, `ZOOM_MIN_CHART` | 3, ≈ 0.3, 1/64 | format | §6.10 |
+| `SOURCE_PX_PER_TILE` | High 64, Normal 32 | format | §6.13 |
+| `HEIGHT_SCALE` | 1 (heights render 1:1) | format | §9.1 calibration |
+| `CULL_MARGIN_TILES` | 6 | format | §6.6 |
+| `SHADOW_REACH` | 1.43 × height east, 0.39 × height south | style (culling) | A3 §2 |
+| `AMBIENT_FLOOR` | 0.15 | style | §5.7 |
+| `SHADOW_COMPOSITE` | Survey: hatching at −45°, period 7 px, line 1.7 px, 55% ink, plus 6% darkening | style | A3 §4.2 |
+| `LIGHT_COMPOSITE_DAY` | Survey: a warm stain, `colour × (1 − 0.6 · a · (1 − hue))` | style | A3 §4.3 |
+| `NIGHT_GRADE` | Survey: blend from the identity LUT to the cyanotype LUT by (1 − daylight), then the additive light | style | A3 §4.4 |
+| `BELT_ITEM_SIZE` | 0.5 tile | style | A3 §2 |
+| `CLEAR_COLOUR`, `PAPER_TONE` | the paper colour | style | A3 §3.1 |
+
+**The sprite manifest** (`public/atlases/sprites.json`), as far as the renderer reads it. The asset pipeline (§9, WP B2) writes it.
+
+```jsonc
+{
+  "version": 1,
+  "style": "survey-1",                                   // informational
+  "arrays": [                                            // ordered: a frame's first field indexes this list
+    { "kind": "colour", "format": "rgba8-premultiplied" },
+    { "kind": "shadow", "format": "r8" },
+    { "kind": "light",  "format": "rgba8-premultiplied" },
+    { "kind": "icon",   "format": "rgba8-premultiplied" }
+  ],
+  "resolutions": {                                       // one page list and one frame table per resolution
+    "high":   { "pxPerTile": 64,
+                "pages":  [[{ "file": "atlases/colour-h-00.webp", "group": "m1" }], [], [], []],   // per array
+                "frames": [[0, 0, 12, 40, 128, 150, 64, 118]] },   // [array, layer, x, y, w, h, ax, ay] in this resolution's px
+    "normal": { "pxPerTile": 32, "pages": [[], [], [], []], "frames": [] }
+  },
+  "sets": {                                              // frame ids are the same in both resolutions' tables
+    "entity/stone-furnace": {
+      "size": [2, 2], "directions": 1, "variants": 1,
+      "base":   { "first": 0, "count": 1 },
+      "idle":   { "first": 1, "count": 1 },              // optional idle variant (A3 §8)
+      "anim":   { "first": 2, "count": 16, "loop": "seamless" },   // the animated layer over the base: frames 2–17
+      "shadow": { "first": 18, "count": 1 },
+      "light":  { "first": 19, "count": 1 }
+    },
+    "item/iron-plate": { "icon": { "16": 20, "32": 21, "64": 22 } }
+  }
+}
+```
+
+- A part's frame for direction d, variant v and animation frame f is `first + (d × variants + v) × count + f`, the same id in every resolution's frame table; `variants` counts connection-mask variants (belts and pipes).
+- `prototypes.json` names each entity's set (`entity/<name>` by default, from the overlay's animation definitions), and items' icons; the renderer builds `proto id → set` tables at load. A missing set draws the greybox placeholder (§9.2).
+- `group` lets the loader fetch pages by milestone or tier (§6.4; B2's streaming plan).
+- The frame chosen for an animated layer is `floor(phase × count ÷ 65,536)` from `DYN`.
+
+### 15.8 The WebAssembly ABI
+
+`sim.wasm` exports plain C-ABI functions (no wasm-bindgen; A1 showed it is enough). Pointers and lengths are `u32` (read with `>>> 0` in JavaScript); no export takes or returns `i64`, so no BigInt crosses the boundary. Calls are never re-entrant. Each output function returns a pointer to `{u32 len, bytes[len]}` in the module's output arena, valid until the next call into the module (§3.6), except that `sim_memory_epoch` and `sim_last_error` move nothing and invalidate nothing.
+
+| Export | Meaning |
+|---|---|
+| `sim_abi_version() -> u32` | Bumped on any change to this table |
+| `sim_schema_hash() -> ptr` | 32 bytes: the schema's SHA-256 (§15.1) |
+| `sim_input(len) -> ptr` | A reusable input buffer of at least `len` bytes; the shell writes a record there before the calls below |
+| `sim_init(len) -> status` | Input: `prototypes.bin`, then an init record (flags). Loads `Protos`, installs the panic hook |
+| `sim_new_world(len) -> status` | Input: seed, map settings, game settings and presets |
+| `sim_load(len) -> status` | Input: the section directory and raw (decompressed) sections of a save or checkpoint (§8.1), the remap tables (§8.3) and the digest lineage (§4.8) |
+| `sim_tick(len) -> status` | Input: the closure of tick `world.tick + 1` (§15.3). Runs exactly one tick |
+| `sim_set_flags(flags)` | Bit 0 `NO_SLEEP` (tests), bit 1 `HISTORICAL` (event marking), bit 2 `PROFILE` (dev builds) |
+| `sim_blob_put(len) -> status` | Input: a 32-byte SHA-256 and the blob's bytes, for the next tick only (§15.3) |
+| `sim_supply_chunk(len) -> status` | Input: a `ChunkData` record (§15.9); ignored unless it answers a pending request |
+| `sim_pending_chunks() -> ptr` | `ChunkRequest` records issued since the last call; after `sim_load`, every pending request of the save (§5.18) |
+| `sim_extract(len) -> ptr` | Input: a view request (§15.4). Output: the packet's section directory and sections |
+| `sim_subscribe(len) -> status` / `sim_unsubscribe(len) -> status` | Input: subscription requests / `u32` ids (§15.5) |
+| `sim_query(len) -> ptr` | Input: a query. Output: its result record |
+| `sim_digest() -> ptr` | `u32 tick`, then `d` and `r` as two `u32` pairs (low word first) |
+| `sim_state_hash() -> ptr` | The full state hash and the hash of each section (§4.8), as `u32` pairs |
+| `sim_save() -> ptr` | The section directory and raw section bytes at the current tick boundary (§8.1) |
+| `sim_meta() -> ptr` | Tick, seed, each player's index, online flag, `last_seq` and input generation, `last_system_seq`: what the sequencer and the save header need |
+| `sim_load_report() -> ptr` | After `sim_load`: what the remap removed, as records (kind, name, count) |
+| `sim_last_error() -> ptr` | `u32 code, u32 len`, UTF-8 message |
+| `sim_memory_epoch() -> u32` | Increments whenever an exported column, the arena or the input buffer moves (§3.6) |
+| `sim_pool_dir() -> ptr` | The generated pool directory for the read views: `(u32 column, u32 ptr, u32 len)` triples |
+| `sim_allocs() -> ptr` | With `simcheck`: the counting allocator's totals (§2.5) |
+
+**Records crossing the ABI** (all little-endian; "record encoding" is §8.1's field-id encoding, generated from the schema):
+- **`sim_init` input:** `u32 protos_len`, the bytes of `prototypes.bin`, then `u32 flags` (as `sim_set_flags`) and `u32 reserved`.
+- **`sim_new_world` input:** one `new_world` record (record encoding): seed, map settings, game settings and presets, as the New game screen (07 §17) sets them.
+- **`sim_load` input:** `u32 section_count`, then each section in the container's framing (§8.1) with codec 0 and `storedLength = rawLength`; then the remap tables, `u16 kind_count` and per kind `u16 kind, u32 count`, `count` × `u16 new_id` (`0xFFFF` = removed), or `kind_count = 0` when the prototypes hash matches; then the lineage, `u32 r_lo, u32 r_hi`.
+- **`sim_save` output:** `u32 section_count`, then each section in the container's framing with codec 0; the IO worker compresses each and rewrites its codec and stored length.
+- **`sim_meta` output:** one `sim_meta` record (record encoding): tick, seed, `last_system_seq`, and per player its index, online flag, `last_seq` and input generation.
+- **`sim_state_hash` output:** `u32 hash_lo, u32 hash_hi, u32 count`, then `count` × (`u32 section_id, u32 hash_lo, u32 hash_hi`).
+
+**Status codes:** 0 OK; 1 `ERR_FRAMING`; 2 `ERR_BLOB_MISSING`; 3 `ERR_LOAD_FORMAT` (corrupt, or a newer format); 4 `ERR_LOAD_SCHEMA` (a section the schema cannot read); 5 `ERR_PROTOS`; 6 `ERR_ORDER` (a call out of order, e.g. `sim_tick` before a world exists); 7 `ERR_INPUT` (a malformed request record). A trap is not a status: it ends the instance (§3.6).
+
+**Imports** (module `env`): `host_log(level, ptr, len)`; `host_panic(ptr, len)`, called by the panic hook before the abort; `host_now() -> f64`, milliseconds, visible only to the profiling module (D13). Only `host_now` returns a value, and nothing that state depends on can see it (D15).
+
+**Call order:** `sim_init`, then `sim_new_world` or `sim_load`, then per tick: any `sim_blob_put` and `sim_supply_chunk`, `sim_tick`, `sim_pending_chunks`, and optionally `sim_extract`. Subscriptions, queries, `sim_save`, `sim_digest` and `sim_state_hash` are allowed between ticks.
+
+### 15.9 The worldgen contract
+
+`gen.wasm` exports `gen_abi_version`, `gen_schema_hash`, `gen_input`, `gen_init(len) -> ptr`, `gen_chunk(surface, cx, cy) -> ptr` and `gen_preview(len) -> ptr` (the map preview's colours, §5.18). It imports `host_log` and `host_panic`. Its generated types come from the `schema` crate, as the sim's do.
+
+- **`gen_init` input:** `u32 protos_len`, the bytes of `prototypes.bin`, then one `new_world` record (the same as `sim_new_world`'s). Output: `u32 world_hash_lo, u32 world_hash_hi`, the XXH64 of the seed, the map settings and `prototypes.bin`; the sim computes the same value at `sim_new_world` and `sim_load`.
+- **`ChunkRequest`** (16 bytes): `u16 surface, u16 reserved, i32 cx, i32 cy, u32 commit_tick`.
+- **`ChunkData`** is a schema record (the `schema` crate's `chunk_data`): the world hash, the chunk key and surface, `u8 tiles[1024]`, the climate values (θ, sunlight), and lists of resources (tile index, resource, amount), trees (position, species, leaf stage, variant), world objects, cliffs and town features, plus the decorative seed. The sim's own inline generation produces the same record, so `sim_supply_chunk` and inline commits share one path.
+- The pool belongs to one sim worker (§3.1). The shell sends each request to a worker (round-robin), passes the answer to `sim_supply_chunk`, and forgets requests whose commit tick has passed. `sim_supply_chunk` ignores an answer whose world hash is not its own, and a late answer: the sim has already generated the chunk inline at its commit tick (§5.18, D12).
+
+### 15.10 Fixtures and the fake sim
+
+So that the renderer, UI and audio can be built before the sim:
+- **The fake sim worker** (`src/simworker/fake.ts`, delivered with the schema) speaks the protocol of §3.2 and writes packets with the generated encoders: generated terrain, a grid of chests and machines with animated `DYN` records, belts with moving items as gap arrays, inserter hands, a walking character driven by `act` messages, events, and the `CHARACTER`, `INVENTORY`, `HUD` and `DEBUG` projections. `?sim=fake` keeps it available after integration.
+- **Packet fixtures** (`test/fixtures/packets/*.bin`), recorded from the real sim once it exists, pin the decoders.
+- **Codec fixtures** (§15.1) pin both languages' codecs, including the `new_world`, `sim_meta`, `ChunkData` and view-request records.
+
+### 15.11 Ownership and tests
+
+Owners are M0's work packages, named by role (the manager assigns ids). *Schema* is the scaffold, schema, generator and data stage package that comes first; the others start once it has landed.
+
+| Contract | Owner | Consumers | Pinned by |
+|---|---|---|---|
+| §15.1 schema and generator | schema | everyone | `schema-gen --check`; the hash handshake; codec fixtures |
+| §15.2 prototype data path | schema | sim, UI, renderer | the data stage's double run (D14); the expression cross-check; `Protos::load` on the committed data |
+| §15.3 actions and closures | schema (formats), sim (validation, references, fencing), shell (sequencer) | UI (encoder), net (MP) | D18(g) codec probes at every limit; R23–R27; fuzzed closures that must never trap |
+| §15.4 render packet | sim (writers), renderer (decoder) | renderer, audio | packet fixtures; a Vitest round trip; the renderer's gallery screenshots |
+| §15.5 projections and subscriptions | sim (writers), shell (table, generations), UI (decoders) | UI | Vitest: subscription, replacement, gone, stale generation; the D9 hash test |
+| §15.6 events and audio | sim (writers), shell (historical flag), audio (consumer) | UI, audio | a scenario that asserts events for build, mine, craft and failure; a catch-up test that asserts no sound is scheduled |
+| §15.7 projection and manifest | renderer (projection), assets (manifest) | renderer | the projection calibration (§9.1); a manifest schema check in the asset build |
+| §15.8 ABI | sim (`simabi`), shell | shell | Vitest against a dev build; trap and memory-growth tests (§3.6) |
+| §15.9 worldgen | sim (`worldgen`, `genabi`), shell | sim | D12 (no pool, 1 and 4 workers: same hashes) |
+| §3.2 worker messages | shell | UI, renderer, audio, IO | Vitest with the fake and the real worker |
+
+---
+
+## Appendix A — Measurements on this host (2026-10-19 and 2026-10-20)
 
 The scripts are kept in the repository (N11):
 - `design/round4/arch-data/bench/glbench/bench.mjs`, `bench2.mjs` and `bench3.mjs` (WebGL2);
@@ -2499,7 +3422,7 @@ M0 moves the benchmarks into `game/bench/`.
 - The ANGLE flags `--use-angle=swiftshader` and `swiftshader-webgl` made no difference.
 - CPU fill of 100k sprites × 8 floats: 1.2 ms.
 
-**Simulation loops in Node 24** (simplified, SoA typed arrays; per entity per tick):
+**Simulation loops in Node 24** (round 4, TypeScript; simplified, SoA typed arrays; per entity per tick):
 
 | Loop | Cost |
 |---|---|
@@ -2523,6 +3446,27 @@ M0 moves the benchmarks into `game/bench/`.
 - maxrects-packer 2.7.4 runs through its `.mjs` path only.
 
 Combining `dom` and `webworker` libs in one tsconfig fails, which confirms the per-layer configs.
+
+**The engine study (WP A1, 2026-10-20).** `design/engine-study/`; the full tables are in `pm/reports/A1.md`. Equivalent TypeScript and Rust kernels (transport lines, inserters, crafting machines, labs and drills, electric networks, bitset active sets, watch lists, the timer wheel, the state hash, render extraction) produce bit-identical state hashes. All runs pinned to socket 0 at the 2.6 GHz base clock (turbo runs excluded from absolute numbers); 6,000 warm-up ticks, 3,600 timed ticks, 3 repetitions, implementations interleaved.
+
+| Scale / regime (ms per tick) | Chrome TS | Chrome WASM | Firefox TS | Firefox WASM | Node TS | Node WASM | Native |
+|---|---|---|---|---|---|---|---|
+| Mid, busy | 0.580 | 0.356 | 0.664 | 0.416 | 0.617 | 0.354 | 0.288 |
+| Mid, typical | 0.433 | 0.277 | 0.485 | 0.323 | 0.451 | 0.273 | 0.220 |
+| Late, busy | 2.097 | 1.263 | 2.340 | 1.460 | 2.144 | 1.256 | 1.024 |
+| Late, typical | 1.506 | 0.960 | 1.705 | 1.125 | 1.620 | 0.958 | 0.780 |
+| Mega (400k), busy | | | | | 5.95 | 3.46 | 3.00 |
+
+- TypeScript ÷ WebAssembly, paired: Chrome 1.37–1.66, Firefox 1.35–1.60, Node 1.40–1.74. WebAssembly ÷ native: 1.15–1.34. `simd128`: within ±1% (not used).
+- Per active entity, Chrome, Late busy, WebAssembly: transport lines 28 ns, inserters 72 ns, crafting machines 22 ns, electric consumers 8.5 ns (two passes). Active shares, typical regime: lines 25%, inserters 20%, machines 65%.
+- p99 about 1.1–1.2× the mean in every engine; zero GC events in the tick. TypeScript only: a V8 deoptimisation storm (3,351 deopts in 3,600 ticks until fixed) and an 18–22 ms Firefox stall; first tick after loading a Late save 11–13 ms in TypeScript against 3–6 ms in WebAssembly.
+- Extraction at 1920×1080: about 19 ns per sprite in WebAssembly (40 ns in TypeScript) plus 1.7 ns to copy out of linear memory; a worker → main → worker round trip with a transferable buffer costs 0.20–0.27 ms at any size up to 260 kB. UI queries against a worker paced at 60 UPS: p50 0.45–0.73 ms, p99 2.7–3.4 ms (Chrome, Late).
+- Determinism: one state hash per case across 27 runs (Node, Chrome, Firefox × TS, WASM, WASM-SIMD) and native; NO_SLEEP equivalence at Mid for 12,000 ticks and at Late. Swap-remove active lists diverged by tick 200 in three of four regimes.
+- Start-up: `compileStreaming` 4.7 ms (Chrome) and 8.9 ms (Firefox) for a 70.7 kB module (21.8 kB brotli). Build times for a 49.8k-line crate: `cargo check` 1.0 s incremental; native test build 1.2 s; `wasmdev` 2.9 s; release 38 s plus 28.5 s for wasm-opt.
+- Threads: a blocking barrier round costs 85–125 µs; the parallelisable phases are 25–35% of the tick. Verdict: one sim thread.
+- Host factor: reference ≈ host ÷ 2.4 at the base clock.
+
+**The `libm` probe (WP B1, 2026-10-20).** A crate depending only on `libm` 0.2.16 hashes the bit patterns of `sin`, `cos`, `exp`, `log`, `pow`, `atan2`, `exp2`, `log2`, `cbrt` and `tanh` over 10⁶ xorshift arguments each (ranges up to ±700 for `exp`, 10⁻⁶–10⁶ for the logarithms). Built with the release profile, the ten hashes are identical natively (x86-64), in Node 24, Chrome 156 and Firefox 157, both from cargo's raw output and after `wasm-opt -O3`. The module's features, by `wasm-opt --print-features`: mutable globals, non-trapping float-to-int, bulk memory (and its `-opt` variant), sign extension, reference types, multi-value and overlong call-indirect, with no SIMD or threads. The clippy bans of §4.1 were checked to fire on a test crate.
 
 ## Appendix B — Interfaces with other specs (who supplies what)
 
@@ -2548,9 +3492,10 @@ Combining `dom` and `webworker` libs in one tsconfig fails, which confirms the p
 | §7 UI, §8 storage | Screens, strings, slice UI scope, browser layers (07-ui §19) | R4-ui (07, 08, 09) |
 | §9 assets | Sprite lines (data), icon and sprite legibility rules (07-ui §23) | R4-data, R4-ui |
 | §11 performance | — | this document; 09 §8 points here |
+| §3, §4.1, §4.4, §15 multiplayer seams | The protocol, the relay, joins, desync repair and the multiplayer UI that use them | chapter 11 |
 | M7 | Surfaces and their twists | R4-world (06) |
 
-**`InputAction` additions to I §8.2:**
+**`InputAction` additions to I §8.2** (each with a stable id in `schema/actions.yaml`, §15.3):
 - `set_staff_slot` (also covered by ordinary transfers);
 - `distribute(entities, itemKey, count)`;
 - `place_blueprint(record, pos, dir, flip, mode)`;
@@ -2560,9 +3505,15 @@ Combining `dom` and `webworker` libs in one tsconfig fails, which confirms the p
 - `logistic_request_edit(…)` (M3);
 - `launch_empty(entity)` (M4: the Frontier cluster's empty-launch button, 04 §2.1);
 - `set_research_scheduling(enabled)` (M4: the "Researchers fill the queue" checkbox, 07 §5.3; saved state, so replays need it as an action);
-- `constructor_settings(…)` (M4).
+- `constructor_settings(…)` (M4);
+- `set_player_setting(setting, value)` and `set_game_setting(setting, value)` (M0: the rule-affecting settings of §7.6's audit, D11);
+- `console_command(text)`: console commands that change the world (cheats, dev `/c`); chat is out of band and never an action (11 §3.3).
 
-**Queries:** `rates(area)`, `map_search(text)`, `total_raw(recipe)`, `where_made(item)`, `patch_info(resource)`.
+**System actions** (§15.3; injected by the sequencer as player `0xFFFF`): `player_joined`, `player_left`, `release_inputs`, `snapshot_marker`, `debug_dump`.
+
+**The action format** (§15.3): `u16 type, u16 len`, payload (at most 65,531 bytes; blobs above), in per-player batches with a 16-byte header; held-input actions carry the input generation; entities by serial or creation id.
+
+**Queries** (§15.5): `rates(area)`, `map_search(text)`, `total_raw(recipe)`, `where_made(item)`, `patch_info(resource)`; dev only: `inspect(serial)`, `hash`, `digest`.
 
 ## Appendix C — Sources
 
@@ -2592,3 +3543,12 @@ Combining `dom` and `webworker` libs in one tsconfig fails, which confirms the p
 **Round-3 critiques** (the round-4 worklist): `design/round3/R3-implementability.md` (with `impl-data/r3_checks.py` and `r3_xref.py`), `R3-balance.md`, `R3-fun.md`, `R3-coherence-tone.md`, `R3-accuracy.md`.
 
 **Round-4 scripts:** `design/round4/arch-data/manifests.py` (the milestone filters' closure check, §12) and `design/round4/arch-data/bench/` (Appendix A).
+
+**Version 2:**
+- `pm/reports/A1.md` and `design/engine-study/` (the engine study); `pm/reviews/A1-r1.md` (codex's second opinion);
+- chapter 11 and `design/multiplayer/DESIGN.md` with its proof of concept; `pm/reviews/A2-r1.md` and the review response in `pm/reports/A2.md`;
+- `pm/DECISIONS-IMPL.md` 1–6; A3's `design/art/DIRECTION.md` and A4's `design/audio/DIRECTION.md` for the style constants and the audio feed;
+- the `libm` crate 0.2.16 (https://crates.io/crates/libm; source in rust-lang/compiler-builtins);
+- W3C, *WebAssembly JavaScript Interface*, memory growth detaching the old `ArrayBuffer` (https://www.w3.org/TR/wasm-js-api-2/#memories);
+- V8, *WebAssembly compilation pipeline* (https://v8.dev/docs/wasm-compilation-pipeline): WebAssembly is still compiled and tiered, so "no JIT stalls" means no speculative deoptimisation, not no compilation (A1-r1);
+- Yann Collet, *xxHash* specification and test vectors (XXH64; https://github.com/Cyan4973/xxHash/blob/dev/doc/xxhash_spec.md).

@@ -71,7 +71,8 @@
 - **Data is the source of truth:** `design/spec/data/*.yaml`.
   - 02, 05 and 09 §1–§2 are generated; never hand-edit them.
   - After any data edit, run `gamedev-python tools/validate_spec.py design/spec/data` (must be 0 errors, 0 warnings), then `tools/render_spec.py` and `tools/render_slice.py`, then `design/round3/impl-data/r3_checks.py` and `r3_xref.py`.
-- **Engine plan:** `design/spec/10-architecture.md`.
-  - TypeScript 7, Vite 8, Vitest, Biome, SolidJS (DOM UI), a custom WebGL2 renderer, and a deterministic 60 UPS simulation in a Worker. No `Math.sin`/`exp` in sim code; use the deterministic math module.
-  - The pinned, tested package set is in `design/round2/A-stack-test/` (with its lockfile).
+- **Engine plan:** `design/spec/10-architecture.md` (version 2); multiplayer in `design/spec/11-multiplayer.md`.
+  - The simulation is **Rust 1.99.1 compiled to WebAssembly** (a Cargo workspace in `game/crates/`): one thread in a sim Worker, a deterministic 60 UPS, closures as its only input. TypeScript 7 does the worker shell, the data stage, the UI (SolidJS, DOM), the custom WebGL2 renderer, audio and tools. Vite 8, Vitest, Biome; `cargo test` natively; clippy with determinism bans.
+  - One schema (`game/schema/`) generates every Rust/TypeScript contract; the M0 contracts are 10 §15. No transcendental from `std` in sim code: use the `det` crate (the `libm` crate inside). Determinism rules D1–D23: 10 §4.1.
+  - The pinned, tested npm set is in `design/round2/A-stack-test/` (with its lockfile); proven Rust/WebAssembly settings, kernels and harnesses are in `design/engine-study/`.
 - **Milestones:** M0 (foundations) → M1 (the vertical slice: Memo + Report tiers, peaceful) → … → M7. See 10 §12 and 09.
