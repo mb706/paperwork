@@ -3,10 +3,12 @@
 ## Phase A: pre-implementation studies (started 2026-10-20)
 | WP | Topic | Agent | Status |
 |---|---|---|---|
-| A1 | Engine study: TS vs Rust/WASM, render boundary, scale | Opus | done: recommends Rust→WASM as a clean split (1.35–1.75× faster, no JIT stalls). Codex second opinion r1 running |
-| A2 | Multiplayer architecture (lockstep, relay, no P2P UDP) | Opus | done. `design/multiplayer/DESIGN.md`. Codex r1 found 1 critical and 14 major issues; the agent is fixing them |
+| A1 | Engine study: TS vs Rust/WASM, render boundary, scale | Opus | done. Rust→WASM adopted (IMPL-1); codex's second opinion agrees |
+| A2 | Multiplayer architecture (lockstep, relay, no P2P UDP) | Opus | done. Codex r1's 17 findings are fixed; seams S1–S15 and rules D1–D23 |
 | A3 | Art direction (3 directions → 1, style guide) | Opus | running |
-| A4 | Audio direction (music + SFX, engine choice, demos) | Opus | running |
+| A4 | Audio direction (music + SFX, engine choice, demos) | Opus | done. Era-evolving process music; generative-first hybrid engine. Demos are on the studio page https://claude.ai/artifact/GCpPisM2mG1CMi5zdWJ2HQ. Open: audio CPU is 36–76% of a core here and must come down |
+
+Phase B: B1 (architecture v2: 10 for Rust, 11-multiplayer, the M0 contracts) is running. B2 (§9 assets, audio, loading and streaming) waits for A3.
 
 Next: codex reviews of A1/A2, then Phase B (an architecture revision that folds A1–A4 into the spec), then M0.
 
