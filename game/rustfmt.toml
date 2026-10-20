@@ -1,0 +1,5 @@
+# rustfmt (10 §2.5): stable options only, so `cargo fmt --check` behaves the same for every agent.
+edition = "2024"
+max_width = 110
+use_small_heuristics = "Max"
+newline_style = "Unix"

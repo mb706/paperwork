@@ -1,0 +1,249 @@
+// The data stage (10 §2.4): design/spec/data/*.yaml + game/data/engine/*.yaml → prototypes.bin,
+// prototypes.json, build-manifest.json, src/shared/gen/proto-ids.ts and the expression cross-check
+// fixture. A pure function of its input files: identical inputs give byte-identical outputs (D14).
+//
+//   1. load and validate every design kind against its schema (schema/), references (refs.ts);
+//   2. compile and check every formula (formulas.ts, expr.ts);
+//   3. load the engine overlay (overlay.ts) and the milestone filters, and check every filter's closure
+//      (manifests.ts, R17);
+//   4. take the build's prototypes from the current capability manifest, or from a build filter
+//      (capabilities.ts), and check that they close;
+//   5. assign dense ids (model.ts) and emit (emit/).
+import { join } from 'node:path';
+import { devManifest, manifestText } from '../build-manifest.ts';
+import { fromHex, sha256Bytes, toHex } from '../lib/hash.ts';
+import { type BuildSet, capabilityBuild, filterBuild, loadCapabilities } from './capabilities.ts';
+import { Diagnostics } from './diagnostics.ts';
+import { exprFixture, loadEdgeCases } from './emit/expr-fixture.ts';
+import { protoIdsTs } from './emit/proto-ids.ts';
+import { type TableSummary, writePrototypesBin } from './emit/protos-bin.ts';
+import { prototypesJson } from './emit/protos-json.ts';
+import { checkFormulaRefs } from './formula-refs.ts';
+import { compileFormulas } from './formulas.ts';
+import {
+  type BuildFilter,
+  checkAgainstSpec,
+  closure,
+  loadManifests,
+  loadSlice,
+  selectTechnologies,
+  sliceFilter,
+  summary,
+} from './manifests.ts';
+import { buildModel } from './model.ts';
+import { loadOverlay, type OverlaySources } from './overlay.ts';
+import { checkReferences, indexDesign } from './refs.ts';
+import { FILE_KINDS, type FileKind, validateDesign } from './schema/index.ts';
+import { loadYaml, type SourceFile } from './sources.ts';
+
+export interface DataStageOptions {
+  /** The game/ directory. */
+  gameDir: string;
+  /** The design spec directory (design/spec). */
+  specDir: string;
+  /** Build a milestone filter (`m1` … `m5`) instead of the current capability manifest. */
+  manifest?: string;
+  /**
+   * Report engine-overlay gaps as warnings instead of errors (for `--manifest` builds of prototypes that
+   * no milestone's engine supports yet).
+   */
+  allowIncomplete?: boolean;
+  /** The schema's hash and protocol version (the generated src/shared/gen/schema.ts). */
+  schemaHash: string;
+  protocolVersion: number;
+  /** Also emit these build filters in memory (a smoke test of the writers over the full data). */
+  extraBuilds?: readonly string[];
+}
+
+export interface DataStageResult {
+  diagnostics: Diagnostics;
+  /** Output files, by path relative to game/. Empty when there are errors. */
+  outputs: Map<string, Uint8Array>;
+  /** Lines worth printing: the manifests' closure summaries and the build's tables. */
+  report: string[];
+  build: BuildSet | null;
+  tables: TableSummary[];
+  filters: BuildFilter[];
+  prototypesHash: string | null;
+  /** The extra builds' prototypes.bin sizes and hashes. */
+  extra: { name: string; bytes: number; hash: string; jsonBytes: number }[];
+}
+
+export const OUTPUT_PATHS = {
+  bin: 'public/data/prototypes.bin',
+  json: 'public/data/prototypes.json',
+  manifest: 'public/data/build-manifest.json',
+  protoIds: 'src/shared/gen/proto-ids.ts',
+  exprFixture: 'test/fixtures/expr/cases.txt',
+} as const;
+
+const enc = new TextEncoder();
+
+/**
+ * 10 §2.4 step 4: per machine that takes modules, the build's recipes in its categories that a
+ * productivity module would block (allow_productivity is false; DECISIONS §30).
+ */
+export function productivityReport(m: ReturnType<typeof buildModel>): string[] {
+  const out: string[] = [];
+  for (const e of m.entities) {
+    if (!e.data.module_slots || !e.data.categories) continue;
+    const cats = new Set(e.data.categories);
+    const blocked = m.recipes
+      .filter((r) => cats.has(r.data.category) && !r.data.allow_productivity)
+      .map((r) => r.id);
+    if (blocked.length > 0) out.push(`  productivity blocked in ${e.id}: ${blocked.join(', ')}`);
+  }
+  return out;
+}
+
+export function runDataStage(o: DataStageOptions): DataStageResult {
+  const diags = new Diagnostics();
+  const report: string[] = [];
+  const result: DataStageResult = {
+    diagnostics: diags,
+    outputs: new Map(),
+    report,
+    build: null,
+    tables: [],
+    filters: [],
+    prototypesHash: null,
+    extra: [],
+  };
+  const repo = join(o.gameDir, '..');
+  const rel = (p: string) => (p.startsWith(`${repo}/`) ? p.slice(repo.length + 1) : p);
+
+  // 1. Design data.
+  const sources = {} as Record<FileKind, SourceFile>;
+  for (const k of FILE_KINDS) {
+    const abs = join(o.specDir, 'data', `${k}.yaml`);
+    const src = loadYaml(abs, rel(abs), diags);
+    if (src) sources[k] = src;
+  }
+  if (diags.errors.length > 0) return result;
+  const design = validateDesign(sources, diags);
+  if (!design) return result;
+  const ix = indexDesign(design);
+  checkReferences(design, ix, diags);
+  if (diags.errors.length > 0) return result;
+
+  // 2. Formulas.
+  const formulas = compileFormulas(design, diags);
+
+  // 3. Overlay and milestone filters.
+  const engine = (name: string) => {
+    const abs = join(o.gameDir, 'data', 'engine', name);
+    return loadYaml(abs, rel(abs), diags);
+  };
+  const ovSrc = {
+    groups: engine('groups.yaml'),
+    defaults: engine('defaults.yaml'),
+    mirrors: engine('mirrors.yaml'),
+    prototypes: engine('prototypes.yaml'),
+    sets: engine('sets.yaml'),
+  };
+  const manifestsSrc = engine('manifests.yaml');
+  const capsSrc = engine('capabilities.yaml');
+  if (
+    !ovSrc.groups ||
+    !ovSrc.defaults ||
+    !ovSrc.mirrors ||
+    !ovSrc.prototypes ||
+    !ovSrc.sets ||
+    !manifestsSrc ||
+    !capsSrc
+  )
+    return result;
+  const overlay = loadOverlay(ovSrc as OverlaySources, diags);
+  const manifests = loadManifests(manifestsSrc, diags);
+  if (!overlay || !manifests) return result;
+  checkAgainstSpec(manifests, o.specDir, diags);
+  const filters: BuildFilter[] = [];
+  for (const [name, m] of Object.entries(manifests.manifests)) {
+    if ('from' in m) {
+      const slice = loadSlice(o.specDir, diags);
+      if (slice) filters.push({ ...sliceFilter(slice.block, design, ix, diags, slice.src), name });
+    } else filters.push(closure(name, selectTechnologies(m, manifests.wild_roots, design, ix), design, ix));
+  }
+  for (const f of filters) {
+    report.push(summary(f));
+    for (const p of f.problems) diags.error(`${f.name}: ${p}`, { file: 'game/data/engine/manifests.yaml' });
+    if (f.inert.length > 0) report.push(`    inert until its setting exists: ${f.inert.join('; ')}`);
+  }
+  result.filters = filters;
+
+  // 4. The build's prototypes.
+  const cap = loadCapabilities(capsSrc, diags);
+  if (!cap) return result;
+  let build: BuildSet;
+  if (o.manifest) {
+    const f = filters.find((x) => x.name === o.manifest);
+    if (!f) {
+      diags.error(`no build filter named ${o.manifest} (have: ${filters.map((x) => x.name).join(', ')})`);
+      return result;
+    }
+    build = filterBuild(f, design, ix);
+  } else {
+    build = capabilityBuild(cap, design, ix, diags, capsSrc);
+    checkFormulaRefs(cap, design.meta, join(o.gameDir, 'crates'), diags, capsSrc);
+  }
+  result.build = build;
+  if (diags.errors.length > 0) return result;
+
+  // 5. Ids and outputs.
+  const model = buildModel(build, design, ix, overlay, formulas, diags, !o.allowIncomplete);
+  if (diags.errors.length > 0) return result;
+  const schemaHash = fromHex(o.schemaHash);
+  const bin = writePrototypesBin(model, schemaHash);
+  const prototypesHash = toHex(sha256Bytes(bin.bytes));
+  result.prototypesHash = prototypesHash;
+  result.tables = bin.tables;
+  if (o.manifest) report.push(...productivityReport(model));
+  report.push(
+    `build ${build.name}: ${model.items.length} items, ${model.fluids.length} fluids, ${model.recipes.length} recipes, ` +
+      `${model.entities.length} entities, ${model.technologies.length} technologies, ${model.resources.length} resources, ` +
+      `${model.tiles.length} tiles, ${model.world.length} world objects; prototypes.bin ${bin.bytes.length} bytes, sha256 ${prototypesHash.slice(0, 16)}…`,
+  );
+  const out = result.outputs;
+  out.set(OUTPUT_PATHS.bin, bin.bytes);
+  out.set(OUTPUT_PATHS.json, enc.encode(prototypesJson(model, o.schemaHash, prototypesHash)));
+  out.set(
+    OUTPUT_PATHS.manifest,
+    enc.encode(
+      manifestText(
+        devManifest({
+          modules: {},
+          prototypesHash,
+          schemaHash: o.schemaHash,
+          protocolVersion: o.protocolVersion,
+          build: build.name,
+        }),
+      ),
+    ),
+  );
+  if (!o.manifest) {
+    out.set(OUTPUT_PATHS.protoIds, enc.encode(protoIdsTs(design)));
+    const edges = loadEdgeCases(
+      join(o.gameDir, 'test', 'fixtures', 'expr', 'edge-cases.yaml'),
+      'game/test/fixtures/expr/edge-cases.yaml',
+      diags,
+    );
+    out.set(OUTPUT_PATHS.exprFixture, enc.encode(exprFixture(formulas, edges)));
+  }
+  for (const name of o.extraBuilds ?? []) {
+    const f = filters.find((x) => x.name === name);
+    if (!f) {
+      diags.error(`no build filter named ${name}`);
+      continue;
+    }
+    const scratch = new Diagnostics();
+    const m = buildModel(filterBuild(f, design, ix), design, ix, overlay, formulas, scratch, false);
+    for (const d of scratch.errors) diags.add(d);
+    if (scratch.errors.length > 0) continue;
+    const b = writePrototypesBin(m, schemaHash);
+    const h = toHex(sha256Bytes(b.bytes));
+    const j = prototypesJson(m, o.schemaHash, h);
+    result.extra.push({ name, bytes: b.bytes.length, hash: h, jsonBytes: enc.encode(j).length });
+  }
+  if (diags.errors.length > 0) out.clear();
+  return result;
+}

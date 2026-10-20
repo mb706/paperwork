@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": ".cache/tsc/simworker",
+    "lib": ["es2024", "webworker"],
+    "types": ["vite/client"]
+  },
+  "include": ["src/simworker/**/*.ts", "src/app/workers/sim.ts"],
+  "exclude": ["**/*.test.ts"],
+  "references": [{ "path": "./tsconfig.shared.json" }]
+}

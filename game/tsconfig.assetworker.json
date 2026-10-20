@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": ".cache/tsc/assetworker",
+    "lib": ["es2024", "webworker"],
+    "types": []
+  },
+  "include": ["src/assets/worker.ts", "src/assets/worker/**/*.ts"],
+  "exclude": ["**/*.test.ts"],
+  "references": [
+    {
+      "path": "./tsconfig.shared.json"
+    }
+  ]
+}

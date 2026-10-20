@@ -1,0 +1,106 @@
+# Engine defaults (10 §2.4 step 2), the first of two layers: per entity type here, then per `mirrors` id
+# (mirrors.yaml), then per prototype (prototypes.yaml). Only engine fields: the overlay may never set a
+# number the design data carries.
+#
+# Boxes: a building's selection box is its footprint; its collision box is the footprint inset by
+# `collision_inset` on every side (Factorio's convention: 0.15 for chests, 0.3 for most machines).
+entity_types:
+  _all: {collision_inset: 0.3, mining_time: 0.2, rotatable: true, flippable: false, selection_priority: 50}
+  assembler: {fast_replaceable_group: assembling-machine}
+  furnace: {fast_replaceable_group: furnace, rotatable: false}
+  mining-drill: {}
+  offshore-pump: {collision_inset: 0.4}
+  pumpjack: {collision_inset: 0.3}
+  lab: {rotatable: false}
+  belt: {collision_inset: 0.1, fast_replaceable_group: transport-belt, mining_time: 0.1}
+  underground-belt: {collision_inset: 0.1, fast_replaceable_group: transport-belt, mining_time: 0.1}
+  splitter: {collision_inset: 0.1, fast_replaceable_group: transport-belt, mining_time: 0.1}
+  inserter: {collision_inset: 0.35, fast_replaceable_group: inserter, mining_time: 0.1}
+  chest: {collision_inset: 0.15, fast_replaceable_group: container, rotatable: false, mining_time: 0.1}
+  logistic-chest: {collision_inset: 0.15, fast_replaceable_group: container, rotatable: false, mining_time: 0.1}
+  pipe: {collision_inset: 0.21, fast_replaceable_group: pipe, rotatable: false, mining_time: 0.1}
+  pipe-to-ground: {collision_inset: 0.2, fast_replaceable_group: pipe, mining_time: 0.1}
+  pump: {collision_inset: 0.21}
+  storage-tank: {flippable: true}
+  boiler: {collision_inset: 0.29}
+  generator: {collision_inset: 0.15}
+  solar-panel: {collision_inset: 0.1, rotatable: false, fast_replaceable_group: solar-panel}
+  accumulator: {collision_inset: 0.1, rotatable: false}
+  reactor: {collision_inset: 0.3, rotatable: false}
+  heat-pipe: {collision_inset: 0.2, rotatable: false}
+  heat-exchanger: {}
+  electric-pole: {collision_inset: 0.35, rotatable: false, fast_replaceable_group: electric-pole, mining_time: 0.1}
+  roboport: {collision_inset: 0.3, rotatable: false}
+  rail: {collision_inset: 0.3}
+  train-stop: {}
+  rail-signal: {collision_inset: 0.3}
+  locomotive: {}
+  cargo-wagon: {}
+  fluid-wagon: {}
+  beacon: {rotatable: false}
+  radar: {rotatable: false}
+  wall: {collision_inset: 0.01, rotatable: false, fast_replaceable_group: wall}
+  gate: {collision_inset: 0.01}
+  turret: {rotatable: false}
+  rocket-silo: {rotatable: false}
+  combinator: {collision_inset: 0.15}
+  lamp: {collision_inset: 0.35, rotatable: false, mining_time: 0.1}
+  cooler: {}
+  other: {}
+
+# Default item subgroups (groups.yaml): a placed entity's type first, then a tile, then the first tag that
+# names one, then `intermediate-product`. A fluid is in `fluid`.
+item_subgroups:
+  by_entity_type:
+    chest: storage
+    logistic-chest: logistic-network
+    storage-tank: storage
+    belt: belt
+    underground-belt: belt
+    splitter: belt
+    inserter: inserter
+    electric-pole: energy-pipe-distribution
+    pipe: energy-pipe-distribution
+    pipe-to-ground: energy-pipe-distribution
+    pump: energy-pipe-distribution
+    rail: train-transport
+    train-stop: train-transport
+    rail-signal: train-transport
+    locomotive: train-transport
+    cargo-wagon: train-transport
+    fluid-wagon: train-transport
+    roboport: logistic-network
+    combinator: circuit-network
+    lamp: circuit-network
+    boiler: energy
+    generator: energy
+    solar-panel: energy
+    accumulator: energy
+    reactor: energy
+    heat-pipe: energy
+    heat-exchanger: energy
+    cooler: energy
+    mining-drill: extraction-machine
+    offshore-pump: extraction-machine
+    pumpjack: extraction-machine
+    furnace: smelting-machine
+    assembler: production-machine
+    lab: production-machine
+    rocket-silo: production-machine
+    beacon: production-machine
+    radar: defensive-structure
+    wall: defensive-structure
+    gate: defensive-structure
+    turret: turret
+    other: transport
+  tile: terrain
+  by_tag:
+    - {tag: science-pack, subgroup: science-pack}
+    - {tag: module, subgroup: module}
+    - {tag: ammo, subgroup: ammo}
+    - {tag: armor, subgroup: armor}
+    - {tag: equipment, subgroup: equipment}
+    - {tag: raw, subgroup: raw-resource}
+    - {tag: intermediate, subgroup: intermediate-product}
+  fluid: fluid
+  fallback: intermediate-product

@@ -1,0 +1,18 @@
+[package]
+name = "simtool"
+description = "Native host for the simulation (10 §10): replay, hash, trace and bench in M0; diff and bisect in M1."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+det.workspace = true
+schema.workspace = true
+sim.workspace = true
+
+[features]
+simcheck = ["sim/simcheck"]
+
+[lints]
+workspace = true

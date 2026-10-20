@@ -1,0 +1,8 @@
+# Build outputs and caches (the root .gitignore covers node_modules/, dist/ and the Playwright reports too).
+node_modules/
+dist/
+target/
+.cache/
+public/data/
+test-results/
+playwright-report/

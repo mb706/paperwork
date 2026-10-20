@@ -1,0 +1,13 @@
+# A crate that breaks every determinism ban of game/clippy.toml once. scripts/check-clippy-bans.ts runs
+# clippy on it with that configuration and requires each ban to fire (10 §4.1: "each verified to fire").
+# It is its own workspace, outside the game's.
+[workspace]
+
+[package]
+name = "clippy-bans"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+libm = "=0.2.16"

@@ -1,0 +1,45 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": ".cache/tsc/test",
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "types": ["node"]
+  },
+  "include": ["**/*.test.ts", "test/**/*.ts", "e2e/**/*.ts", "bench/**/*.ts"],
+  "exclude": ["node_modules", "dist", "target", ".cache"],
+  "references": [
+    {
+      "path": "./tsconfig.shared.json"
+    },
+    {
+      "path": "./tsconfig.simworker.json"
+    },
+    {
+      "path": "./tsconfig.genworker.json"
+    },
+    {
+      "path": "./tsconfig.ioworker.json"
+    },
+    {
+      "path": "./tsconfig.assetworker.json"
+    },
+    {
+      "path": "./tsconfig.render.json"
+    },
+    {
+      "path": "./tsconfig.ui.json"
+    },
+    {
+      "path": "./tsconfig.audio.json"
+    },
+    {
+      "path": "./tsconfig.assets.json"
+    },
+    {
+      "path": "./tsconfig.app.json"
+    },
+    {
+      "path": "./tsconfig.scripts.json"
+    }
+  ]
+}

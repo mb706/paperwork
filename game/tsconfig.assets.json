@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": ".cache/tsc/assets",
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "types": []
+  },
+  "include": ["src/assets/**/*.ts"],
+  "exclude": ["**/*.test.ts", "src/assets/worker.ts", "src/assets/worker/**"],
+  "references": [
+    {
+      "path": "./tsconfig.shared.json"
+    }
+  ]
+}

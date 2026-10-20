@@ -1,0 +1,17 @@
+[package]
+name = "worldgen"
+description = "Pure chunk generation (10 §5.18): noise, climate, towns. No World access, no I/O."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+det.workspace = true
+schema.workspace = true
+
+[features]
+simcheck = ["det/simcheck", "schema/simcheck"]
+
+[lints]
+workspace = true

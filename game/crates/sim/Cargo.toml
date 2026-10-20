@@ -1,0 +1,20 @@
+[package]
+name = "sim"
+description = "The World and every system (10 §4-§5): saves, digests, extraction, projections, queries."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+det.workspace = true
+schema.workspace = true
+worldgen.workspace = true
+
+[features]
+# The checks that cost time and never change results (10 §2.3): NaN scans, per-phase digests,
+# the counting allocator, profiling scopes. Native tests and the dev server's module build with it.
+simcheck = ["det/simcheck", "schema/simcheck", "worldgen/simcheck"]
+
+[lints]
+workspace = true

@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": ".cache/tsc/app",
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "types": ["vite/client"]
+  },
+  "include": ["src/app/**/*.ts", "src/dev/**/*.ts"],
+  "exclude": ["**/*.test.ts", "src/app/workers/**"],
+  "references": [
+    {
+      "path": "./tsconfig.shared.json"
+    },
+    {
+      "path": "./tsconfig.render.json"
+    },
+    {
+      "path": "./tsconfig.ui.json"
+    },
+    {
+      "path": "./tsconfig.audio.json"
+    },
+    {
+      "path": "./tsconfig.assets.json"
+    }
+  ]
+}

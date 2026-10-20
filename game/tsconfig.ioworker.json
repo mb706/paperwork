@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": ".cache/tsc/ioworker",
+    "lib": ["es2024", "webworker"],
+    "types": []
+  },
+  "include": ["src/ioworker/**/*.ts", "src/app/workers/io.ts"],
+  "exclude": ["**/*.test.ts"],
+  "references": [{ "path": "./tsconfig.shared.json" }]
+}

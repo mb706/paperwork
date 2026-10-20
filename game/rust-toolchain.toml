@@ -1,0 +1,6 @@
+# 10 §2.1: Rust 1.99.1 (the newest stable minor release at least 14 days old, at its newest patch).
+[toolchain]
+channel = "1.99.1"
+targets = ["wasm32-unknown-unknown"]
+components = ["clippy", "rustfmt"]
+profile = "minimal"

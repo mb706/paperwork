@@ -1,0 +1,7 @@
+# Defaults per `mirrors` id (10 §2.4 step 2): Factorio 2.0's numbers, hand-typed from the wiki and the
+# published prototype values; numbers only, never copied files. The defaults id is the leading
+# [a-z0-9-]+ token of an entity's `mirrors` (J23); `new` means none.
+entities:
+  wooden-chest: {collision_box: [-0.35, -0.35, 0.35, 0.35], selection_box: [-0.5, -0.5, 0.5, 0.5], mining_time: 0.1}
+  iron-chest: {collision_box: [-0.35, -0.35, 0.35, 0.35], selection_box: [-0.5, -0.5, 0.5, 0.5], mining_time: 0.2}
+  steel-chest: {collision_box: [-0.35, -0.35, 0.35, 0.35], selection_box: [-0.5, -0.5, 0.5, 0.5], mining_time: 0.2}

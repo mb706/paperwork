@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": ".cache/tsc/genworker",
+    "lib": ["es2024", "webworker"],
+    "types": ["vite/client"]
+  },
+  "include": ["src/genworker/**/*.ts", "src/app/workers/gen.ts"],
+  "exclude": ["**/*.test.ts"],
+  "references": [{ "path": "./tsconfig.shared.json" }]
+}

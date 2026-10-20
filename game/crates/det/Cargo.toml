@@ -1,0 +1,16 @@
+[package]
+name = "det"
+description = "Deterministic maths (10 §4.1): libm re-exports, powi, comparisons, the expression bytecode interpreter (10 §15.2). The only crate using libm."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+libm.workspace = true
+
+[features]
+simcheck = []
+
+[lints]
+workspace = true

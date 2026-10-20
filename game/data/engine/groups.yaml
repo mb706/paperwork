@@ -1,0 +1,39 @@
+# Item groups and subgroups: they order the crafting grid (I §7.2) and the dense ids (10 §2.4 step 5).
+# Factorio 2.0's base groups, hand-typed (names and orders only).
+groups:
+  - {id: logistics, order: a}
+  - {id: production, order: b}
+  - {id: intermediate-products, order: c}
+  - {id: combat, order: d}
+  - {id: fluids, order: e}
+  - {id: signals, order: f}
+  - {id: other, order: z}
+subgroups:
+  - {id: storage, group: logistics, order: a}
+  - {id: belt, group: logistics, order: b}
+  - {id: inserter, group: logistics, order: c}
+  - {id: energy-pipe-distribution, group: logistics, order: d}
+  - {id: train-transport, group: logistics, order: e}
+  - {id: transport, group: logistics, order: f}
+  - {id: logistic-network, group: logistics, order: g}
+  - {id: circuit-network, group: logistics, order: h}
+  - {id: terrain, group: logistics, order: i}
+  - {id: tool, group: production, order: a}
+  - {id: energy, group: production, order: b}
+  - {id: extraction-machine, group: production, order: c}
+  - {id: smelting-machine, group: production, order: d}
+  - {id: production-machine, group: production, order: e}
+  - {id: module, group: production, order: f}
+  - {id: raw-resource, group: intermediate-products, order: a}
+  - {id: raw-material, group: intermediate-products, order: b}
+  - {id: intermediate-product, group: intermediate-products, order: c}
+  - {id: science-pack, group: intermediate-products, order: d}
+  - {id: gun, group: combat, order: a}
+  - {id: ammo, group: combat, order: b}
+  - {id: capsule, group: combat, order: c}
+  - {id: armor, group: combat, order: d}
+  - {id: equipment, group: combat, order: e}
+  - {id: defensive-structure, group: combat, order: f}
+  - {id: turret, group: combat, order: g}
+  - {id: fluid, group: fluids, order: a}
+  - {id: other, group: other, order: z}

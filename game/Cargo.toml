@@ -1,0 +1,64 @@
+# The simulation's Cargo workspace (10 §2.2). One crate per job; the crate graph enforces the boundaries:
+# schema <- det (libm only) <- worldgen <- sim <- simabi / simtool; worldgen <- genabi.
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+# The clippy-ban fixture is a crate of its own (scripts/check-clippy-bans.ts runs clippy on it).
+exclude = ["test/clippy-bans"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+# Pins are exact (10 §2.1 policy): `cargo build --locked` never resolves anew. The simulation crates
+# depend on libm only; any other crate needs a reason in a report.
+[workspace.dependencies]
+libm = "=0.2.16"
+schema = { path = "crates/schema" }
+det = { path = "crates/det" }
+worldgen = { path = "crates/worldgen" }
+sim = { path = "crates/sim" }
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+missing_debug_implementations = "allow"
+
+[workspace.lints.clippy]
+# The determinism bans live in clippy.toml (disallowed-methods/-types/-macros, 10 §4.1).
+disallowed_methods = "deny"
+disallowed_types = "deny"
+disallowed_macros = "deny"
+
+# Cargo profiles (10 §2.3).
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+debug = false
+overflow-checks = false
+
+# The dev server's modules: release semantics, fast incremental builds.
+[profile.wasmdev]
+inherits = "release"
+lto = false
+codegen-units = 16
+incremental = true
+opt-level = 2
+
+# `cargo test` (units): fast to build; dependencies optimised.
+[profile.dev]
+opt-level = 1
+debug-assertions = true
+overflow-checks = true
+
+[profile.dev.package."*"]
+opt-level = 3
+
+# Scenario, golden and determinism suites: release speed with every assertion (tests unwind).
+[profile.ntest]
+inherits = "release"
+debug-assertions = true
+overflow-checks = true

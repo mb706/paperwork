@@ -1,0 +1,20 @@
+[package]
+name = "simabi"
+description = "sim.wasm: the C ABI of 10 §15.8 over `sim`, and the panic hook. The only crate (with genabi) allowed `unsafe`."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+schema.workspace = true
+sim.workspace = true
+
+[features]
+simcheck = ["sim/simcheck", "schema/simcheck"]
+
+[lints]
+workspace = true

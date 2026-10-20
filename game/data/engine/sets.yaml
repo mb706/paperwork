@@ -1,0 +1,8 @@
+# Set-name tables (10 §2.4 step 2, §15.7 "Lookup contracts"): the art sets for things a packet names by a
+# small id instead of a prototype. Each list's index is that id; the set's name is `<namespace>/<entry>`.
+# prototypes.json carries them, and the asset build makes the sets. Empty until worldgen and the asset
+# pipeline need them.
+tree_species: []      # ObjectView kind 0: the species id → object/<species>
+decoratives: []       # ObjectView kind 4: the decorative id → decor/<name>
+cliffs: []            # ObjectView kind 2 (M2): the cliff shape id → cliff/<shape>
+town_buildings: []    # town features (10 §15.9): the building id → town/<name>

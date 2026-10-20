@@ -1,0 +1,23 @@
+# Milestone build filters (10 §12, J17). A manifest is a rule over the full data, checked for closure by
+# the data stage (10 §2.4 step 3, R17); design/round4/arch-data/manifests.py runs the same check and prints
+# the same counts. M1 is 09 §2.7's explicit slice list, read from 09-vertical-slice.md. The block below
+# must equal the one in 10 §12; the data stage refuses a difference.
+wild_roots: [fire-control, projectile-damage-1, rate-of-fire-1, explosive-yield-1, laser, land-mines,
+             rocketry, interceptors, energy-shield, defense-in-depth]   # combat-only roots: M5
+manifests:
+  m1: {from: "09 §2.7"}                        # explicit slice list; start_recipes == prior-art's unlocks; scenery: [exchange]
+  m2:                                          # Article tier: fluids, data, rails, logic
+    tiers: [memo, report, article]             # technologies whose packs all lie in these tiers; triggers follow their prerequisites
+    exclude_branch: [M]                        # Proceedings and defence
+    exclude_with_dependents:                   # systems that belong to M3
+      - rejection-sampling                     # quality
+      - mobile-automata                        # agents (round 2's mobile-robotics)
+      - in-situ-leaching                       # nuclear
+      - deep-learning                          # deployment: Endpoint, Ratings, Preprint
+      - liquid-cooling                         # coolant loops
+  m3:                                          # Preprint and Model card: agents, quality, nuclear, containment
+    tiers: [memo, report, article, proceedings, preprint, model-card]
+    exclude_with_dependents: [scaling-laws]    # the frontier run belongs to M4
+    exclude_wild: true                         # wild_roots and their dependents
+  m4: {tiers: all, exclude_wild: true}         # System card: takeoff and victory
+  m5: {tiers: all}                             # everything, Wild included

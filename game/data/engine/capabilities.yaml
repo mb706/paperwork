@@ -1,0 +1,53 @@
+# Capability manifests (10 §2.4, B1-r1 19): what the engine supports at each milestone, so that "CI green"
+# has a definite meaning and nothing is half-supported. Each manifest extends the one it names. Outside
+# the current manifest everything fails explicitly: an action decodes but is refused with `action_failed`
+# and the developer reason `unsupported` (10 §15.3); a subscription or query gets status 2, reason 1
+# (10 §15.5).
+#
+# The data stage filters prototypes.bin and prototypes.json to `prototypes` and checks that they close:
+# items follow from the listed entities (their items), resources (their yields) and recipes (ingredients
+# and products), and the start inventory is meta.start.inventory filtered to those items. Action,
+# projection, query and packet-section names are checked against game/schema/ once it exists (C1b).
+current: m0
+manifests:
+  m0:
+    prototypes:
+      character: true                    # the engine's character (10 §5.1); not a data prototype
+      entities: [iron-chest]             # one chest
+      recipes: [iron-chest]              # one hand-craftable recipe: 8 iron plates (the start inventory) make 1 iron chest
+      resources: [iron-ore-patch]        # one resource, mined by hand
+      tiles: [grass, dirt, sand, water, deep-water, out-of-map]   # worldgen v0: terrain, water; out-of-map bounds a map
+      world_objects: []
+      technologies: []
+    actions:                             # walking, hand mining, building and mining the chest, I §8.2's transfers, hand crafting, settings
+      - start_walking
+      - stop_walking
+      - begin_mining
+      - begin_mining_terrain
+      - stop_mining
+      - build
+      - clear_cursor
+      - cursor_transfer
+      - cursor_split
+      - stack_transfer
+      - stack_split
+      - inventory_transfer
+      - inventory_split
+      - fast_entity_transfer
+      - fast_entity_split
+      - set_inventory_bar
+      - craft
+      - cancel_craft
+      - set_player_setting
+      - set_game_setting
+    system_actions: [player_joined, player_left, release_inputs, snapshot_marker, debug_dump]
+    registries:                          # entries that must be implemented: those M0's prototypes use (none)
+      effects: []
+      triggers: []
+      achievement_conditions: []
+      formula_refs: []
+    projections: [HUD, CHARACTER, INVENTORY, ENTITY_PANEL, HOVER, STATS, DEBUG]   # 10 §15.5's M0 kinds
+    queries: [inspect, hash, digest]     # the dev-build queries M0's tools use
+    packet_sections: [CHUNK_TILES, CHUNK_ENTITIES, CHUNK_OBJECTS, CHUNK_RESOURCES, DYN, MOVERS, EVENTS, UI, AUDIO_WORKING]   # AUDIO_WORKING stays empty while nothing works
+    rule_scenarios: [R23, R24, R25, R26, R27, R28, R29]   # 10 §10.8: R28's heat and agent cases and R29's smart-belt case come later
+    benchmarks: [m0-walk, m0-chests-10k, m0-codec, m0-load-30k]   # 10 §10.6

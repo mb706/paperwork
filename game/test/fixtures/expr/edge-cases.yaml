@@ -1,0 +1,28 @@
+# Hand-written golden values for the expression bytecode's defined behaviour (10 §15.2): clamping to the
+# field's range (an infinity becomes the bound, NaN the lower bound), exponents truncated toward zero
+# (NaN → 0) and clamped to ±1,024, det::powi's left-to-right multiplication, and Python's precedence.
+# Every expected value was worked out by hand from those rules, never produced by an interpreter. The
+# data stage copies them into cases.txt for the Rust interpreter (crates/det/tests/expr_cross.rs);
+# scripts/data-stage/expr.test.ts checks the TypeScript interpreter against the same values.
+#
+# names/values: the variables, in bytecode order. flags: nan, clamped, exponent.
+- {name: powi-left-to-right, expr: "0.1^L", names: [L], values: [3], range: [0, 1], value: 0.0010000000000000002, flags: []}
+- {name: zero-to-the-zero, expr: "0^0", names: [], values: [], range: [0, 10], value: 1, flags: []}
+- {name: negative-base, expr: "(0-3)^L", names: [L], values: [3], range: [-100, 100], value: -27, flags: []}
+- {name: negative-exponent, expr: "2^(0-L)", names: [L], values: [3], range: [0, 1], value: 0.125, flags: []}
+- {name: unary-minus-binds-looser-than-power, expr: "-2^2", names: [], values: [], range: [-10, 10], value: -4, flags: []}
+- {name: unary-minus-on-a-variable-power, expr: "-L^2", names: [L], values: [3], range: [-100, 100], value: -9, flags: []}
+- {name: power-is-right-associative, expr: "2^3^2", names: [], values: [], range: [0, 1000], value: 512, flags: []}
+- {name: power-takes-a-signed-exponent, expr: "2^-1", names: [], values: [], range: [0, 1], value: 0.5, flags: []}
+- {name: variables-in-order, expr: "sigma - c", names: [sigma, c], values: [0.75, 0.25], range: [-1, 1], value: 0.5, flags: []}
+- {name: division-by-zero-becomes-the-upper-bound, expr: "1/(L-L)", names: [L], values: [3], range: [1, 100], value: 100, flags: [clamped]}
+- {name: negative-infinity-becomes-the-lower-bound, expr: "(0-1)/(L-L)", names: [L], values: [3], range: [1, 100], value: 1, flags: [clamped]}
+- {name: nan-becomes-the-lower-bound, expr: "(L-L)/(L-L)", names: [L], values: [3], range: [1, 100], value: 1, flags: [nan]}
+- {name: below-the-range, expr: "L-10", names: [L], values: [3], range: [0, 100], value: 0, flags: [clamped]}
+- {name: reciprocal-of-zero-power, expr: "0^(0-1)", names: [], values: [], range: [0, 5], value: 5, flags: [clamped]}
+- {name: exponent-1024-is-allowed-and-overflows, expr: "2^1024", names: [], values: [], range: [0, 1e308], value: 1e308, flags: [clamped]}
+- {name: exponent-above-the-limit, expr: "2^(L*1000)", names: [L], values: [3], range: [0, 1e308], value: 1e308, flags: [exponent, clamped]}
+- {name: exponent-below-the-limit-underflows, expr: "2^(0-L*1000)", names: [L], values: [3], range: [0, 1], value: 0, flags: [exponent]}
+- {name: fractional-exponent-truncates, expr: "2^(L/2)", names: [L], values: [5], range: [0, 100], value: 4, flags: [exponent]}
+- {name: negative-fractional-exponent-truncates-toward-zero, expr: "2^(0-L/2)", names: [L], values: [5], range: [0, 1], value: 0.25, flags: [exponent]}
+- {name: nan-exponent-is-zero, expr: "2^((L-L)/(L-L))", names: [L], values: [1], range: [0, 10], value: 1, flags: [exponent]}

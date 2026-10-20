@@ -1,0 +1,20 @@
+[package]
+name = "genabi"
+description = "gen.wasm: the worldgen workers' ABI over `worldgen` (10 §15.9)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+schema.workspace = true
+worldgen.workspace = true
+
+[features]
+simcheck = ["worldgen/simcheck", "schema/simcheck"]
+
+[lints]
+workspace = true
