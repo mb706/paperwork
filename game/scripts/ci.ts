@@ -6,11 +6,13 @@
 //   test   cargo test (dev and ntest profiles, simcheck) and Vitest
 //   ci     check and test, then the data stage, then in parallel the e2e smoke (Chrome and Firefox) and the
 //          release path: the release WebAssembly (its build skipped when no input changed since the last
-//          green run, its feature gate always run), vite build, the bundle check and the preview smoke
+//          green run, its feature gate always run), vite build, the bundle check and the preview smoke; then,
+//          alone so that nothing else loads the host, the benchmark budget gate (10 §10.6): `simtool bench
+//          --quick` natively and the same scenarios through sim.wasm in Node (bench/node-runner.ts)
 //
 // Steps in one lane run in order (the cargo steps share target/); lanes run concurrently. In M0, "green"
-// means M0's checks and tests (the capability manifest, 10 §2.4); the cross-engine smoke trace and
-// `bench --quick` join when the simulation exists. Pin the run on a busy host: `taskset -c 0-15 npm run ci`.
+// means M0's checks and tests (the capability manifest, 10 §2.4); the cross-engine smoke trace joins with
+// integration. Pin the run on a busy host: `taskset -c 0-15 npm run ci`.
 import { spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -130,6 +132,34 @@ const E2E: Step = {
   cmd: [BIN('playwright'), 'test', '--grep', '@smoke'],
 };
 const DATA: Step = { name: 'data stage', cmd: [NODE, 'scripts/data-stage.ts', '--quiet'] };
+// The budget gate (10 §10.6; C2c-r1 finding 8): each scenario's tick p99 against §11's budget × the host factor.
+// `simtool` and the module without simcheck build in the `wasmdev` profile (release semantics, no LTO,
+// incremental), the module into its own target directory so the dev module stays as the dev server built it.
+const SCENARIOS = 'target/bench/scenarios';
+const BENCH: Step[] = [
+  { name: 'bench: simtool', cmd: ['cargo', 'build', '--locked', '--profile', 'wasmdev', '-p', 'simtool'] },
+  {
+    name: 'bench --quick (native)',
+    cmd: ['target/wasmdev/simtool', 'bench', '--quick', '--no-history', '--write-scenarios', SCENARIOS],
+  },
+  {
+    name: 'bench: sim.wasm',
+    cmd: [
+      'cargo',
+      'build',
+      '--locked',
+      '--profile',
+      'wasmdev',
+      '--target',
+      'wasm32-unknown-unknown',
+      '-p',
+      'simabi',
+      '--target-dir',
+      'target/bench',
+    ],
+  },
+  { name: 'bench --quick (Node, wasm)', cmd: [NODE, 'bench/node-runner.ts', '--quick', '--no-history'] },
+];
 
 interface Result {
   name: string;
@@ -197,6 +227,7 @@ async function main(): Promise<number> {
     if (results.every((r) => r.ok)) results.push(...(await runLanes([[DATA]])));
     if (results.every((r) => r.ok))
       results.push(...(await runLanes([[E2E], [RELEASE, BUILD, CHECK_RELEASE, E2E_RELEASE]])));
+    if (results.every((r) => r.ok)) results.push(...(await runLanes([BENCH])));
   } else {
     console.error('usage: node scripts/ci.ts check|test|ci');
     return 2;

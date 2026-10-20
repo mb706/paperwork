@@ -41,13 +41,16 @@ const USAGE: &str = "usage:
   simtool trace <save> <log.pwlog> [--protos <prototypes.bin>] [--ticks N] [--full] [--no-sleep] [--check]
       replay --trace, as C2a defined it: --ticks N stops after N ticks, --check stops at the first d_t that
       differs from the log's digests (exit 1)
-  simtool bench [--scenario NAME|all] [--quick] [--protos <prototypes.bin>] [--history FILE | --no-history]
-                [--cache DIR]
-      the M0 benchmarks of §10.6 (m0-walk, m0-chests-10k, m0-codec, m0-load-30k), timed with §10.6's method
-      (--quick: ci's budget gate, one short repetition); prints each against its threshold on the reference
-      machine and × 2.4 on this host (the gate: exit 1 when one fails); appends to bench/history.jsonl.
-      m0-load-30k's state is built once and cached under --cache (default target/bench-cache). Pin it:
-      taskset -c 0-15 target/release/simtool bench
+  simtool bench [--scenario NAME|all|none] [--quick] [--protos <prototypes.bin>] [--history FILE | --no-history]
+                [--cache DIR] [--json] [--write-scenarios DIR]
+      the M0 benchmarks of §10.6 (m0-walk, m0-chests-10k, m0-codec, m0-load-30k), timed with §10.6's method;
+      a full run checks §10.6's thresholds, --quick (ci's budget gate, one short repetition) the tails: each
+      tick p99 against §11's 2 ms, each operation's worst call; both on the reference machine and × 2.4 on this
+      host (exit 1 when a gate fails). The pinned cores' clocks are sampled in every timed window and turbo is
+      flagged. Appends to bench/history.jsonl (--json prints those lines instead of the table).
+      --write-scenarios DIR writes each scenario's state and inputs and scenarios.json for the WebAssembly
+      runner (bench/node-runner.ts); with --scenario none, nothing is timed. m0-load-30k's state is built once
+      and cached under --cache (default target/bench-cache). Pin it: taskset -c 0-15 target/release/simtool bench
   simtool version";
 
 struct Args {
@@ -64,6 +67,8 @@ struct Args {
     quick: bool,
     history: Option<String>,
     cache: String,
+    json: bool,
+    write_scenarios: Option<String>,
 }
 
 fn parse_args(raw: &[String]) -> Result<Args, String> {
@@ -81,6 +86,8 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
         quick: false,
         history: Some("bench/history.jsonl".to_owned()),
         cache: "target/bench-cache".to_owned(),
+        json: false,
+        write_scenarios: None,
     };
     let mut i = 0;
     while i < raw.len() {
@@ -116,6 +123,11 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
                 a.cache = raw.get(i).ok_or("--cache needs a directory")?.clone();
             }
             "--no-history" => a.history = None,
+            "--json" => a.json = true,
+            "--write-scenarios" => {
+                i += 1;
+                a.write_scenarios = Some(raw.get(i).ok_or("--write-scenarios needs a directory")?.clone());
+            }
             "--quick" => a.quick = true,
             "--trace" => a.trace = true,
             "--full" => a.full = true,
@@ -345,6 +357,13 @@ fn cmd_replay(a: &Args, trace_mode: bool) -> Result<bool, String> {
 /// `bench` (§10.6).
 fn cmd_bench(a: &Args) -> Result<bool, String> {
     let protos = read(&a.protos)?;
+    if let Some(dir) = &a.write_scenarios {
+        bench::write_scenarios(&protos, dir, &a.cache)?;
+        eprintln!("wrote the M0 scenarios for the WebAssembly runners to {dir}");
+        if a.scenario == "none" {
+            return Ok(true);
+        }
+    }
     let plan = if a.quick { bench::Plan::quick() } else { bench::Plan::full() };
     let names: Vec<&str> = if a.scenario == "all" {
         sim::testkit::bench::SCENARIOS.to_vec()
@@ -382,10 +401,13 @@ fn cmd_bench(a: &Args) -> Result<bool, String> {
             &host.git[..host.git.len().min(10)],
             if host.dirty { " (dirty)" } else { "" }
         ));
-        let ok =
-            sim::testkit::bench::thresholds(name).iter().all(|t| bench::gate(&report, t).is_none_or(|g| g.2));
+        let ok = bench::gates(name, plan.quick).iter().all(|t| bench::gate(&report, t).is_none_or(|g| g.2));
         all_ok &= ok;
-        print!("{}", bench::table(&report));
+        if a.json {
+            println!("{}", bench::history_line(&report, plan, &host, mhz_after, ok));
+        } else {
+            print!("{}", bench::table(&report, plan.quick));
+        }
         if let Some(path) = &a.history {
             use std::io::Write as _;
             if let Some(dir) = std::path::Path::new(path).parent()

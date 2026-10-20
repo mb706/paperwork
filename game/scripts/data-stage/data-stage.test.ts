@@ -19,9 +19,11 @@ import { loadYaml } from './sources.ts';
 
 describe('the data stage on the repository data', () => {
   let r: DataStageResult;
+  // The data stage takes about 5 s alone; under `ci`'s parallel cargo builds on a shared host it took over the
+  // default 10 s hook timeout (C2c-r1), so the hook gets a minute.
   beforeAll(() => {
     r = runDataStage(options());
-  });
+  }, 60_000);
 
   it('has no errors or warnings', () => {
     expect(r.diagnostics.list.map(formatDiagnostic)).toEqual([]);

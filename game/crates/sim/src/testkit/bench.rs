@@ -78,6 +78,44 @@ pub fn thresholds(scenario: &str) -> &'static [Threshold] {
     }
 }
 
+/// §11's per-tick budget at M0's scale (the Slice row, the smallest: p99 ≤ 2 ms per tick).
+pub const TICK_P99_BUDGET_MS: f64 = 2.0;
+
+/// `ci`'s budget gate (§10.6: "a scenario fails when its p99 exceeds its §11 budget times the host factor"):
+/// every scenario's tick p99 against §11's tick budget; the per-call operations (an extraction, a save, a load,
+/// a full state hash) by their worst call against §10.6's limits; throughput and counts as in
+/// [`thresholds`]. One short repetition (`simtool bench --quick`), so the gate is tails, not means.
+pub fn budgets(scenario: &str) -> &'static [Threshold] {
+    const WALK: [Threshold; 1] = [ceiling("tick_p99_ms", TICK_P99_BUDGET_MS, "ms")];
+    const CHESTS: [Threshold; 5] = [
+        ceiling("tick_p99_ms", TICK_P99_BUDGET_MS, "ms"),
+        ceiling("extract_p99_ms", 0.3, "ms"),
+        ceiling("save_max_ms", 50.0, "ms"),
+        ceiling("load_max_ms", 300.0, "ms"),
+        ceiling("hash_max_ms", 20.0, "ms"),
+    ];
+    const CODEC: [Threshold; 1] =
+        [Threshold { metric: "actions_per_s", limit: 1e6, unit: "actions/s", floor: true, scales: true }];
+    const LOAD: [Threshold; 3] = [
+        ceiling("load_max_ms", 1000.0, "ms"),
+        ceiling("tick_p99_ms", TICK_P99_BUDGET_MS, "ms"),
+        Threshold {
+            metric: "max_regenerations_per_tick",
+            limit: 8.0,
+            unit: "chunks",
+            floor: false,
+            scales: false,
+        },
+    ];
+    match scenario {
+        "m0-walk" => &WALK,
+        "m0-chests-10k" => &CHESTS,
+        "m0-codec" => &CODEC,
+        "m0-load-30k" => &LOAD,
+        _ => &[],
+    }
+}
+
 fn input_err(e: impl std::fmt::Display) -> SimError {
     SimError::new(SimStatus::ErrInput, e.to_string())
 }
@@ -242,7 +280,14 @@ pub fn m0_chests_10k(protos: &[u8]) -> SimResult<(Bench, Vec<u32>)> {
     b.run(1)?;
     // The first column holds serials[0..100] at y −50 … 49; the 32 nearest the character are y −16 … 15.
     let windows: Vec<u32> = serials[34..66].to_vec();
-    let reqs: Vec<SubRequest<'_>> = windows
+    b.ctx.subscribe(&chest_windows(&windows)?)?;
+    b.view = view_around(0, 0, serials[50]);
+    Ok((b, windows))
+}
+
+/// The `SubscribeInput` of `m0-chests-10k`'s 32 windows (`INVENTORY` on each of `serials`).
+pub fn chest_windows(serials: &[u32]) -> SimResult<Vec<u8>> {
+    let reqs: Vec<SubRequest<'_>> = serials
         .iter()
         .enumerate()
         .map(|(i, &s)| SubRequest {
@@ -261,9 +306,48 @@ pub fn m0_chests_10k(protos: &[u8]) -> SimResult<(Bench, Vec<u32>)> {
     schema::SubscribeInput { subs: MsgList::from_slice(&reqs) }
         .encode(&mut Writer::new(&mut input))
         .map_err(input_err)?;
-    b.ctx.subscribe(&input)?;
-    b.view = view_around(0, 0, serials[50]);
-    Ok((b, windows))
+    Ok(input)
+}
+
+/// A closure log (§8.5) of `records` (`(tick, closure)`, ascending) from a start at `start_tick` to `end_tick`,
+/// without digests or blobs: what a WebAssembly runner replays (`simtool bench --write-scenarios`).
+pub fn closure_log(
+    protos: &[u8],
+    start_tick: u32,
+    end_tick: u32,
+    records: &[(u32, Vec<u8>)],
+) -> SimResult<Vec<u8>> {
+    use schema::container::{
+        CLOSURE_LOG_FORMAT_VERSION, CLOSURE_LOG_MAGIC, ClosureLogFlags, ClosureLogHeader, ClosureRecord,
+    };
+    let mut region = Vec::new();
+    for (t, c) in records {
+        ClosureRecord { tick: Tick(*t), closure: c }
+            .encode(&mut Writer::new(&mut region))
+            .map_err(input_err)?;
+    }
+    let header = ClosureLogHeader {
+        magic: CLOSURE_LOG_MAGIC,
+        format_version: CLOSURE_LOG_FORMAT_VERSION,
+        action_schema_version: schema::ACTION_SCHEMA_VERSION,
+        flags: ClosureLogFlags::EMPTY,
+        start_tick: Tick(start_tick),
+        end_tick: Tick(end_tick),
+        build_hash: schema::Hash256 { bytes: [0; 32] },
+        prototypes_hash: schema::Hash256 { bytes: crate::sha256::sha256(protos) },
+        start_state_hash: 0,
+        record_count: records.len() as u32,
+        record_bytes: region.len() as u32,
+        digest_first_tick: Tick(0),
+        digest_count: 0,
+        blob_count: 0,
+        blob_bytes: 0,
+    };
+    let mut log = Vec::new();
+    let mut w = Writer::new(&mut log);
+    header.write(&mut w, "ClosureLogHeader").map_err(input_err)?;
+    w.bytes(&region);
+    Ok(log)
 }
 
 /// `m0-codec`'s players and their actions per tick (4 × 25 = 100: 1,000 ticks make 100,000 actions).
