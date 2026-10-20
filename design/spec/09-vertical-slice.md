@@ -411,7 +411,7 @@ DECISIONS §15 and §17: I's M0 and M1; from I's M2 the veteran tools (2.1–2.4
 | Tips and tricks | `text.yaml`'s four entries, without simulations |
 | Main menu background | A static image |
 | Town era skins | The first two of five (W < 15 and 15–35, 01 §5.3); the slice ends near W ≈ 18 |
-| Audio | I §3.12's minimum set and one placeholder ambient track |
+| Audio | About 30 SFX, covering I §3.12's minimum set, and the music engine's Era I and Era II rule sets (IMPL-6; 10 §12 M1c) |
 | Sprites and icons | The data's `sprite` lines under 07 §23's rules; placeholders allowed where an asset is missing, flagged in the Handbook's dev view |
 
 ---

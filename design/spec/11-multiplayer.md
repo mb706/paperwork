@@ -570,7 +570,7 @@ It never runs the simulation and never parses action payloads.
   - **private**: creating rooms needs a server-wide creation key, entered once in Settings. This is the default, since the user's server is for friends and colleagues;
   - **public**: anyone can create rooms, within per-IP rate limits.
 - **Versions.** `HELLO` carries the build hash, protocol version and `prototypes.hash`. A room is pinned to its current build while anyone is in it:
-  - a client with a different build is refused with a reason. A newer client sees "This game runs build X", and an older one is told to reload: its service worker fetches the new build;
+  - a client with a different build is refused with a reason. A newer client sees "This game runs build X", and an older one is told to reload, which fetches the new build past every cache, the optional service worker's included (10 §9.7);
   - **an empty room is upgraded only from a sealed checkpoint** (A2-r1 #6). Migrating an old checkpoint and then replaying its log under the new build would apply old actions under new rules, which may change the factory or meet actions the new build reads differently. So:
     1. if the room is not sealed, the first player to resume it with a newer build loads the room's *own* build from the site's build archive (`/builds/<buildHash>/`, kept while any stored room references it);
     2. that client replays the log to the persisted horizon under the old build, and uploads a sealing checkpoint, **baked** (10 §4.4) whenever the new build's worldgen version or worldgen data differ, so the new build never regenerates land under rules it does not have;

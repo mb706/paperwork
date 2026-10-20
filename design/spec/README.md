@@ -46,10 +46,10 @@ M0 builds the foundations (10 §12): the scaffold, the schema and data stage, th
 2. 10's "Changes in v2", then §0–§4 (decisions, constraints, stack and data stage, runtime and the language boundary, the simulation core with D1–D23 and the digests), §8 (persistence), §10 (testing), §12's M0, and **§15, the M0 contracts**, in full.
 3. 11 §0, §1.4, §3.1–§3.3 and §7: the multiplayer seams M0 builds, and why.
 4. Then, per work package (10 §15.11):
-   - schema: 10 §2.4, §15.1–§15.3, `data/SCHEMA.md`;
+   - schema: 10 §2.4, §15.1–§15.3, §15.10–§15.11 (the contract gate and the golden set), `data/SCHEMA.md`;
    - sim: 10 §4, §5.1, §5.18, §15.3–§15.9, and `../engine-study/` (the Rust kernel, `clippy.toml`, the build script);
-   - shell: 10 §3, §8, §15.4–§15.8, and the engine study's worker harness;
-   - renderer: 10 §6, §15.4 and §15.7, and `../art/DIRECTION.md`;
+   - shell: 10 §3, §8, §9.7's code splitting and module compilation, §15.4–§15.8, and the engine study's worker harness;
+   - renderer: 10 §6, §9.7–§9.9, §15.4 and §15.7, and `../art/DIRECTION.md`;
    - UI and input: 10 §7 and §15.5, `../round1/I-ui-controls.md` §1, and 07;
    - assets and audio: 10 §9 (WP B2), §15.6–§15.7, `../art/DIRECTION.md` and `../audio/DIRECTION.md`.
 

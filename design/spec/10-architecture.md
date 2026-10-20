@@ -18,7 +18,7 @@ The numbers are in Appendix A. They drive the language decision (§0 #1), expand
 
 ## Changes in v2
 
-Every change of decision against version 1 (round 5), with its reason and source. Sources: **A1** (`pm/reports/A1.md`), **A1-r1** (`pm/reviews/A1-r1.md`), **A2** (`design/multiplayer/DESIGN.md`, now chapter 11), **A2-r1** (`pm/reviews/A2-r1.md`, numbered findings), **IMPL-n** (`pm/DECISIONS-IMPL.md` item n), **B1-r1** (`pm/reviews/B1-r1.md`, codex's review of this revision, numbered findings), and **B1** for calls made in this revision, each with its reason. Rows 28–48 answer B1-r1.
+Every change of decision against version 1 (round 5), with its reason and source. Sources: **A1** (`pm/reports/A1.md`), **A1-r1** (`pm/reviews/A1-r1.md`), **A2** (`design/multiplayer/DESIGN.md`, now chapter 11), **A2-r1** (`pm/reviews/A2-r1.md`, numbered findings), **IMPL-n** (`pm/DECISIONS-IMPL.md` item n), **B1-r1** (`pm/reviews/B1-r1.md`, codex's review of this revision, numbered findings), **B2** (`pm/reports/B2.md`: §9 and §15.7, assets, audio, loading and streaming), and **B1** for calls made in this revision, each with its reason. Rows 28–48 answer B1-r1; rows 49–54 record B2's decisions.
 
 | # | Where | Change | Reason | Source |
 |---|---|---|---|---|
@@ -70,6 +70,12 @@ Every change of decision against version 1 (round 5), with its reason and source
 | 46 | §4.3, §15.2 | **RNG algorithms, salts and stream ids are pinned** with golden vectors; formula results have declared ranges with deterministic clamping at the limits, and infinite technologies a data-stage level cap | "Finite at every reachable level" could not be checked | B1-r1 18 |
 | 47 | §10 | **Short runs compare canonical state bytes every tick**; a native `TestSequencer` drives scenarios; test commands name the `simcheck` feature; M0's scenarios and benchmarks are listed with thresholds | The verification claims must match the tests | B1-r1 20, 19 |
 | 48 | §15.3; 11 §3.3 | **A malformed action is refused, not fatal**: field-level validation (type, length, enums, tags, reserved bytes, UTF-8) runs as the action applies and refuses it with the developer reason `malformed`; only structural errors stop a tick | A buggy or hostile client must not stop a room, and the relay stays game-agnostic | B1-r1 9 |
+| 49 | §9.1 | **Render only what moves**: each sprite set is a base rendered with its animated parts hidden, one shadow at Normal resolution, and animated layers that are inked full frames cropped to their rectangle; every model follows one entity contract (`META`, `build`, `pose`) | 7–13× faster than A3's per-frame rebuild, with the composite matching it (99.97% of pixels within ΔE 3) | B2 (A3 §9 reconciled) |
+| 50 | §6.4, §6.13, §9.2 | **Atlases are KTX2 from M0**: XUBC7 transcoded to BC7 (then ASTC, BC3, RGBA8) for colour, light and icons, ETC1S to BC4 for shadows; a page's Normal level is its level 1, and level 0 (High) streams on demand; WebP only for DOM images. This replaces v1's WebP transport and its KTX2 plan for M3 | Measured on real pages: WebP's chroma subsampling greys small colours and halos small icons; BC7 needs a quarter of RGBA8's GPU memory and bandwidth and transcodes in about WebP's decode time | B2 |
+| 51 | §9.4, §11 | **Audio runs on AudioWorklets** (a voice bank with Int16 samples, an FDN reverb) at 32 kHz, pending the user's A/B; the budget is ≤ 8% of a reference core on average and ≤ 15% in any second, with decoded samples ≤ 96 MB | A4's native-node engine measured 41–68% of a host core; native voices cost about four times a bank voice, and convolvers 10 points of Era II | B2 (against A4 §6.2), IMPL-6 |
+| 52 | §0 #5, §2.3, §3.1, §3.2, §8.2, §9.7 | **Loading and streaming**: stage budgets on a reference connection, code split per screen, atlas groups by tier, placeholders instead of waits, a new **asset worker** (fetch, transcode, audio decode), content-addressed files, precompressed brotli and gzip, and an **optional** service worker. The main thread compiles each WebAssembly module once per page and hands it to every fresh worker | The first frame of a new game in ≤ 5 MB; nothing waits for an asset; the game works on any static host | B2 |
+| 53 | §15.7 | **Sprite manifest version 2**; one placement formula in device pixels (dpr included) with fixtures at dpr 1 and 2; a generated `dirIndex` per set; lookup contracts for every namespace; one position hash for variants the packet does not carry | Direction values, dpr and namespaces disagreed between the renderer and the assets | B1-r1 14; B2 |
+| 54 | §0 #13, §2.1, §7.4, §9.3 | **The GUI's fonts follow *Survey***: Libre Franklin for printed text and Courier Prime for typed values; Titillium Web only for world labels. All are WOFF2 subsets made by the asset build, so no npm font package | A3 §12's type; seven faces measure 149 kB | A3, B2 |
 
 ---
 
@@ -81,7 +87,7 @@ Every change of decision against version 1 (round 5), with its reason and source
 | 2 | Build | **Vite 8.3.2** (Rolldown) for bundling and the dev server, with a cargo plugin (§2.3). **TypeScript 7.0.2** (native `tsc`) for type-checking only. **cargo** with `rust-toolchain.toml`; **binaryen 133** `wasm-opt -O3` for release WebAssembly | Verified here (A1); incremental Rust builds take 1–3 s | webpack; esbuild alone; wasm-pack |
 | 3 | Tests | **`cargo test`** natively for the simulation (unit, scenario, golden and property tests, the last with **proptest 1.11.0**). **Vitest 5.0.3** (with **fast-check 4.10.2**) for TypeScript. **@playwright/test 1.64.1** with Chrome for Testing 156 and Firefox 157 (E2E, screenshots, cross-engine digest traces). A custom benchmark runner | Native code equals WebAssembly in every engine bit for bit (A1; Appendix A), so the fast loop is native and the browsers confirm it | Jest; Cypress; testing only through the browser |
 | 4 | Lint and format | **Biome 2.5.15** plus `check-arch` (**oxc-parser 0.153.0**) for TypeScript; **rustfmt** and **clippy** with the determinism bans of `clippy.toml` at `-D warnings` for Rust; a WebAssembly feature gate on the release binary (§2.3) | Each ban verified to fire (A1, B1) | ESLint + Prettier |
-| 5 | Threads | The **sim worker** runs a TypeScript shell around one WebAssembly instance at a fixed 60 UPS, driven by closures. The **main thread** handles input, the DOM UI, WebGL2 and audio. A **worldgen pool** (running `gen.wasm`) and an **IO worker** (compression, hashing, storage) complete the set; a **second sim worker** takes every world replacement (§3.1). Multiplayer adds a **net worker** (11 §2.4) | The UI and renderer cannot steal sim time, and vice versa | Sim on the main thread (kept only as a debug mode); WebAssembly threads (A1 §8: one sim thread is right) |
+| 5 | Threads | The **sim worker** runs a TypeScript shell around one WebAssembly instance at a fixed 60 UPS, driven by closures. The **main thread** handles input, the DOM UI, WebGL2 and audio. A **worldgen pool** (running `gen.wasm`), an **IO worker** (compression, hashing, storage) and an **asset worker** (fetching, texture transcoding, audio decoding; §9.7) complete the set; a **second sim worker** takes every world replacement (§3.1). Multiplayer adds a **net worker** (11 §2.4) | The UI and renderer cannot steal sim time, and vice versa | Sim on the main thread (kept only as a debug mode); WebAssembly threads (A1 §8: one sim thread is right) |
 | 6 | Shared memory | **No SharedArrayBuffer and no WebAssembly threads.** Transferable `ArrayBuffer`s between threads; only the sim worker's shell reads linear memory | Works on any static host (dev server, Artifact) without COOP/COEP headers | SAB snapshots |
 | 7 | Sim state | **Per-system struct-of-arrays pools** (Rust `Vec` columns generated from the schema), a thin entity table, cold records keyed by serial; derived structures rebuilt in canonical order | Cache-friendly, no per-entity heap objects, saved and hashed as column bytes | A generic ECS library; one heap object per entity |
 | 8 | Scheduling | **Factorio-style sleep and wake** with **bitset active sets iterated in pool order** (canonical rank for derived pools), wake sources with sequence numbers, a timer wheel and chunk buckets (heat 1/64, agents 1/20) | An idle factory costs about 0; NO_SLEEP equivalence holds (A1) | Updating everything every tick; swap-remove active lists |
@@ -89,9 +95,9 @@ Every change of decision against version 1 (round 5), with its reason and source
 | 10 | Belts | **Factorio transport lines**: gap-encoded, O(1) per moving line per tick, with the wiki's geometry numbers, updated downstream first | ISO throughput and compression | Per-item movement |
 | 11 | Fluids | **Factorio 2.0 fluid segments** (FFF-416, FFF-430). **Connection categories** keep data lines separate from pipes | ISO; pipes cost nothing per tick | 1.1 per-pipe flow |
 | 12 | Rendering | **Custom WebGL2 immediate-mode sprite renderer**: expanded quads with a static index buffer and texture-array atlases, fed by binary packets (§15.4). **No PixiJS** | Measured 5–30× faster than instancing on SwiftShader (Claude's verification renderer) and equal on real GPUs. No scene graph duplicating sim state | PixiJS 8.22; WebGPU |
-| 13 | UI | **DOM + SolidJS 1.9.15** (fine-grained signals), CSS 9-slice frames and **Titillium Web** (OFL, self-hosted), fed by projections the sim computes (§15.5). WebGL draws world-anchored icons; the minimap and GUI previews show through DOM "holes" | Text, IME, scrolling and search for free; 60 Hz updates without a virtual DOM | A canvas-drawn GUI; React |
+| 13 | UI | **DOM + SolidJS 1.9.15** (fine-grained signals), CSS 9-slice frames and *Survey*'s faces, **Libre Franklin** and **Courier Prime** (OFL, self-hosted WOFF2 subsets, §9.3), fed by projections the sim computes (§15.5). WebGL draws world-anchored icons; the minimap and GUI previews show through DOM "holes" | Text, IME, scrolling and search for free; 60 Hz updates without a virtual DOM | A canvas-drawn GUI; React |
 | 14 | Saves | **Binary sectioned container generated from the schema**, deflate via **fflate 0.8.3** in the IO worker. Save blobs in **OPFS** where available, with **IndexedDB** (via **idb 8.0.3**) for metadata and as the fallback (07-ui §19.2). Pools load by field name. Everything not declared derived is saved (§8.1). **Closure logs** give replays; checkpoints carry their digest lineage | Fast, versionable, debuggable; one format for saves, joins and bug bundles | JSON saves; localStorage |
-| 15 | Assets | **Blender 5.2 Cycles** renders from Python model scripts: oblique 45° camera, colour, shadow and light passes. **SVG icons** via resvg. Atlases are texture-array pages. **Audio** via FluidSynth plus synthesized SFX | Fully scriptable, so Claude can author and verify it headlessly | Hand-drawn pixel art; runtime 3D |
+| 15 | Assets | **Blender 5.2 Cycles** renders from Python model scripts in the *Survey* style (IMPL-5): ink, washes and hatching in the build; static bases plus animated layers (§9.1). Atlases are KTX2 (XUBC7 → BC7; shadows ETC1S → BC4) in texture-array pages streamed by group (§9.2, §9.7). Icons are rendered from item models (§9.3). **Audio** is the generative engine of IMPL-6 on AudioWorklets (§9.4) | Fully scriptable, so Claude can author and verify it headlessly | Hand-drawn pixel art; runtime 3D; WebP atlases; FluidSynth tracks |
 | 16 | Verification | Native scenario goldens. **NO_SLEEP equivalence**, save/load, join and replay equivalence on full state. Cross-engine digest traces (native, Node, Chrome, Firefox). Playwright feel tests with deterministic `__game.step(n)`. Screenshot review by Claude. On the dev server, **user-side benchmark and bug-report endpoints** | The user's real GPU closes the loop the host cannot | Manual testing only |
 | 17 | Data contract | The engine reads **numbers, ids, enums and expressions** from `spec/data`, never English. One **expression compiler** serves every formula field (`count_formula`, `amounts_by_j`, `field_year`), emitting bytecode the sim interprets (§15.2). Formulas that are not expressions live in code, named by the owning chapter's section. **Milestone builds are rule-based filters** over the full data, checked for closure (§2.4, §12) | Design and code cannot drift apart silently | Prose formulas read by hand; per-milestone data sets |
 | 18 | Contracts | **One schema** (`game/schema/`) generates every cross-language contract: pools, views, save sections, action codecs, events, projections, packet records and prototype tables (§15.1) | Drift between Rust and TypeScript becomes a build error | Hand-maintained mirrors; JSON over the boundary |
@@ -159,9 +165,9 @@ The rule: each npm or crate pin is the newest release at least 14 days old (cuto
 | pixelmatch / pngjs | 7.2.0 / 7.0.0 | Screenshot diffs | pixelmatch 8 is younger than 14 days |
 | simplex-noise | 4.0.3 | **No longer in the game** (worldgen moved to Rust, §5.18). Kept as a dev dependency only to produce golden values for the Rust noise port | Uses only `+ − × floor` |
 | maxrects-packer | 2.7.4 | Atlas packing in the Node asset build | Import `maxrects-packer/dist/maxrects-packer.mjs` directly. 2.7.4 declares `"type": "module"` but its `main` is a UMD file, so the bare import yields no exports (verified). 3.0.0 is four days old |
-| @fontsource/titillium-web | 5.3.0 | GUI font (OFL), self-hosted | |
-| Python (`gamedev-python` 3.12) | numpy, pillow, pyyaml, pedalboard, pretty_midi, music21 | Asset post-processing, SFX synthesis, `tools/validate_spec.py` | |
-| Blender, resvg, magick, oxipng, cwebp, ffmpeg, fluidsynth, gifski | As in `CLAUDE.md` | Asset pipeline | Not available: `toktx`, `basisu`, `cmake` (§6.13) |
+| Python (`gamedev-python` 3.12) | numpy, pillow, pyyaml, pedalboard, fonttools | Asset post-processing (§9.2), font subsets (§9.3), SFX synthesis (A4's `sfx.py`, §9.4), `tools/validate_spec.py` | music21 and pretty_midi are no longer needed (§9.4) |
+| Blender, resvg, magick, oxipng, cwebp, ffmpeg, gifski | As in `CLAUDE.md` | Asset pipeline | `fluidsynth` is no longer used (§9.4) |
+| basisu (Basis Universal) | 2.50 (`~/.local/opt/basisu-2.50`) | KTX2 encoding in the asset build (XUBC7, ETC1S); the same build's `basis_transcoder.wasm` runs in the asset worker (§9.2, §9.7) | Apache-2.0. Built here from source with the system gcc and `cmake` from `~/.local/opt/buildtools-venv` (`CLAUDE.md`). Encoder and transcoder are pinned together |
 
 **Policy.**
 - Pin exact versions: `npm ci` from `package-lock.json`, and `Cargo.lock` committed with `=` requirements for every crate (`libm = "=0.2.16"`), so `cargo build --locked` never resolves anew.
@@ -179,7 +185,7 @@ browsergame/
   tools/ref/heat_calib3.py   # verbatim copy of round1/F-data/calib3.py: the heat field's golden reference (G15)
   game/
     package.json  package-lock.json  biome.json  vite.config.ts  vitest.config.ts  playwright.config.ts
-    tsconfig.{shared,simworker,genworker,ioworker,app,ui,render,audio,scripts}.json   # per-layer libs
+    tsconfig.{shared,simworker,genworker,ioworker,assetworker,app,ui,render,audio,assets,scripts}.json   # per-layer libs
     Cargo.toml  Cargo.lock  rust-toolchain.toml  clippy.toml  rustfmt.toml           # the workspace
     schema/        # THE schema (§15.1): types, state, sections, actions, events, projections, packet, protos, registries
     crates/
@@ -198,6 +204,8 @@ browsergame/
       simworker/   # the sim worker's shell: module loader, LocalSequencer, pacing, packets, subscriptions, checkpoints
       genworker/   # the worldgen worker: loads gen.wasm, answers chunk requests
       ioworker/    # compression, SHA-256, OPFS and IndexedDB
+      assets/      # the main thread's asset loader (format probe, residency, priorities, uploads) and, in worker.ts
+                   #   and worker/, the asset worker (fetch, KTX2 transcoding, audio decoding; §9.7)
       render/      # WebGL2 renderer (main thread)
       ui/          # SolidJS GUI, HUD, windows, input system
       audio/       # Web Audio runtime
@@ -206,28 +214,31 @@ browsergame/
       net/  relay/ # multiplayer (MP milestone; chapter 11): the net worker, the relay's RoomCore and Node adapter
     data/engine/   # engine overlay YAML (§2.4), including manifests.yaml (the milestone filters of §12)
     locale/en.yaml # UI strings (names come from the data)
-    assets/        # sources: blender/ (rig, materials, parts, entities/*.py), svg/, audio/
-    public/        # build outputs served: data/prototypes.{bin,json}, data/build-manifest.json, atlases/, audio/, fonts/
+    assets/        # sources: blender/ (lib/, entities/, world/, items/; §9.1), svg/, textures/, audio/
+    public/        # build outputs served: data/prototypes.{bin,json}, data/build-manifest.json, atlases/, sheets/, audio/,
+                   #   fonts/, sw.js (§9.7)
+    .cache/assets/ # the asset build's cache by content hash (gitignored; §9.1)
     test/          # layouts (*.txt), goldens/, saves/, logs/ (closure logs), fixtures/ (codec and packet fixtures)
     e2e/           # Playwright specs and screenshot goldens
     bench/         # benchmark scenarios, runner, history.jsonl, user-results/
-    scripts/       # data-stage.ts, schema-gen.ts, check-arch.ts, cargo-plugin.ts, wasm-release.sh, build-assets.ts …
+    scripts/       # data-stage.ts, schema-gen.ts, check-arch.ts, cargo-plugin.ts, wasm-release.sh, build-assets.ts,
+                   #   assets/*.py (the asset build's Python steps, §9.2) …
 ```
 
 **Boundary rules** (checked by `check-arch` for TypeScript and by the crate graph for Rust):
 - `crates/schema` depends on nothing. `crates/det` depends on `libm` only. `crates/worldgen` depends on `det` and `schema`. `crates/sim` depends on `det`, `worldgen` and `schema`. The two ABI crates depend on what they wrap. `simtool` depends on `sim`. Nothing in `crates/` does I/O except `simtool`.
 - `#![forbid(unsafe_code)]` in `schema`, `det`, `worldgen` and `sim`; `unsafe` exists only in `simabi` and `genabi`, where raw pointers cross the ABI.
 - Only `src/simworker/` touches the sim module's linear memory (IMPL-1 rule 4). `render/`, `ui/` and `audio/` see the sim only through `shared/` types and decoded packets.
-- `render/`, `ui/`, `audio/` import only themselves and `shared/`. Only `app/` wires threads together.
+- `render/`, `ui/`, `audio/` and `assets/` import only themselves and `shared/`. Only `app/` wires threads and layers together (for example, it hands the asset loader's textures to the renderer and its samples to audio).
 - `src/shared/gen/`, `crates/schema/` and `crates/sim/src/gen/` are written only by `scripts/schema-gen.ts`; `check-arch` refuses hand edits (a header hash per file).
-- `tsconfig.shared.json` and the worker configs have `"lib": ["es2024", "webworker"]` as needed and no DOM; the main-thread configs have DOM. (A trial of the combined dom and webworker libs showed they clash in TS 7.)
+- `tsconfig.shared.json` and the worker configs have `"lib": ["es2024", "webworker"]` as needed and no DOM; the main-thread configs have DOM. (A trial of the combined dom and webworker libs showed they clash in TS 7.) `src/assets/` holds both sides: `tsconfig.assetworker.json` covers `worker.ts` and `worker/`, and `tsconfig.assets.json` the rest.
 
 ### 2.3 Commands
 
 | Command | Does |
 |---|---|
 | `npm run dev` | Data stage and schema generator in watch mode, the cargo plugin, then the Vite dev server on `127.0.0.1:5173`. The user tunnels in (`CLAUDE.md`). The dev middleware serves `/__bench`, `/__report` and `/__shot` (§3.5) |
-| `npm run build` / `npm run preview` | Release WebAssembly (`scripts/wasm-release.sh`), the production bundle in `dist/`, `build-manifest.json` / serve it on the same port |
+| `npm run build` / `npm run preview` | Release WebAssembly (`scripts/wasm-release.sh`), the production bundle in `dist/` with brotli and gzip siblings of every text-like file, `build-manifest.json` / serve it on the same port, the siblings by `Accept-Encoding` (§9.7) |
 | `npm run data` | Data stage (§2.4) |
 | `npm run gen` | Schema generator (§15.1): writes `crates/schema/`, `crates/sim/src/gen/` and `src/shared/gen/` |
 | `npm run check` | `biome check`, `tsc -b`, `check-arch`, `schema-gen --check`, `cargo fmt --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, the data stage in strict mode (run twice; the outputs must be byte-identical, D14), `gamedev-python ../tools/validate_spec.py ../design/spec/data`, and the generated-spec freshness checks `gamedev-python ../tools/render_spec.py --check` (02, 05) and `gamedev-python ../tools/render_slice.py --check` (09 §1–§2) |
@@ -235,7 +246,7 @@ browsergame/
 | `npm run test:slow` | Native long runs (heavy mode, NO_SLEEP and join equivalence at Mid and Late scale, D18 fuzzing), worldgen seed sweeps (09 S-G1), cross-engine traces on every recorded log in Node, Chrome and Firefox, the scripted opening's full replay. Nightly and at milestone exits |
 | `npm run e2e` | Playwright: feel tests, window screenshots, smoke. `--project firefox` runs the Firefox 157 suite with `?render=none` (§10.5) |
 | `npm run bench [-- --scenario X]` / `npm run bench:ab -- --base <rev>` | Benchmark runner (native, Node and browsers; §10.6) / a paired A/B of two builds in one session |
-| `npm run assets [-- --only id]` | Blender, SVG and audio pipelines. Incremental, using content hashes of each source script and its parameters |
+| `npm run assets [-- --only id]` | The asset build (§9): Blender renders, ink, packing, KTX2 encoding with `basisu`, icons, the UI skin, font subsets and the audio packs, then `sprites.json` and the checks of §9.5. Incremental by content hash, cached in `.cache/assets/` |
 | `npm run ci` | `check`, `test`, `e2e --grep @smoke`, the cross-engine smoke trace (§10.4), the release WebAssembly build with its feature gate (skipped when nothing under `crates/` or `schema/` changed since the last green run, because it takes about a minute), and `bench --quick` against the §11 budgets (a budget gate, not a regression gate; §10.6). It runs only what the current milestone's **capability manifest** enables (§2.4): in M0, "green" means M0's checks, tests and benchmarks. Installed as a git pre-commit hook once the repository is initialised |
 
 **Cargo profiles** (`game/Cargo.toml`):
@@ -252,8 +263,8 @@ browsergame/
 **Vite and cargo.**
 - **Dev.** `scripts/cargo-plugin.ts`, registered in `vite.config.ts`, builds both cdylibs with `cargo build --profile wasmdev --features simcheck --target wasm32-unknown-unknown -p simabi -p genabi` at server start and on every change under `crates/`, `schema/` or `Cargo.toml` (debounced 200 ms, one build at a time). It serves the results as virtual modules `virtual:sim-wasm` and `virtual:gen-wasm`, which export the module URL, and sends a full page reload after each build: there is no hot reload for the simulation (A1). A failed build shows Vite's error overlay with cargo's message.
 - **Build.** `scripts/wasm-release.sh` runs `cargo build --release --locked --target wasm32-unknown-unknown -p simabi -p genabi`, then `wasm-opt -O3`, then **the feature gate**: `wasm-opt <module> --print-features` must print exactly the allowed set (mutable globals, non-trapping float-to-int, bulk memory and its `-opt` variant, sign extension, reference types, multi-value, overlong call-indirect: the defaults of Rust 1.99's wasm32 target, measured). Anything else, SIMD, relaxed SIMD, threads or atomics above all, fails the build (D19). The plugin then emits the modules as content-hashed assets.
-- **Loading.** The sim worker calls `WebAssembly.compileStreaming(fetch(url))` (4.7 ms in Chrome, 8.9 ms in Firefox for A1's 70 kB module) and instantiates once per world (§3.1).
-- **`build-manifest.json`** (written by the build): `buildHash`, `protocolVersion`, `schemaHash`, `prototypesHash`, the SHA-256 of each WebAssembly module, and the asset list. `buildHash` is the SHA-256 of the sorted listing of `(path, SHA-256)` for every file in `dist/` except the manifest itself, so any change to code, data or modules changes it (D14). Dev builds hash the two modules, `prototypes.bin` and the schema instead, and set `dev: true` in the manifest; the hash is 32 bytes either way.
+- **Loading.** The main thread compiles each module once per page with `WebAssembly.compileStreaming(fetch(url))` (4.7 ms in Chrome, 8.9 ms in Firefox for A1's 70 kB module) and sends the `WebAssembly.Module` to every fresh sim and worldgen worker, which instantiates it once per world (§3.1, §9.7). Modules are structured-cloneable, so a fresh worker never recompiles.
+- **`build-manifest.json`** (written by the build): `buildHash`, `protocolVersion`, `schemaHash`, `prototypesHash`, the SHA-256 of each WebAssembly module, and the asset list (every served file with its SHA-256; the content-addressed names, §9.7). `buildHash` is the SHA-256 of the sorted listing of `(path, SHA-256)` for every file in `dist/` except the manifest itself, so any change to code, data or modules changes it (D14). Dev builds hash the two modules, `prototypes.bin` and the schema instead, and set `dev: true` in the manifest; the hash is 32 bytes either way.
 
 ### 2.4 The data pipeline ("data stage")
 
@@ -269,7 +280,7 @@ Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` �
    - inserter pickup and drop vectors and rotation and extension speeds. Their energy per movement and per rotation is design data (`energy.per_movement_kj`, `per_rotation_kj`; §5.4);
    - a drill's mining area and output vector, and the **pumping position** of offshore pumps and Water exchangers (U9);
    - belt lane geometry;
-   - animation definitions (sprite set names, frame counts, speeds) and working sounds;
+   - sprite-set names where they differ from the default `<namespace>/<name>`, and the tables that name the sets of tree species, decoratives, cliffs and town buildings (§15.7's lookup contracts); animation speeds; working sounds. Frame counts come from the asset build (§9.1);
    - the **event-to-sound map** (§15.6): which sound each sim event plays, by entity type or material;
    - entity map colours (tile colours are design data) and circuit-connector positions;
    - `fast_replaceable_group`, `next_upgrade`, rotatable and flippable flags;
@@ -310,11 +321,12 @@ Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` �
       - a catalyst product carries `affected_by_quality: false` (L5);
       - productivity applies only to recipes with `allow_productivity: true` (DECISIONS §30). The stage lists, per machine, the recipes a productivity module would block;
       - **no prose where the engine reads** (J1). The engine's zod schema names every field it consumes, typed as a number, an id, an enum or an expression, and a prose string in such a field is an error. Fields it does not consume (`rule`, `formula`, `note`, `line`, `desc`) are documentation for people.
+      - **font coverage** (§9.3): once the asset build has made the WOFF2 subsets, every character of the text canon and of `locale/en.yaml` must be in them;
       - **Formulas that are not expressions** (T(W)'s clamp, j(W)'s breakpoints, the leak's selection rule) live in Rust code, parameterised by the block's numbers. The block's `formula_ref` cites the chapter section that states the rule (e.g. "01 §8.1"). The code that implements it carries the same citation as a `// @formula 01 §8.1` comment, and the stage fails when a `formula_ref`'s leading "NN §X.Y" has no tagged implementation under `crates/`.
    5. **Assign dense numeric ids** per kind, sorted by group, subgroup, order, then id.
    6. **Emit** (§15.2 has the formats):
       - `public/data/prototypes.bin`: every number, id, enum and expression the simulation reads, in the tables of `schema/protos.yaml`, with each kind's name table;
-      - `public/data/prototypes.json`: what the UI and the renderer read (names, groups, icons, sprite set names, boxes, display data);
+      - `public/data/prototypes.json`: what the UI and the renderer read (names, groups, icons, sprite set names, boxes, display data, and the namespace tables of §15.7's lookup contracts);
       - `src/shared/gen/proto-ids.ts`: string-literal unions, so tests and code that name `'memo'` are checked at compile time;
       - `prototypes.hash`, the SHA-256 of `prototypes.bin`, into `build-manifest.json`. Saves, checkpoints and multiplayer handshakes carry it (§15.2).
 4. **At runtime**, the sim loads `prototypes.bin` into its `Protos` tables (Rust `Vec` columns indexed by dense id, e.g. `protos.entity.crafting_speed: Vec<f64>`), and the UI and renderer build their own lookup tables from `prototypes.json`. Rust never hard-codes a prototype id: names the engine must know (`frontier-checkpoint`, the `research-run` recipe, the rollback types) are listed in `schema/registries.yaml` under `well_known`, resolved by name at load, and checked to exist by the data stage (those the milestone's capability manifest includes).
@@ -323,7 +335,7 @@ Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` �
 - **prototypes** the build includes (M0: one chest, the character, worldgen v0's tiles and one resource, the items they need and one hand-craftable recipe); the data stage filters `prototypes.bin` and `prototypes.json` to them, as a build filter does (§12);
 - **actions** the sim implements (M0: walking, mining by hand, building and mining the chest, the inventory transfers of I §8.2, hand crafting, the settings actions and every system action); any other action type decodes, but is refused at application with `action_failed` and the reason `unsupported`, a developer reason without player-facing text (§15.3);
 - **registry entries** that must be implemented (effects, triggers, achievement conditions, formula references; M0: those its prototypes use, which may be none);
-- **projections, queries and packet sections** the module produces (M0: §15.5's marked kinds and §15.4's sections for chunks, `DYN`, `MOVERS`, `EVENTS` and `UI`); a subscription or query outside it gets status 2 (invalid) with the reason `unsupported`;
+- **projections, queries and packet sections** the module produces (M0: §15.5's marked kinds and §15.4's sections for chunks, `DYN`, `MOVERS`, `EVENTS`, `UI` and `AUDIO_WORKING`, which stays empty while nothing in M0 works); a subscription or query outside it gets status 2 (invalid) with the reason `unsupported`;
 - **scenarios, rule scenarios and benchmarks** that `npm test`, `test:slow` and `ci` run (§10.8's rows marked M0; §10.6's M0 benchmarks).
 
 Each manifest extends the previous one, and the data stage checks that the build's prototypes close over it. Asking the engine for anything outside the manifest fails with an explicit error, never silently.
@@ -369,6 +381,7 @@ Each manifest extends the previous one, and the data stage checks that the build
                                                                                                 SHA-256, OPFS / IndexedDB
  multiplayer: net worker (sockets, RelaySequencer) ── closures over a MessagePort ──→ sim worker   (11 §2.4)
  swaps: a second sim worker loads the next world (new game, load, trap recovery, re-sync) and replaces the first (§3.4)
+ assets: asset worker (fetch by priority, KTX2 → GPU format, Opus → Int16) ──→ main thread uploads textures, feeds audio (§9.7)
 ```
 
 - **One simulation thread.** All game state lives in the sim worker's WebAssembly instance. Determinism is easy to guarantee because nothing else writes it (D1).
@@ -376,6 +389,8 @@ Each manifest extends the previous one, and the data stage checks that the build
 - **One world per worker** (S11). A new game, a load, a trap recovery and a multiplayer re-sync each start a **fresh** sim worker, initialise it, and swap it in through the world-replacement protocol (§3.4). A fresh instance is the only way to give back linear memory, which never shrinks: a late game leaves about 1 GB allocated. In single player the old worker is terminated **before** the new one loads (the loading screen covers the gap), so two late worlds never share the tab's memory budget; only multiplayer's background re-sync runs two worlds at once, and 11 §5.2 checks memory before it does. The swap is exercised by every load, so the shadow re-sync reuses a tested path.
 - **Worldgen workers** run `gen.wasm`, the `worldgen` crate's pure functions. They never touch the World (§5.18). Each pool belongs to one sim worker: the main thread creates the workers with it, passes their ports in `boot`, and terminates them with it, and every answer carries the world's hash (§15.9). The sim links the same crate and generates a chunk itself when a worker is late or absent (catch-up, replays, native tests), so the pool only saves time.
 - **The IO worker** compresses (fflate), hashes (WebCrypto SHA-256) and stores saves. The sim worker only copies the sections out of linear memory, which takes about 50 ms for a late game (§8.4).
+- **The asset worker** (one per page, independent of worlds; §9.7) fetches atlas pages, sheets and sample packs by priority, transcodes KTX2 to the GPU format the main thread chose, decodes audio to Int16 for the voice bank, and keeps a 64-MB cache of compressed pages. Uploads stay on the main thread. It never touches the simulation, so nothing that decides state waits for an asset.
+- **Compiling the modules.** The main thread compiles `sim.wasm` and `gen.wasm` once per page and sends the compiled modules to every fresh sim and worldgen worker (§2.3), so a world replacement never recompiles.
 - **The net worker** (multiplayer, 11 §2.4) owns the sockets and the `RelaySequencer`, and feeds closures to the sim worker over a `MessagePort`: the same port and codec that the `LocalSequencer` uses in-process.
 - **Debug and test mode:** `?sim=inline` runs the same shell and module on the main thread through an in-process transport. Native tests use the `sim` crate directly, without a shell.
 
@@ -387,7 +402,8 @@ Messages between threads are structured-clone objects whose bulk content is tran
 type StateGen = number;                                   // u32, allocated only by the main thread (§3.4)
 
 type MainToSim =
-  | { t: 'boot'; build: BuildManifest; ioPort: MessagePort; genPorts: MessagePort[];
+  | { t: 'boot'; build: BuildManifest; module: WebAssembly.Module;   // sim.wasm, compiled once per page (§3.1)
+      ioPort: MessagePort; genPorts: MessagePort[];
       closurePort?: MessagePort }                         // once per worker; closurePort only in multiplayer (S11)
   | { t: 'world'; gen: StateGen; op: 'new'; settings: NewWorldSettings }
   | { t: 'world'; gen: StateGen; op: 'load'; sections: ArrayBuffer; meta: SaveMeta }     // raw sections from the IO worker
@@ -1905,13 +1921,13 @@ Target: 1,000 active units in ≤ 2 ms per tick. **Deferred to M5** (§14).
 
 Each frame, for each viewport (the world, the minimap, GUI previews, pin cameras):
 
-1. **Terrain:** one quad per visible chunk through the terrain shader (§6.5); water animated.
+1. **Terrain:** one quad per visible chunk through the terrain shader (§6.5), with the water-lining and woodland tint of §9.9.
 2. **Ground layers:** decals and decoratives, resource sprites, floor entities (belts, rail beds, pipe covers), ground items, then **belt items**, expanded from the packet's gap arrays (§15.4).
-3. **Shadow pass** into an R8 render target with `MAX` blending, so overlapping shadows never double-darken. Composited over the ground layers before objects are drawn, with the style's `SHADOW_COMPOSITE` (§15.7; *Survey* hatches shadows), so shadows fall on the ground, belts and items but not on other buildings, as in Factorio.
+3. **Shadow pass** into a half-resolution R8 render target with `MAX` blending, so overlapping shadows never double-darken (§9.8). Composited over the ground layers before objects are drawn, with the style's `SHADOW_COMPOSITE` (§15.7; *Survey* hatches shadows), so shadows fall on the ground, belts and items but not on other buildings, as in Factorio.
 4. **Objects,** y-sorted: buildings, trees, poles, chests, inserter bases.
 5. **Higher objects:** inserter arms and held items, pole wires (catenary strips), signals.
 6. **Air objects:** agents and their shadows.
-7. **Lights:** a light render target at half resolution (lamps, machine light sprites), composited by the style's day and night rules (`LIGHT_COMPOSITE_DAY`, `NIGHT_GRADE`, §15.7) from the packet's daylight. Round 5's composite, `colour × (ambient(dayTable) + light)`, is the plain style's.
+7. **Lights:** a light render target at half resolution (lamps, machine light sprites; RGBA16F where `EXT_color_buffer_half_float` exists, otherwise RGBA8, §9.8), composited by the style's day and night rules (`LIGHT_COMPOSITE_DAY`, `NIGHT_GRADE`, §15.7) from the packet's daylight. Round 5's composite, `colour × (ambient(dayTable) + light)`, is the plain style's.
 8. **World overlays:** ghosts (hologram shader), build previews (I's tints), selection brackets, coverage (power, staffing), thermal overlay, alt-mode icons and arrows, the status-light layer, warning icons, edge arrows.
 9. **Post:** the night grade's LUT when the style uses one (*Survey*'s cyanotype, A3 §4.4), and the colour-blind LUT when enabled (3D textures).
 
@@ -1926,7 +1942,7 @@ Flying text and labels near the cursor are DOM (I §8.1).
   - `layer: u16` (the texture-array page) plus `flags: u16` (shader variant bits);
   - `tint: RGBA8`.
 - **One static `Uint32` index buffer** (0, 1, 2, 2, 1, 3, …) serves 2¹⁶ quads per draw.
-- **Draw calls:** one per layer and texture array. The colour, shadow, icon and chart arrays each bind once.
+- **Draw calls:** one per layer and texture array. The colour, shadow, light, icon and chart arrays each bind once.
 - **Uploads:** `bufferSubData` of the used range, in two orphaned buffers that alternate.
 - **CPU cost:** filling 100k sprites is about 2 ms on the laptop (Appendix A extrapolation).
 
@@ -1934,26 +1950,27 @@ Flying text and labels near the cursor are DOM (I §8.1).
 
 ### 6.4 Atlases and the sprite manifest
 
-- **Pages:** 2048×2048 layers in `TEXTURE_2D_ARRAY`s. WebGL2 guarantees 2048² textures and ≥ 256 layers, so this works on every target. Mipmaps are generated at load.
-- **Separate arrays:**
-  - colour (RGBA8, premultiplied);
-  - shadow masks (R8);
-  - lights (RGBA8);
-  - icons (RGBA8; also exported as PNG/WebP sheets for CSS, I §8.1).
-- **The manifest** `public/atlases/sprites.json` maps each sprite set to its frames (array, layer, rectangle and anchor) by direction, variant and animation frame, with base, idle, animated-layer, shadow and light parts; its shape is §15.7's. Animation sheets are packed as units.
-- **Lazy loading by tier.** Each prototype's `tier` decides its atlas group: the slice's pages load first, the rest on demand.
-- **Decoding:** `createImageBitmap`, off the main thread, then `texSubImage3D`.
-- **Context loss:** atlases are re-uploaded from cached `ImageBitmap`s on `webglcontextrestored`.
+- **Pages:** layers of one `TEXTURE_2D_ARRAY` per kind, with immutable storage. WebGL2 guarantees 2048² textures and ≥ 256 layers, so this works on every target. The levels come with the page, and a page's level 1 is its Normal resolution (§9.2).
+- **Separate arrays** (formats and page sizes: §9.2, §9.7):
+  - colour (premultiplied; 2048² pages);
+  - shadow masks (one channel);
+  - lights;
+  - icons (also exported as WebP sheets for CSS, I §8.1; §9.3).
+- **The manifest** `public/atlases/sprites.json` maps each sprite set to its frames (array, layer, rectangle and anchor) by direction, variant and animation frame, with base, idle, animated-layer, shadow and light parts; its shape is §15.7's (version 2). Animation layers are packed as units.
+- **Loading by group** (§9.7): atlas groups (`core`, one per tier, town skins, biomes) stream by priority; a set whose page is not resident draws its greybox, and a page without its High level draws its Normal levels.
+- **Transport and decoding** (§9.2, §9.7): KTX2 files, transcoded in the asset worker to the best GPU format available, then uploaded with `compressedTexSubImage3D` on the main thread, at most 2 ms per frame.
+- **Context loss:** atlases are re-transcoded from the asset worker's cache of compressed pages on `webglcontextrestored` (§9.7).
 
 ### 6.5 Terrain, water and decoratives
 
 - **Terrain** is one quad per chunk. The fragment shader reads:
   - the chunk's tile ids (the dense ids of `tiles.yaml`, §4.4) from a 34×34 R8 data texture (one-tile border), held in a texture array with one layer per resident chunk;
-  - per-tile-type **material textures** (the engine overlay maps tile ids to materials): seamless 512² textures covering 8×8 tiles each, with variants.
+  - per-tile-type **material textures** (the engine overlay maps tile ids to materials): seamless 512² textures covering 8×8 tiles each, with variants (§9.9);
+  - a per-chunk RG8 texture at 4 texels per tile with a 3-tile border, which the main thread computes when the chunk enters the held set: the shore distance for the water-lining (red) and the woodland tint (green) (§9.9).
 - **Map colours** of tiles are design data (`map_color`); the chart (§5.19) and the minimap use them.
 - **Edges** between tile types blend through a noise mask in the shader. That yields organic boundaries without Factorio's hand-drawn transition sprites (a presentation choice).
 - **Concrete, town streets and town blocks** are tile types with crisp edges (a flag skips the noise blend). Building blocks get a building sprite per block, chosen by the town generator and skinned by era. The campus and landmarks are world-object sprites (§4.4).
-- **Water** is a tile type with an animated normal-map shimmer and a shore foam band.
+- **Water** is a tile type in the style's water tones, with water-lining and an inked shoreline (§9.9).
 - **Decoratives and trees** are sprites:
   - trees: 10 species × 4 variants × leaf stages, plus shadows;
   - decorative density is capped per chunk.
@@ -1983,7 +2000,7 @@ Flying text and labels near the cursor are DOM (I §8.1).
 - **Agents** and **trains** are extrapolated from `MOVERS` records (§15.4):
   - rolling stock uses 64 pre-rendered orientations;
   - agents 16.
-- Smoke and particles are render-only: seeded from events, never simulated.
+- Smoke and particles are render-only, spawned from `DYN` state and events with a seeded counter (§9.8), never simulated.
 
 ### 6.9 Alt-mode, previews, selection and overlays
 
@@ -2032,16 +2049,13 @@ Flying text and labels near the cursor are DOM (I §8.1).
 ### 6.13 Sprite resolution, GPU memory and compression
 
 - **Two sprite resolutions,** as in Factorio's graphics setting:
-  - **High:** 64 px per tile source;
-  - **Normal:** 32 px per tile, downscaled at build time.
+  - **High:** 64 px per tile source, a page's level 0;
+  - **Normal:** 32 px per tile, the same page's level 1 (§9.2). Level 0 streams only where it is drawn (§9.7).
 - **GPU texture budget:**
-  - slice ≤ 256 MB at High (estimate: about 9 pages of 2048² with mips, about 200 MB);
-  - full game ≤ 768 MB at High, ≤ 192 MB at Normal.
-  - The default resolution is chosen from `WEBGL_debug_renderer_info` and a probe allocation.
-- **Transport:** colour atlases ship as **WebP** (lossy q90 colour, lossless alpha). Shadows and icons ship as lossless WebP or PNG (oxipng).
-- **Compression (planned for M3, when High exceeds 512 MB):** KTX2 with Basis UASTC, transcoded at load (the basis transcoder is about 200 kB of WASM) to BC7, ASTC or ETC2. That cuts GPU memory 4×.
-  - The tool `basisu` is built from source with a manylinux `cmake` wheel (`uv pip install cmake`) and the system gcc 9.4, or in the podman Ubuntu 24.04 fallback (`CLAUDE.md`).
-  - Neither `toktx` nor `basisu` is installed today.
+  - slice ≤ 256 MB at High (§9.6's model: about 43 MB in BC7, 159 MB in the RGBA8 fallback);
+  - full game ≤ 768 MB at High, ≤ 192 MB at Normal (the model: 183 and 69 MB in BC7; 644 and 190 MB in RGBA8, which is why the RGBA8 fallback defaults to Normal).
+  - The default resolution is High when BC7 or ASTC exists and a probe allocation of 256 MB succeeds, otherwise Normal (§9.7).
+- **Transport and compression** (§9.2): KTX2 from M0. Colour, light and icons are XUBC7, transcoded to BC7 (then ASTC, BC3, RGBA8); shadows are ETC1S, transcoded to BC4. BC7 needs a quarter of RGBA8's memory and bandwidth. WebP is used only for DOM images. The encoder `basisu` 2.50 is installed on this host (§2.1).
 
 ---
 
@@ -2088,7 +2102,7 @@ Flying text and labels near the cursor are DOM (I §8.1).
 - **CSS variables** hold the skin's palette. The layout and metrics stay Factorio's; the skin is IMPL-5's *Survey* (1945 federal paperwork: manila folders, index cards, printed labels; `design/art/DIRECTION.md` §12), in place of round 5's dark grey frames.
 - **Frames** use CSS `border-image` 9-slices drawn by us in SVG. No Factorio art is reused.
 - **Metrics** follow I §4.0 exactly: 40 px slots with 32 px icons, 4 px grid, 8 px padding, fonts at 12/14/15/18 px, tooltips at 88% opacity with background blur and a maximum width of 356 px.
-- **Font:** Titillium Web (OFL), a technical sans close to Factorio's GUI type, self-hosted from `@fontsource/titillium-web` 5.3.0.
+- **Fonts** (§9.3; A3 §12): Libre Franklin for printed text (labels, descriptions, window titles) and Courier Prime for typed values (counts, years, percentages), both OFL and self-hosted as WOFF2 subsets made by the asset build.
 - **Icons** are CSS sprites from the icon atlas sheets, with a 2× sheet for HiDPI.
 - **UI scale:** automatic by window height (100% at 1080p), and Ctrl+Numpad± in 25% steps (I).
 - **Hygiene** (I §1.5): `user-select: none` except in text fields, `dragstart` prevented on icons, `touch-action: none` on the canvas.
@@ -2226,7 +2240,7 @@ Storage follows 07-ui §19.2. Everything runs in the IO worker.
   - `navigator.storage.estimate()` feeds the main menu's "storage 41 MB of 2 GB" line.
   - A save that would exceed the quota is refused, with export or deletion offered.
 - **One tab at a time.** A `BroadcastChannel` lock: a second tab offers *Take over*, and the first saves and drops to a read-only notice.
-- **Offline.** A service worker caches the build, so a loaded game keeps working offline. Single-player saves never leave the machine; multiplayer checkpoints go to the relay (11 §4).
+- **Offline.** A service worker, where the host allows one, caches the build (§9.7), so a loaded game keeps working offline; the game works fully without it. Its cache counts against the same origin quota as the saves. Single-player saves never leave the machine; multiplayer checkpoints go to the relay (11 §4).
 - **Integrity.** The IO worker computes the SHA-256 of every container it writes (WebCrypto) and keeps it with the metadata; a checkpoint's manifest carries it (§8.6).
 
 **Export and import:**
@@ -2299,7 +2313,7 @@ A **checkpoint** (S9) is a complete save written at a tick boundary: "write a ch
 
 ## 9. Assets, audio, loading and streaming
 
-**Version 2** (WP B2). The art direction *Survey* (IMPL-5; `design/art/DIRECTION.md`, cited as A3 §n) and the generative audio engine (IMPL-6; `design/audio/DIRECTION.md`, cited as A4 §n) replace round 5's plan of Factorio-like grime and music21/FluidSynth tracks. The two DIRECTION documents own the look and the sound; this section owns how both are built, shipped, loaded and run. The measurements were made on this host on 2026-10-20 with the scripts in `design/asset-study/` (texture formats, the layered render, the budget model, the audio CPU study), and their outputs are in the gitignored `design/art/out/` and `design/audio/out/`. §6.4 and §6.13 still describe round 5's WebP transport and a KTX2 plan for M3; §9.2 and §9.7 supersede them.
+**Version 2** (WP B2). The art direction *Survey* (IMPL-5; `design/art/DIRECTION.md`, cited as A3 §n) and the generative audio engine (IMPL-6; `design/audio/DIRECTION.md`, cited as A4 §n) replace round 5's plan of Factorio-like grime and music21/FluidSynth tracks. The two DIRECTION documents own the look and the sound; this section owns how both are built, shipped, loaded and run. The measurements were made on this host on 2026-10-20 with the scripts in `design/asset-study/` (texture formats, the layered render, the budget model, the audio CPU study), and their outputs are in the gitignored `design/art/out/` and `design/audio/out/`. §6.4 and §6.13 summarise the renderer's side and defer to §9.2 and §9.7 for formats, transport and loading.
 
 ### 9.1 Sprites: the Survey render pipeline (Blender 5.2.2 LTS, Cycles CPU)
 
@@ -2809,9 +2823,9 @@ colour = mix(day, night, n);
 | Scenario | `cargo test --profile ntest` with the scenario DSL | Golden ratios, rule behaviour, determinism (each scenario also runs under NO_SLEEP and through a mid-run save and load) | hundreds, ≤ 1 s each |
 | Property | proptest (Rust), fast-check (TypeScript) | Random build, rotate and remove sequences against invariants; fuzzed closures; codec limits | dozens |
 | Cross-engine | `simtool` and Playwright | The same closure logs natively, in Node, Chrome and Firefox: per-tick digest traces and full state hashes | nightly; one smoke trace in `ci` |
-| E2E | Playwright 1.64.1 + Chrome 156 (SwiftShader), Firefox 157 (`?render=none`) | I's feel tests F1–F28, window screenshots, smoke | dozens, seconds each |
-| Visual | Playwright + pixelmatch + Claude review | Galleries, windows, overlays | per change |
-| Benchmark | `simtool bench` (native), the Node and browser runners, `bench.html` on the user's laptop | ms per tick, memory, frame time | per milestone and on hot-path changes |
+| E2E | Playwright 1.64.1 + Chrome 156 (SwiftShader), Firefox 157 (`?render=none`) | I's feel tests F1–F28, window screenshots, smoke, loading and streaming (§10.5) | dozens, seconds each |
+| Visual | Playwright + pixelmatch + Claude review | Galleries, windows, overlays; the asset build's checks (§9.5) | per change |
+| Benchmark | `simtool bench` (native), the Node and browser runners, `bench.html` on the user's laptop | ms per tick, memory, frame time, audio CPU | per milestone and on hot-path changes |
 
 ### 10.2 The scenario DSL
 
@@ -2913,6 +2927,7 @@ The D18 suites (§4.1) compare **full canonical state**, not only digests: a ful
 - **The trace page** (`test/trace.html`): loads a closure log and its start save in the real sim worker, replays it with extraction off, and posts the per-tick digest trace and final hash. Playwright runs it in Chrome and Firefox; `simtool replay --trace` produces the native trace and Node runs the same worker code in-process. All four must be identical (D18 d).
 - **The scripted opening** (09 §7.1) is a recorded **input script** (keyboard and mouse events by game tick) on a fixed seed, replayed through the real input layer on every build. The closure log it produces, its milestone times and its state hashes are regression goldens; a data edit that renumbers prototypes changes the closure log, never the script.
 - **Trap recovery** (§3.6): a dev-only action that panics the module must show the trap notice, reload the last autosave in a fresh worker and leave a bug bundle that reproduces the panic natively.
+- **Loading and streaming** (§9.7): one test throttles the network to the reference connection (25 Mbit/s, 50 ms round trip) and checks every stage budget from a cold cache; another runs a new game and a load with service workers blocked; a third checks that a set whose page is withheld draws its greybox and never stalls the simulation.
 
 ### 10.6 Benchmarks and calibration
 
@@ -2942,7 +2957,7 @@ The D18 suites (§4.1) compare **full canonical state**, not only digests: a ful
 
 **Calibration with the user's laptop.**
 - The user opens `http://127.0.0.1:5173/bench.html` through the tunnel once per milestone.
-- The page runs the same scenarios in a worker (WebAssembly, as in the game), a render benchmark (synthetic scenes at the §6.12 sizes, frame times by `performance.now` around `gl.finish` sampling), the audio benchmark (A4) and, from the MP milestone, the hidden-tab check (11 §9).
+- The page runs the same scenarios in a worker (WebAssembly, as in the game), a render benchmark (synthetic scenes at the §6.12 sizes, frame times by `performance.now` around `gl.finish` sampling), the audio page (the engine's CPU share against §9.4's budget, which M1's exit requires), a log of the WebGL extensions and compressed-texture formats available (§9.2) and, from the MP milestone, the hidden-tab check (11 §9).
 - It POSTs to `/__bench`.
 - The measured host/laptop ratio (estimated at 2.4 for §11's reference machine at the host's base clock) turns host numbers into laptop predictions. The render numbers are the only GPU truth available.
 
@@ -3077,7 +3092,7 @@ The critical path is sim → UI integration, through projections. With three age
 
 | Milestone | Theme | Production / test LOC | Agent-days |
 |---|---|---|---|
-| **M0** | Foundations (itemised below) | 29k / 11k | 25–34 |
+| **M0** | Foundations (itemised below) | 31k / 12k | 27–36 |
 | **M1** | Vertical slice: Memo + Report, peaceful (DECISIONS §15 and §17, 09) | 45k / 22k | 42–53 |
 | **M1.5** | Veteran pass (the rest of I's M2) | 4k / 2k | 3–4 |
 | **M2** | Article tier: fluids, data, rails, logic | 35k / 17k | 31–40 |
@@ -3091,9 +3106,9 @@ The critical path is sim → UI integration, through projections. With three age
 **Order.** M0 → M1 → M1.5 → M2 → M3 → M4 → **MP** → M6, with M5 optional between them and M7 last. Multiplayer comes late, as the user asked, but its seams exist from M0 (11 §7), so MP adds the network, the relay and the multiplayer UI without touching the simulation's structure.
 
 **Totals:**
-- The complete base game with *Contained* (M0–M4) is about 156k + 72k lines and **139–181 agent-days**.
-- With multiplayer it is about 168k + 80k lines and **153–199 agent-days**.
-- With *Wild* and polish as well, about 196k + 90k lines and **179–235 agent-days**.
+- The complete base game with *Contained* (M0–M4) is about 158k + 73k lines and **141–183 agent-days**.
+- With multiplayer it is about 170k + 81k lines and **155–201 agent-days**.
+- With *Wild* and polish as well, about 198k + 91k lines and **181–237 agent-days**.
 - Round 4 added about 2 agent-days: the data contract (expression compiler, manifests, tiles, world objects, text data; M0) and the containment rules (rollback input, locks, linear spread; M3).
 
 **Milestone builds are filters** (J17). Each milestone ships the full data filtered by a manifest, checked for closure by the data stage (§2.4); `design/round4/arch-data/manifests.py` runs the same check on the current data. M1's manifest is 09 §2.7's explicit list. The later ones are rules, kept in `game/data/engine/manifests.yaml`:
@@ -3134,13 +3149,13 @@ manifests:
 |---|---|---|---|
 | **Schema** (first, alone; the executable contract) | The repository and pinned toolchains (npm and the Cargo workspace), Vite with the cargo plugin, `check-arch`, `clippy.toml`, the WebAssembly feature gate, the `npm run` scripts and the pre-commit `ci`; **the schema** with complete layouts for every M0 record, and **the generator** with readers and writers in both languages (§15.1); **the data stage** on `spec/data`: every kind (tiles, world objects and text included) parsed and validated against its schema, M0's prototypes compiled, the expression compiler with its bytecode and reference interpreter, the closure check for every milestone's manifest, the M0 capability manifest, `prototypes.bin`, `prototypes.json` and `build-manifest.json` (§2.4, §15.2); reviewed codec fixtures; **the fake sim**, `STATS` included; **the M0 golden integration set** with the reference model that produces it (§15.10) | 8k / 3k | 7–9 |
 | **Sim** | The crates `det`, `worldgen` v0 (terrain, water, ore spots; no towns) and `sim`: World with `players[]`, surfaces, chunks, the entity table and pools, the scheduler (bitsets, wake sequence numbers, the timer wheel), RNG, digests and the state hash (§4.8), the save container v2 and checkpoints, the action pipeline (preflight and field validation, references, input fencing, the creation ring, system actions), character movement and collision, chests and inventories, hand mining and crafting, inline chunk commits, extraction with its `PresentationState`, the M0 projections (`HUD`, `CHARACTER`, `INVENTORY`, `ENTITY_PANEL`, `HOVER`, `STATS`, `DEBUG`), M0's queries; `simabi`, `genabi` and `simtool` (replay, hash, trace, bench); the `TestSequencer` | 8k / 4k | 6–8 |
-| **Shell** | The sim worker: module loading and the schema handshake, `MemoryLease`, the `LocalSequencer` with pacing and clock generations, packets and pooling, subscriptions, the world-replacement protocol (S15) and the worker swap (S11), checkpoint copies, closure logs and replay, trap recovery (§3.6); the worldgen and IO workers; `__game` | 3.5k / 1.5k | 3–4 |
+| **Shell** | The sim worker: module instantiation (the main thread compiles each module once per page, §3.1) and the schema handshake, `MemoryLease`, the `LocalSequencer` with pacing and clock generations, packets and pooling, subscriptions, the world-replacement protocol (S15) and the worker swap (S11), checkpoint copies, closure logs and replay, trap recovery (§3.6); the worldgen and IO workers; `__game` | 3.5k / 1.5k | 3–4 |
 | **Renderer v0** | The batcher, atlases from the manifest (§15.7), the terrain shader, camera and zoom, layers, belt-item expansion from gap arrays, F4/F5 debug overlays; built against the fake sim | 2.5k / 0.5k | 2–3 |
 | **UI and input v0** | The Solid shell, Window and Slot, the character screen's skeleton on real projections, the input core (action map, capture layer, resolver skeleton, action encoder); built against the fake sim | 2k / 0.5k | 2 |
 | **Asset pipeline v0** | Per §9 (WP B2). **Build:** A3's rig, materials and parts ported to `assets/blender/` with the entity contract (`META`, `build`, `pose`); the layered render (base, Normal-resolution shadow, animated layers in R); ink, glow, trim; packing per group into 8-px-aligned pages with levels; XUBC7 and ETC1S encoding with `basisu` 2.50; `sprites.json` version 2 (§15.7); greybox sets for every entity; the projection calibration test; contact sheets, the composite and compression checks (§9.5); `npm run assets` with its cache. **Run time** (`src/assets/`): the asset worker with the Basis transcoder, the format probe and fallback chain, groups and priorities, residency and the level-0 clamp (§9.7); the build's `.br`/`.gz` siblings. Exit: the keypunch and a belt rendered through the whole chain and drawn by the renderer at dpr 1 and 2 | 2.5k / 0.6k | 2–3 |
 | **Audio v0** | Per A4 and §9.4 (WP B2): the engine ported to TypeScript at 32 kHz; the voice-bank and FDN AudioWorklets; the mixer and I §4.20's buses; the conductor with the Era I rule set; the SFX system (the event-to-sound map, variants, rate and voice limits, attenuation, working sounds from `AUDIO_WORKING`, historical silence); the Opus probe and AAC fallback; the CPU benchmark page. Exit: Era I and the prototype SFX inside §9.4's budget on this host (host ≤ 19%) | 2.8k / 0.7k | 3–4 |
 | **Integration and QA** | The test harness (the scenario DSL, the rule-scenario folder (§10.8), D18's suites, the trace page, the Playwright config, golden helpers), the benchmark runners and `bench.html`, the dev-server endpoints, the exit review | 1.5k / 1k | 2–3 |
-| **Total** | | **29k / 11k** | **25–34** (about 16–20 calendar days: the schema package alone, then the others in parallel, then integration) |
+| **Total** | | **31k / 12k** | **27–36** (about 16–20 calendar days: the schema package alone, then the others in parallel, then integration) |
 
 **The contract gate** (B1-r1 1, 21; the coordinator). The schema package is the executable contract, and **no other M0 package starts before its acceptance gate passes**. The gate (§15.11 lists its parts) is:
 1. **The machine-readable schema**, with complete layouts for every M0 record: every M0 action and system action, event, projection kind and query kind, the packet header and every M0 section, the save sections of M0's state, `new_world`, `sim_meta`, load reports, every export of `abi.yaml` with its input and output records (§15.8), `ChunkData`, the `prototypes.bin` tables of M0's kinds and the schema of `prototypes.json`, with every numeric registry (enum values, section ids, kinds) and namespace table (prototype names, the icon table, the locale keys of `FailReason` and `FlyingText`).
@@ -3164,6 +3179,7 @@ Once the gate passes, each parallel package's first deliverable is to pass the g
 - World replacement works through a fresh worker for a new game, a load and trap recovery: a dev-only panic shows the trap notice, reloads the last autosave and leaves a bundle that reproduces the panic natively.
 - The schema handshake refuses a stale module; `schema-gen --check` is clean; the release modules pass the feature gate.
 - Every manifest passes the closure check (R17).
+- The asset pipeline and audio packages meet the exits in their rows: the keypunch and a belt through the whole asset chain, drawn at dpr 1 and 2; Era I and the prototype SFX within §9.4's budget.
 - The smoke screenshot has been reviewed.
 - `npm run ci` is green under M0's capability manifest (§2.4).
 
@@ -3383,11 +3399,12 @@ Not estimated until 06 goes beyond an outline.
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| Scope: about 196k lines of Rust and TypeScript plus assets | High | High | Data-driven systems, milestone exits, parallel agents on fixed contracts (§15) behind M0's contract gate (§12), ruthless deferral (*Wild*, expansion) |
+| Scope: about 198k lines of Rust and TypeScript plus assets | High | High | Data-driven systems, milestone exits, parallel agents on fixed contracts (§15) behind M0's contract gate (§12), ruthless deferral (*Wild*, expansion) |
 | **The two-language boundary**: generated layouts, features that cross both languages, the schema's shape moving while systems arrive (A1-r1) | High | Medium | One schema for every contract (§15.1) with `--check`, a runtime hash handshake and cross-language fixtures; bulk projections instead of per-entity calls; the schema package lands first; the fake sim lets UI and renderer start early |
 | Feel fidelity (belts, inserters, drag-building) | Medium | High | Wiki goldens G1–G7, R21–R22, I's F-tests, early user playtests in M1 |
 | UI breadth (about 25 screens) | High | Medium | Generic kinds, data-generated grids and tooltips, generated projection decoders, screenshot goldens |
 | Art quality and consistency from procedural Blender scripts | Medium | High | Parts library, style checks, contact sheets, greybox-first, user review per batch (A3's *Survey* rules) |
+| **Young formats and tight audio budgets** (B2): XUBC7 is two months old and BC7 outside desktop Chrome and Firefox is untested here; Era II's audio is near its budget and the takeoff above it; the 32 kHz engine awaits the user's A/B | Medium | Medium | Encoder and transcoder pinned together, with BC3 and RGBA8 fallbacks (§9.2) and UASTC with RDO, measured there, as plan B (B2); `bench.html` logs the formats and measures audio on the user's machine (§10.6); voice caps and pre-rendered layers, with 48 kHz as the fallback (§9.4) |
 | **Logic-level desyncs and replay breaks**: order, unsaved state, impure caches, in any language (A2's dominant class) | High during development | High | D1–D23 from M0; join, NO_SLEEP and replay equivalence and heavy mode on full state; cross-engine traces; digests and bug bundles turn the rest into reproducible reports |
 | **WebAssembly debugging and traps**: weak in-browser source debugging; a panic poisons the instance (A1) | Medium | Medium | Develop and test natively; the panic hook forwards message, file and line; trap recovery from the autosave with a bundle that reproduces natively (§3.6); checked indexing kept in release |
 | **Two toolchains and build time**: cargo and npm, about 67 s per release WebAssembly build | Medium | Low | `wasmdev` builds of about 3 s for the loop; native tests first; release builds only in `ci` and nightly; pinned toolchains (§2.1) |
@@ -3539,7 +3556,7 @@ design/spec/data/*.yaml + game/data/engine/*.yaml
 
 Only fields listed in `schema/protos.yaml` go in, and that file names each one's source in the YAML, so the data stage's writer and Rust's loader come from one description. `Protos::load` checks the header's `schemaHash` against the module's and fails with `ERR_PROTOS` otherwise.
 
-**`prototypes.json` has a schema too** (B1-r1 1). `schema/protos.yaml` also declares its layout: a header (`formatVersion`, `schemaHash`, `prototypesHash`), then per kind an array in id order of the fields the UI and renderer read (name, group and order, icon index, locale keys, sprite-set and collision-box references, display values), and the namespace tables that ids resolve through (the icon table, the sprite-set table, the locale-key table). The generator emits its TypeScript types, a validator the loader runs, and the data stage's writer; the golden set (§15.10) holds the M0 file.
+**`prototypes.json` has a schema too** (B1-r1 1). `schema/protos.yaml` also declares its layout: a header (`formatVersion`, `schemaHash`, `prototypesHash`), then per kind an array in id order of the fields the UI and renderer read (name, group and order, icon index, locale keys, sprite-set and collision-box references, display values), and the namespace tables that ids resolve through: the icon table (`EntityView.alt_icon`), the locale-key table, and the set-name tables of §15.7's lookup contracts (tree species, decoratives, cliffs, town buildings). The generator emits its TypeScript types, a validator the loader runs, and the data stage's writer; the golden set (§15.10) holds the M0 file.
 
 **Expressions compile to bytecode** (B1's call). The alternative was to compile each expression to Rust code at build time. Bytecode wins because:
 - a data edit must not need a Rust rebuild (balance churn, §1; a release build takes about 67 s, A1);
@@ -3774,7 +3791,7 @@ Kinds (ids append-only): 1 `rates` (entities or an area; §5.20's rate calculato
 
 | Id | Type | Payload | Typical use |
 |---|---|---|---|
-| 1 | `action_failed` | `u16 reason` (`FailReason`, a schema enum whose values map to 08's strings in `locale/en.yaml`), `u16 reserved, FinePos pos, u32 serial` | flying text and the error sound; tells the latency state which prediction failed (11 §3.5) |
+| 1 | `action_failed` | `u16 reason` (`FailReason`, a schema enum whose values map to 08's strings in `locale/en.yaml`, except the developer reasons `malformed` (§15.3) and `unsupported` (§2.4), which have no string), `u16 reserved, FinePos pos, u32 serial` | flying text and the error sound; tells the latency state which prediction failed (11 §3.5). A developer reason shows nothing and plays nothing; the shell logs it |
 | 2 | `flying_text` | `u16 text` (`FlyingText`, likewise mapped to 08), `u16 item, i32 count, FinePos pos` | "+3 Iron plate", "Swapped" |
 | 3 | `entity_built` | `u32 serial, u16 proto, u8 dir, u8 flags` (bit 0 ghost), `TilePos2 pos` | build sound by size; prediction reconciliation |
 | 4 | `entity_mined` | `u32 serial, u16 proto, u16 reserved, TilePos2 pos` | mine sound by material |
@@ -3787,7 +3804,7 @@ Kinds (ids append-only): 1 `rates` (entities or an area; §5.20's rate calculato
 | 12 | `input_fenced` | — | debug log (D22) |
 | 13 | `loop_closed`, 14 `victory` | — | the closure cue and the end (A4; M4) |
 
-**Delivery.** Events accumulate in the module from the tick that produced them until the next extraction drains them. The queue holds at most 8,192 events or 512 KiB; on overflow the oldest are dropped and the packet carries `EVENTS_DROPPED`.
+**Delivery.** Events accumulate in the module from the tick that produced them until the next extraction drains them. The queue is part of `PresentationState`: the tick writes it through an `EventSink`, and extraction drains it (§3.6). `EVENTS` is an event section (§15.4), so a skipped extraction loses nothing. The queue holds at most 8,192 events or 512 KiB; on overflow the oldest are dropped and the packet carries `EVENTS_DROPPED`.
 
 **Suppression** (D15, S15). The shell sets the module's `HISTORICAL` flag (§15.8) while it runs catch-up, replay or the fast-forward after a load or a join; events from those ticks carry the flag. The main thread never plays a sound, shows flying text or raises a toast for a historical event, nor for any event more than 30 ticks older than the packet that carries it (a hidden page that kept running). Log-type events are appended to their logs silently. After a new state generation, audio state is reset (§3.4).
 
@@ -3991,7 +4008,7 @@ uv     = (x, y, w, h) ÷ the array's page size at level 0
 ### 15.10 Fixtures, the fake sim and the golden integration set
 
 So that the renderer, UI, audio and shell can be built before the sim, and the sim against known answers:
-- **The fake sim worker** (`src/simworker/fake.ts`, delivered with the schema) speaks the protocol of §3.2 and writes packets with the generated encoders: generated terrain, a grid of chests and machines with animated `DYN` records, belts with moving items as gap arrays, inserter hands, a walking character driven by `act` messages, events, and the `CHARACTER`, `INVENTORY`, `HUD`, `STATS` and `DEBUG` projections (B1-r1 21). It follows the replacement protocol (an unsolicited `FULL` packet after `bound`, state generations; §3.4) and gives the explicit errors of the capability manifest (§2.4). `?sim=fake` keeps it available after integration.
+- **The fake sim worker** (`src/simworker/fake.ts`, delivered with the schema) speaks the protocol of §3.2 and writes packets with the generated encoders: generated terrain, a grid of chests and machines with animated `DYN` records, belts with moving items as gap arrays, inserter hands, a walking character driven by `act` messages, events, `AUDIO_WORKING` aggregates, and the `CHARACTER`, `INVENTORY`, `HUD` (with the music feed), `STATS` and `DEBUG` projections (B1-r1 21), so the renderer, the UI and audio can all be built against it. It follows the replacement protocol (an unsolicited `FULL` packet after `bound`, state generations; §3.4) and gives the explicit errors of the capability manifest (§2.4). `?sim=fake` keeps it available after integration.
 - **Codec fixtures** (§15.1), generated and hand-written, pin both languages' codecs, including the `new_world`, `sim_meta`, `load_report`, `ChunkData` and view-request records and every ABI envelope (§15.8).
 - **The M0 golden integration set** (`test/golden/m0/`; B1-r1 1, 21) is frozen by the contract gate before any parallel package starts (§12):
   - the M0 prototype set: its `prototypes.bin` and `prototypes.json`;
@@ -3999,7 +4016,7 @@ So that the renderer, UI, audio and shell can be built before the sim, and the s
   - a **closure log** of 600 ticks (§8.5) with every M0 action, a refusal of each M0 reason, a malformed and an `unsupported` action, a fenced held input, a `player_left` and a return, and a blob;
   - the **expected per-tick digests**, and the expected canonical state at ticks 1, 2, 300 and 600;
   - the **expected packets** for a fixed view request at ticks 0, 1 and 600, with every M0 section, and the expected record of every M0 projection and query;
-  - a **tiny atlas** of placeholder images in the sprite manifest's format (§15.7), so the renderer draws the expected packets before any art exists;
+  - a **tiny atlas** of placeholder images: a version-2 sprite manifest with `codec: rgba8` pages (uncompressed KTX2, §15.7), so the renderer draws the expected packets before any art, transcoder or asset pipeline exists;
   - **negative cases**: truncated and trailing closure logs and saves, a closure that fails each preflight check, a malformed record for every ABI input, a save from another worldgen version, a module with a stale schema hash.
 
   The expected states, digests, packets and records come from a small **TypeScript reference model** of M0's rules (walking and collision, the chest, hand mining, the inventory transfers, hand crafting, the system actions, the canonical allocator) written from the spec and run on the generated writers and XXH64. The model exists only for this; its outputs are reviewed with the fixtures. The real sim must reproduce them bit for bit, natively and in WebAssembly. A disagreement is settled by the spec, and a change to the frozen set reopens the gate for the packages it touches.
@@ -4018,8 +4035,8 @@ Owners are M0's work packages, named by role (the manager assigns ids). *Schema*
 | §15.3 actions and closures | schema (formats, the admission function), sim (preflight and field validation, references, fencing; the `TestSequencer`), shell (sequencer) | UI (encoder), net (MP) | D18(g) codec probes at every limit; R23–R27; fuzzed closures that must never trap; the admission fixture shared by every sequencer |
 | §15.4 render packet | sim (writers), renderer (decoder) | renderer, audio | the golden set's packets; mirror equivalence (§10.4 #16); a Vitest round trip; the renderer's gallery screenshots |
 | §15.5 projections and subscriptions | sim (writers, limits, query steps), shell (generations, query scheduling), UI (decoders) | UI | Vitest: subscription, replacement, gone, stale generation, limits, cancellation; continuation equivalence (§10.4 #13) |
-| §15.6 events and audio | sim (writers), shell (historical flag), audio (consumer) | UI, audio | a scenario that asserts events for build, mine, craft and failure; a catch-up test that asserts no sound is scheduled |
-| §15.7 projection and manifest | renderer (projection), assets (manifest) | renderer | the projection calibration (§9.1); a manifest schema check in the asset build |
+| §15.6 events and audio | sim (writers, the `EventSink`), shell (historical flag), audio (consumer) | UI, audio | a scenario that asserts events for build, mine, craft and failure; a catch-up test that asserts no sound is scheduled; the audio page's budget (§9.4) |
+| §15.7 projection and manifest | renderer (projection, lookup tables), assets (manifest version 2, `dirIndex`) | renderer | the projection fixtures at dpr 1 and 2 (§15.7); the calibration render (§9.1); the manifest's JSON schema in the asset build; the golden set's `rgba8` atlas (§15.10) |
 | §15.8 ABI | schema (`abi.yaml`), sim (`simabi`), shell | shell | generated signatures and wrappers; Vitest against a dev build; trap and memory-growth tests (§3.6); the golden set's negative inputs |
 | §15.9 worldgen | sim (`worldgen`, `genabi`), shell | sim | D12 (no pool, 1 and 4 workers: same hashes) |
 | §3.2 worker messages | shell | UI, renderer, audio, IO | Vitest with the fake and the real worker |
