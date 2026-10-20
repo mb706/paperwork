@@ -14,7 +14,8 @@ adaptive threshold 0.02, no denoiser):
   normal   world normal as (n + 1) / 2, 8-bit, 1 sample, filter 0.01, 2x High (crease lines and hatching)
   aux      material id (R, G), object id or the organic flag (B); 1 sample, filter 0.01, 2x High
   light    emitters only, everything else black; 4 samples, High
-  shadow   a shadow catcher; the model invisible to the camera; a 1-degree sun, no sky; 64 samples, Normal
+  shadow   a shadow catcher; the model invisible to the camera and to bounce rays (a pure occluder); a 1-degree
+           sun, no sky; 64 samples (greyboxes 16), Normal
   pos      (sets with a self_region) the position in a reference object's frame as (p / 4 + 1/2), 16-bit, 2x,
            1 sample: the post step cuts a piece exactly at its tile's edges with it
 A border render (`border=(x0, y0, x1, y1)` in High px of the canvas) renders and crops exactly that rectangle:
@@ -54,6 +55,10 @@ def setup_render(scene, style_name, threads=16, samples=None):
     scene.cycles.transparent_max_bounces = 16
     scene.cycles.seed = SEED
     scene.cycles.use_animated_seed = False
+    # no metadata stamps in the PNGs (date, times); Cycles' own render statistics are stripped after writing
+    for attr in dir(scene.render):
+        if attr.startswith('use_stamp'):
+            setattr(scene.render, attr, False)
     scene.cycles.film_transparent_glass = True
     scene.cycles.film_transparent_roughness = 0.1
     r.film_transparent = True
@@ -244,6 +249,7 @@ class Rig:
             for o in model_objs:
                 o.visible_camera = True
                 o.visible_shadow = True
+                _bounce_visible(o, True)
         elif which == 'shadow':
             sc.world = self.world_shadow
             for lt in self.lights_colour:
@@ -255,6 +261,9 @@ class Rig:
             for o in model_objs:
                 o.visible_camera = False
                 o.visible_shadow = True
+                # a pure occluder: the flat washes are emission, and a model visible to the ground's diffuse
+                # rays lights its own shadow, noisily (measured: 3-5x the noise of A3's masks, 27 dB after ETC1S)
+                _bounce_visible(o, False)
         elif which in ('light', 'normal', 'aux', 'pos'):
             sc.world = self.world_shadow
             for lt in self.lights_colour:
@@ -263,8 +272,37 @@ class Rig:
             g.hide_render = True
             for o in model_objs:
                 o.visible_camera = True
+                _bounce_visible(o, True)
         else:
             raise ValueError(which)
+
+
+_PNG_DROP = (b'tEXt', b'zTXt', b'iTXt', b'tIME', b'eXIf')
+
+
+def strip_png_metadata(path):
+    """Rewrite a PNG without its text, time and EXIF chunks: Cycles writes its render times into every file
+    ('cycles.ViewLayer.render_time' and so on), so identical pixels would differ byte for byte between runs."""
+    import struct
+    with open(path, 'rb') as f:
+        data = f.read()
+    out, i = [data[:8]], 8
+    while i < len(data):
+        n = struct.unpack('>I', data[i:i + 4])[0]
+        kind = data[i + 4:i + 8]
+        if kind not in _PNG_DROP:
+            out.append(data[i:i + 12 + n])
+        i += 12 + n
+    with open(path, 'wb') as f:
+        f.write(b''.join(out))
+
+
+def _bounce_visible(o, on):
+    """Whether an object takes part in light transport beyond camera and shadow rays."""
+    o.visible_diffuse = on
+    o.visible_glossy = on
+    o.visible_transmission = on
+    o.visible_volume_scatter = on
 
 
 def render_pass(scene, rig, which, objs, path, border=None, pos_ref=None, shadow_samples=64):
@@ -310,6 +348,7 @@ def render_pass(scene, rig, which, objs, path, border=None, pos_ref=None, shadow
         size = (int(round(W * scale)), int(round(H * scale)))
     r.filepath = path
     bpy.ops.render.render(write_still=True)
+    strip_png_metadata(path)
     if flat and which in ('normal', 'aux', 'light', 'pos'):
         M.set_output('beauty')
     r.use_border = False

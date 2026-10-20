@@ -17,8 +17,9 @@
 //      90 for colour, light and icons; ETC1S -q 255 for shadows), names files by content hash, writes the DOM
 //      icon sheets; terrain.py, ui.py and fonts.py make the terrain textures, the UI skin and the fonts.
 //   7. This script writes public/atlases/sprites.json and inventory.json (the byte gate of §9.7).
-//   8. checks.py validates the manifest (JSON schema, the fixture cases) and runs §9.5's checks; contact.py
-//      and metrics.py write contact sheets and the legibility metrics into .cache/assets/qc/.
+//   8. checks.py validates the manifest (JSON schema, the fixture cases) and runs §9.5's checks; the QC step
+//      writes contact sheets, GIFs, the legibility metrics, the preview scene, the projection calibration and
+//      the budget into .cache/assets/qc/. A full build (no --only) then drops stale render and post entries.
 // `--check` runs only the fixture and manifest checks that need no Blender (fast; for CI).
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -562,6 +563,23 @@ function buildManifest(
 
 // --------------------------------------------------------------------------------------------------------------
 
+/** Drops render and post cache entries that no set of a full plan uses any more (the old keys of edited sets). */
+function gcCache(keys: Map<string, Keys>): void {
+  const pick = { render: (k: Keys) => k.render, post: (k: Keys) => k.post };
+  for (const sub of ['render', 'post'] as const) {
+    const keep = new Set([...keys.values()].map(pick[sub]));
+    const dir = join(CACHE, sub);
+    if (!existsSync(dir)) continue;
+    let n = 0;
+    for (const e of readdirSync(dir)) {
+      if (keep.has(e)) continue;
+      rmSync(join(dir, e), { recursive: true, force: true });
+      n++;
+    }
+    if (n > 0) log(`cache: dropped ${n} stale ${sub} entries`);
+  }
+}
+
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
   const t0 = performance.now();
@@ -581,6 +599,7 @@ async function main(): Promise<number> {
   for (const s of plan.sets) keys.set(s.set, setKeys(s, blender, libHash));
   if (args.render) renderPending(plan.sets, keys, args.force);
   await postPending(plan.sets, keys, args.force);
+  if (!args.only) gcCache(keys);
   const loaded: Loaded[] = plan.sets.map((s) => {
     const dir = join(CACHE, 'post', (keys.get(s.set) as Keys).post);
     const sj = join(dir, 'set.json');
@@ -628,6 +647,18 @@ async function main(): Promise<number> {
     ] as const)
       py('preview.py', ['--zoom', zoom, '--dpr', dpr, '--night', night], { cpus: RENDER_CPUS });
     run(PYTHON, [join(GAME, 'test', 'assets', 'projection.py')]);
+    // the UI skin in a Factorio-layout window, screenshotted in Chrome at device pixel ratios 1 and 2
+    py('ui_demo.py', [], { quiet: true });
+    for (const dpr of ['1', '2'])
+      run(process.execPath, [
+        join(ASSETS, 'shoot.mjs'),
+        'qc-ui.html',
+        join(CACHE, 'qc', `ui-demo-${dpr}x.png`),
+        '--dpr',
+        dpr,
+        '--size',
+        '1130x420',
+      ]);
     py('budget.py', [], { quiet: true });
   }
   log(`done in ${((performance.now() - t0) / 1000).toFixed(1)} s`);

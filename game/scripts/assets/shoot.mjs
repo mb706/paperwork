@@ -1,9 +1,10 @@
-// QC screenshots of pages under game/public/ (Chrome for Testing via Playwright; SwiftShader WebGL2 here).
+// QC screenshots (Chrome for Testing via Playwright; SwiftShader WebGL2 here).
 //
-//   node game/scripts/assets/shoot.mjs <page under public/> <out.png> [--dpr 1] [--size 1280x720] [--wait 300]
+//   node game/scripts/assets/shoot.mjs <page> <out.png> [--dpr 1] [--size 1280x720] [--wait 300]
 //
-// Serves game/public/ on an ephemeral 127.0.0.1 port (the Playwright MCP blocks file://, and SVG <use> of an
-// external sprite needs http), loads the page, waits for fonts, prints console errors, and saves the screenshot.
+// Serves .cache/assets/qc/www/ (the QC pages) over game/public/ (the build's outputs) on an ephemeral 127.0.0.1
+// port (the Playwright MCP blocks file://, and SVG <use> of an external sprite needs http), loads the page, waits
+// for fonts, prints console errors, and saves the screenshot.
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
@@ -11,7 +12,10 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const { chromium } = await import(join(homedir(), '.local/lib/node_modules/playwright/index.mjs'));
-const PUBLIC = fileURLToPath(new URL('../../public/', import.meta.url));
+const ROOTS = [
+  fileURLToPath(new URL('../../.cache/assets/qc/www/', import.meta.url)),
+  fileURLToPath(new URL('../../public/', import.meta.url)),
+];
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -38,8 +42,8 @@ const wait = Number(opt('wait', '300'));
 
 const server = createServer((req, res) => {
   const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^\/+/, '');
-  const file = join(PUBLIC, path);
-  if (!file.startsWith(PUBLIC) || !existsSync(file) || statSync(file).isDirectory()) {
+  const file = ROOTS.map((r) => join(r, path)).find((f, i) => f.startsWith(ROOTS[i]) && existsSync(f));
+  if (!file || statSync(file).isDirectory()) {
     res.writeHead(404);
     res.end();
     return;

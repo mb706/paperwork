@@ -57,7 +57,8 @@ def parse(path):
 
 
 def minify(svg):
-    svg = re.sub(r'<desc>.*?</desc>', '', svg, flags=re.S)
+    # <title> and <desc> document the sources (Biome's a11y rule wants a title); the skin carries neither
+    svg = re.sub(r'<(desc|title)>.*?</(desc|title)>', '', svg, flags=re.S)
     svg = re.sub(r' data-(slice|repeat)="[^"]*"', '', svg)
     return re.sub(r'\s+', ' ', svg).replace('> <', '><').strip()
 
@@ -142,6 +143,7 @@ def main():
     syms = []
     for p in sorted(glob.glob(os.path.join(K.SVG_SRC, 'glyphs', '*.svg'))):
         body = re.sub(r'^<svg[^>]*>|</svg>\s*$', '', open(p).read().strip())
+        body = re.sub(r'<title>.*?</title>', '', body, flags=re.S)       # names come from the UI's own labels
         syms.append(f'<symbol id="g-{os.path.basename(p)[:-4]}" viewBox="0 0 24 24">{body}</symbol>')
     sprite = '<svg xmlns="http://www.w3.org/2000/svg" style="display:none">' + ''.join(syms) + '</svg>\n'
     gl = publish(sprite.encode(), 'glyphs', 'svg')

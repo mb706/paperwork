@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="28" viewBox="0 0 32 28" data-slice="6 6 6 6" data-repeat="stretch">
+  <title>button-red-hover</title>
   <desc>Destructive, hovered.</desc>
   <g opacity="1.0">
   <rect x="0.5" y="0.5" width="31" height="27" rx="1.5" fill="#ebc1b5" stroke="#b5352a" stroke-width="1"/>

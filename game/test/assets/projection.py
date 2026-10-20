@@ -82,6 +82,9 @@ def main():
     ax, ay = combo['anchor']
     colour = K.read_png(os.path.join(rdir, combo['base']['colour']))
     cov = unmix(colour)
+    # the cube alone: columns west of the plate (which starts at x = 1 tile; its paper and steel are not
+    # calibration colours, and least squares would smear them into the faces)
+    cov[:, int(ax + S.PX_HIGH):] = 0.0             # the cube spans ax +- 32 px, the plate starts at ax + 96
     res, fails = {}, []
     top = moments(cov[..., 0])
     south = moments(cov[..., 1])
@@ -100,14 +103,28 @@ def main():
     f0 = sd['frames'][sd['parts']['base']['table'][0][0]]
     img = K.read_png(os.path.join(pdir, f0['file']))
     pad = f0['pad']
-    frame = img[pad:pad + f0['h'], pad:pad + f0['w']]
+    inked = img[pad:pad + f0['h'], pad:pad + f0['w']]
+    # the placement is measured on the raw colour cut to the post step's frame (its trim and anchor), since the
+    # ink's lines would blur the calibration colours' edges; the inked frame must keep the same silhouette
+    x0, y0, x1, y1 = f0['rect']
+    frame = K.premul(colour)[y0:y1, x0:x1]
+    for name, im_ in (('raw', frame), ('inked', inked)):
+        ys, xs = np.nonzero(im_[..., 3] > 0.5)
+        res[f'{name} frame silhouette'] = [int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1]
+    # the silhouette line is centred on the edge, so it reaches about half its width (2 px at High) outside the
+    # render on every side, evenly: the sprite's visual centre stays where the geometry is
+    r_, i_ = res['raw frame silhouette'], res['inked frame silhouette']
+    ext = [r_[0] - i_[0], r_[1] - i_[1], i_[2] - r_[2], i_[3] - r_[3]]
+    res['ink reach outside the render px (w, n, e, s)'] = ext
+    if min(ext) < 0 or max(ext) > 3 or abs(ext[0] - ext[2]) > 1 or abs(ext[1] - ext[3]) > 1:
+        fails.append(f'post: the inked silhouette {i_} is not the render\'s {r_} grown evenly by its line')
     tiles = []
     for zoom, dpr in ((1, 1), (2, 1), (1, 2), (2, 2), (0.5, 1)):
         Sx = 32 * zoom * dpr
         k = Sx / px
-        cam = (2.0, 1.5)                                  # camera centre (tiles)
+        cam = (2.0, 0.5)                                  # camera centre (tiles)
         ex, ey = 0.5, 0.5                                 # the cube's footprint centre: tile (0, 0)
-        W, H = int(8 * Sx), int(6 * Sx)
+        W, H = int(8 * Sx), int(8 * Sx)
         canvas = np.zeros((H, W, 4), np.float32)
         left = (ex - cam[0]) * Sx - f0['ax'] * k + W / 2
         top_ = (ey - cam[1]) * Sx - f0['ay'] * k + H / 2
@@ -122,8 +139,12 @@ def main():
         if abs(left - l0) > 1e-6 or abs(top_ - t0) > 1e-6:
             fails.append(f'placement zoom {zoom} dpr {dpr}: the quad lands off the pixel grid ({left}, {top_})')
         h, w = src.shape[:2]
-        canvas[t0:t0 + h, l0:l0 + w] = src[:min(h, H - t0), :min(w, W - l0)]
+        if t0 < 0 or l0 < 0 or t0 + h > H or l0 + w > W:
+            fails.append(f'placement zoom {zoom} dpr {dpr}: the quad {l0},{t0} {w}x{h} leaves the {W}x{H} canvas')
+        y0c, x0c, y1c, x1c = max(t0, 0), max(l0, 0), min(t0 + h, H), min(l0 + w, W)
+        canvas[y0c:y1c, x0c:x1c] = src[y0c - t0:y1c - t0, x0c - l0:x1c - l0]
         c = unmix(K.unpremul(canvas))
+        c[:, int((1.5 - cam[0]) * Sx + W / 2):] = 0.0             # the cube alone (world x 0..1), as above
         m = moments(c[..., 0] * (canvas[..., 3] > 0.5))
         # the top face's world rectangle (x 0..1, y 0..1 south-down, z = 1) on the screen
         ex0, ey0 = (0 - cam[0]) * Sx + W / 2, (0 - cam[1]) * Sx - 1 * Sx + H / 2
@@ -137,11 +158,11 @@ def main():
                 fails.append(f'placement zoom {zoom} dpr {dpr}: top face {kk} {got[kk]:.2f}, want {want[kk]:.2f}')
         # the chequered plate: its paper/dark edges must lie on tile lines (columns at multiples of S from x = 0)
         gray = K.over_paper(canvas)[..., 1]
-        x_tiles = [(tx - cam[0]) * Sx + W / 2 for tx in (1, 2, 3, 4)]
-        row = int((0.5 - cam[1]) * Sx + H / 2)           # a ground row through the plate's south tiles
+        x_tiles = [(tx - cam[0]) * Sx + W / 2 for tx in (2, 3, 4, 5)]    # the plate covers world x 2..5
+        row = int((0.5 - cam[1]) * Sx + H / 2)           # a ground row through the plate's north tiles
         prof = gray[row]
         edges = np.nonzero(np.abs(np.diff(prof)) > 0.25)[0] + 1
-        for xt in x_tiles[1:3]:
+        for xt in x_tiles:
             if len(edges) == 0 or np.min(np.abs(edges - xt)) > TOL:
                 fails.append(f'placement zoom {zoom} dpr {dpr}: no chequer edge at the tile line x = {xt:.1f}')
         tiles.append((zoom, dpr, K.over_paper(canvas), Sx, cam, W, H))

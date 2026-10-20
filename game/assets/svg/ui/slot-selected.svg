@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" data-slice="10 10 10 10" data-repeat="stretch">
+  <title>slot-selected</title>
   <desc>Selected slot (the quickbar's active slot, a chosen recipe).</desc>
   <g opacity="1.0">
   <rect x="1.0" y="1.0" width="38" height="38" rx="1" fill="#f8f2e1" stroke="#b5352a" stroke-width="2"/>

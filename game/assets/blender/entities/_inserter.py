@@ -23,7 +23,9 @@ def meta(margin=0.6):
 def platform(P, d, arm_mat, burner=False):
     """Direction d is the drop direction (Factorio's inserter faces where it drops); the pickup side is behind."""
     o = {}
-    o['plate'] = P.box(0.62, 0.62, 0.05, 0, 0, 0.0, mat='steel_dark', bevel=0.012, name='plate')
+    # a mid-grey plate: a small machine is mostly outline, and a dark plate put it 63-67 % darker than the paper
+    # (metrics.py's figure-ground; A3 asks for 25-60 %)
+    o['plate'] = P.box(0.62, 0.62, 0.05, 0, 0, 0.0, mat='plate_steel', bevel=0.012, name='plate')
     bolts = [P.cyl(0.03, 0.02, x, y, 0.05, mat='steel_bare', seg=8, bevel=0.0, name='bolt')
              for x in (-0.24, 0.24) for y in (-0.24, 0.24)]
     o['bolts'] = P.join(bolts, 'bolts')

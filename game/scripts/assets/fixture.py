@@ -24,6 +24,7 @@ import hashlib
 import importlib.util
 import math
 import os
+import subprocess
 import sys
 
 import numpy as np
@@ -461,6 +462,9 @@ def main():
     doc = dict(version=1, manifest='manifest.json', projection=dict(PX_PER_TILE=MF.PX_PER_TILE, HEIGHT_SCALE=1),
                notes=MF.__doc__.strip().splitlines(), cases=cs)
     K.dump_json(os.path.join(OUT, 'cases.json'), doc, indent=None)
+    # committed files: in the repository's JSON style (Biome), so `npm run check` passes
+    subprocess.run(['npx', 'biome', 'format', '--write', os.path.join(OUT, 'manifest.json'),
+                    os.path.join(OUT, 'cases.json')], cwd=K.GAME, check=True, capture_output=True)
     total = sum(os.path.getsize(os.path.join(OUT, f)) for f in os.listdir(OUT))
     print(f'[fixture] {len(man["sets"])} sets, {len(man["frames"])} frames, {len(cs)} cases, {total / 1e3:.0f} kB',
           flush=True)

@@ -95,7 +95,12 @@
       "properties": {
         "group": { "type": "string", "pattern": "^(core|[a-z-]+/[0-9]+|town-[0-9]+|biome-[a-z-]+|wild)$" },
         "files": { "type": "array", "minItems": 1, "maxItems": 2, "items": { "type": "string" } },
-        "bytes": { "type": "array", "minItems": 1, "maxItems": 2, "items": { "type": "integer", "minimum": 1 } },
+        "bytes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": { "type": "integer", "minimum": 1 }
+        },
         "sha256": { "type": "array", "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
       }
     },
@@ -105,7 +110,12 @@
       "properties": {
         "kind": { "enum": ["entity", "inserter", "object", "resource", "mover", "icon"] },
         "group": { "type": "string" },
-        "size": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 1 } },
+        "size": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "integer", "minimum": 1 }
+        },
         "parts": {
           "type": "object",
           "additionalProperties": {

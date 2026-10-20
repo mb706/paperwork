@@ -1,6 +1,6 @@
 """QC page for the UI skin: a Factorio-layout entity window and HUD pieces drawn with public/sheets/ui-skin.css.
 
-    gamedev-python game/scripts/assets/ui_demo.py         # writes public/qc-ui.html (gitignored with public/)
+    gamedev-python game/scripts/assets/ui_demo.py         # writes .cache/assets/qc/www/qc-ui.html
 
 Only for review (screenshots by shoot.mjs at device pixel ratios 1 and 2): the UI package builds the real screens.
 Every string is a data name or description (design/spec/data), so nothing here is invented player-facing text.
@@ -117,9 +117,11 @@ svg.g {{ width: 18px; height: 18px; color: var(--pw-c-text); }}
 </div>
 </body></html>
 '''
-    with open(os.path.join(K.PUBLIC, 'qc-ui.html'), 'w') as f:
+    www = os.path.join(K.CACHE, 'qc', 'www')        # served over public/ by shoot.mjs; public/ holds build outputs only
+    os.makedirs(www, exist_ok=True)
+    with open(os.path.join(www, 'qc-ui.html'), 'w') as f:
         f.write(html)
-    print('[qc] public/qc-ui.html', flush=True)
+    print('[qc] .cache/assets/qc/www/qc-ui.html', flush=True)
 
 
 if __name__ == '__main__':

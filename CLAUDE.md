@@ -100,11 +100,19 @@
   → pack (`maxrects-packer`, 32-px cells) → assemble (our own box-filtered levels as a mipmapped DDS → `basisu`
   XUBC7 q90 / ETC1S) → `public/atlases/sprites.json` (manifest v2), `inventory.json` (the byte gate), terrain
   textures, `public/sheets/` (UI skin CSS, fibre, glyph sprite, DOM icon sheets), `public/fonts/` (WOFF2 subsets) →
-  checks → QC in `.cache/assets/qc/` (contact sheets, GIFs, metrics, the preview scene, calibration, budget).
-  Outputs are gitignored; the cache `.cache/assets/{render,post,ktx2}/<sha256>` makes warm rebuilds take seconds.
+  checks → QC in `.cache/assets/qc/` (contact sheets, GIFs, metrics, the preview scene, calibration, the UI
+  screenshots, budget). Cold: about 12 min (the character's 288 frames take 6.5 of them); warm: about 30 s.
+  Outputs are gitignored; caches live in `.cache/assets/{render,post,ktx2}/<sha256>`, and a full build drops stale
+  entries. A forced rebuild reproduces every file byte for byte (the rig strips Blender's PNG metadata), except a
+  rare single pixel on an exact edge of a 1-sample normal pass (Embree's multithreaded BVH; pm/reports/C6.md).
+- **Checks** (`checks.py`, 10 §9.5): schema, coverage, cells (and a solid-colour probe of each page through every
+  fallback format), composites, the 3 % rule, shadow direction, compression. 10 §9.5 #5's PSNR/dE thresholds are
+  warnings: edge-dense pages (the character, ore, icons) cannot reach them in BC7 at any setting; the gate is the
+  calibrated floors in `GATE` (pm/reports/C6.md). Shadows are judged as the hatched paper the player sees.
 - **Look at a change:** `npm run assets -- --only <id>` then `gamedev-python scripts/assets/contact.py --sets
   entity/<id>` and Read `.cache/assets/qc/contact/entity-<id>.png`; `scripts/assets/preview.py --zoom 2` draws the
-  M0 scene from the encoded atlases as the renderer will (`emulate.py`).
+  M0 scene from the encoded atlases as the renderer will (`emulate.py`); `scripts/assets/ui_demo.py` and
+  `node scripts/assets/shoot.mjs qc-ui.html out.png --dpr 2` show the UI skin in Chrome.
 - **Fixtures:** `gamedev-python scripts/assets/fixture.py` regenerates `test/fixtures/sprites/` (the tiny `rgba8`
   atlas and `cases.json` of 10 §15.7/§15.10); `npm run assets -- --check` runs the fixture checks without Blender.
   `gamedev-python test/assets/projection.py` is the projection calibration (renders with Blender).

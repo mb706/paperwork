@@ -110,12 +110,19 @@ def memo(P):        # 'typed sheet with a red header band and a carbon-copy edge
 
 
 def report(P):      # 'stapled report, green cover, number in the corner'
+    # Information is paper (DIRECTION §3.2: L* 84-98, ink marks; "don't give information items dark bodies"), and
+    # Factorio's science colour is one detail on it: so the cover is pale green card stock and the green is the
+    # binding tape down its spine. A3's all-green cover measured L* 56 (metrics.py's lightness rule).
     o = []
     o.append(P.box(0.30, 0.40, 0.04, 0.012, -0.012, 0.0, mat='paper', bevel=0.004))
-    o.append(P.box(0.30, 0.40, 0.012, 0, 0, 0.04, mat='green_cover', bevel=0.004))
-    o.append(P.box(0.20, 0.06, 0.004, -0.02, 0.06, 0.052, mat='paper', bevel=0.0))
+    o.append(P.box(0.30, 0.40, 0.012, 0, 0, 0.04, mat='report_card', bevel=0.004))
+    o.append(P.box(0.06, 0.41, 0.016, -0.125, 0, 0.039, mat='green_cover', bevel=0.003))
+    o.append(P.box(0.17, 0.08, 0.004, 0.025, 0.07, 0.052, mat='paper', bevel=0.0))
+    for k, w in enumerate((0.12, 0.08)):
+        o.append(P.box(w, 0.010, 0.002, 0.025 - (0.12 - w) / 2, 0.088 - k * 0.032, 0.0565, mat='ink', bevel=0.0))
     o.append(P.box(0.05, 0.03, 0.004, 0.10, -0.165, 0.052, mat='paper', bevel=0.0))
-    o.append(P.box(0.05, 0.008, 0.008, -0.11, 0.17, 0.052, mat='steel_bare', bevel=0.0))
+    o.append(P.box(0.024, 0.010, 0.002, 0.10, -0.165, 0.0565, mat='ink', bevel=0.0))
+    o.append(P.box(0.05, 0.008, 0.008, -0.02, 0.17, 0.052, mat='steel_bare', bevel=0.0))
     return o
 
 

@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" data-slice="10 10 10 10" data-repeat="stretch">
+  <title>slot-disabled</title>
   <desc>Disabled or locked slot.</desc>
   <g opacity="0.8">
   <rect x="0.5" y="0.5" width="39" height="39" rx="1" fill="#efe6cf" stroke="#b9a98a" stroke-width="1"/>

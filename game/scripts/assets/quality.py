@@ -23,8 +23,10 @@ import ink as I
 
 DE_COMPOSITE = 0.5
 DE_FULL, SHARE_FULL = 3.0, 0.999
+# (k, sub-pixel x, y): device px per level-0 px and the quad's offset; k < 1 samples levels 1 and 2 (10 §9.5 #2:
+# "at levels 0-2 and three sub-pixel offsets")
 SCALES = ((1.0, 0.0, 0.0), (0.5, 0.25, 0.75), (0.73, 0.37, 0.11), (1.37, 0.5, 0.2), (2.3, 0.13, 0.61),
-          (0.3, 0.4, 0.4))
+          (0.3, 0.4, 0.4), (0.2, 0.3, 0.6))
 
 
 def lab_de(a, b):
@@ -99,7 +101,9 @@ def composite_check(post_dir, by_id, base_ids, layer_id, W, H):
         level = min(2, max(0, int(np.floor(np.log2(1 / s) + 1e-9))) if s < 1 else 0)
         CW, CH = int(W * s) + 4, int(H * s) + 4
         ref = np.zeros((CH, CW, 4), np.float32)
-        draw(ref, level_of(whole, level), (0, 0), (0, 0, W, H), level, s, ox, oy)
+        # frame k drawn whole: one quad over the frame's rectangle (F0's, which holds the pieces and R), as the
+        # renderer would draw an unlayered frame; a quad over the whole canvas would also bleed past the frame
+        draw(ref, level_of(whole, level), (0, 0), tuple(f0['rect']), level, s, ox, oy)
         new = np.zeros_like(ref)
         for bid in base_ids:
             draw(new, level_of(tex0, level), org0, by_id[bid]['rect'], level, s, ox, oy)
@@ -117,6 +121,15 @@ def check_set(name, sd, post_dir):
     # geometry: shadows fall east-south-east of the anchor
     for pname, p in parts.items():
         if not pname.endswith('shadow') or isinstance(p, list):
+            continue
+        if 'pivot' in p:
+            # an inserter's arm and hands: their shadows are ground footprints that the renderer turns with the
+            # part about the shadow's shoulder point, so the offset that must fall east-south-east is that point's
+            ss = (sd.get('extra') or {}).get('shadowShoulder')
+            if ss is not None and f'{name} shadowShoulder px' not in res:
+                res[f'{name} shadowShoulder px'] = ss
+                if not (ss[0] > 0 and ss[1] > -2.0):
+                    errs.append(f'{name}: shadowShoulder {ss} px is not east-south-east of the shoulder')
             continue
         checked = False
         for e in p['table']:

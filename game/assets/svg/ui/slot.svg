@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" data-slice="10 10 10 10" data-repeat="stretch">
+  <title>slot</title>
   <desc>Inventory slot (40 px; the icon is 32 px).</desc>
   <g opacity="1.0">
   <rect x="0.5" y="0.5" width="39" height="39" rx="1" fill="#f8f2e1" stroke="#8f7f62" stroke-width="1"/>
