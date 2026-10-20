@@ -43,6 +43,8 @@ impl Plan {
 #[derive(Clone, Debug, Default)]
 pub struct Report {
     pub scenario: String,
+    /// The repetitions the scenario ran (§10.6: at least 3; `m0-walk` 7).
+    pub reps: u32,
     pub metrics: Vec<(String, f64)>,
     /// The mean µs of each of §4.6's 16 phases over the profiled ticks.
     pub phase_us: Vec<f64>,
@@ -180,7 +182,7 @@ pub fn walk(protos: &[u8], mut plan: Plan) -> Result<Report, String> {
     if !plan.quick {
         plan.reps = plan.reps.max(7);
     }
-    let mut r = Report { scenario: "m0-walk".to_owned(), ..Report::default() };
+    let mut r = Report { scenario: "m0-walk".to_owned(), reps: plan.reps, ..Report::default() };
     let mut b = bench::m0_walk(protos).map_err(|e| e.to_string())?;
     let (mut times, _) = tick_method(&mut b, plan, None, &mut r)?;
     put_ticks(&mut r, "tick", &mut times);
@@ -194,7 +196,7 @@ pub fn walk(protos: &[u8], mut plan: Plan) -> Result<Report, String> {
 
 /// `m0-chests-10k`.
 pub fn chests(protos: &[u8], plan: Plan) -> Result<Report, String> {
-    let mut r = Report { scenario: "m0-chests-10k".to_owned(), ..Report::default() };
+    let mut r = Report { scenario: "m0-chests-10k".to_owned(), reps: plan.reps, ..Report::default() };
     let (mut b, _) = bench::m0_chests_10k(protos).map_err(|e| e.to_string())?;
     let view = b.view.clone();
     // The first two packets (the FULL one and the held chunks' contents) are not the steady state.
@@ -238,7 +240,7 @@ pub fn chests(protos: &[u8], plan: Plan) -> Result<Report, String> {
 /// `m0-codec`: per repetition, 1,000 ticks of 100 actions: encoding (the sequencer writes the closures) and
 /// applying (`sim_tick`: the preflight's frame check, then the rules).
 pub fn codec(protos: &[u8], plan: Plan) -> Result<Report, String> {
-    let mut r = Report { scenario: "m0-codec".to_owned(), ..Report::default() };
+    let mut r = Report { scenario: "m0-codec".to_owned(), reps: plan.reps, ..Report::default() };
     let (mut b, chest) = bench::m0_codec(protos).map_err(|e| e.to_string())?;
     let per_tick = u32::from(bench::CODEC_PLAYERS) * bench::CODEC_ACTIONS_PER_PLAYER;
     let ticks_per_rep = 100_000 / per_tick;
@@ -280,7 +282,8 @@ pub fn codec(protos: &[u8], plan: Plan) -> Result<Report, String> {
 
 /// `m0-load-30k`: the state comes from `cached` (built by the factory when missing).
 pub fn load(protos: &[u8], plan: Plan, state: &[u8]) -> Result<Report, String> {
-    let mut r = Report { scenario: "m0-load-30k".to_owned(), ..Report::default() };
+    let mut r =
+        Report { scenario: "m0-load-30k".to_owned(), reps: plan.reps.max(1) * 2, ..Report::default() };
     let input = state_input(state)?;
     let mut loads = Vec::new();
     let mut ctx = None;
@@ -466,7 +469,7 @@ pub fn history_line(r: &Report, plan: Plan, before: &Host, mhz_after: f64, gate_
         before.dirty,
         json_str(&r.scenario),
         plan.quick,
-        plan.reps
+        r.reps
     );
     let metrics: Vec<String> =
         r.metrics.iter().map(|(k, v)| format!("{}:{}", json_str(k), json_num(*v))).collect();
