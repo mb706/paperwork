@@ -1,5 +1,6 @@
-"""burner-inserter (1x1): Factorio's burner inserter: a cast-iron firebox on the pickup side, its mouth glowing,
-and a dark boom. The parts and their contract are in _inserter.py (10 §15.7's inserter program)."""
+"""burner-inserter (1x1): Factorio's burner inserter: an iron firebox on the pickup side, its mouth glowing, a
+bare-steel column and a dark boom (the platform is 59 % darker than the paper, inside A3's 25-60 %). The parts and
+their contract are in _inserter.py (10 §15.7's inserter program)."""
 
 from entities import _inserter as IN
 

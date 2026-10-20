@@ -6,7 +6,9 @@ One seamless 512 x 512 texture per tile type of the current build (public/data/p
 tiles at High and sampled in world space by the terrain shader. Everything here is periodic on the 512-px torus
 (noise lattices tile, filters wrap), so tiles never seam. An image model's flat, unlit wash written to
 game/assets/textures/survey/<tile>.png replaces the procedural one (A3 §6). Encoded as XUBC7 quality 90 with three
-box-filtered levels: public/atlases/terrain-<tile>.<hash8>.ktx2. The boundaries between types (the noise-warped
+box-filtered levels (encode.py; the upload contract of ktx2.py: UNORM, premultiplied, which an opaque texture is
+trivially): public/atlases/terrain-<tile>.<hash8>.ktx2, written additively like the pages (assemble.py). The
+boundaries between types (the noise-warped
 blend, the crisp types' kerbs, the water-lining and the shoreline) are the shader's (§9.9); preview.py draws
 them with this file's numpy reference so the look can be judged before the renderer exists.
 
@@ -28,6 +30,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import assemble as A  # noqa: E402
 import common as K  # noqa: E402
+import encode as E  # noqa: E402
 
 N = 512
 TILE_PX = 64
@@ -160,21 +163,16 @@ def main():
     mats = materials(tiles)
     os.makedirs(A.ATLASES, exist_ok=True)
     out = dict(pxPerTile=TILE_PX, size=N, levels=LEVELS, codec='xubc7', tiles={})
-    keep = set()
     for t in sorted(mats):
         rgba = np.concatenate([mats[t], np.ones((N, N, 1), np.float32)], -1)
         lv = A.levels_of(rgba, LEVELS)
-        data = A.encode(lv, 'xubc7', f'terrain-{t}')
+        data = E.encode(lv, 'xubc7', 'terrain', f'terrain-{t}')
         fn, nbytes, sha = A.publish(data, f'terrain-{t}', '')
-        keep.add(os.path.basename(fn))
         src_dir = os.path.join(K.CACHE, 'terrain')
         os.makedirs(src_dir, exist_ok=True)
         K.write_png(os.path.join(src_dir, f'{t}.png'), mats[t])
         out['tiles'][t] = dict(file=fn, bytes=nbytes, sha256=sha, group='core')
         print(f'[terrain] {t}: {nbytes / 1e3:.0f} kB', flush=True)
-    for f in os.listdir(A.ATLASES):
-        if f.startswith('terrain-') and f not in keep:
-            os.remove(os.path.join(A.ATLASES, f))
     K.dump_json(a.out, out)
 
 

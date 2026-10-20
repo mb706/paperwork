@@ -57,9 +57,10 @@ check svg-render     sh -c "
     resvg '$work/t.svg' '$work/t.png' && magick identify '$work/t.png'"
 check ktx2-xubc7    sh -c "
     magick -size 64x64 gradient:red-blue '$work/k.png' &&
-    basisu -ktx2 -no_stats -xubc7 -quality 90 '$work/k.png' -output_file '$work/k.ktx2' >/dev/null 2>&1 &&
+    basisu -ktx2 -no_stats -xubc7 -quality 90 -linear '$work/k.png' -output_file '$work/k.ktx2' >/dev/null 2>&1 &&
+    basisu -info '$work/k.ktx2' 2>&1 | grep -q 'DFD transfer func: 1 (LINEAR)' &&
     mkdir -p '$work/ku' && basisu -unpack -format_only 6 -no_ktx '$work/k.ktx2' -output_path '$work/ku' >/dev/null 2>&1 &&
-    ls '$work/ku' | grep -q BC7 && echo 'PNG -> KTX2 XUBC7 -> BC7'"
+    ls '$work/ku' | grep -q BC7 && echo 'PNG -> KTX2 XUBC7 with a linear DFD (the upload contract) -> BC7'"
 check chrome-webgl2  node --input-type=module -e "
     import { chromium } from '$HOME/.local/lib/node_modules/playwright/index.mjs';
     const b = await chromium.launch();

@@ -121,32 +121,47 @@
   `world/`, `movers/`, `items/` model scripts; `greybox.py` + `greybox_table.py`; the Blender entry points
   `render.py`, `render_icons.py`), `game/assets/svg/{ui,glyphs}/`, `game/assets/fonts/` (OFL, with licences),
   `game/assets/textures/survey/<tile>.png` (optional image-model washes). The model contract (META, `build`, `pose`,
-  kinds entity, inserter, resource, mover, icon) is the docstring of `lib/contract.py`; models never import bpy at
-  module level and never use `hash()` (randomised per process): seeds are fixed numbers or crc32.
+  kinds entity, inserter, resource, object, mover, icon) is the docstring of `lib/contract.py`; models import their
+  helpers with plain import statements (the planner hashes them; the renderer fails a job that loads an undeclared
+  model file), never import bpy at module level and never use `hash()` (randomised per process): seeds are fixed
+  numbers or crc32. `test/assets/examples/` holds the authoring example of the `object` kind and an animated entity.
 - **Build:** `cd game && npm run assets [-- --only id,… | --force | --no-render | --no-qc | --check]`: plan →
-  Blender (batches of sets, `taskset -c 8-15,24-31`, 16 threads; `PAPERWORK_ASSET_CPUS`, `_THREADS`, `_WORKERS`,
-  `PAPERWORK_BLENDER` override) → post (ink with canvas-coordinate fields, glow, trim on 8 px, base pieces, shadows)
-  → pack (`maxrects-packer`, 32-px cells) → assemble (our own box-filtered levels as a mipmapped DDS → `basisu`
-  XUBC7 q90 / ETC1S) → `public/atlases/sprites.json` (manifest v2), `inventory.json` (the byte gate), terrain
-  textures, `public/sheets/` (UI skin CSS, fibre, glyph sprite, DOM icon sheets), `public/fonts/` (WOFF2 subsets) →
-  checks → QC in `.cache/assets/qc/` (contact sheets, GIFs, metrics, the preview scene, calibration, the UI
-  screenshots, budget). Cold: about 12 min (the character's 288 frames take 6.5 of them); warm: about 30 s.
-  Outputs are gitignored; caches live in `.cache/assets/{render,post,ktx2}/<sha256>`, and a full build drops stale
-  entries. A forced rebuild reproduces every file byte for byte (the rig strips Blender's PNG metadata), except a
-  rare single pixel on an exact edge of a 1-sample normal pass (Embree's multithreaded BVH; pm/reports/C6.md).
-- **Checks** (`checks.py`, 10 §9.5): schema, coverage, cells (and a solid-colour probe of each page through every
-  fallback format), composites, the 3 % rule, shadow direction, compression. 10 §9.5 #5's PSNR/dE thresholds are
-  warnings: edge-dense pages (the character, ore, icons) cannot reach them in BC7 at any setting; the gate is the
-  calibrated floors in `GATE` (pm/reports/C6.md). Shadows are judged as the hatched paper the player sees.
+  Blender (batches of sets, `taskset -c 8-15,24-31`, 16 threads, `--python-exit-code 1`, every job's outputs
+  verified; `PAPERWORK_ASSET_CPUS`, `_THREADS`, `_WORKERS`, `PAPERWORK_BLENDER` override) → post (ink with
+  canvas-coordinate fields, glow, trim on 8 px, base pieces, shadows) → pack (`maxrects-packer`, 32-px cells) →
+  assemble (our own box-filtered levels as a mipmapped DDS → `basisu` XUBC7 q90 / ETC1S, `scripts/assets/encode.py`)
+  → terrain, fonts, UI skin → the manifest and `inventory.json` staged in `.cache/assets/stage/` → gates (inventory,
+  `checks.py`, `metrics.py --gate`; with QC the calibration, `test/assets/examples.py`, the UI screenshots) →
+  **publish** `public/atlases/{inventory,sprites}.json` by rename, then remove files no manifest names from
+  `public/{atlases,sheets,fonts}` → QC review material in `.cache/assets/qc/` (contact sheets, GIFs, the preview
+  scene, budget). Until the publish every step only adds content-named files, so a failed build leaves the last
+  published generation intact. `--only` re-renders just those sets (with `--force`, even when cached) and still
+  publishes the whole manifest, so every other set must be cached; `--no-render` never starts Blender. Cold: about
+  12 min (the character's 288 frames take 6.5 of them); warm: about 30 s plus QC. Outputs are gitignored; caches
+  live in `.cache/assets/{render,post,ktx2}/<sha256>` (keyed by the scripts and their transitive imports, `lib/`,
+  the entry points, Blender, the encoder binary and code, the Python toolchain), and a successful full build drops
+  stale entries. A forced rebuild reproduces every file byte for byte (the rig strips Blender's PNG metadata), except
+  a rare single pixel on an exact edge of a 1-sample normal pass (Embree's multithreaded BVH; pm/reports/C6.md).
+- **Checks** (`checks.py`, 10 §9.5): every check gates. Schema, coverage, cells (and a solid-colour probe of each page
+  through every fallback format), every KTX2's header and DFD against the upload contract (`ktx2.py`), the composite
+  drawn from the atlas pages (`composite.py`), registration and the 3 % rule in every direction, shadow direction,
+  §6.13's GPU allocation, compression. Only 10 §9.5 #5's compression numbers warn (decision 13): edge-dense pages
+  (the character, ore, icons) cannot reach them in BC7 at any setting, so the gates are floors measured on the M0
+  pages (`GATE`; fallbacks: `FALLBACK_GATE`, the measured ratio to BC7 + 10 %). Shadows are judged as the hatched
+  paper the player sees. Legibility (`metrics.py`): the lightness and figure-ground rules gate; 8×8 confusability is
+  flagged for review.
 - **Look at a change:** `npm run assets -- --only <id>` then `gamedev-python scripts/assets/contact.py --sets
   entity/<id>` and Read `.cache/assets/qc/contact/entity-<id>.png`; `scripts/assets/preview.py --zoom 2` draws the
   M0 scene from the encoded atlases as the renderer will (`emulate.py`); `scripts/assets/ui_demo.py` and
   `node scripts/assets/shoot.mjs qc-ui.html out.png --dpr 2` show the UI skin in Chrome.
 - **Fixtures:** `gamedev-python scripts/assets/fixture.py` regenerates `test/fixtures/sprites/` (the tiny `rgba8`
-  atlas and `cases.json` of 10 §15.7/§15.10); `npm run assets -- --check` runs the fixture checks without Blender.
-  `gamedev-python test/assets/projection.py` is the projection calibration (renders with Blender).
-- **Pages hold premultiplied, display-encoded values:** upload BC7 as `COMPRESSED_RGBA_BPTC_UNORM_EXT` (never the
-  sRGB variant) and blend premultiplied, as 10 §9.1's verified composite does.
+  atlas and `cases.json` of 10 §15.7/§15.10, in the build's exact composition); `npm run assets -- --check` runs the
+  fixture checks without Blender. `gamedev-python test/assets/projection.py` is the projection calibration (renders
+  with Blender).
+- **Pages hold premultiplied, display-encoded values,** and every KTX2 says so in its DFD (transfer
+  `KHR_DF_TRANSFER_LINEAR`, `KHR_DF_FLAG_ALPHA_PREMULTIPLIED` except shadow masks): upload BC7 as
+  `COMPRESSED_RGBA_BPTC_UNORM_EXT` (never the sRGB variant) and blend premultiplied, as 10 §9.1's verified
+  composite does.
 
 ## Audio (`game/src/audio/`; M0 by C7)
 - **Assets:** `gamedev-python -I scripts/assets/audio/build.py` (fetch → prep → sfx → encode; minutes cold, seconds

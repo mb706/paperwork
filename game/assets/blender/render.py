@@ -1,25 +1,33 @@
 """Blender entry point: render sprite sets (10 §9.1, "render only what moves"). One process renders the sets of a
 job list in sequence, each into its own output directory, which the build caches by content hash.
 
-    taskset -c 8-15,24-31 blender -b --factory-startup -noaudio --python game/assets/blender/render.py -- \
-        --jobs jobs.json [--threads 16]
+    taskset -c 8-15,24-31 blender -b --factory-startup -noaudio --python-exit-code 1 \
+        --python game/assets/blender/render.py -- --jobs jobs.json [--threads 16]
 
 jobs.json: [{"set": "entity/keypunch", "kind": "entity", "script": "entities/keypunch.py", "params": {...},
-             "out": "/abs/dir", "style": "survey"}, ...]
+             "sources": ["assets/blender/entities/keypunch.py", ...], "out": "/abs/dir", "style": "survey"}, ...]
 
 Per set, by kind (lib/contract.py):
   entity    per (direction, variant, state): F0 in full with every layer at frame 0 (colour, normal, aux, and
             light when the set has emitters and the state works); one shadow per (direction, variant) at
-            Normal resolution with the parts at frame 0; then each layer's rectangle R (the union over frames
-            of its parts' projected bounds, plus 8 px, rounded out to multiples of 8 px; intersecting layers
-            merge) and, per frame, colour, normal and aux rendered inside R only. Full-frame sets (belts)
-            render every frame whole. Sets with anim_shadow get a shadow per frame.
+            Normal resolution with the parts at frame 0; then the layers. A layer's rectangle R is the union over
+            its frames of its parts' projected bounds, plus 8 px, rounded out to multiples of 8 px. Layers whose
+            rectangles intersect in any direction or variant share one *slot* in all of them (codex C6-r1 finding
+            5), so every combination has the same slots; a slot's R is the union of its layers' rectangles, and
+            per frame its colour, normal and aux are rendered inside R only. Animated channels (finding 4): with
+            anim_shadow, the shadow is rendered per frame with every slot at that frame (all slots must then have
+            one length) instead of once; when a slot's parts carry an emitter material, the light pass is rendered
+            per frame with the emitting slots at that frame (the others at frame 0) instead of once. Full-frame
+            sets (belts) render every frame whole, with a shadow and, when the set has light, a light per frame.
   inserter  the platform per direction; the arm and the open and closed hands once, with their pivots; their
-            shadows are rendered with the part lowered to the ground, so the renderer offsets them itself.
+            shadows are rendered with the part lowered to the ground, so the renderer places them at the
+            shoulder's shadow (10 §15.7's inserter program, manifest.py).
   resource  per shape, the pile built once and rendered per depletion band with pieces hidden.
+  object    per shape and stage (trees: leaf stages 0 bare to 4 full), the model built and rendered; one shadow
+            per shape, from the stage META shadow_stage names (default the fullest).
   mover     the rig built once; per orientation, clip and frame a full render and its shadow.
-Each output directory gets record.json last, written atomically: it lists every pass file with its canvas,
-anchor and rectangles, and the timings.
+Each job renders into a temporary directory that replaces the output directory only when it finished, with
+record.json written last (jobs.py); the model files a job loads must be among its declared sources.
 """
 
 import argparse
@@ -35,6 +43,7 @@ sys.path.insert(0, HERE)
 
 import bpy  # noqa: E402
 
+import jobs as J  # noqa: E402
 from lib import contract as C  # noqa: E402
 from lib import materials as M  # noqa: E402
 from lib import parts as P  # noqa: E402
@@ -91,6 +100,16 @@ def collect(objs):
     return out
 
 
+def emits(objs):
+    """Whether any object carries an emitter material (lib/materials.py's EMITTERS: fire, lamps, filaments)."""
+    for o in objs:
+        for slot in getattr(o, 'material_slots', []):
+            m = slot.material
+            if m is not None and m.name.split(':', 1)[-1] in M.EMITTERS:
+                return True
+    return False
+
+
 def update():
     bpy.context.view_layer.update()
 
@@ -133,22 +152,85 @@ class Timer:
         return r
 
 
-def write_record(out, rec):
-    tmp = os.path.join(out, 'record.json.tmp')
-    with open(tmp, 'w') as f:
-        json.dump(rec, f, indent=1, sort_keys=True)
-    os.replace(tmp, os.path.join(out, 'record.json'))
-
-
 # --------------------------------------------------------------------------------------------------------------
 # entity
 # --------------------------------------------------------------------------------------------------------------
 
+def plan_slots(job, mod, meta, style, threads, T):
+    """Every working combination's layer rectangles, the layers' emitters, and the slots: layers whose rectangles
+    intersect in any combination share a slot in all of them (their frame counts must agree)."""
+    layers = meta['layers']
+    rects, emit = {}, [False] * len(layers)
+    for d in meta['dirs']:
+        w, h = C.footprint(meta['size'], d, meta['rotate_footprint'])
+        for vi, _ in C.variant_list(meta):
+            scene, cam, rig = fresh(style, threads)
+            parts = as_parts(T.run('build', mod.build, P, dir=d, variant=vi, state='working'))
+            canvas = R.Canvas(w, h, meta['height'], margin=meta['margin'], shadow=True, extra=tuple(meta['extra']))
+            W, H = R.aim_camera(scene, cam, canvas, PX)
+            rs = []
+            for li, L in enumerate(layers):
+                missing = [n for n in L['parts'] if n not in parts]
+                if missing:
+                    raise KeyError(f'{job["set"]}: layer {li} names parts the model lacks: {missing}')
+                lobjs = collect([parts[n] for n in L['parts']])
+                emit[li] = emit[li] or emits(lobjs)
+                box = [1e9, 1e9, -1e9, -1e9]
+                for f in range(L['frames']):
+                    mod.pose(parts, li, f)
+                    update()
+                    b = R.bounds_px(scene, cam, lobjs, W, H)
+                    box = [min(box[0], b[0]), min(box[1], b[1]), max(box[2], b[2]), max(box[3], b[3])]
+                mod.pose(parts, li, 0)
+                update()
+                rs.append(round_rect(*box, W, H))
+            rects[(d, vi)] = rs
+    slots = [[li] for li in range(len(layers))]
+
+    def slot_rect(slot, rs):
+        r = rs[slot[0]]
+        for li in slot[1:]:
+            r = union(r, rs[li])
+        return r
+
+    merged = True
+    while merged:
+        merged = False
+        for key in sorted(rects):
+            rs = rects[key]
+            for i in range(len(slots)):
+                for j in range(i + 1, len(slots)):
+                    if intersects(slot_rect(slots[i], rs), slot_rect(slots[j], rs)):
+                        fi = {layers[li]['frames'] for li in slots[i] + slots[j]}
+                        if len(fi) > 1:
+                            raise ValueError(f'{job["set"]}: layers {slots[i]} and {slots[j]} intersect at direction '
+                                             f'{key[0]} variant {key[1]} but have {sorted(fi)} frames')
+                        slots[i] = sorted(slots[i] + slots[j])
+                        del slots[j]
+                        merged = True
+                        break
+                if merged:
+                    break
+            if merged:
+                break
+    slots.sort()
+    out = [dict(ids=s, frames=layers[s[0]]['frames'], emits=any(emit[li] for li in s)) for s in slots]
+    rect_of = {key: [slot_rect(s['ids'], rs) for s in out] for key, rs in rects.items()}
+    return out, rect_of
+
+
 def render_entity(job, mod, meta, out, threads, T):
     style = job.get('style', S.PIPELINE_STYLE)
-    if meta['anim_shadow'] and not meta['full_frame']:
-        # a layered set with an animated shadow (the radar's dish, M1): shadows per layer frame are not built yet
-        raise NotImplementedError(f'{job["set"]}: anim_shadow on a layered (not full-frame) set')
+    working_layers = bool(meta['layers']) and 'working' in meta['states']
+    slots, rect_of = [], {}
+    if working_layers and not meta['full_frame']:
+        slots, rect_of = plan_slots(job, mod, meta, style, threads, T)
+        if meta['anim_shadow'] and len({s['frames'] for s in slots}) > 1:
+            raise ValueError(f'{job["set"]}: anim_shadow needs one frame count for all slots, got '
+                             f'{[s["frames"] for s in slots]}')
+    lit_slots = [i for i, s in enumerate(slots) if s['emits']] if meta['light'] else []
+    if len({slots[i]['frames'] for i in lit_slots}) > 1:
+        raise ValueError(f'{job["set"]}: slots with moving emitters must share one frame count')
     combos = []
     for d in meta['dirs']:
         w, h = C.footprint(meta['size'], d, meta['rotate_footprint'])
@@ -178,13 +260,21 @@ def render_entity(job, mod, meta, out, threads, T):
                         T.run(f'base_{ps}', R.render_pass, scene, rig, ps, objs, os.path.join(out, fn),
                               pos_ref=parts.get('root'))
                         combo['base'][ps] = fn
-                if meta['light'] and working:
+                if meta['light'] and working and not meta['full_frame']:
                     fn = f'{stem}.light.png'
                     T.run('light', R.render_pass, scene, rig, 'light', objs, os.path.join(out, fn))
                     combo['base']['light'] = fn
-                if layers:
-                    combo['layers'] = render_layers(job, mod, meta, parts, objs, scene, cam, rig, W, H, stem, out,
-                                                    T)
+                if layers and meta['full_frame']:
+                    combo['layers'] = render_full_frames(mod, meta, parts, objs, scene, rig, stem, out, T)
+                elif layers:
+                    combo['layers'] = render_slots(mod, meta, parts, objs, scene, rig, stem, out, T, slots,
+                                                   rect_of[(d, vi)])
+                    if meta['anim_shadow']:
+                        combo['shadow_frames'] = render_per_frame(mod, meta, parts, objs, scene, rig, f'{stem}-s',
+                                                                  out, T, slots, range(len(slots)), 'shadow')
+                    if lit_slots:
+                        combo['light_frames'] = render_per_frame(mod, meta, parts, objs, scene, rig, f'{stem}-l',
+                                                                 out, T, slots, lit_slots, 'light')
                 if shadow_file is None and not meta['anim_shadow']:
                     shadow_file = f'd{d:02d}-v{vi}.shadow.png'
                     if hasattr(mod, 'build_shadow'):
@@ -199,104 +289,92 @@ def render_entity(job, mod, meta, out, threads, T):
                           shadow_samples=meta.get('shadow_samples', 64))
                 combo['shadow'] = shadow_file
                 combos.append(combo)
-    return dict(combos=combos)
+    return dict(combos=combos, slots=[s['ids'] for s in slots], lit_slots=lit_slots)
 
 
-def render_layers(job, mod, meta, parts, objs, scene, cam, rig, W, H, stem, out, T):
-    layers = meta['layers']
-    if meta['full_frame']:
-        L = layers[0]
-        frames = []
-        t0 = time.time()
-        passes = ('colour', 'normal', 'aux', 'pos') if meta.get('cut') else ('colour', 'normal', 'aux')
-        for f in range(L['frames']):
-            mod.pose(parts, 0, f)
-            update()
-            img = {}
-            for ps in passes:
-                fn = f'{stem}-f{f:02d}.{ps}.png'
-                R.render_pass(scene, rig, ps, objs, os.path.join(out, fn), pos_ref=parts.get('root'))
-                img[ps] = fn
-            if meta['anim_shadow']:
-                fn = f'{stem}-f{f:02d}.shadow.png'
-                R.render_pass(scene, rig, 'shadow', objs, os.path.join(out, fn))
-                img['shadow'] = fn
-            frames.append(img)
-        mod.pose(parts, 0, 0)
-        update()
-        T.add('layer_frames', time.time() - t0)
-        return [dict(parts=['*'], frames=L['frames'], rect=[0, 0, W, H], full_frame=True, layer_ids=[0],
-                     images=frames)]
-    # the rectangle R of each layer: the union over its frames of its parts' projected bounds
+def render_full_frames(mod, meta, parts, objs, scene, rig, stem, out, T):
+    """Every frame whole (the whole sprite moves: belts), with its shadow under anim_shadow and its light when the
+    set has emitters."""
+    L = meta['layers'][0]
+    frames = []
     t0 = time.time()
-    rects = []
-    for li, L in enumerate(layers):
-        names = L['parts']
-        missing = [n for n in names if n not in parts]
-        if missing:
-            raise KeyError(f'{job["set"]}: layer {li} names parts the model lacks: {missing}')
-        lobjs = collect([parts[n] for n in names])
-        box = [1e9, 1e9, -1e9, -1e9]
-        for f in range(L['frames']):
-            mod.pose(parts, li, f)
-            update()
-            b = R.bounds_px(scene, cam, lobjs, W, H)
-            box = [min(box[0], b[0]), min(box[1], b[1]), max(box[2], b[2]), max(box[3], b[3])]
-        mod.pose(parts, li, 0)
+    passes = ('colour', 'normal', 'aux', 'pos') if meta.get('cut') else ('colour', 'normal', 'aux')
+    for f in range(L['frames']):
+        mod.pose(parts, 0, f)
         update()
-        rects.append(round_rect(*box, W, H))
-    # merge layers whose rectangles intersect (their frame counts must agree): the set's layers are disjoint
-    groups = [dict(ids=[li], rect=rects[li], frames=layers[li]['frames']) for li in range(len(layers))]
-    merged = True
-    while merged:
-        merged = False
-        for i in range(len(groups)):
-            for j in range(i + 1, len(groups)):
-                if intersects(groups[i]['rect'], groups[j]['rect']):
-                    if groups[i]['frames'] != groups[j]['frames']:
-                        raise ValueError(f'{job["set"]}: layers {groups[i]["ids"]} and {groups[j]["ids"]} '
-                                         f'intersect but have {groups[i]["frames"]} and {groups[j]["frames"]} '
-                                         f'frames')
-                    groups[i] = dict(ids=groups[i]['ids'] + groups[j]['ids'],
-                                     rect=union(groups[i]['rect'], groups[j]['rect']), frames=groups[i]['frames'])
-                    del groups[j]
-                    merged = True
-                    break
-            if merged:
-                break
-    T.add('layer_rects', time.time() - t0)
+        img = {}
+        for ps in passes:
+            fn = f'{stem}-f{f:02d}.{ps}.png'
+            R.render_pass(scene, rig, ps, objs, os.path.join(out, fn), pos_ref=parts.get('root'))
+            img[ps] = fn
+        if meta['anim_shadow']:
+            fn = f'{stem}-f{f:02d}.shadow.png'
+            R.render_pass(scene, rig, 'shadow', objs, os.path.join(out, fn),
+                          shadow_samples=meta.get('shadow_samples', 64))
+            img['shadow'] = fn
+        if meta['light']:
+            fn = f'{stem}-f{f:02d}.light.png'
+            R.render_pass(scene, rig, 'light', objs, os.path.join(out, fn))
+            img['light'] = fn
+        frames.append(img)
+    mod.pose(parts, 0, 0)
+    update()
+    T.add('layer_frames', time.time() - t0)
+    return [dict(parts=['*'], frames=L['frames'], rect=[0, 0, scene.render.resolution_x, scene.render.resolution_y],
+                 full_frame=True, layer_ids=[0], images=frames)]
+
+
+def pose_slots(mod, parts, slots, which, frame):
+    """Every layer of the slots `which` at `frame`, every other layer at frame 0."""
+    for si, s in enumerate(slots):
+        for li in s['ids']:
+            mod.pose(parts, li, frame if si in which else 0)
+    update()
+
+
+def render_slots(mod, meta, parts, objs, scene, rig, stem, out, T, slots, rects):
     out_layers = []
-    for gi, g in enumerate(groups):
+    for gi, (s, rect) in enumerate(zip(slots, rects)):
         t1 = time.time()
         images = []
-        for f in range(g['frames']):
-            for li in g['ids']:
-                mod.pose(parts, li, f)
-            update()
+        for f in range(s['frames']):
+            pose_slots(mod, parts, slots, {gi}, f)
             img = {}
             for ps in ('colour', 'normal', 'aux'):
                 fn = f'{stem}-L{gi}-f{f:02d}.{ps}.png'
-                size = R.render_pass(scene, rig, ps, objs, os.path.join(out, fn), border=g['rect'])
+                size = R.render_pass(scene, rig, ps, objs, os.path.join(out, fn), border=rect)
                 img[ps] = fn
                 img[ps + '_size'] = list(size)
             images.append(img)
         # a full render of the middle frame, for the check that the layered frame matches it (10 §9.5 #2)
-        k = g['frames'] // 2
-        for li in g['ids']:
-            mod.pose(parts, li, k)
-        update()
+        k = s['frames'] // 2
+        pose_slots(mod, parts, slots, {gi}, k)
         verify = dict(frame=k)
         for ps in ('colour', 'normal', 'aux'):
             fn = f'{stem}-L{gi}-verify.{ps}.png'
             R.render_pass(scene, rig, ps, objs, os.path.join(out, fn))
             verify[ps] = fn
-        for li in g['ids']:
-            mod.pose(parts, li, 0)
-        update()
+        pose_slots(mod, parts, slots, set(), 0)
         T.add('layer_frames', time.time() - t1)
-        out_layers.append(dict(layer_ids=g['ids'], parts=[n for li in g['ids'] for n in layers[li]['parts']],
-                               frames=g['frames'], rect=g['rect'], images=images, full_frame=False, verify=verify))
+        out_layers.append(dict(layer_ids=s['ids'], parts=[n for li in s['ids'] for n in meta['layers'][li]['parts']],
+                               frames=s['frames'], rect=rect, images=images, full_frame=False, verify=verify,
+                               emits=s['emits']))
     return out_layers
+
+
+def render_per_frame(mod, meta, parts, objs, scene, rig, stem, out, T, slots, which, ps):
+    """The shadow or light pass of the whole canvas per frame, with the slots `which` at that frame."""
+    t0 = time.time()
+    n = slots[next(iter(which))]['frames']
+    files = []
+    for f in range(n):
+        pose_slots(mod, parts, slots, set(which), f)
+        fn = f'{stem}-f{f:02d}.{ps}.png'
+        R.render_pass(scene, rig, ps, objs, os.path.join(out, fn), shadow_samples=meta.get('shadow_samples', 64))
+        files.append(fn)
+    pose_slots(mod, parts, slots, set(), 0)
+    T.add('shadow' if ps == 'shadow' else 'light', time.time() - t0)
+    return files
 
 
 # --------------------------------------------------------------------------------------------------------------
@@ -353,8 +431,8 @@ def render_inserter(job, mod, meta, out, threads, T):
             fn = f'{name}.{ps}.png'
             T.run(f'base_{ps}', R.render_pass, scene, rig, ps, objs, os.path.join(out, fn))
             img[ps] = fn
-        # the shadow: the part lowered to the ground, so the mask is its footprint; the renderer adds the
-        # shadow's offset for the shoulder's height (the set's shadowShoulder, 10 §15.7's inserter program)
+        # the shadow: the part lowered to the ground, so the mask is its footprint; the renderer places it at the
+        # shoulder's shadow (the set's shadowShoulder, 10 §15.7's inserter program as manifest.py binds it)
         sh_canvas = R.Canvas(0.6, 0.6, 0.3, margin=0.35, shadow=True, extra=(0, 0, 0, ext))
         lower(objs, -zs)
         SW, SH = R.aim_camera(scene, cam, sh_canvas, PX)
@@ -404,6 +482,41 @@ def render_resource(job, mod, meta, out, threads, T):
 
 
 # --------------------------------------------------------------------------------------------------------------
+# object
+# --------------------------------------------------------------------------------------------------------------
+
+def render_object(job, mod, meta, out, threads, T):
+    """Trees, rocks, decoratives, town buildings (10 §15.7's `object` program): [shape, stage] pictures and one
+    shadow per shape, anchored at the object's position on the ground."""
+    style = job.get('style', S.PIPELINE_STYLE)
+    w, h = meta['size']
+    shapes = []
+    for s in range(meta['shapes']):
+        stages, shadow = [], None
+        for g in range(meta['stages']):
+            scene, cam, rig = fresh(style, threads)
+            parts = as_parts(T.run('build', mod.build, P, shape=s, stage=g))
+            objs = collect(parts.values())
+            canvas = R.Canvas(w, h, meta['height'], margin=meta['margin'], shadow=True, extra=tuple(meta['extra']))
+            W, H = R.aim_camera(scene, cam, canvas, PX)
+            ax, ay = canvas.anchor_px(PX)
+            stem = f's{s}-g{g}'
+            img = dict(stage=g)
+            for ps in ('colour', 'normal', 'aux'):
+                fn = f'{stem}.{ps}.png'
+                T.run(f'base_{ps}', R.render_pass, scene, rig, ps, objs, os.path.join(out, fn))
+                img[ps] = fn
+            if g == meta['shadow_stage']:
+                shadow = f's{s}.shadow.png'
+                T.run('shadow', R.render_pass, scene, rig, 'shadow', objs, os.path.join(out, shadow),
+                      shadow_samples=meta.get('shadow_samples', 64))
+            stages.append(img)
+        shapes.append(dict(shape=s, canvas=[W, H], anchor=[ax, ay], tiles=canvas.as_dict(), stages=stages,
+                           shadow=shadow))
+    return dict(shapes=shapes)
+
+
+# --------------------------------------------------------------------------------------------------------------
 # mover
 # --------------------------------------------------------------------------------------------------------------
 
@@ -441,7 +554,9 @@ def render_mover(job, mod, meta, out, threads, T):
     return dict(canvas=[W, H], anchor=[ax, ay], tiles=canvas.as_dict(), clips=clips)
 
 
-RENDERERS = dict(entity=render_entity, inserter=render_inserter, resource=render_resource, mover=render_mover)
+RENDERERS = dict(entity=render_entity, inserter=render_inserter, resource=render_resource, object=render_object,
+                 mover=render_mover)
+assert set(RENDERERS) == set(C.RENDERED) - {'icon'}, 'render.py and lib/contract.py disagree on the kinds'
 
 
 def main():
@@ -450,24 +565,23 @@ def main():
     ap.add_argument('--jobs', required=True)
     ap.add_argument('--threads', type=int, default=16)
     a = ap.parse_args(argv)
-    jobs = json.load(open(a.jobs))
+    with open(a.jobs) as f:
+        jobs = json.load(f)
     for ji, job in enumerate(jobs):
         t0 = time.time()
-        out = job['out']
-        os.makedirs(out, exist_ok=True)
-        rec_path = os.path.join(out, 'record.json')
-        if os.path.exists(rec_path):
-            os.remove(rec_path)
-        mod = load_module(os.path.join(HERE, job['script']), f'{ji}')
-        if job.get('params') is not None:
-            mod.setup(job['params'])
-        meta = C.normalize(mod.META, job['kind'])
-        T = Timer()
-        body = RENDERERS[job['kind']](job, mod, meta, out, a.threads, T)
-        rec = dict(set=job['set'], kind=job['kind'], style=job.get('style', S.PIPELINE_STYLE), px=PX,
-                   px_shadow=S.PX_NORMAL, meta=json_safe(meta), blender=bpy.app.version_string,
-                   timing={k: round(v, 3) for k, v in T.t.items()}, wall_s=round(time.time() - t0, 3), **body)
-        write_record(out, rec)
+        with J.job_dir(job) as out:
+            script = job['script'] if os.path.isabs(job['script']) else os.path.join(HERE, job['script'])
+            mod = load_module(script, f'{ji}')
+            if job.get('params') is not None:
+                mod.setup(job['params'])
+            meta = C.normalize(mod.META, job['kind'])
+            T = Timer()
+            body = RENDERERS[job['kind']](job, mod, meta, out, a.threads, T)
+            J.check_sources(job, script)
+            rec = dict(set=job['set'], kind=job['kind'], style=job.get('style', S.PIPELINE_STYLE), px=PX,
+                       px_shadow=S.PX_NORMAL, meta=json_safe(meta), blender=bpy.app.version_string,
+                       timing={k: round(v, 3) for k, v in T.t.items()}, wall_s=round(time.time() - t0, 3), **body)
+            J.finish(job, out, rec)
         print(f'[render] {job["set"]}: {time.time() - t0:.1f} s', flush=True)
 
 

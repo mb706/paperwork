@@ -2,18 +2,24 @@
 
     gamedev-python game/scripts/assets/post.py <render dir> <out dir> --script <model script> [--group core]
 
-Reads the render's record.json and writes into <out dir>:
+Reads the render's record.json and writes into <out dir> (through a temporary directory renamed into place when
+everything is written, so a failed run leaves no set.json):
   f<id>.png   each frame's image, premultiplied RGBA (colour, light) or one channel (shadow), with a margin of
               real neighbouring pixels around the frame (pad px; transparent around a whole sprite, the frame's
               own neighbourhood around a layer frame) from which the packer fills the cell's gutter;
-  set.json    the frames (array, size, anchor, the pad, or the parent and sub-rectangle of a base piece) and the
-              set's parts with their axes, maps and explicit tables in local frame ids (10 §15.7).
+  set.json    the frames (array, size, anchor, the pad, or the parent and sub-rectangle of a base piece), the
+              set's parts with their axes, maps and explicit tables in local frame ids (10 §15.7), and the render
+              it came from as a cache key (the cache moves between worktrees).
 Rules (10 §9.2):
   * ink with fields in canvas coordinates (ink.py), F0 on its passes' bounding box plus 16 px, each layer
     frame on R plus 16 px with frame k's passes pasted into F0's;
   * trim on alpha with a 1-px border, rounded out to multiples of 8 px of the canvas; premultiply;
   * a working set's base is F0's rectangle minus every layer's R, cut into at most four rectangles per R
-    (empty pieces dropped); the idle state draws its own complete image;
+    (empty pieces dropped); the idle state draws its own complete image; the layers are the render's slots,
+    the same in every direction and variant (codex C6-r1 finding 5);
+  * animated channels (finding 4): a set rendered with a shadow per frame gets `shadow` [..., frame] and
+    `animShadow`; one with a light per frame (a moving emitter, or a full-frame set with light) gets `light`
+    [..., frame] and `animLight`; a declared animation whose channel is missing fails;
   * shadows: values below 0.03 clipped, kept at Normal resolution, trimmed;
   * glow: the light pass dilated 0.12 tile, blurred 0.22 tile, x 1.8, clipped, stored at 16 px per tile.
 """
@@ -21,6 +27,7 @@ Rules (10 §9.2):
 import argparse
 import importlib.util
 import os
+import shutil
 import sys
 
 import numpy as np
@@ -280,7 +287,10 @@ def post_entity(rec, rdir, store, mod):
     lw = S.INK_WEIGHT[meta['ink']]
     tabs = EntityTables(meta, mod)
     base_t, idle_t, shadow_t, light_t = {}, {}, {}, {}
-    layer_ts = []
+    slots = rec.get('slots') or []
+    layer_ts = [{} for _ in slots]
+    anim_shadow, anim_light = bool(meta.get('anim_shadow')), False
+    n_shadow = n_light = 0
     fields_cache = {}
     extra_meta = {}
     for combo in rec['combos']:
@@ -299,14 +309,23 @@ def post_entity(rec, rdir, store, mod):
             for fi, img in enumerate(L['images']):
                 c, n, a = read_passes(rdir, img)
                 pm = K.premul(I.ink_canvas(c, n, a, fields, lw))
+                # the uncut piece runs half a tile into its neighbours: its alpha keeps this piece's shadow off
+                # them too (a belt's rails would otherwise hatch the next tile's deck)
+                own_f = pm[..., 3].copy()
                 if fi == 0:
-                    # the uncut piece runs half a tile into its neighbours: its alpha keeps this piece's shadow
-                    # off them too (a belt's rails would otherwise hatch the next tile's deck)
-                    own = pm[..., 3].copy()
+                    own = own_f
                 if region is not None:
                     pm *= cut_mask(rdir, img['pos'], region)[..., None]
                 rect = trim_rect(pm[..., 3])
                 base_t[(di, vi, fi)] = [store.add('colour', pm, rect, anchor)]
+                if img.get('shadow'):
+                    sid = shadow_frame(store, rdir, img['shadow'], anchor, own_f)
+                    shadow_t[(di, vi, fi)] = [sid] if sid is not None else []
+                    n_shadow = len(L['images'])
+                if img.get('light'):
+                    lid = glow_frame(store, rdir, img['light'], anchor)
+                    light_t[(di, vi, fi)] = [lid] if lid is not None else []
+                    anim_light, n_light = True, len(L['images'])
         else:
             c0, n0, a0 = read_passes(rdir, combo['base'])
             pm0 = K.premul(I.ink_canvas(c0, n0, a0, fields, lw))
@@ -315,6 +334,9 @@ def post_entity(rec, rdir, store, mod):
                 pm0 *= cut_mask(rdir, combo['base']['pos'], region)[..., None]
             working = combo['state'] == 'working'
             if working and combo['layers']:
+                if [L['layer_ids'] for L in combo['layers']] != slots:
+                    raise ValueError(f'{name}: direction {combo["dir"]} variant {vi} has layer slots '
+                                     f'{[L["layer_ids"] for L in combo["layers"]]}, the set {slots}')
                 rects = [L['rect'] for L in combo['layers']]
                 rect0 = trim_rect(pm0[..., 3])
                 for r in rects:
@@ -325,8 +347,6 @@ def post_entity(rec, rdir, store, mod):
                     if pm0[p[1]:p[3], p[0]:p[2], 3].max() > 0:
                         pieces.append(store.add_piece(f0, p))
                 base_t[(di, vi)] = pieces
-                while len(layer_ts) < len(combo['layers']):
-                    layer_ts.append({})
                 if 'verify' not in extra_meta:
                     L0 = combo['layers'][0]
                     k = L0['verify']['frame'] if L0.get('verify') else L0['frames'] // 2
@@ -336,10 +356,12 @@ def post_entity(rec, rdir, store, mod):
                                                 full={p: L0['verify'][p] for p in ('colour', 'normal', 'aux')}
                                                 if L0.get('verify') else None,
                                                 seed=I.ink_seed(name, combo['dir'], vi), lw=lw)
+                slot_alpha = []
                 for gi, L in enumerate(combo['layers']):
                     x0, y0, x1, y1 = L['rect']
                     cx0, cy0 = max(0, x0 - RHO), max(0, y0 - RHO)
                     cx1, cy1 = min(W, x1 + RHO), min(H, y1 + RHO)
+                    alphas = []
                     for fi, img in enumerate(L['images']):
                         c, n, a = c0.copy(), n0.copy(), a0.copy()
                         c[y0:y1, x0:x1] = K.read_png(os.path.join(rdir, img['colour']))
@@ -352,6 +374,21 @@ def post_entity(rec, rdir, store, mod):
                         comp[y0:y1, x0:x1] = K.premul(crop[y0 - cy0:y1 - cy0, x0 - cx0:x1 - cx0])
                         fid = store.add('colour', comp, L['rect'], anchor, gutter_src=rect0)
                         layer_ts[gi][(di, vi, fi)] = [fid]
+                        alphas.append(comp[y0:y1, x0:x1, 3].copy())
+                    slot_alpha.append(alphas)
+                # an animated shadow never hatches the set itself: each frame's own alpha, every slot at that frame
+                for f, fn in enumerate(combo.get('shadow_frames') or []):
+                    own_f = own.copy()
+                    for L, alphas in zip(combo['layers'], slot_alpha):
+                        x0, y0, x1, y1 = L['rect']
+                        own_f[y0:y1, x0:x1] = alphas[f % len(alphas)]
+                    sid = shadow_frame(store, rdir, fn, anchor, own_f)
+                    shadow_t[(di, vi, f)] = [sid] if sid is not None else []
+                    n_shadow = len(combo['shadow_frames'])
+                for f, fn in enumerate(combo.get('light_frames') or []):
+                    lid = glow_frame(store, rdir, fn, anchor)
+                    light_t[(di, vi, f)] = [lid] if lid is not None else []
+                    anim_light, n_light = True, len(combo['light_frames'])
             else:
                 rect0 = trim_rect(pm0[..., 3])
                 fid = store.add('colour', pm0, rect0, anchor)
@@ -360,22 +397,30 @@ def post_entity(rec, rdir, store, mod):
             sid = shadow_frame(store, rdir, combo['shadow'], anchor, own)
             if sid is not None:
                 shadow_t[(di, vi)] = [sid]
-        if combo['base'].get('light'):
+        if combo['base'].get('light') and not combo.get('light_frames'):
             lid = glow_frame(store, rdir, combo['base']['light'], anchor)
             if lid is not None:
                 light_t[(di, vi)] = [lid]
     nframes = meta['layers'][0]['frames'] if meta['full_frame'] else 0
     parts = {'base': tabs.part(base_t, frame=nframes)}
     if layer_ts:
-        lf = [rec['combos'][0]['layers'][gi]['frames'] for gi in range(len(layer_ts))]
+        lf = [meta['layers'][s[0]]['frames'] for s in slots]
         parts['layers'] = [tabs.part(t, frame=lf[gi]) for gi, t in enumerate(layer_ts)]
     if idle_t:
         parts['idle'] = tabs.part(idle_t)
-    if shadow_t:
-        parts['shadow'] = tabs.part(shadow_t)
-    if light_t:
-        parts['light'] = tabs.part(light_t)
     extra = {}
+    if anim_shadow:
+        if not n_shadow:
+            raise ValueError(f'{name}: anim_shadow, but the render has no shadow per frame')
+        parts['shadow'] = tabs.part(shadow_t, frame=n_shadow)
+        extra['animShadow'] = True
+    elif shadow_t:
+        parts['shadow'] = tabs.part(shadow_t)
+    if anim_light:
+        parts['light'] = tabs.part(light_t, frame=n_light)
+        extra['animLight'] = True
+    elif light_t:
+        parts['light'] = tabs.part(light_t)
     if meta.get('smoke'):
         # chimney points (m, the model at direction south) -> level-0 px from the anchor, for the renderer's
         # smoke puffs (10 §9.8): x east, y down the screen
@@ -439,6 +484,12 @@ def post_inserter(rec, rdir, store, mod):
                     table=make_table([dsize], lambda i: t.get(i[0], [])))
 
     parts = {'platform': dir_part(plat), 'platform_shadow': dir_part(plat_sh)}
+    zs = meta['shoulder']
+    sx, sy = S.SHADOW_REACH
+    # 10 §15.7's inserter program as manifest.py binds it: Q = anchor + shoulder k; the shadows turn about
+    # Q' = anchor + shadowShoulder k' (k' of the shadow array): where the shoulder's shadow falls
+    shoulder = [0.0, round(-zs * S.PX_HIGH, 3)]
+    shadow_shoulder = [round(sx * zs * S.PX_NORMAL, 3), round(-sy * zs * S.PX_NORMAL, 3)]
     for pname, img in rec['parts'].items():
         W, H = img['canvas']
         fields = I.ink_fields(H, W, I.ink_seed(name, pname, 0))
@@ -454,15 +505,13 @@ def post_inserter(rec, rdir, store, mod):
         s = K.read_png(os.path.join(rdir, img['shadow']))[..., 3]
         s = np.where(s < SHADOW_CLIP, 0.0, s).astype(np.float32)
         srect = trim_rect(s, thr=0.0, pad=1, align=4)
-        sax, say = img['shadow_anchor'][0] // 2, img['shadow_anchor'][1] // 2
-        sid = store.add('shadow', s[..., None], srect, (sax, say))
+        # the lowered part's pivot is its ground point; the frame's anchor is set shadowShoulder before it, so a
+        # shadow frame placed at the part's ground point by the frame formula has its pivot at Q' (or Hp')
+        sax, say = img['shadow_anchor'][0] / 2, img['shadow_anchor'][1] / 2
+        sid = store.add('shadow', s[..., None], srect, (sax - shadow_shoulder[0], say - shadow_shoulder[1]))
         parts[pname + '_shadow'] = dict(axes=[], shape=[], table=[[sid]],
-                                        pivot=[sax - srect[0], say - srect[1]])
-    zs = meta['shoulder']
-    sx, sy = S.SHADOW_REACH
-    extra = dict(shoulder=[0.0, round(-zs * S.PX_HIGH, 3)],
-                 shadowShoulder=[round(sx * zs * S.PX_NORMAL, 3), round(-sy * zs * S.PX_NORMAL, 3)])
-    return parts, extra
+                                        pivot=[round(sax - srect[0], 3), round(say - srect[1], 3)])
+    return parts, dict(shoulder=shoulder, shadowShoulder=shadow_shoulder)
 
 
 def post_resource(rec, rdir, store, mod):
@@ -487,6 +536,37 @@ def post_resource(rec, rdir, store, mod):
     return parts, {}
 
 
+def post_object(rec, rdir, store, mod):
+    """10 §15.7's `object` program: `base` [shape, stage] (or [shape] with one stage), `shadow` [shape]."""
+    meta = rec['meta']
+    name = rec['set']
+    lw = S.INK_WEIGHT[meta['ink']]
+    col, sh = {}, {}
+    for shp in rec['shapes']:
+        W, H = shp['canvas']
+        fields = I.ink_fields(H, W, I.ink_seed(name, 0, shp['shape']))
+        own = None
+        for img in shp['stages']:
+            c, n, a = read_passes(rdir, img)
+            pm = K.premul(I.ink_canvas(c, n, a, fields, lw))
+            rect = trim_rect(pm[..., 3])
+            if rect is None:
+                raise ValueError(f'{name}: shape {shp["shape"]} stage {img["stage"]} is empty')
+            col[(shp['shape'], img['stage'])] = [store.add('colour', pm, rect, shp['anchor'])]
+            if img['stage'] == meta['shadow_stage']:
+                own = pm[..., 3]
+        sid = shadow_frame(store, rdir, shp['shadow'], shp['anchor'], own) if shp.get('shadow') else None
+        sh[(shp['shape'],)] = [sid] if sid is not None else []
+    n, g = meta['shapes'], meta['stages']
+    if g > 1:
+        base = dict(axes=['shape', 'stage'], shape=[n, g], map=dict(stage=list(range(g))),
+                    table=make_table([n, g], lambda i: col[i]))
+    else:
+        base = dict(axes=['shape'], shape=[n], table=make_table([n], lambda i: col[(i[0], 0)]))
+    parts = {'base': base, 'shadow': dict(axes=['shape'], shape=[n], table=make_table([n], lambda i: sh[i]))}
+    return parts, {}
+
+
 ICON_PX = 64
 
 
@@ -508,26 +588,35 @@ def post_icon(rec, rdir, store, mod):
     return {'icon': dict(axes=[], shape=[], table=[[fid]])}, {}
 
 
-POST = dict(entity=post_entity, mover=post_mover, inserter=post_inserter, resource=post_resource, icon=post_icon)
+POST = dict(entity=post_entity, mover=post_mover, inserter=post_inserter, resource=post_resource,
+            object=post_object, icon=post_icon)
+if set(POST) != set(C.RENDERED):
+    raise SystemExit('post.py and lib/contract.py disagree on the kinds')
 
 
 def run(render_dir, out_dir, script, params=None):
     rec = K.load_json(os.path.join(render_dir, 'record.json'))
-    os.makedirs(out_dir, exist_ok=True)
-    for f in os.listdir(out_dir):
-        os.remove(os.path.join(out_dir, f))
+    tmp = f'{out_dir}.tmp-{os.getpid()}'
+    shutil.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp)
     mod = load_script(script) if script else None
     if params:
         mod.setup(params)
-    store = FrameStore(out_dir)
+    store = FrameStore(tmp)
     got = POST[rec['kind']](rec, render_dir, store, mod)
     parts, extra = got[0], got[1]
     meta = rec.get('meta', {})
     out = dict(set=rec['set'], kind=rec['kind'], frames=store.frames, parts=parts, extra=extra,
-               size=list(meta.get('size', [1, 1])), render_dir=os.path.abspath(render_dir))
+               size=list(meta.get('size', [1, 1])), render_key=os.path.basename(os.path.normpath(render_dir)))
     if len(got) > 2:
         out.update(got[2])
-    K.dump_json(os.path.join(out_dir, 'set.json'), out)
+    K.dump_json(os.path.join(tmp, 'set.json'), out)
+    # the finished directory replaces the old one in one step: a failure above leaves no set.json behind
+    old = f'{out_dir}.old-{os.getpid()}'
+    if os.path.exists(out_dir):
+        os.replace(out_dir, old)
+    os.replace(tmp, out_dir)
+    shutil.rmtree(old, ignore_errors=True)
     print(f'[post] {rec["set"]}: {len(store.frames)} frames', flush=True)
 
 

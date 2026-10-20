@@ -1,6 +1,6 @@
 """Legibility metrics (A3 §7, §3.2; 10 §9.5 #4), measured on the encoded icons and sprites, as the GPU sees them.
 
-    gamedev-python game/scripts/assets/metrics.py
+    gamedev-python game/scripts/assets/metrics.py [--manifest <sprites.json>] [--gate]
 
 1. The belt line-up: every icon at 32 and 16 px on the belt deck (#6e6a64), qc/belt-lineup.png.
 2. Confusability: each icon at 32 px on the deck, reduced to 8 x 8 CIELAB thumbnails; the mean Euclidean distance over
@@ -11,11 +11,13 @@
    apart. The body tone is the 70th percentile of L* over the icon's opaque pixels (ink lines and hatching fall
    below it).
 4. Figure-ground: machines 25-60 % darker than the paper (Weber contrast of the sprite's mean L* to the paper's).
-Writes qc/metrics.json; a failed rule is reported, not fatal (it is a review aid; checks.py gates the build).
+Writes qc/metrics.json. With --gate (the build runs it before publishing) a broken rule of 3 or 4 fails the build:
+they are 10 §9.5 #4's rules (and DIRECTION's rules 2 and 3). The confusability pairs of 2 are flagged for review,
+as 07 §23 and 10 §9.3 ask, and printed as warnings.
 """
 
+import argparse
 import itertools
-import json
 import os
 import sys
 
@@ -54,7 +56,11 @@ def icon_on(em, fid, size, bg):
 
 
 def main():
-    man = K.load_json(os.path.join(K.PUBLIC, 'atlases', 'sprites.json'))
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--manifest', default=os.path.join(K.PUBLIC, 'atlases', 'sprites.json'))
+    ap.add_argument('--gate', action='store_true')
+    args = ap.parse_args()
+    man = K.load_json(args.manifest)
     em = E.Emulator(man)
     icons = {n.split('/', 1)[1]: s['parts']['icon']['table'][0][0] for n, s in sorted(man['sets'].items())
              if n.startswith('item/')}
@@ -150,7 +156,14 @@ def main():
     n = out['confusability']['normal']
     print(f'[metrics] closest pairs (normal): {n["closest"][:3]}; info/matter L* {n.get("group_L")}; '
           f'{len(flags)} pair(s) < 7; lightness rules broken: {len(rules)}; figure-ground {fg}', flush=True)
-    _ = json
+    for f in flags:
+        print(f'[metrics] warn confusable at 8x8 (review): {f}', flush=True)
+    fails = rules + [f'{n_}: figure-ground {fg[n_]} outside -0.60..-0.25 (machines 25-60 % darker than the paper)'
+                     for n_ in out['figure_ground_out_of_range']]
+    for f in fails:
+        print(f'[metrics] FAIL {f}', flush=True)
+    if args.gate and fails:
+        sys.exit(1)
 
 
 if __name__ == '__main__':

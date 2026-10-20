@@ -5,9 +5,16 @@
 Measured on this build:
   render time   each set's Blender wall time (record.json) and its parts (base passes, shadows, layer frames)
   disk          the render cache, the post cache, public/atlases (KTX2 files: the wire bytes), sheets and fonts
-  GPU           10 §6.13's allocation for the manifest's page counts, every level of each mode: High (BC7: colour
-                levels 0-3, shadows BC4 levels 0-2, light 0-1, icons 0-2, terrain 0-2), Normal (colour 1-3, shadows
-                1-2), Low (RGBA8: colour 2-3, R8 shadows 1-2)
+  GPU           10 §6.13's complete allocation (gpu_allocations; checks.py gates on it) at a 1920 x 1080 CSS-px
+                window, device pixel ratios 1 and 2, in every selectable mode: High, Normal and Low, each with a
+                1-byte-per-pixel format (BC7, ASTC 4x4, BC3, ETC2 RGBA; shadows BC4 or EAC R11 at 0.5) and with the
+                uncompressed fallback (RGBA8, R8 shadows). A mode allocates the manifest's page counts with every
+                level it samples: High colour levels 0-3 and shadows 0-2, Normal colour 1-3 and shadows 1-2, Low
+                colour 2-3 and shadows 1-2; light, icons and terrain (High 0-2, else 1-2) in all. On top: the light
+                target (RGBA16F) and shadow target (R8) at half resolution, the quad and index buffers, the LUTs,
+                glyphs and chunk textures, and the chart's fixed cache (2 RGBA8 layers of 2048^2 with levels), as
+                §6.13 and design/asset-study/render/budget_model.py count them. Budgets (§6.13): High 256 MB in
+                the slice, Normal and Low 192 MB; the renderer picks the highest mode that fits.
   unit costs    trimmed colour area against B2's formula 0.75 (w + 0.2)(h + H + 0.2) 64^2, cell overhead, page
                 fill, KTX2 bits per content pixel at High and Normal, seconds per canvas pixel
 Then design/asset-study/render/budget_model.py's M1 summary, and the same with its content and render-cost terms
@@ -38,23 +45,57 @@ def levels_bytes(side, bpp, first, last):
     return sum((side >> k) ** 2 * bpp for k in range(first, last + 1))
 
 
-def gpu(man):
+WINDOW = (1920, 1080)          # CSS px (10 §6.13's table)
+BUDGET_MB = {'high': 256, 'normal': 192, 'low': 192}          # §6.13, the slice
+
+
+def other_allocations():
+    """[dpr 1, dpr 2] MB of everything allocated besides atlases and terrain (§6.13; budget_model.py's terms)."""
+    fb = WINDOW[0] * WINDOW[1]
+    lv = levels_bytes
+    return {
+        'light_target_rgba16f_half': [fb / 4 * 8 / MB, fb * 8 / MB],
+        'shadow_target_r8_half': [fb / 4 / MB, fb / MB],
+        'quads_2x100k_and_index': [(2 * 100000 * 4 * 20 + 65536 * 6 * 4) / MB] * 2,
+        'luts_glyphs_chunk_textures': [2.3 + 0.35 + 2.8] * 2,
+        'chart_cache_2_layers_rgba8_with_levels': [2 * lv(2048, 4, 0, 11) / MB] * 2,
+    }
+
+
+def gpu_allocations(man):
+    """10 §6.13's complete allocation of this manifest in every selectable mode, at dpr 1 and 2 (module docstring),
+    and the mode the renderer's rule picks for each class of GPU format."""
     n = [len(p) for p in man['pages']]
     arr = {a['kind']: a for a in man['arrays']}
-    tiles = len(man.get('terrain', {}).get('tiles', {}))
-    tsize = man.get('terrain', {}).get('size', 512)
+    terrain = man.get('terrain', {})
+    tiles = len(terrain.get('tiles', {}))
+    tsize, tlev = terrain.get('size', 512), terrain.get('levels', 3)
 
-    def mode(c0, s0, bpp_c, bpp_s):
+    def atlases(mode, bpp_c, bpp_s):
+        c0 = {'high': 0, 'normal': 1, 'low': 2}[mode]
+        s0 = 0 if mode == 'high' else 1
         col = n[0] * levels_bytes(arr['colour']['pageSize'], bpp_c, c0, arr['colour']['levels'] - 1)
         sh = n[1] * levels_bytes(arr['shadow']['pageSize'], bpp_s, s0, arr['shadow']['levels'] - 1)
         li = n[2] * levels_bytes(arr['light']['pageSize'], bpp_c, 0, arr['light']['levels'] - 1)
         ic = n[3] * levels_bytes(arr['icon']['pageSize'], bpp_c, 0, arr['icon']['levels'] - 1)
-        te = tiles * levels_bytes(tsize, bpp_c, 0 if c0 == 0 else 1, 2)
-        return dict(colour=col / MB, shadow=sh / MB, light=li / MB, icon=ic / MB, terrain=te / MB,
-                    total=(col + sh + li + ic + te) / MB)
+        te = tiles * levels_bytes(tsize, bpp_c, 0 if mode == 'high' else 1, tlev - 1)
+        return dict(colour=col / MB, shadow=sh / MB, light=li / MB, icon=ic / MB, terrain=te / MB)
 
-    return dict(pages=dict(zip(('colour', 'shadow', 'light', 'icon'), n)),
-                high_bc7=mode(0, 0, 1, 0.5), normal_bc7=mode(1, 1, 1, 0.5), low_rgba8=mode(2, 1, 4, 1))
+    other = other_allocations()
+    modes, picked = {}, {}
+    for cls, bpp_c, bpp_s in (('1bpp', 1, 0.5), ('rgba8', 4, 1)):
+        for mode in ('high', 'normal', 'low'):
+            a = atlases(mode, bpp_c, bpp_s)
+            at = sum(a.values())
+            modes[f'{mode}_{cls}'] = dict(
+                atlases_terrain=round(at, 1), parts={k: round(v, 2) for k, v in a.items()},
+                dpr1=round(at + sum(v[0] for v in other.values()), 1),
+                dpr2=round(at + sum(v[1] for v in other.values()), 1), budget=BUDGET_MB[mode])
+        for dpr in ('dpr1', 'dpr2'):
+            picked[f'{cls} {dpr}'] = next((m for m in ('high', 'normal', 'low')
+                                           if modes[f'{m}_{cls}'][dpr] <= BUDGET_MB[m]), 'none (pages share layers)')
+    return dict(window_css_px=list(WINDOW), pages=dict(zip(('colour', 'shadow', 'light', 'icon'), n)),
+                other_mb={k: [round(x, 1) for x in v] for k, v in other.items()}, modes=modes, picked=picked)
 
 
 def main():
@@ -70,7 +111,7 @@ def main():
     content, cells = 0, 0
     for name, post_dir in sorted(sets.items()):
         sd = K.load_json(os.path.join(post_dir, 'set.json'))
-        rdir = sd.get('render_dir')
+        rdir = os.path.join(K.CACHE, 'render', sd['render_key']) if sd.get('render_key') else None
         if rdir and os.path.exists(os.path.join(rdir, 'record.json')):
             rec = K.load_json(os.path.join(rdir, 'record.json'))
             render_t[name] = rec.get('wall_s', 0.0)
@@ -106,7 +147,7 @@ def main():
                      atlases=round(du(os.path.join(K.PUBLIC, 'atlases')) / MB, 2),
                      sheets=round(du(os.path.join(K.PUBLIC, 'sheets')) / MB, 2),
                      fonts=round(du(os.path.join(K.PUBLIC, 'fonts')) / MB, 2)),
-        gpu_mb=gpu(man),
+        gpu_mb=gpu_allocations(man),
         units=dict(trimmed_over_model=round(trimmed / modelled, 3) if modelled else None,
                    cell_overhead=round(cells / content - 1, 3) if content else None,
                    colour_page_fill=round(cells / page_px, 3) if page_px else None,
