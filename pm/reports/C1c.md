@@ -641,3 +641,22 @@ C7 (audio v0, merge 257f698) added `game/data/engine/sounds.yaml`, which the dat
 - **The fake** builds with the real table. `test/fixtures/fake/sounds.yaml` and the `--engine-file` argument are
   gone. The ids are unchanged (belt-loop 1, keypunch-loop 10), because the fixture held the same names.
 - `npm run ci`: green in 40.4 s.
+
+## Design corrections (authorised by the coordinator)
+
+This closes open issues 2 and 3 above.
+- **design/round1/I-ui-controls.md** now follows Factorio 2.0.77, with the exact message texts and each change
+  marked "(corrected 2026-10-20 from Factorio 2.0.77 tests, C1c)":
+  - §3.2: Q when the stack does not fit, by where it came from, with "Cannot put away the Iron plate. Player
+    inventory is full.";
+  - §3.7: mining is not refused up front; at completion nothing is removed, the message is "Cannot insert Iron
+    ore. Inventory is full.", and the cycle repeats; partial chest mining;
+  - §3.8: partial transfers and their messages; what the limit bar stops and what bypasses it; partial fast
+    transfers. One case is marked as inferred: the message when a Ctrl+click takes from a chest into a full
+    inventory;
+  - §3.9: a request is clamped to what is affordable, and only zero gives "Not enough ingredients."; a cancel is
+    never refused and spills the rest; a paused craft shows its message.
+- **design/spec/10-architecture.md §15.8:** the `sim_load` input now includes the removed ids' names
+  (`RemapTable.removed`, abi_version 2), and the text says why.
+- Checks: `r3_checks.py` 30 passed, 0 failed; `r3_xref.py` all placeholders resolve, 942 section references, 0
+  dangling. `npm run ci` is green in 38.0 s.

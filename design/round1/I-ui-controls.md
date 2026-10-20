@@ -455,6 +455,17 @@ Each rule below is small; together they are the "wicked good" feel. Implement th
 - a temporary copy-paste blueprint is discarded (it stays in clipboard history);
 - a ghost cursor simply clears.
 
+**Q when the stack does not fit** (corrected 2026-10-20 from Factorio 2.0.77 tests, C1c):
+- **Picked up from the player's own inventory:** the origin slot keeps its hand marker and stays reserved, so Q
+  always puts the stack back there, even when every other slot is full.
+- **Picked up from any other inventory** (a chest, an entity: no hand marker, and the source keeps no slot for
+  it): Q puts as much as fits into the main inventory (topping up partial stacks of the item, then empty slots)
+  and keeps the rest in the cursor. Nothing goes back to the source inventory and nothing is spilled.
+- **Whenever anything stays in the cursor** (also when nothing fits): the flying text at the mouse cursor reads
+  `Cannot put away the Iron plate. Player inventory is full.` (locale
+  `cant-clear-cursor=Cannot put away the __1__. Player inventory is full.`; changelog 0.17.2). Q is never
+  refused: it does what fits.
+
 **Auto-replenish:** while building, when the hand stack runs out it refills from the main inventory with the same item. When none remain:
 - the hand empties;
 - or, with *Pick ghost item if no items are available* on (Interface; default off), it becomes a **ghost cursor** for that item.
@@ -666,7 +677,21 @@ The starting piece may be an existing one (1.1).
 **Results:**
 - Results go to the inventory with flying text "+1 Iron ore (57)" (icon, delta, new total).
 - Mining an entity with contents (chest, furnace, assembler) moves the contents into the inventory too.
-- If the result can't fit, mining is **refused**: "Inventory full". Since 2.0.67 nothing is dropped on the ground.
+- **When the result does not fit** (corrected 2026-10-20 from Factorio 2.0.77 tests, C1c):
+  - Mining is **not** refused up front: the progress bar fills normally.
+  - At completion nothing is removed (the ore amount, the entity and the tree all stay) and nothing is dropped
+    on the ground. The bottom-left message reads `Cannot insert Iron ore. Inventory is full.`
+  - While the mine button is held, the bar restarts and the cycle repeats: mining goes on, and the message
+    repeats at each completion.
+  - If part of the result fits, mining delivers until the inventory is full.
+  - Changelog 2.0.67: "Changed manual mining when the inventory is full to not drop the mined result on the
+    ground." Before 2.0.67 the result was dropped.
+- **Mining an entity whose contents do not all fit** (corrected 2026-10-20 from Factorio 2.0.77 tests, C1c): at completion the contents that fit move into the
+  inventory, the first slots first (flying text such as "+300 Copper plate (300)"), the bottom-left message
+  `Cannot insert Copper plate. Inventory is full.` appears, and the entity stays with the remaining contents.
+  If the contents fit but the entity's own item does not, the contents move and the entity stays. The next
+  completion tries again (changelog 0.10.9: "the mining just fails, while player gets as many items from the
+  chest as possible").
 - Deconstruction-marked entities can still be hand-mined.
 
 **Other mining cases:**
@@ -694,6 +719,23 @@ The starting piece may be an existing one (1.1).
 - **Filtered or restricted slots** reject wrong items silently and show their filter icon. Furnace result slots accept only results of that furnace (0.17).
 - **Only the character screen open:** shift-transfers move guns, ammo and armor into the equipment slots on the HUD. With a logistics panel (P2) they move items to trash.
 - **Auto-sort:** the main inventory **auto-sorts** by item order (group → subgroup → order string). Filtered slots and the hand slot keep their place; partial stacks merge. This is an Interface setting, on by default.
+- **Partial transfers** (corrected 2026-10-20 from Factorio 2.0.77 tests, C1c): Shift and Ctrl transfers move what fits and leave the rest in the source slot.
+  - **Player inventory → entity:** no message and no flying text, whether part or nothing fits.
+  - **Entity → player inventory:** what fits moves; when something does not, the bottom-left message reads
+    `Cannot insert Iron plate. Inventory is full.`
+
+**The inventory limit** (the red X bar of chests; 2.0.77 tooltip: "Limit part of the inventory so it cannot be
+filled by machines") (corrected 2026-10-20 from Factorio 2.0.77 tests, C1c):
+- **Respect the limit** (fill only the slots before the bar, and never top up a stack sitting in a red slot):
+  inserters; logistic and construction robots; Shift+LMB and Ctrl+LMB from the player's inventory (partially if
+  needed; silently nothing when the usable slots are full); Ctrl+LMB / Ctrl+RMB on the chest in the world; Z;
+  script inserts (`LuaInventory.insert`).
+- **Bypass the limit:** LMB with a stack in the cursor places it in a red slot; RMB places one item there. Wiki
+  "Stack": "the player is still free to manually place items in the unused (red) slots".
+- **Taking items out is never limited:** the player picks up from red slots, and fast transfer out of the chest
+  takes red-slot items too (kovarex, forums t=21002: "The restriction is restriction of input, not of output").
+- **Lowering the bar below occupied slots** leaves the items where they are; the chest then accepts nothing more
+  until those slots drain.
 
 **Fast transfer in the world** (Ctrl+LMB / Ctrl+RMB on an entity; hold and sweep across many entities, each entity once per sweep):
 
@@ -703,6 +745,12 @@ The starting piece may be an existing one (1.1).
 | Empty | Take what an inserter would take: assembler / furnace **output**, lab packs, chest contents (all that fit) | Take half |
 
 - Flying text per transfer: "−50 Coal (12)" or "+48 Iron plate (312)".
+- **When not everything fits** (corrected 2026-10-20 from Factorio 2.0.77 tests, C1c): holding X, the entity takes what fits (below its limit bar), with the
+  flying text "−50 Iron plate (450)", and the cursor refills from the inventory; when nothing fits, nothing
+  happens and no text appears. Empty-handed, what fits comes into the player's inventory with "+N" texts and the
+  rest stays in the entity; the game shows `Cannot insert Iron plate. Inventory is full.` for what stayed, as it
+  does for Shift/Ctrl transfers into a full inventory (*inferred from that test; this exact case was not
+  tested*).
 - Reach-checked (10).
 - **[2.1]** Fast-transferring modules onto ghosts creates module requests.
 
@@ -715,7 +763,13 @@ The starting piece may be an existing one (1.1).
 
 **Click semantics:**
 - LMB = 1; RMB = 5; Shift+LMB = all.
-- Clicking with insufficient materials → flying text **"Not enough ingredients"** plus the error sound. Nothing is queued.
+- **A request is clamped to what can be crafted now** (corrected 2026-10-20 from Factorio 2.0.77 tests, C1c): with ingredients for fewer crafts than asked
+  (including chain-crafted intermediates), the affordable number is queued, without a message. Tested: RMB
+  (craft 5) with plates for 3 gears queued 3; a chain request with raw materials for 2 inserters queued 2
+  inserters with their intermediates (2 gears, 3 copper cable, 2 circuits). The Lua API agrees:
+  `begin_crafting{count=5}` returned 3 and documents "The count that was actually started crafting".
+- **Only when nothing can be crafted:** the flying text at the cursor reads **`Not enough ingredients.`** (locale
+  `not-enough-ingredients=Not enough ingredients.`), with the error sound. Nothing is queued. (corrected 2026-10-20 from Factorio 2.0.77 tests, C1c)
 
 **Tooltip colouring:**
 - missing raw ingredients in **red**;
@@ -725,14 +779,21 @@ The starting piece may be an existing one (1.1).
 1. For each ingredient, use the inventory first, *excluding* items reserved by earlier queue entries.
 2. If short, and the ingredient has a hand-craftable recipe, recursively queue that intermediate (depth-first). Intermediates appear as **separate queue entries before** the parent, drawn in a "promised" style (`promised_crafting_queue_slot`).
 3. Surplus from intermediate crafts is **available to later crafts in the same request** (0.13.14). Items you explicitly ordered are never consumed by other orders.
-4. If any raw shortfall remains → refuse the whole click ("Not enough ingredients").
+4. If a raw shortfall remains, the request shrinks to the count that can be crafted; only a count of zero is refused (`Not enough ingredients.`). (corrected 2026-10-20 from Factorio 2.0.77 tests, C1c)
 
 **Queueing and progress:**
 - **Ingredients are removed from the inventory at enqueue time.** Cancelling returns them, cascading through intermediates; intermediates already finished stay crafted.
+- **A cancel is never refused** (corrected 2026-10-20 from Factorio 2.0.77 tests, C1c): the refund goes into the main inventory as far as it fits, and the rest
+  is dropped on the ground around the character, with the bottom-left message `Cannot insert Iron plate.
+  Inventory is full.` Tested: with one free slot, a 160-plate refund put 100 in the inventory and dropped 60; with
+  a full inventory all 152 plates were dropped. An item already crafted but waiting for space is dropped too.
+  Sources: Rseding91, forums t=93124 and t=131258.
 - Consecutive clicks on the same recipe **merge** into one queue entry with a count.
 - Craft time = recipe energy / crafting speed 1.0 (most early recipes take 0.5 s). Hand crafting runs at 1×, and machines have their own speeds (assembler 1: 0.5).
 - Products go to the main inventory, with flying text "+1 Iron gear wheel (13)".
-- Crafting **pauses** while the product can't fit (0.15).
+- Crafting **pauses** while the product can't fit (0.15): the queue holds at 100 % progress, nothing is dropped,
+  and the bottom-left message reads `Cannot insert Iron gear wheel. Inventory is full.`; the craft finishes once
+  space frees up. (corrected 2026-10-20 from Factorio 2.0.77 tests, C1c)
 - Hand-crafted items count in production statistics (0.17).
 
 **Crafting queue on the HUD** (bottom-left; §4.5):
