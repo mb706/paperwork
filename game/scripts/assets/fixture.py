@@ -14,6 +14,20 @@ mover/character, item/iron-plate, item/iron-ore, item/iron-chest, fx/missing). P
 colour per set, with a pale tick toward the frame's direction and a shade per frame index, at 8 px per tile.
 The belt's mask table is transport_belt.py's (its bit semantics are a proposal to the sim; see that file).
 
+The atlas follows the build's exact composition (10 §9.1, §9.2; codex C6-r1 finding 3):
+  * an animated set is made from complete frames: F0 is frame 0 whole, packed as one cell; the base pieces are
+    sub-rectangles of that cell (F0 minus every layer's rectangle R); each layer frame is a cell of R plus a gutter
+    of that frame's own neighbouring pixels. The moving content stays 2 px inside R, so F0 and every frame agree on
+    R's band and filtering across a cut reads the right texels at both levels;
+  * the furnace has a 22 %-opaque glass band crossing R's left and right edges (B2's translucent case);
+  * every cell sits on 2 px with a gutter of one texel at the array's lowest level (colour and icons: 2 px, two
+    levels; shadows and light: 1 px, one level), so the level-1 box filter and bilinear reads stay in the cell;
+  * the inserter's frame anchors are consistent with its pivots: pivot - anchor is `shoulder` for the arm and
+    hands and `shadowShoulder` for their shadows (manifest.py's inserter rule);
+  * the radar's shadow follows the dish (`animShadow`).
+checks.py runs the cases and draws every animated set from the decoded pages (composite.py): the pieces plus the
+layers must equal the whole frame, dE <= 0.5, at levels 0 and 1.
+
 Every number in cases.json comes from manifest.py; the interpretations it records where 10 §15.7 is silent are
 listed at the top of manifest.py.
 """
@@ -37,19 +51,22 @@ import manifest as MF  # noqa: E402
 
 OUT = os.path.join(K.GAME, 'test', 'fixtures', 'sprites')
 PX = {'colour': 8, 'shadow': 4, 'light': 2, 'icon': 16}
-PAGE = {'colour': 256, 'shadow': 256, 'light': 64, 'icon': 64}
+PAGE = {'colour': 512, 'shadow': 256, 'light': 64, 'icon': 64}
 LEVELS = {'colour': 2, 'shadow': 1, 'light': 1, 'icon': 2}
 ARRAY_ORDER = ('colour', 'shadow', 'light', 'icon')
-GUTTER = 1
-ALIGN = 2
+GUTTER = {'colour': 2, 'shadow': 1, 'light': 1, 'icon': 2}     # one texel at the array's lowest level
+ALIGN = 2                                                      # cells on 2 px: level 1 never mixes two cells
 
 
 class Atlas:
     def __init__(self):
-        self.frames = []            # (array, image (h, w, c) float premultiplied, ax, ay)
+        # (array, image (h, w, c) float premultiplied, ax, ay, source image, the frame's top-left in it)
+        self.frames = []
 
-    def add(self, array, img, ax, ay):
-        self.frames.append((array, img.astype(np.float32), ax, ay))
+    def add(self, array, img, ax, ay, src=None, at=(0, 0)):
+        """A frame; `src` (with the frame's top-left at `at`) holds the pixels around it that fill its gutter (by
+        default none: the gutter is transparent, as around a trimmed sprite)."""
+        self.frames.append((array, img.astype(np.float32), ax, ay, src, at))
         return len(self.frames) - 1
 
 
@@ -108,24 +125,63 @@ def load_belt():
     return mod
 
 
+def cut(rect, hole):
+    """rect minus hole (inside it), as up to four rectangles (above, below, left, right; empty ones dropped)."""
+    x0, y0, x1, y1 = rect
+    hx0, hy0, hx1, hy1 = hole
+    out = [(x0, y0, x1, hy0), (x0, hy1, x1, y1), (x0, hy0, hx0, hy1), (hx1, hy0, x1, hy1)]
+    return [q for q in out if q[2] > q[0] and q[3] > q[1]]
+
+
+def layered(A, frames, anchor, R):
+    """An animated set from its complete frames (premultiplied, same size; `R` = the layer's rectangle in them):
+    F0 packed whole, its pieces around R, and each frame's R with a gutter of that frame's own pixels."""
+    H, W = frames[0].shape[:2]
+    for k, fr in enumerate(frames):
+        band = np.ones((H, W), bool)
+        band[R[1] + 2:R[3] - 2, R[0] + 2:R[2] - 2] = False
+        if np.abs(fr - frames[0])[band].max() > 0:
+            raise ValueError(f'fixture: frame {k} differs from F0 outside R\'s inner area')
+    f0 = A.add('colour', frames[0], anchor[0], anchor[1])
+    pieces = [('piece', f0, q) for q in cut((0, 0, W, H), R)]
+    layer = [A.add('colour', fr[R[1]:R[3], R[0]:R[2]], anchor[0] - R[0], anchor[1] - R[1], src=fr, at=(R[0], R[1]))
+             for fr in frames]
+    return pieces, layer
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # The sets
 # ---------------------------------------------------------------------------------------------------------------
 
+def furnace_frame(col, k):
+    """The stone furnace's complete frame k (16 x 24 px, 2 x 2 tiles): a block, a 22 %-opaque glass band across the
+    sprite through R = (4, 8, 12, 16), and the fire, a 4 x 4 square 2 px inside R, lighter with each frame."""
+    img = block(16, 24, col)
+    glass = np.array([0.80, 0.88, 0.95], np.float32)
+    img[10:12, 1:15, :3] = glass * 0.22
+    img[10:12, 1:15, 3] = 0.22
+    fire = np.array([0.95, 0.55, 0.20], np.float32) * (1 - 0.45 * k / 15) + 0.45 * k / 15
+    img[10:14, 6:10, :3] = fire
+    img[10:14, 6:10, 3] = 1.0
+    return img
+
+
+def radar_frame(rc, k):
+    """The radar's complete frame k (24 x 24 px, 3 x 3 tiles): a block with the dish, an 8 x 8 block whose tick
+    turns k / 64, 2 px inside R = (6, 0, 18, 12)."""
+    img = block(24, 24, rc)
+    img[2:10, 8:16] = block(8, 8, (0.6, 0.65, 0.7), tick=k / 64)
+    return img
+
+
 def build_sets(A):
     sets = {}
-    four = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]
     four_way = [0, 4, 4, 4, 1, 4, 4, 4, 2, 4, 4, 4, 3, 4, 4, 4]          # 0, 4, 8, 12 and an empty slot
     one = [0] * 16
 
     # --- entity/stone-furnace: F0 cut into pieces around R, a 16-frame layer, an idle image, shadow and light
     col = colour_of('stone-furnace')
-    f0 = block(16, 24, col)
-    f0_id = A.add('colour', f0, 8, 20)
-    pieces = []
-    for sub in ((0, 0, 16, 8), (0, 16, 16, 24), (0, 8, 4, 16), (12, 8, 16, 16)):    # F0 minus R = (4, 8, 12, 16)
-        pieces.append(('piece', f0_id, sub))
-    layer = [A.add('colour', block(8, 8, (0.95, 0.55, 0.2), shade=k / 15), 4, 12) for k in range(16)]
+    pieces, layer = layered(A, [furnace_frame(col, k) for k in range(16)], (8, 20), (4, 8, 12, 16))
     idle = A.add('colour', block(16, 24, col, shade=0.6), 8, 20)
     sh = A.add('shadow', mask_block(10, 6), 2, 3)
     li = A.add('light', block(4, 4, (1.0, 0.6, 0.2)), 2, 3)
@@ -170,18 +226,24 @@ def build_sets(A):
         shadow=dict(axes=['dir', 'mask'], shape=[5, len(combos)], map=dict(dir=four_way, mask=mmap),
                     table=table([5, len(combos)], belt_shadow))))
 
-    # --- entity/inserter: platform [dir], arm, hands, with pivots; shadows alike
+    # --- entity/inserter: platform [dir], arm, hands, with pivots; shadows alike. Each frame's anchor is where
+    # the part's ground point lies, so pivot - anchor is the shoulder (shadowShoulder for the shadows)
     icol = colour_of('inserter')
+    shoulder, shadow_shoulder = [0, -3.76], [2.686, 0.739]
+
+    def rot_part(array, img, pivot, offset):
+        return A.add(array, img, round(pivot[0] - offset[0], 3), round(pivot[1] - offset[1], 3))
+
     plat = [A.add('colour', block(8, 8, icol, tick=d / 4), 4, 5) for d in range(4)]
     plat_sh = [A.add('shadow', mask_block(4, 4), 2, 2) for _ in range(4)]
-    arm = A.add('colour', block(4, 10, (0.9, 0.75, 0.25), tick=0.0), 2, 9)
-    arm_sh = A.add('shadow', mask_block(2, 5), 1, 4)
-    ho = A.add('colour', block(4, 4, (0.3, 0.3, 0.3), shade=0.5), 2, 3)
-    hc = A.add('colour', block(4, 4, (0.3, 0.3, 0.3)), 2, 3)
-    ho_sh = A.add('shadow', mask_block(2, 2), 1, 1)
-    hc_sh = A.add('shadow', mask_block(2, 2), 1, 1)
-    sets['entity/inserter'] = dict(kind='inserter', group='core', size=[1, 1], shoulder=[0, -3.76],
-                                   shadowShoulder=[2.686, 0.739], parts=dict(
+    arm = rot_part('colour', block(4, 10, (0.9, 0.75, 0.25), tick=0.0), (2, 9), shoulder)
+    arm_sh = rot_part('shadow', mask_block(2, 5), (1, 4), shadow_shoulder)
+    ho = rot_part('colour', block(4, 4, (0.3, 0.3, 0.3), shade=0.5), (2, 3), shoulder)
+    hc = rot_part('colour', block(4, 4, (0.3, 0.3, 0.3)), (2, 3), shoulder)
+    ho_sh = rot_part('shadow', mask_block(2, 2), (1, 1), shadow_shoulder)
+    hc_sh = rot_part('shadow', mask_block(2, 2), (1, 1), shadow_shoulder)
+    sets['entity/inserter'] = dict(kind='inserter', group='core', size=[1, 1], shoulder=shoulder,
+                                   shadowShoulder=shadow_shoulder, parts=dict(
         platform=dict(axes=['dir'], shape=[5], map=dict(dir=four_way), table=[[i] for i in plat] + [[]]),
         platform_shadow=dict(axes=['dir'], shape=[5], map=dict(dir=four_way), table=[[i] for i in plat_sh] + [[]]),
         arm=dict(axes=[], shape=[], table=[[arm]], pivot=[2, 9], length=8),
@@ -208,7 +270,7 @@ def build_sets(A):
     scol = colour_of('rail-signal')
     lights = [(0.85, 0.2, 0.2), (0.9, 0.8, 0.2), (0.3, 0.8, 0.3)]
     lmap = [min(v, 3) for v in range(256)]                     # status 0 red, 1 yellow, 2 green, others: empty
-    sb = {(d, s): A.add('colour', block(4, 8, scol if s < 3 else scol, tick=d / 16, shade=s / 3), 2, 7)
+    sb = {(d, s): A.add('colour', block(4, 8, scol, tick=d / 16, shade=s / 3), 2, 7)
           for d in range(16) for s in range(3)}
     sg = {(d, s): A.add('light', block(2, 2, lights[s]), 1, 3) for d in range(16) for s in range(3)}
     ssh = {d: A.add('shadow', mask_block(2, 4), 1, 3) for d in range(16)}
@@ -246,13 +308,12 @@ def build_sets(A):
         base=dict(axes=['orientation'], shape=[64], table=[[i] for i in lo]),
         shadow=dict(axes=['orientation'], shape=[64], table=[[i] for i in los])))
 
-    # --- entity/radar: base, a 64-frame dish layer, and an animated shadow (animShadow: a frame axis)
+    # --- entity/radar: F0 cut around the dish's R, a 64-frame dish layer, and the animated shadow (animShadow)
     rc = colour_of('radar')
-    rbase = A.add('colour', block(24, 24, rc), 12, 20)
-    dish = [A.add('colour', block(8, 8, (0.6, 0.65, 0.7), tick=k / 64), 4, 14) for k in range(64)]
+    rpieces, dish = layered(A, [radar_frame(rc, k) for k in range(64)], (12, 20), (6, 0, 18, 12))
     rsh2 = [A.add('shadow', mask_block(8, 6, 0.3 + 0.004 * k), 3, 3) for k in range(64)]
-    sets['entity/radar'] = dict(kind='entity', group='core', size=[3, 3], parts=dict(
-        base=dict(axes=['dir'], shape=[1], map=dict(dir=one), table=[[rbase]]),
+    sets['entity/radar'] = dict(kind='entity', group='core', size=[3, 3], animShadow=True, parts=dict(
+        base=dict(axes=['dir'], shape=[1], map=dict(dir=one), table=[rpieces]),
         layers=[dict(axes=['dir', 'frame'], shape=[1, 64], map=dict(dir=one), table=[[i] for i in dish])],
         shadow=dict(axes=['dir', 'frame'], shape=[1, 64], map=dict(dir=one), table=[[i] for i in rsh2])))
 
@@ -263,7 +324,6 @@ def build_sets(A):
         sets[name] = dict(kind='entity', group='core', size=[1, 1], parts=dict(
             base=dict(axes=['dir'], shape=[1], map=dict(dir=one), table=[[cid]]),
             shadow=dict(axes=['dir'], shape=[1], map=dict(dir=one), table=[[csh]])))
-    _ = four
 
     # --- icons
     for name in ('item/iron-plate', 'item/iron-ore', 'item/iron-chest', 'fx/missing'):
@@ -273,14 +333,32 @@ def build_sets(A):
 
 
 # ---------------------------------------------------------------------------------------------------------------
-# Packing (a shelf packer: cells of the frame plus a 1-px gutter, on 2 px for the two-level colour pages)
+# Packing (a shelf packer: cells of the frame plus its gutter, on 2 px)
 # ---------------------------------------------------------------------------------------------------------------
+
+def cell_image(fr, g, C):
+    """The frame and its gutter of `g` px: the source's real pixels around the frame, transparent beyond it."""
+    _, img, _, _, src, at = fr
+    h, w = img.shape[:2]
+    out = np.zeros((h + 2 * g, w + 2 * g, C), np.float32)
+    if src is None:
+        out[g:g + h, g:g + w] = img[..., :C]
+        return out
+    sh, sw = src.shape[:2]
+    x0, y0 = at[0] - g, at[1] - g
+    sx0, sy0, sx1, sy1 = max(0, x0), max(0, y0), min(sw, x0 + w + 2 * g), min(sh, y0 + h + 2 * g)
+    out[sy0 - y0:sy1 - y0, sx0 - x0:sx1 - x0] = src[sy0:sy1, sx0:sx1, :C]
+    if np.abs(out[g:g + h, g:g + w] - img[..., :C]).max() > 0:
+        raise ValueError('fixture: a frame is not its source at its position')
+    return out
+
 
 def pack(A):
     placed = {}
     pages = {k: [] for k in ARRAY_ORDER}
     for array in ARRAY_ORDER:
         S = PAGE[array]
+        g = GUTTER[array]
         ids = [i for i, f in enumerate(A.frames) if f[0] == array]
         ids.sort(key=lambda i: (-A.frames[i][1].shape[0], i))
         page_i, x, y, row = 0, 0, 0, 0
@@ -289,16 +367,16 @@ def pack(A):
         for i in ids:
             img = A.frames[i][1]
             h, w = img.shape[:2]
-            cw = -(-(w + 2 * GUTTER) // ALIGN) * ALIGN
-            ch = -(-(h + 2 * GUTTER) // ALIGN) * ALIGN
+            cw = -(-(w + 2 * g) // ALIGN) * ALIGN
+            ch = -(-(h + 2 * g) // ALIGN) * ALIGN
             if x + cw > S:
                 x, y, row = 0, y + row, 0
             if y + ch > S:
                 pages[array].append(np.zeros((S, S, C), np.float32))
                 page_i, x, y, row = page_i + 1, 0, 0, 0
-            fx, fy = x + GUTTER, y + GUTTER
-            pages[array][page_i][fy:fy + h, fx:fx + w] = img[..., :C]
-            placed[i] = (ARRAY_ORDER.index(array), page_i, fx, fy, w, h)
+            cell = cell_image(A.frames[i], g, C)
+            pages[array][page_i][y:y + h + 2 * g, x:x + w + 2 * g] = cell
+            placed[i] = (ARRAY_ORDER.index(array), page_i, x + g, y + g, w, h)
             x += cw
             row = max(row, ch)
     return placed, pages

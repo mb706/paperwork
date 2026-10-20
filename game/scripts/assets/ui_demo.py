@@ -1,11 +1,13 @@
 """QC page for the UI skin: a Factorio-layout entity window and HUD pieces drawn with public/sheets/ui-skin.css.
 
-    gamedev-python game/scripts/assets/ui_demo.py         # writes .cache/assets/qc/www/qc-ui.html
+    gamedev-python game/scripts/assets/ui_demo.py [--manifest <sprites.json>]   # writes .cache/assets/qc/www/qc-ui.html
 
-Only for review (screenshots by shoot.mjs at device pixel ratios 1 and 2): the UI package builds the real screens.
-Every string is a data name or description (design/spec/data), so nothing here is invented player-facing text.
+Screenshots by shoot.mjs at device pixel ratios 1 and 2 (the build runs them before publishing: a console error,
+such as a missing font, sheet or glyph, fails it); the UI package builds the real screens. Every string is a data
+name or description (design/spec/data), so nothing here is invented player-facing text.
 """
 
+import argparse
 import os
 import sys
 
@@ -15,8 +17,11 @@ import common as K  # noqa: E402
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--manifest', default=os.path.join(K.PUBLIC, 'atlases', 'sprites.json'))
+    a = ap.parse_args()
     ui = K.load_json(os.path.join(K.CACHE, 'ui.json'))
-    man = K.load_json(os.path.join(K.PUBLIC, 'atlases', 'sprites.json'))
+    man = K.load_json(a.manifest)
     sheets = man['dom']['icons']['core']
     idx = man['dom']['iconSheets']['core']
     cols = idx['columns']

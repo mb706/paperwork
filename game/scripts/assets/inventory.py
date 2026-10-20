@@ -1,10 +1,12 @@
 """The byte inventory (10 §9.7): every atlas group's files and exact bytes on the wire, and the build gate.
 
-    gamedev-python game/scripts/assets/inventory.py [--gate-core 5000000] [--gate-group 3000000]
+    gamedev-python game/scripts/assets/inventory.py --manifest <sprites.json> --out <inventory.json>
+        [--gate-core 5000000] [--gate-group 3000000]
 
-Reads public/atlases/sprites.json and writes public/atlases/inventory.json. Per group: the Normal levels (colour
-`.n` files, shadows, lights, icons), its DOM icon sheets and, for core, the terrain textures, the UI skin and the
-fonts; High level 0 (`.h` files) is listed apart, because it streams on demand and is not in a stage budget.
+Reads a manifest (the build's staged one, before it is published) and writes the inventory. Per group: the
+Normal levels (colour `.n` files, shadows, lights, icons), its DOM icon sheets and, for core, the terrain
+textures, the UI skin and the fonts; High level 0 (`.h` files) is listed apart, because it streams on demand and
+is not in a stage budget.
 KTX2, WebP and WOFF2 are already compressed, so their bytes are the wire bytes; the JSON manifests are counted
 brotli-compressed (quality 11), as the build serves them.
 
@@ -31,8 +33,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--gate-core', type=int, default=5_000_000)
     ap.add_argument('--gate-group', type=int, default=3_000_000)
+    ap.add_argument('--manifest', default=os.path.join(K.PUBLIC, 'atlases', 'sprites.json'))
+    ap.add_argument('--out', default=os.path.join(K.PUBLIC, 'atlases', 'inventory.json'))
     a = ap.parse_args()
-    man_path = os.path.join(K.PUBLIC, 'atlases', 'sprites.json')
+    man_path = a.manifest
     man = K.load_json(man_path)
     groups = {}
 
@@ -96,7 +100,7 @@ def main():
     inv = dict(groups=dict(sorted(groups.items())), first_frame=dict(core_bytes=core['normal_bytes'],
                other_bytes=other, other_source=other_source, total=first_frame, gate=a.gate_core),
                gate_group=a.gate_group, ok=not fails, failures=fails)
-    K.dump_json(os.path.join(K.PUBLIC, 'atlases', 'inventory.json'), inv)
+    K.dump_json(a.out, inv)
     for name, G in sorted(groups.items()):
         print(f'[budget] group {name}: Normal {G["normal_bytes"] / 1e3:.0f} kB, High level 0 '
               f'{G["high_bytes"] / 1e3:.0f} kB, {G["sets"]} sets', flush=True)

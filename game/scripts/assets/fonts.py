@@ -7,14 +7,19 @@ capitals), Courier Prime 400, 700 (typed values), Titillium Web 400, 600 (world 
 licences are committed in game/assets/fonts/ (SIL Open Font License 1.1; OFL-*.txt). Subsets keep Basic Latin,
 Latin-1, Latin Extended-A, Greek, general punctuation, super- and subscripts, the letterlike ℓ, arrows and the
 mathematical signs the text canon uses, with the features kern, liga, lnum, tnum and case where a face has them.
-Output: public/fonts/<face>.<hash8>.woff2 and the licences; the result lists every file for the build manifest.
+Output: public/fonts/<face>.<hash8>.woff2, the licences and the index public/fonts/fonts.<hash8>.json (faces and
+coverage; the manifest's dom.fonts names it), written additively like the atlases: a hashed name is its content, so
+the files the published manifest names are never touched (build-assets.ts collects unreferenced ones after a
+successful publish). The result (--out) lists every file for the inventory and names the index.
 
 Coverage: every character of the text canon (design/spec/data/text.yaml) and the locale (game/locale/en.yaml, when
-it exists) is looked up in each subset; characters a face lacks are reported (the data stage gates this, §9.3).
+it exists) is looked up in each subset; a face that lacks one fails the build (§9.3: no player-facing string may
+fall back to a system font).
 """
 
 import argparse
 import hashlib
+import json
 import os
 import shutil
 import sys
@@ -74,9 +79,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', required=True)
     a = ap.parse_args()
-    if os.path.isdir(FONTS_OUT):
-        shutil.rmtree(FONTS_OUT)
-    os.makedirs(FONTS_OUT)
+    os.makedirs(FONTS_OUT, exist_ok=True)
     wanted = unicodes()
     canon = canon_chars()
     files, faces, missing = [], [], {}
@@ -94,7 +97,7 @@ def main():
         sub = subset.Subsetter(options=opts)
         sub.populate(unicodes=wanted)
         sub.subset(font)
-        tmp = os.path.join(FONTS_OUT, stem + '.tmp.woff2')
+        tmp = os.path.join(FONTS_OUT, f'{stem}.{os.getpid()}.tmp.woff2')
         font.flavor = 'woff2'
         font.save(tmp)
         with open(tmp, 'rb') as f:
@@ -112,12 +115,24 @@ def main():
         print(f'[fonts] {stem}: {len(data) / 1e3:.1f} kB, {len(font.getGlyphOrder())} glyphs'
               + (f', lacks {len(lacks)} canon characters' if lacks else ''), flush=True)
     for lic in sorted({f[3] for f in FACES}):
-        shutil.copy(os.path.join(K.FONT_SRC, lic), os.path.join(FONTS_OUT, lic))
+        tmp = os.path.join(FONTS_OUT, f'{lic}.{os.getpid()}.tmp')
+        shutil.copy(os.path.join(K.FONT_SRC, lic), tmp)
+        os.replace(tmp, os.path.join(FONTS_OUT, lic))
         files.append(dict(file=f'fonts/{lic}', bytes=os.path.getsize(os.path.join(FONTS_OUT, lic))))
     total = sum(f['bytes'] for f in faces)
     print(f'[fonts] {len(faces)} faces, {total / 1e3:.0f} kB', flush=True)
-    K.dump_json(os.path.join(FONTS_OUT, 'fonts.json'), dict(faces=faces, missing=missing))
-    K.dump_json(a.out, dict(faces=faces, files=files, missing=missing, total_bytes=total))
+    index = (json.dumps(dict(faces=faces, missing=missing), indent=1, sort_keys=True) + '\n').encode()
+    name = f'fonts.{hashlib.sha256(index).hexdigest()[:8]}.json'
+    tmp = os.path.join(FONTS_OUT, f'{name}.{os.getpid()}.tmp')
+    with open(tmp, 'wb') as f:
+        f.write(index)
+    os.replace(tmp, os.path.join(FONTS_OUT, name))
+    files.append(dict(file=f'fonts/{name}', bytes=len(index)))
+    K.dump_json(a.out, dict(faces=faces, files=files, missing=missing, total_bytes=total, index=f'fonts/{name}'))
+    if missing:
+        for stem, chars in sorted(missing.items()):
+            print(f'[fonts] FAIL {stem} lacks {len(chars)} canon character(s): {chars!r}', flush=True)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

@@ -1,23 +1,34 @@
 """The asset build's checks (10 §9.5) on the emitted manifest, its pages and the fixtures.
 
-    gamedev-python game/scripts/assets/checks.py --manifest public/atlases/sprites.json --layout layout.json
+    gamedev-python game/scripts/assets/checks.py --manifest <staged sprites.json> --layout layout.json
     gamedev-python game/scripts/assets/checks.py --fixtures-only
 
+Every check gates: a failure exits non-zero and the build does not publish. The only warnings are 10 §9.5 #5's
+compression numbers that decision 13 (pm/DECISIONS-IMPL.md) turned into warnings, with gates on floors measured
+from the M0 pages (GATE, FALLBACK_GATE), and the confusability flags that §9.3 and §9.5 #4 ask to report.
 Manifest:  the JSON schema (sprites.schema.json), complete tables and maps, valid ids, frames inside pages, every
-           kind's parts; every prototype of the build (prototypes.json) has its set or greybox, every icon its set;
-           the projection fixture cases of test/fixtures/sprites/cases.json (10 §15.7) against manifest.py.
+           kind's parts, layer slots, animated channels and inserter anchors (manifest.validate); every prototype
+           of the build (prototypes.json) has its set or greybox, every icon its set.
+Fixtures:  test/fixtures/sprites/: the schema, manifest.validate, the cases of cases.json against manifest.py, the
+           files' upload contract (ktx2.py) and the composite drawn from its decoded pages (composite.py).
+KTX2:      every published file's header and data format descriptor against the upload contract (ktx2.py): UNORM
+           (transfer linear), premultiplied for colour, light, icon and terrain, the codec's model, sizes, levels.
 Cells:     every cell on its array's block alignment and inside its page, no two cells overlapping (gutters
            included), every frame inside its own cell (§9.5 #5 "Cells").
+Composite: every layered set, every combination and layer, drawn from the page levels the build encodes, against
+           the whole frame (composite.py; §9.5 #2).
 Pages:     every encoded page transcoded back (basisu -unpack) to BC7 for colour, light and icons and BC4 for
            shadows, compared with its source levels by §9.2's measures (PSNR, CIELAB dE on the paper, detail kept;
-           a shadow also as the hatched paper), naming the worst sprite. 10 §9.5 #5's thresholds are warnings and
-           the gate is the calibrated floors of GATE (the reason is at SPEC). Levels below Normal are reported only.
-Fallbacks: every page through ASTC 4x4, BC3 and ETC2 RGBA (EAC R11 for shadows) against BC7: a warning beyond
-           §9.2's measured ratio +10%, a failure beyond 1.5 times it.
-Cells:     each page's layout filled with solid colours, encoded and transcoded to every format of its chain:
+           a shadow also as the hatched paper), naming the worst sprite. 10 §9.5 #5's thresholds warn and GATE's
+           floors gate (decision 13). Levels below Normal are reported only.
+Fallbacks: every page through ASTC 4x4, BC3 and ETC2 RGBA (EAC R11 for shadows), its dE mean against BC7's on the
+           same page: §9.2's ratio +10% warns; the gate is the M0 pages' measured ratio +10% (FALLBACK_GATE).
+Probe:     each page's layout filled with solid colours, encoded and transcoded to every format of its chain:
            no texel of any level strays from its cell's colour; every frame's bilinear footprint stays in its cell.
-Sets:      quality.py's per-set checks (composite, registration, the 3 % rule, geometry, shadow direction).
-Results go to .cache/assets/qc/checks.json; any failure exits non-zero.
+GPU:       10 §6.13's complete allocation (budget.py) in every mode: High must fit with a 1-byte-per-pixel format,
+           and the RGBA8 fallback must fit Normal (the slice's expectation).
+Sets:      quality.py's per-set checks (registration, crop ink, the full render, the 3 % rule, shadow direction).
+Results go to .cache/assets/qc/checks.json.
 """
 
 import argparse
@@ -32,11 +43,28 @@ from scipy import ndimage as ndi
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import common as K  # noqa: E402
+import composite as CP  # noqa: E402
+import ktx2  # noqa: E402
 import manifest as MF  # noqa: E402
 
 FIXTURES = os.path.join(K.GAME, 'test', 'fixtures', 'sprites')
 QC = os.path.join(K.CACHE, 'qc')
 UNPACK_CODE = {'bc7': 6, 'bc4': 4}
+
+
+def code_signature():
+    """The SHA-256 of the measuring code (the functions below that compute a cached result, common.py and
+    emulate.py): it keys the result caches, so a changed metric is never answered from an old result (codex C6-r1
+    finding 6), while a changed gate, applied after the lookup, does not force a re-measurement."""
+    import hashlib
+    import inspect
+    h = hashlib.sha256()
+    for fn in (unpack, decode_page, detail_keep, page_metrics, hatched_metrics, _page_levels_metrics,
+               _probe_levels, fallback_checks, cell_probe_checks):
+        h.update(inspect.getsource(fn).encode())
+    for f in ('common.py', 'emulate.py'):
+        h.update(K.sha256_file(os.path.join(HERE, f)).encode())
+    return h.hexdigest()[:16]
 
 
 def schema_errors(man):
@@ -56,7 +84,9 @@ def coverage_errors(man):
     for e in data.get('entity', []):
         if e['sprite'] not in sets and f'greybox/{e["name"]}' not in sets:
             errs.append(f'coverage: entity {e["name"]} has neither {e["sprite"]} nor a greybox')
-        if f'greybox/{e["name"]}' not in sets:
+        # the character is a mover (MOVERS, mover/character), drawn from core, never as a greybox (the golden
+        # set's own coverage test excludes it the same way)
+        if e.get('type') != 'character' and f'greybox/{e["name"]}' not in sets:
             errs.append(f'coverage: entity {e["name"]} has no greybox')
     for r in data.get('resource', []):
         if r.get('kind') == 'solid' and r['sprite'] not in sets:
@@ -121,12 +151,12 @@ def cell_errors(man, layout):
 # Transcoder target codes of basisu -unpack -format_only (B2's cell_isolation_check.py).
 FORMATS = {'bc7': 6, 'astc4x4': 10, 'bc3': 3, 'etc2_rgba': 1}
 GREY_FORMATS = {'bc4': 4, 'eac_r11': 20}
-CODEC_ARGS = {'xubc7': ['-xubc7', '-quality', '90'], 'etc1s': ['-etc1s', '-q', '255', '-linear']}
 
 # 10 §9.5 #5's numbers, measured by B2 on a dense page of large machine sprites. Edge-dense pages (the character's
 # 288 frames, ore, belts, icons) cannot reach them in BC7 at any basisu setting (lossless XUBC7 and q90 measure
 # alike; B2's own page gives dE p99 6.3 at Normal and its icon page 8.8), so they are reported as warnings, and the
-# build gates on the floors below: about 2 dB and 2 dE under the worst page of the M0 build (pm/reports/C6.md).
+# build gates on the floors below: about 2 dB and 2 dE under the worst page of the M0 build (pm/reports/C6.md;
+# decision 13 of pm/DECISIONS-IMPL.md).
 SPEC = {
     ('colour', 0): dict(psnr=40.0, dE_p99=6.0, detail=0.98),
     ('colour', 1): dict(psnr=37.0, dE_p99=6.0, detail=0.98),
@@ -148,12 +178,26 @@ GATE = {
     ('shadow', 0): dict(psnr=26.0, hatched_dE_p99=6.0),
 }
 # §9.2's measured fallback quality (dE mean on the paper) relative to BC7 on the same page: High colour, Normal
-# colour, icons. "Held to §9.2's measured quality, +-10%" is applied to these ratios, since the absolute numbers
-# follow the content.
+# colour, icons. §9.5 #5's "held to §9.2's measured quality, +-10%" is applied to these ratios, since the absolute
+# numbers follow the content; beyond them a page warns (decision 13: §9.5 #5's numbers warn).
 FALLBACK_RATIO = {
     ('colour', 0): {'astc4x4': 0.82 / 0.72, 'bc3': 1.90 / 0.72, 'etc2_rgba': 2.83 / 0.72},
     ('colour', 1): {'astc4x4': 1.23 / 1.01, 'bc3': 2.37 / 1.01, 'etc2_rgba': 3.24 / 1.01},
     ('icon', 0): {'astc4x4': 1.75 / 1.29, 'bc3': 2.67 / 1.29, 'etc2_rgba': 3.40 / 1.29},
+}
+# The gate (decision 13: floors measured from the M0 pages): the same +10% applied to the worst ratio measured on
+# the M0 pages, for every array and level a fallback serves. Edge-dense pages (the character, ore, belts, small
+# machines) measure up to 1.44x BC7 for ASTC 4x4 at Normal where B2's page of large machines gave 1.22x; the same
+# transcoders on the same content cannot move by 10% unless a path breaks (a wrong target, a cell that bleeds,
+# a transcoder regression). Measured with basisu 2.50 on the M0 build of 2026-10-20 (worst page of each array,
+# level and format, times 1.1; pm/reports/C6.md, review r1).
+FALLBACK_GATE = {
+    ('colour', 0): {'astc4x4': 1.51, 'bc3': 3.48, 'etc2_rgba': 5.61},
+    ('colour', 1): {'astc4x4': 1.59, 'bc3': 2.21, 'etc2_rgba': 3.26},
+    ('light', 0): {'astc4x4': 1.50, 'bc3': 3.50, 'etc2_rgba': 4.82},
+    ('light', 1): {'astc4x4': 1.49, 'bc3': 4.79, 'etc2_rgba': 7.74},
+    ('icon', 0): {'astc4x4': 1.45, 'bc3': 2.77, 'etc2_rgba': 3.70},
+    ('icon', 1): {'astc4x4': 1.60, 'bc3': 2.14, 'etc2_rgba': 2.82},
 }
 # shadows: EAC R11 measured 36.3 dB against BC4's 36.0 on B2's page; held to within 10% of BC4's dB here
 
@@ -263,12 +307,9 @@ def _judge(m, limits):
     return bad
 
 
-METRICS_VERSION = 2          # bump when page_metrics or hatched_metrics change: it keys the cache below
-
-
 def _page_levels_metrics(p, grey):
     """[(metrics, worst pixel or None)] per level of an encoded page. The encode is a deterministic function of
-    the source, so the KTX2 files' SHA-256 key the result (cached in qc/compression-cache.json)."""
+    the source, so the KTX2 files' SHA-256 and the measuring code key the result (qc/compression-cache.json)."""
     out = []
     decoded = decode_page(p, UNPACK_CODE['bc4' if grey else 'bc7'], 'bc4' if grey else 'bc7')
     for lv, dec in enumerate(decoded):
@@ -297,7 +338,7 @@ def compression_checks(man, layout, results):
     for p in pages:
         kind = man['arrays'][p['array']]['kind']
         grey = kind == 'shadow'
-        ck = f'v{METRICS_VERSION}-' + '-'.join(p['sha256'])
+        ck = f'{code_signature()}-' + '-'.join(p['sha256'])
         if ck not in cache:
             cache[ck] = _page_levels_metrics(p, grey)
         used[ck] = cache[ck]
@@ -333,7 +374,7 @@ def fallback_checks(man, results):
     for p in pages:
         kind = man['arrays'][p['array']]['kind']
         grey = kind == 'shadow'
-        ck = '-'.join(p['sha256']) + ('-grey' if grey else '')
+        ck = f'{code_signature()}-' + '-'.join(p['sha256']) + ('-grey' if grey else '')
         if ck not in cache:
             src = [K.read_png(os.path.join(K.CACHE, 'pages', f'{p["stem"]}.L{lv}.png')) for lv in range(2)]
             row = {}
@@ -356,22 +397,27 @@ def fallback_checks(man, results):
                 errs.append(f'fallback: {p["stem"]} EAC R11 {e["psnr"]} dB against BC4 {b["psnr"]} dB')
             continue
         for lv in range(2):
-            ratios = FALLBACK_RATIO.get((kind, lv))
             base = row.get(f'bc7 L{lv}')
-            if not ratios or not base or base['dE_mean'] <= 0:
+            if not base:
                 continue
-            for fmt, r in ratios.items():
+            gate = FALLBACK_GATE.get((kind, lv))
+            if gate is None:
+                errs.append(f'fallback: {p["stem"]} level {lv}: no measured gate for {kind} level {lv}')
+                continue
+            ratios = FALLBACK_RATIO.get((kind, lv), {})
+            for fmt, limit in gate.items():
                 got = row.get(f'{fmt} L{lv}')
                 if not got:
+                    errs.append(f'fallback: {p["stem"]} level {lv}: {fmt} was not measured')
                     continue
+                ratio = got['dE_mean'] / max(base['dE_mean'], 1e-6)
+                results.setdefault('fallback_ratios', {})[f'{p["stem"]} L{lv} {fmt}'] = round(ratio, 3)
                 msg = (f'fallback: {p["stem"]} level {lv} {fmt}: dE mean {got["dE_mean"]} against BC7 '
-                       f'{base["dE_mean"]}, {got["dE_mean"] / base["dE_mean"]:.2f}x')
-                # the ratio follows the content a little too (edge-dense pages: up to 1.37x for ASTC where §9.2
-                # measured 1.22x), so +-10% warns and 1.5x the measured ratio fails: a broken transcode path
-                if got['dE_mean'] > 1.5 * r * base['dE_mean']:
-                    errs.append(f'{msg} (fails above {1.5 * r:.2f}x)')
-                elif got['dE_mean'] > 1.1 * r * base['dE_mean']:
-                    results.setdefault('warnings', []).append(f'{msg} (§9.2 +10%: {1.1 * r:.2f}x)')
+                       f'{base["dE_mean"]}, {ratio:.2f}x')
+                if ratio > limit:
+                    errs.append(f'{msg} (the M0 pages\' measured ratio +10%: {limit:.2f}x)')
+                elif fmt in ratios and ratio > 1.1 * ratios[fmt]:
+                    results.setdefault('warnings', []).append(f'{msg} (§9.2 +10%: {1.1 * ratios[fmt]:.2f}x)')
     K.dump_json(cache_path, used)                 # only this build's pages
     results['fallback'] = out
     return errs
@@ -395,8 +441,7 @@ def cell_probe_checks(man, layout, results):
     frame's bilinear footprint at every level lies inside its cell) that is §9.5 #5's edge-texel rule."""
     import hashlib
 
-    import assemble as A
-    import dds
+    import encode as E
     errs = []
     probe_dir = os.path.join(K.CACHE, 'qc', 'probe')
     os.makedirs(probe_dir, exist_ok=True)
@@ -423,8 +468,10 @@ def cell_probe_checks(man, layout, results):
                     errs.append(f'cells: {c["set"]} frame {c["local"]} samples outside its cell at level {lv}')
                 if (c['x'] / f) % 4 or (c['y'] / f) % 4 or (c['cw'] / f) % 4 or (c['ch'] / f) % 4:
                     errs.append(f'cells: {c["set"]} frame {c["local"]} cell off the 4x4 blocks at level {lv}')
-        sig = hashlib.sha256(json.dumps([kind, S, nlev, codec, [[c['x'], c['y'], c['cw'], c['ch']]
-                                                                 for c in lp['cells']]]).encode()).hexdigest()
+        # keyed by the layout, the encoder (basisu and its arguments) and this code
+        sig = hashlib.sha256(json.dumps([kind, S, nlev, codec, E.encoder_signature(), code_signature(),
+                                         [[c['x'], c['y'], c['cw'], c['ch']] for c in lp['cells']]]).encode()
+                             ).hexdigest()
         if sig in cache:
             res[f'{kind}-{lp["group"]}-{lp["index"]}'] = used[sig] = cache[sig]
             continue
@@ -444,12 +491,13 @@ def cell_probe_checks(man, layout, results):
             ids[c['y']:c['y'] + c['ch'], c['x']:c['x'] + c['cw']] = i
         cols = np.array(cols, np.float32)
         lv8 = [K.to8(a) for a in _probe_levels(img, nlev)]
-        src = os.path.join(probe_dir, sig[:16] + '.dds')
         ktx = os.path.join(probe_dir, sig[:16] + '.ktx2')
-        dds.write_dds(src, [A.as_rgba(a) for a in lv8])
-        subprocess.run(['basisu', '-ktx2', '-no_stats'] + CODEC_ARGS[codec] + [src, '-output_file', ktx],
-                       check=True, capture_output=True)
-        os.remove(src)
+        # the build's own encoder, arguments and metadata (the transcoder reads the DFD)
+        E.run_basisu(lv8, codec, os.path.join(probe_dir, sig[:16] + '.dds'), ktx)
+        with open(ktx, 'rb') as f:
+            data = E.finish(f.read(), kind)
+        with open(ktx, 'wb') as f:
+            f.write(data)
         row = {}
         for fmt, code in (GREY_FORMATS if grey else FORMATS).items():
             dec = unpack(ktx, code, os.path.join(probe_dir, 'unpack', f'{sig[:16]}.{fmt}'))
@@ -495,11 +543,103 @@ def fixture_errors():
         got = FX.evaluate(man, c)
         if json.dumps(got, sort_keys=True) != json.dumps(c['expect'], sort_keys=True):
             errs.append(f'fixtures: case {c["name"]!r} differs from manifest.py')
+    missing = False
     for f in man['pages']:
         for p in f:
             for fn in p['files']:
                 if not os.path.exists(os.path.join(FIXTURES, fn)):
                     errs.append(f'fixtures: page file {fn} missing')
+                    missing = True
+    if missing:
+        return errs
+    errs += [f'fixture {e}' for e in ktx2_errors(man, FIXTURES)]
+    cache = {}
+
+    def page_level(a, layer, lv):
+        if (a, layer) not in cache:
+            levels = []
+            for fn in man['pages'][a][layer]['files']:
+                levels += ktx2.read_levels(os.path.join(FIXTURES, fn))
+            cache[(a, layer)] = levels
+        return cache[(a, layer)][lv]
+
+    c_errs, _ = CP.check(man, page_level)
+    errs += [f'fixture {e}' for e in c_errs]
+    return errs
+
+
+# --------------------------------------------------------------------------------------------------------------
+# The upload contract of every KTX2 file (ktx2.py; codex C6-r1 finding 1)
+# --------------------------------------------------------------------------------------------------------------
+
+def ktx2_errors(man, root):
+    """Every page file (and terrain texture) of a manifest against the upload contract: what its DFD declares must
+    be how the renderer uploads and blends it."""
+    errs = []
+    for ai, arr in enumerate(man['arrays']):
+        for li, page in enumerate(man['pages'][ai]):
+            files = page['files']
+            if arr['kind'] == 'colour' and len(files) != 2:
+                errs.append(f'ktx2: colour page {li} has {len(files)} files, not 2 (.h and .n)')
+                continue
+            if arr['kind'] != 'colour' and len(files) != 1:
+                errs.append(f'ktx2: {arr["kind"]} page {li} has {len(files)} files, not 1')
+                continue
+            first = 0
+            for fi, fn in enumerate(files):
+                n = 1 if (arr['kind'] == 'colour' and fi == 0) else arr['levels'] - first
+                try:
+                    h = ktx2.read_header(os.path.join(root, fn))
+                except (OSError, ValueError) as e:
+                    errs.append(f'ktx2: {fn}: {e}')
+                    continue
+                for e in ktx2.contract_errors(h, arr['kind'], arr['codec'], arr['pageSize'] >> first, n):
+                    errs.append(f'ktx2: {fn}: {e}')
+                first += n
+    t = man.get('terrain')
+    if t:
+        for name, rec in sorted(t['tiles'].items()):
+            try:
+                h = ktx2.read_header(os.path.join(root, rec['file']))
+            except (OSError, ValueError) as e:
+                errs.append(f'ktx2: {rec["file"]}: {e}')
+                continue
+            for e in ktx2.contract_errors(h, 'terrain', t['codec'], t['size'], t['levels']):
+                errs.append(f'ktx2: {rec["file"]}: {e}')
+    return errs
+
+
+def composite_errors(man, results):
+    """10 §9.5 #2's composite on the page levels this build encodes (.cache/assets/pages/, assemble.py)."""
+    pages = K.load_json(os.path.join(K.CACHE, 'assembled.json'))['pages']
+    stems = {}
+    for a in range(len(man['arrays'])):
+        for i, p in enumerate(q for q in pages if q['array'] == a):
+            stems[(a, i)] = p['stem']
+    cache = {}
+
+    def page_level(a, layer, lv):
+        if (a, layer, lv) not in cache:
+            cache[(a, layer, lv)] = K.read_png(os.path.join(K.CACHE, 'pages', f'{stems[(a, layer)]}.L{lv}.png'))
+        return cache[(a, layer, lv)]
+
+    errs, res = CP.check(man, page_level)
+    results['composite'] = res
+    return errs
+
+
+def gpu_errors(man, results):
+    """10 §6.13: the complete allocation in every mode (budget.py); High must fit with a 1-byte-per-pixel format
+    and the RGBA8 fallback must fit Normal, as the slice expects (§9.6)."""
+    import budget as B
+    alloc = B.gpu_allocations(man)
+    results['gpu_mb'] = alloc
+    errs = []
+    for mode, want in (('high_1bpp', 'High with BC7, ASTC, BC3 or ETC2'), ('normal_rgba8', 'Normal with RGBA8')):
+        m = alloc['modes'][mode]
+        for dpr in ('dpr1', 'dpr2'):
+            if m[dpr] > m['budget']:
+                errs.append(f'gpu: {want} allocates {m[dpr]:.0f} MB at {dpr}, over §6.13\'s {m["budget"]} MB')
     return errs
 
 
@@ -520,6 +660,9 @@ def main():
         errs += MF.validate(man)
         errs += coverage_errors(man)
         errs += cell_errors(man, layout)
+        errs += ktx2_errors(man, K.PUBLIC)
+        errs += composite_errors(man, results)
+        errs += gpu_errors(man, results)
         if not a.no_pages:
             errs += compression_checks(man, layout, results)
             errs += fallback_checks(man, results)

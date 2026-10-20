@@ -13,6 +13,8 @@ import math
 
 SHOULDER = 0.47
 ARM_LENGTH = 1.0
+FIREBOX = 'iron_chest'          # the burner's stove, its mouth glowing while it works
+BURNER_IRON = 'steel_bare'      # the burner's turntable, column and hub
 
 
 def meta(margin=0.6):
@@ -31,8 +33,8 @@ def platform(P, d, arm_mat, burner=False):
     o['bolts'] = P.join(bolts, 'bolts')
     # the housing on the pickup side (built at the south for a north-facing inserter, then turned with d)
     if burner:
-        housing = [P.box(0.40, 0.20, 0.17, 0, -0.18, 0.05, mat='cast_iron', bevel=0.02, name='firebox'),
-                   P.box(0.14, 0.02, 0.08, 0, -0.285, 0.09, mat='fire', bevel=0.0, name='glow')]
+        housing = [P.box(0.36, 0.18, 0.15, 0, -0.18, 0.05, mat=FIREBOX, bevel=0.02, name='firebox'),
+                   P.box(0.14, 0.02, 0.08, 0, -0.275, 0.09, mat='fire', bevel=0.0, name='glow')]
     else:
         housing = [P.box(0.34, 0.16, 0.14, 0, -0.19, 0.05, mat='enamel_blue' if arm_mat != 'arm_blue' else 'steel_paint',
                          bevel=0.02, name='motor'),
@@ -41,9 +43,13 @@ def platform(P, d, arm_mat, burner=False):
     P.rotate_all(turned, -math.radians(d * 22.5))
     for i, h in enumerate(turned):
         o[f'housing{i}'] = h
-    o['turntable'] = P.cyl(0.17, 0.12, 0, 0, 0.05, mat='steel_dark', seg=24, name='turntable')
-    o['column'] = P.cyl(0.12, 0.20, 0, 0, 0.17, mat=arm_mat, seg=24, name='column')
-    o['hub'] = P.cyl(0.10, 0.07, 0, 0, 0.37, mat='steel_dark', seg=20, name='hub')
+    # the burner's turntable, column and hub are bare steel and its firebox plain iron, its arm alone dark: with the
+    # column in the dark arm colour and a cast-iron firebox the platform measured 64 % darker than the paper,
+    # outside A3's 25-60 % (metrics.py --gate); now 59 %, like the inserter's
+    iron = BURNER_IRON if burner else 'steel_dark'
+    o['turntable'] = P.cyl(0.17, 0.12, 0, 0, 0.05, mat=iron, seg=24, name='turntable')
+    o['column'] = P.cyl(0.12, 0.20, 0, 0, 0.17, mat=BURNER_IRON if burner else arm_mat, seg=24, name='column')
+    o['hub'] = P.cyl(0.10, 0.07, 0, 0, 0.37, mat=iron, seg=20, name='hub')
     o['cap'] = P.cyl(0.05, 0.03, 0, 0, 0.44, mat='steel_bare', seg=16, bevel=0.0, name='cap')
     return o
 

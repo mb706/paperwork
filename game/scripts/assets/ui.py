@@ -1,17 +1,18 @@
 """The UI skin (10 §9.3; A3 §12): 9-slice parts, the paper fibre, the glyph sprite and the fonts' CSS.
 
-    gamedev-python game/scripts/assets/ui.py --out .cache/assets/ui.json
+    gamedev-python game/scripts/assets/ui.py --out .cache/assets/ui.json [--fonts .cache/assets/fonts.json]
 
 Only the skin changes; the layout is Factorio's (10 §7.4). Sources are SVG in game/assets/svg/ui/ (each root
 declares data-slice="top right bottom left" in px and data-repeat, CSS's border-image-repeat) and
 game/assets/svg/glyphs/ (24 x 24, drawn in currentColor). Outputs in public/sheets/:
   ui-skin.<hash8>.css   custom properties --pw-<part> holding each part as an SVG data URI, classes .pw-<part>
                         that apply it as a border-image 9-slice (or a background for fixed parts), the palette as
-                        --pw-c-<name>, and the @font-face rules of the fonts (fonts.json); one request, vector-
-                        crisp at every device pixel ratio and UI scale
+                        --pw-c-<name>, and the @font-face rules of the fonts (the index fonts.py names in
+                        --fonts); one request, vector-crisp at every device pixel ratio and UI scale
   paper-fibre.<hash8>.webp   a 256 x 256 periodic fibre overlay (RGBA, WebP q85) for frames and cards
   glyphs.<hash8>.svg    one <symbol id="g-<name>"> per glyph, for <svg><use href="…#g-name"/></svg>
-A raster sheet of every part at 1x and 2x (resvg) goes to .cache/assets/qc/ for review.
+Writing is additive (hashed names; build-assets.ts removes unreferenced files after a successful publish). A raster
+sheet of every part at 1x and 2x (resvg) goes to .cache/assets/qc/ for review.
 
 Deviation from 10 §9.3's letter ("resvg renders them at 1x and 2x into one UI sheet (WebP lossless), which CSS
 uses as border-image 9-slices"): CSS border-image slices a whole image and cannot address a sub-rectangle of a
@@ -88,8 +89,10 @@ def fibre():
 def publish(data, stem, ext):
     sha = hashlib.sha256(data).hexdigest()
     name = f'{stem}.{sha[:8]}.{ext}'
-    with open(os.path.join(SHEETS, name), 'wb') as f:
+    tmp = os.path.join(SHEETS, f'{name}.{os.getpid()}.tmp')
+    with open(tmp, 'wb') as f:
         f.write(data)
+    os.replace(tmp, os.path.join(SHEETS, name))
     return f'sheets/{name}', len(data), sha
 
 
@@ -125,11 +128,9 @@ def qc_sheet(parts):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', required=True)
+    ap.add_argument('--fonts', default=os.path.join(K.CACHE, 'fonts.json'))
     a = ap.parse_args()
     os.makedirs(SHEETS, exist_ok=True)
-    for f in os.listdir(SHEETS):
-        if f.startswith(('ui-skin.', 'paper-fibre.', 'glyphs.')):
-            os.remove(os.path.join(SHEETS, f))
     parts = [parse(p) for p in sorted(glob.glob(os.path.join(K.SVG_SRC, 'ui', '*.svg')))]
     files = []
     # the fibre
@@ -137,7 +138,8 @@ def main():
     K.write_png(tmp, fibre())
     subprocess.run(['cwebp', '-quiet', '-q', '85', '-alpha_q', '100', '-exact', '-metadata', 'none', tmp, '-o',
                     tmp + '.webp'], check=True)
-    fib = publish(open(tmp + '.webp', 'rb').read(), 'paper-fibre', 'webp')
+    with open(tmp + '.webp', 'rb') as f:
+        fib = publish(f.read(), 'paper-fibre', 'webp')
     files.append(dict(file=fib[0], bytes=fib[1]))
     # the glyph sprite
     syms = []
@@ -167,12 +169,12 @@ def main():
             css.append(f'.pw-{n} {{ border-style: solid; border-width: {t}px {r}px {b}px {l}px; '
                        f'border-image: var(--pw-{n}) {t} {r} {b} {l} fill / {t}px {r}px {b}px {l}px {p["repeat"]}; }}')
     css.append('.pw-fibre { background-image: var(--pw-fibre); background-size: 256px 256px; }')
-    fonts = os.path.join(K.PUBLIC, 'fonts', 'fonts.json')
-    if os.path.exists(fonts):
-        for f in K.load_json(fonts)['faces']:
-            disp = 'block' if f['family'] == 'Libre Franklin' else 'swap'
-            css.append(f"@font-face {{ font-family: '{f['family']}'; font-style: {f['style']}; font-weight: "
-                       f"{f['weight']}; font-display: {disp}; src: url('../{f['file']}') format('woff2'); }}")
+    if not os.path.exists(a.fonts):
+        raise SystemExit(f'ui: no {a.fonts} (run fonts.py first: the skin carries the @font-face rules)')
+    for f in K.load_json(a.fonts)['faces']:
+        disp = 'block' if f['family'] == 'Libre Franklin' else 'swap'
+        css.append(f"@font-face {{ font-family: '{f['family']}'; font-style: {f['style']}; font-weight: "
+                   f"{f['weight']}; font-display: {disp}; src: url('../{f['file']}') format('woff2'); }}")
     skin = publish(('\n'.join(css) + '\n').encode(), 'ui-skin', 'css')
     files.append(dict(file=skin[0], bytes=skin[1]))
     qc_sheet(parts)

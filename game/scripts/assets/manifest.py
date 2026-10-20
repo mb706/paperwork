@@ -13,8 +13,21 @@ Interpretations this file fixes where 10 §15.7 is silent (recorded in pm/report
     and for belts (whose base carries the frame axis) 10 §6.8's rule with the set's framesPerTile;
   * a set without `base` (none today) draws nothing for it; an empty table entry draws the greybox;
   * a part P's shadow is the part `P_shadow`, except `base`, whose shadow is `shadow` (10 §15.7's example);
-  * the inserter's shadows rotate like its parts about the shoulder's shadow, anchor + shadowShoulder (shadow
-    array px), the hand's shadow at that point plus r S (sin 2 pi theta, -cos 2 pi theta);
+  * animated channels: an entity set with `animShadow` (10 §9.1, §15.7) has a `shadow` with a `frame` axis, and
+    one with `animLight` (an emitter moves, §9.1 step 7) a `light` with a `frame` axis, each as long as the
+    animation (its layers' frame count, or base's frame axis for a full-frame set); both follow the set's clock;
+  * a layered entity set's layers have base's axes plus `frame`, and every combination base draws has every
+    layer at every frame (one layer slot structure for all directions and variants);
+  * the inserter's shadows (10 §15.7's "each with its shadow"), in its own vocabulary: with k' = S / P' (P' the
+    shadow array's pxPerTile) the shadow's shoulder point is Q' = the anchor + shadowShoulder k' (shadowShoulder:
+    the set's field, level-0 px of the shadow array: where the shoulder's shadow falls, SHADOW_REACH times the
+    shoulder's height east and south of the point below it), and the hand's is Hp' = Q' + r S (sin 2 pi theta,
+    -cos 2 pi theta). `arm_shadow` is drawn rotated by theta about its pivot placed at Q' and stretched along its
+    length by the arm's factor |Hp - Q| / (length k); `hand_open_shadow` / `hand_closed_shadow` (as the hand)
+    rotated by theta about its pivot placed at Hp'; `platform_shadow` [dir] is placed like any frame. Every part's
+    frame anchor is consistent with this: pivot - anchor is `shoulder` for the arm and hands and `shadowShoulder`
+    for their shadows, so placing a frame by the frame formula at the part's ground point (the anchor for the
+    arm, the anchor + r S (sin, -cos) for a hand) and rotating it about its pivot gives the same picture;
   * `orientation` rounds half up: floor(o n / 65,536 + 1/2) mod n;
   * a set whose parts have a `light` axis says where its value comes from: `lightFrom` "status" (signals, train
     stops: EntityView.status) or, by default, DYN.light > 0 as 0 or 1 (lamps).
@@ -158,7 +171,8 @@ def draw_entity(man, name, view, cam, tick=0, belt_speed=0):
         out.append(draws_for(man, 'idle', lookup(parts['idle'], values), cam, ex, ey))
     if 'light' in parts:
         alpha = (dyn['light'] / 255) if dyn else 0.0
-        out.append(draws_for(man, 'light', lookup(parts['light'], values), cam, ex, ey, dict(alpha=round(alpha, 6))))
+        out.append(draws_for(man, 'light', lookup(parts['light'], values, fidx), cam, ex, ey,
+                             dict(alpha=round(alpha, 6))))
     if 'shadow' in parts:
         out.append(draws_for(man, 'shadow', lookup(parts['shadow'], values, fidx), cam, ex, ey))
     return out
@@ -353,4 +367,72 @@ def validate(man):
                 for fid in e:
                     if not 0 <= fid < nf:
                         errs.append(f'{name}.{pname}: frame id {fid} of {nf}')
+        if kind == 'entity':
+            errs += _entity_animation_errors(man, name, s)
+        if kind == 'inserter':
+            errs += _inserter_anchor_errors(man, name, s)
+    return errs
+
+
+def _frame_axis(p):
+    return p['shape'][p['axes'].index('frame')] if 'frame' in p['axes'] else None
+
+
+def _entity_animation_errors(man, name, s):
+    """Layer slots and animated channels (module docstring): what the renderer may rely on."""
+    errs = []
+    parts = s['parts']
+    base = parts.get('base')
+    layers = parts.get('layers') or []
+    if base is None:
+        return errs
+    # the animation's length: the layers' frame count (one for all), or base's own frame axis (full frame)
+    counts = sorted({_frame_axis(L) for L in layers if _frame_axis(L)})
+    if layers and 'frame' in base['axes']:
+        errs.append(f'{name}: a set with layers has a frame axis on base')
+    for i, L in enumerate(layers):
+        if L['axes'] != base['axes'] + ['frame']:
+            errs.append(f'{name}.layers[{i}]: axes {L["axes"]}, not base\'s {base["axes"]} plus frame')
+            continue
+        n = L['shape'][-1]
+        for flat, e in enumerate(base['table']):
+            for k in range(n):
+                got = L['table'][flat * n + k] if flat * n + k < len(L['table']) else []
+                if bool(e) != bool(got):
+                    errs.append(f'{name}.layers[{i}]: combination {flat} frame {k} is '
+                                f'{"empty" if e else "drawn"} where base is {"drawn" if e else "empty"}')
+                    break
+    length = counts[0] if len(counts) == 1 else _frame_axis(base)
+    for flag, pname in (('animShadow', 'shadow'), ('animLight', 'light')):
+        p = parts.get(pname)
+        animated = p is not None and 'frame' in p['axes']
+        if s.get(flag) and not animated:
+            errs.append(f'{name}: {flag} without a frame axis on {pname}')
+        elif animated and not s.get(flag):
+            errs.append(f'{name}: {pname} has a frame axis but the set does not declare {flag}')
+        if s.get(flag) and animated:
+            if len(counts) > 1:
+                errs.append(f'{name}: {flag} with layers of different lengths {counts}')
+            elif length is not None and _frame_axis(p) != length:
+                errs.append(f'{name}: {pname} has {_frame_axis(p)} frames, the animation {length}')
+    return errs
+
+
+def _inserter_anchor_errors(man, name, s, tol=0.01):
+    errs = []
+    for pname, key in (('arm', 'shoulder'), ('hand_open', 'shoulder'), ('hand_closed', 'shoulder'),
+                       ('arm_shadow', 'shadowShoulder'), ('hand_open_shadow', 'shadowShoulder'),
+                       ('hand_closed_shadow', 'shadowShoulder')):
+        p = s['parts'].get(pname)
+        if p is None or key not in s:
+            continue
+        if 'pivot' not in p:
+            errs.append(f'{name}: {pname} without pivot')
+            continue
+        for e in p['table']:
+            for fid in e:
+                ax, ay = man['frames'][fid][6:8]
+                dx, dy = p['pivot'][0] - ax, p['pivot'][1] - ay
+                if abs(dx - s[key][0]) > tol or abs(dy - s[key][1]) > tol:
+                    errs.append(f'{name}: {pname} pivot - anchor ({dx:.3f}, {dy:.3f}) is not {key} {s[key]}')
     return errs

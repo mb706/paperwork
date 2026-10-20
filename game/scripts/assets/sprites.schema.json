@@ -122,8 +122,22 @@
             "oneOf": [{ "$ref": "#/$defs/part" }, { "type": "array", "items": { "$ref": "#/$defs/part" } }]
           }
         },
-        "shoulder": { "$ref": "#/$defs/point" },
-        "shadowShoulder": { "$ref": "#/$defs/point" },
+        "shoulder": {
+          "$ref": "#/$defs/point",
+          "description": "inserter: the shoulder's offset from the anchor, level-0 px of the colour array; Q = anchor + shoulder * k (10 §15.7). Equals pivot minus frame anchor of arm and hands."
+        },
+        "shadowShoulder": {
+          "$ref": "#/$defs/point",
+          "description": "inserter: where the shoulder's shadow falls, offset from the anchor in level-0 px of the shadow array; Q' = anchor + shadowShoulder * k' (k' = S / the shadow array's pxPerTile), Hp' = Q' + r S (sin 2 pi theta, -cos 2 pi theta); arm_shadow is rotated by theta about its pivot at Q' and stretched by the arm's factor, the hand's shadow rotated about its pivot at Hp'. Equals pivot minus frame anchor of the shadow parts (manifest.py)."
+        },
+        "animShadow": {
+          "const": true,
+          "description": "entity: the shadow follows the animation (10 §9.1, §15.7): `shadow` has a frame axis as long as the animation, indexed by the set's clock."
+        },
+        "animLight": {
+          "const": true,
+          "description": "entity: an emitter moves (10 §9.1 step 7): `light` has a frame axis as long as the animation, indexed by the set's clock."
+        },
         "smoke": { "type": "array", "items": { "$ref": "#/$defs/point" } },
         "framesPerTile": { "type": "integer", "minimum": 1 },
         "lightFrom": { "enum": ["status", "dyn"] },

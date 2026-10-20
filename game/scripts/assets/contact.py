@@ -5,8 +5,8 @@
 Per set, .cache/assets/qc/contact/<set>.png: its pictures on a patch of grass, by day and as the night's cyanotype,
 at 1x (32 px per tile) and 1/2x: an entity's base (pieces plus the layers at frame 0) with its hatched shadow and
 the light's warm stain, its idle image, its layer as a strip of frames, its shadow mask and its glow alone; a
-mover's clips per orientation; a resource's shapes by bands; an inserter's platforms and its arm at eight angles;
-an icon at 64, 32 and 16 px on paper and on the belt deck. .cache/assets/qc/contact.png puts every set together at
+mover's clips per orientation; a resource's shapes by bands; an object's shapes by stages; an inserter's platforms
+and its arm at eight angles; an icon at 64, 32 and 16 px on paper and on the belt deck. .cache/assets/qc/contact.png puts every set together at
 1x, and gifs/<set>-<part>.gif (gifski) loops each animation at 2x.
 """
 
@@ -236,6 +236,25 @@ def resource_cells(em, name, s, zoom, font):
     return [vstack(rows, 2)]
 
 
+def object_cells(em, name, s, zoom, font):
+    """Every shape (picked by the position hash) at every stage of an object set, with its shadow."""
+    man = em.man
+    base = s['parts']['base']
+    nshape = base['shape'][0]
+    nstage = base['shape'][1] if len(base['shape']) > 1 else 1
+    rows = []
+    for sh in range(nshape):
+        # a position whose hash gives this shape (positions in 1/256 tile)
+        x = next(t for t in range(0, 1 << 24, 256) if MF.pos_hash(t, 0) % nshape == sh)
+        row = []
+        for g in range(nstage):
+            st = Stage(em, 2.2, 2.6, zoom, cx=x / 256 + 0.5, cy=-0.6)
+            st.add(MF.draw_object(man, name, dict(x=x, y=0, variant=g), st.cam))
+            row.append(st.render()[0])
+        rows.append(label(hstack(row, 2), f'shape {sh}' + (f' stages 0-{nstage - 1}' if nstage > 1 else ''), font))
+    return [vstack(rows, 2)]
+
+
 def inserter_cells(em, name, s, zoom, font):
     man = em.man
     out = []
@@ -352,7 +371,7 @@ def main():
             elif kind == 'icon':
                 sheets.append(icon_cells(em, name, s, font)[0] if zoom == 1 else None)
             elif kind == 'object':
-                continue
+                sheets.append(object_cells(em, name, s, zoom, font)[0])
         sheets = [x for x in sheets if x is not None]
         if not sheets:
             continue
