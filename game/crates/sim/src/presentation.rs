@@ -81,12 +81,20 @@ impl EventSink {
     }
 }
 
-/// The module's presentation state (§3.6): the event queue, and each character's displacement in its last
-/// update (MOVERS' velocity, §15.4), which the tick writes and extraction reads.
+/// The module's presentation state (§3.6): never saved, never hashed, never read by a rule.
+/// - the event queue, which the tick writes and extraction drains;
+/// - each character's displacement in its last update (MOVERS' velocity, §15.4), which the tick writes;
+/// - the extraction state: the held set, the sent versions, the subscriptions (extract.rs);
+/// - the query continuations (query.rs);
+/// - the last tick's per-phase times (`PROFILE`).
 #[derive(Clone, Debug, Default)]
 pub struct PresentationState {
     pub events: EventSink,
     pub moves: [crate::rules::Move; schema::PLAYERS],
+    pub extract: crate::extract::Extractor,
+    pub queries: crate::query::Queries,
+    /// The last tick's µs per phase, with `PROFILE` and a host clock (§10.6; `DEBUG.phase_us`).
+    pub phase_us: Option<[f32; crate::tick::PHASES]>,
 }
 
 #[cfg(test)]

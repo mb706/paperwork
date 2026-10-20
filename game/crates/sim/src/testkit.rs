@@ -13,6 +13,7 @@
 //! The [`TestSequencer`] writes closures for scenarios (§10.2, §15.3), and [`Scenario`] is the scenario DSL
 //! over it (sequencer.rs, scenario.rs).
 
+pub mod bench;
 mod scenario;
 mod sequencer;
 

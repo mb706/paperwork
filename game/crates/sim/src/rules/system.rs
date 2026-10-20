@@ -8,6 +8,9 @@ use crate::world::World;
 use schema::events::EventPayload;
 use schema::{Action, Direction, InvRef, ItemKey, PlayerIndex, Seq, Serial, SurfaceIndex, Tick};
 
+/// The `debug_dump` id of the dev panic (C3 decision 6; the shell's `DEV_PANIC_DUMP_ID`).
+pub const DEV_PANIC_DUMP_ID: u32 = 0xFFFF_FFFF;
+
 /// A player record without a character (rule 12): what the World keeps for a player index that sent an action
 /// before it joined, so that its seqs stay consumed across ticks, saves and its later join. Offline, every
 /// other field at its default (no inventory, an empty hand).
@@ -84,7 +87,12 @@ impl World {
                     release(p);
                 }
             }
-            // Nothing in the World (§15.3); the shell acts on them.
+            // Nothing in the World (§15.3); the shell acts on them. In builds with simcheck (tests and the dev
+            // module), `debug_dump(0xFFFFFFFF)` is the dev panic `__game.panic()` sends (C3 decision 6), so the
+            // shell's trap path runs on the real module.
+            Action::DebugDump(d) if cfg!(feature = "simcheck") && d.dump_id == DEV_PANIC_DUMP_ID => {
+                panic!("the dev panic: debug_dump(0xFFFFFFFF) at tick {}", ctx.tick.0)
+            }
             Action::SnapshotMarker(_) | Action::DebugDump(_) => {}
             // Player actions: the preflight refuses them in a system batch.
             Action::StartWalking(_)

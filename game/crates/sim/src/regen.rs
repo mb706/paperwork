@@ -74,6 +74,21 @@ impl RegenCache {
         f(&data)
     }
 
+    /// The cached content of `(surface, key)`, if any, without generating it, counting or touching the eviction
+    /// order: a read for extraction, which cannot write the World (§4.4).
+    pub fn peek(&self, surface: SurfaceIndex, key: ChunkKey) -> Option<Arc<ChunkData>> {
+        let e = self.entries.borrow();
+        e.binary_search_by(|x| (x.0, x.1).cmp(&(surface, key))).ok().map(|i| e[i].3.clone())
+    }
+
+    /// Generates `(surface, key)` with the world's generator without caching or counting it (extraction's view
+    /// cache, §4.4); `None` for a world without a generator.
+    pub fn generate_detached(&self, surface: SurfaceIndex, key: ChunkKey) -> Option<Arc<ChunkData>> {
+        let g = self.generator.as_ref()?;
+        let (cx, cy) = schema::chunk_xy(key);
+        Some(Arc::new(g.chunk(surface, cx, cy)))
+    }
+
     /// Stores a chunk's generated content, evicting the oldest entry when the cache is full.
     pub fn put(&self, data: Arc<ChunkData>) {
         let (surface, key) = (data.surface, data.key);

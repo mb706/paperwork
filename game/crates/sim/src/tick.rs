@@ -13,6 +13,8 @@
 //! | 16 | Digest: d_t, slice_t (r_t is the module's, §4.8) | digest.rs |
 //!
 //! Per-phase digests (§4.8 item 5): when asked for (simcheck tools), the full state hash after each phase.
+//! Per-phase times (`PROFILE`, §10.6; `DEBUG.phase_us`): with the host's clock, the µs each phase took, the
+//! preflight counted in phase 1; they go to presentation only (D13: no clock reaches the World).
 
 use crate::digest::{Counters, Slicer, write_preimage};
 use crate::hash::xxh64;
@@ -53,6 +55,8 @@ pub struct TickIo<'a> {
     pub issued: &'a mut Vec<ChunkRequest>,
     /// When set, the full state hash after each phase (§4.8 item 5).
     pub phase_digests: Option<&'a mut [u64; PHASES]>,
+    /// With `PROFILE`: the host's clock in ms, read around each phase (presentation's `phase_us`).
+    pub clock: Option<fn() -> f64>,
     /// Verify that refusals change nothing (tests; a state hash per action).
     pub check_refusals: bool,
 }
@@ -67,6 +71,7 @@ pub struct TickDigests {
 impl World {
     /// Runs exactly the closure of tick `tick + 1` (§15.8 `sim_tick`).
     pub fn tick(&mut self, closure: &[u8], io: &mut TickIo<'_>) -> SimResult<TickDigests> {
+        let mut phase = PhaseDigests::new(io.phase_digests.as_deref_mut(), io.clock);
         let t = self
             .current_tick()
             .checked_add(1)
@@ -84,7 +89,6 @@ impl World {
         self.globals.tick = Tick(t);
         self.sched.begin_tick(t);
         io.scratch.counters.clear();
-        let mut phase = PhaseDigests::new(io.phase_digests.as_deref_mut());
 
         // Phase 1 (§4.6): the closure's batches in order, each batch's actions in seq order (§15.3); then every
         // online character (rule 10); then the worldgen requests of the chunks characters entered (§5.18).
@@ -132,6 +136,7 @@ impl World {
         let d = xxh64(&io.scratch.preimage);
         let slice = io.scratch.slicer.slice_hash(self, t % schema::SHARDS).map_err(enc)?;
         phase.after(16, self);
+        io.pres.phase_us = phase.times();
         Ok(TickDigests { d, slice })
     }
 }
@@ -140,17 +145,36 @@ fn enc(e: schema::codec::EncodeError) -> SimError {
     SimError::new(SimStatus::ErrOrder, format!("the state cannot be encoded: {e}"))
 }
 
-/// Records the full state hash after each phase when asked to.
+/// Records the full state hash after each phase when asked to, and each phase's time with a clock.
 struct PhaseDigests<'a> {
     out: Option<&'a mut [u64; PHASES]>,
+    clock: Option<fn() -> f64>,
+    last: f64,
+    us: [f32; PHASES],
 }
 
 impl<'a> PhaseDigests<'a> {
-    fn new(out: Option<&'a mut [u64; PHASES]>) -> Self {
-        Self { out }
+    fn new(out: Option<&'a mut [u64; PHASES]>, clock: Option<fn() -> f64>) -> Self {
+        Self { out, clock, last: clock.map_or(0.0, |c| c()), us: [0.0; PHASES] }
+    }
+
+    /// The phases' µs, with a clock.
+    fn times(&self) -> Option<[f32; PHASES]> {
+        self.clock.map(|_| self.us)
     }
 
     fn after(&mut self, phase: usize, w: &World) {
+        if let Some(c) = self.clock {
+            self.us[phase - 1] = ((c() - self.last) * 1000.0) as f32;
+        }
+        self.check(phase, w);
+        // The checks below are not the phase's work: the next phase's time starts after them.
+        if let Some(c) = self.clock {
+            self.last = c();
+        }
+    }
+
+    fn check(&mut self, phase: usize, w: &World) {
         // D6: no NaN in state; builds with simcheck look after every phase (§2.3).
         if cfg!(feature = "simcheck")
             && let Some((what, i)) = w.nan_scan()

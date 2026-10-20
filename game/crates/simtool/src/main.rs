@@ -5,7 +5,10 @@
 //!
 //! ```text
 //! simtool hash <save> [--protos <prototypes.bin>]
-//! simtool trace <save> <log.pwlog> [--protos <prototypes.bin>] [--ticks N] [--full] [--no-sleep] [--check]
+//! simtool replay <save> <log.pwlog> | <bundle dir> [--protos P] [--to TICK] [--trace] [--full] [--no-sleep]
+//!                [--state-out FILE]
+//! simtool trace <save> <log.pwlog> [--protos P] [--ticks N] [--full] [--no-sleep] [--check]
+//! simtool bench [--scenario NAME|all] [--quick] [--protos P] [--history FILE | --no-history] [--cache DIR]
 //! simtool version
 //! ```
 //!
@@ -13,28 +16,53 @@
 //! states). `--protos` defaults to `public/data/prototypes.bin`; a container's `prototypesHash` must match it.
 #![allow(clippy::disallowed_macros, clippy::disallowed_methods, clippy::disallowed_types)]
 
-use schema::container::ClosureLog;
+mod bench;
+
+use schema::container::{ClosureLog, ClosureLogFlags};
 use schema::{ClosureIter, SimFlags};
 use sim::SimContext;
 use std::process::ExitCode;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
 
 const USAGE: &str = "usage:
   simtool hash <save> [--protos <prototypes.bin>]
       the full state hash (§4.8), each section's, the tick and the lineage r
+  simtool replay <save> <log.pwlog> [--protos <prototypes.bin>] [--to TICK] [--trace] [--full] [--no-sleep]
+                 [--state-out FILE]
+  simtool replay <bundle dir> ...
+      replays a closure log from its start save (§8.5): checks the save against the log's start state hash,
+      supplies each tick's blobs, runs every tick to the log's end (or --to) with its closure or an empty one,
+      and with HAS_DIGESTS stops at the first d_t that differs (exit 1); a trap names its tick (a bug bundle,
+      §3.6, reproduces natively). A directory is a bug bundle: its one *.save (or *.sections) and *.pwlog.
+      --trace prints `tick d slice r` per tick (hex, as the golden digests.txt), --full adds the state hash,
+      --state-out writes the final state (sim_save's output, for `simtool hash`)
   simtool trace <save> <log.pwlog> [--protos <prototypes.bin>] [--ticks N] [--full] [--no-sleep] [--check]
-      replays the closure log from the save and prints `tick d slice r` per tick (hex, as the golden
-      digests.txt); --full adds the full state hash, --no-sleep sets NO_SLEEP, --check stops at the first d_t
-      that differs from the log's digests (exit 1)
+      replay --trace, as C2a defined it: --ticks N stops after N ticks, --check stops at the first d_t that
+      differs from the log's digests (exit 1)
+  simtool bench [--scenario NAME|all] [--quick] [--protos <prototypes.bin>] [--history FILE | --no-history]
+                [--cache DIR]
+      the M0 benchmarks of §10.6 (m0-walk, m0-chests-10k, m0-codec, m0-load-30k), timed with §10.6's method
+      (--quick: ci's budget gate, one short repetition); prints each against its threshold on the reference
+      machine and × 2.4 on this host (the gate: exit 1 when one fails); appends to bench/history.jsonl.
+      m0-load-30k's state is built once and cached under --cache (default target/bench-cache). Pin it:
+      taskset -c 0-15 target/release/simtool bench
   simtool version";
 
 struct Args {
     positional: Vec<String>,
     protos: String,
     ticks: Option<u32>,
+    to: Option<u32>,
     full: bool,
     no_sleep: bool,
     check: bool,
+    trace: bool,
+    state_out: Option<String>,
+    scenario: String,
+    quick: bool,
+    history: Option<String>,
+    cache: String,
 }
 
 fn parse_args(raw: &[String]) -> Result<Args, String> {
@@ -42,9 +70,16 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
         positional: Vec::new(),
         protos: "public/data/prototypes.bin".to_owned(),
         ticks: None,
+        to: None,
         full: false,
         no_sleep: false,
         check: false,
+        trace: false,
+        state_out: None,
+        scenario: "all".to_owned(),
+        quick: false,
+        history: Some("bench/history.jsonl".to_owned()),
+        cache: "target/bench-cache".to_owned(),
     };
     let mut i = 0;
     while i < raw.len() {
@@ -59,6 +94,29 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
                     raw.get(i).ok_or("--ticks needs a number")?.parse().map_err(|_| "--ticks: a number")?,
                 );
             }
+            "--to" => {
+                i += 1;
+                a.to = Some(raw.get(i).ok_or("--to needs a tick")?.parse().map_err(|_| "--to: a number")?);
+            }
+            "--state-out" => {
+                i += 1;
+                a.state_out = Some(raw.get(i).ok_or("--state-out needs a path")?.clone());
+            }
+            "--scenario" => {
+                i += 1;
+                a.scenario = raw.get(i).ok_or("--scenario needs a name")?.clone();
+            }
+            "--history" => {
+                i += 1;
+                a.history = Some(raw.get(i).ok_or("--history needs a path")?.clone());
+            }
+            "--cache" => {
+                i += 1;
+                a.cache = raw.get(i).ok_or("--cache needs a directory")?.clone();
+            }
+            "--no-history" => a.history = None,
+            "--quick" => a.quick = true,
+            "--trace" => a.trace = true,
             "--full" => a.full = true,
             "--no-sleep" => a.no_sleep = true,
             "--check" => a.check = true,
@@ -74,7 +132,7 @@ fn read(path: &str) -> Result<Vec<u8>, String> {
     std::fs::read(path).map_err(|e| format!("{path}: {e}"))
 }
 
-fn hex(b: &[u8]) -> String {
+pub(crate) fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
 
@@ -132,12 +190,39 @@ fn cmd_hash(a: &Args) -> Result<(), String> {
     Ok(())
 }
 
-fn cmd_trace(a: &Args) -> Result<bool, String> {
-    let [save, log_path] = a.positional.as_slice() else {
-        return Err("trace takes a save and a closure log".to_owned());
+/// The tick a replay is running, for the panic hook (a trap names its tick, §3.6).
+static TICK: AtomicU32 = AtomicU32::new(0);
+
+/// A bug bundle's save and closure log (§3.5 `/__report`, §8.5): the one save and the one log in `dir`.
+fn bundle_files(dir: &str) -> Result<(String, String), String> {
+    let mut saves = Vec::new();
+    let mut logs = Vec::new();
+    for e in std::fs::read_dir(dir).map_err(|e| format!("{dir}: {e}"))? {
+        let p = e.map_err(|e| e.to_string())?.path();
+        let name = p.to_string_lossy().into_owned();
+        if name.ends_with(".save") || name.ends_with(".sections") {
+            saves.push(name);
+        } else if name.ends_with(".pwlog") {
+            logs.push(name);
+        }
+    }
+    match (saves.as_slice(), logs.as_slice()) {
+        ([s], [l]) => Ok((s.clone(), l.clone())),
+        _ => Err(format!(
+            "{dir}: a bundle holds one *.save (or *.sections) and one *.pwlog; found {saves:?} {logs:?}"
+        )),
+    }
+}
+
+/// `replay` and `trace` (§8.5): the log from the save, tick by tick. `Ok(false)` when a digest differs.
+fn cmd_replay(a: &Args, trace_mode: bool) -> Result<bool, String> {
+    let (save, log_path) = match a.positional.as_slice() {
+        [save, log] => (save.clone(), log.clone()),
+        [dir] if std::path::Path::new(dir).is_dir() => bundle_files(dir)?,
+        _ => return Err("replay takes a save and a closure log, or a bundle directory".to_owned()),
     };
-    let mut ctx = load(save, a)?;
-    let log_bytes = read(log_path)?;
+    let mut ctx = load(&save, a)?;
+    let log_bytes = read(&log_path)?;
     let log = ClosureLog::parse(&log_bytes).map_err(|e| format!("{log_path}: {e}"))?;
     let t0 = ctx.world().ok_or("no world")?.current_tick();
     if log.header.start_tick.0 != t0 {
@@ -146,12 +231,33 @@ fn cmd_trace(a: &Args) -> Result<bool, String> {
             log.header.start_tick.0
         ));
     }
-    let end = a.ticks.map_or(log.header.end_tick.0, |n| (t0 + n).min(log.header.end_tick.0));
+    let start_hash = ctx.state_hashes().map_err(|e| e.to_string())?.full;
+    if log.header.start_state_hash != 0 && log.header.start_state_hash != start_hash {
+        return Err(format!(
+            "{save} hashes to {start_hash:016x}, but {log_path} starts from {:016x}: not its start save",
+            log.header.start_state_hash
+        ));
+    }
+    let mut end = log.header.end_tick.0;
+    if let Some(n) = a.ticks {
+        end = end.min(t0.saturating_add(n));
+    }
+    if let Some(to) = a.to {
+        end = end.min(to);
+    }
+    let digests = log.header.flags.contains(ClosureLogFlags::HAS_DIGESTS);
+    let check = digests && (!trace_mode || a.check);
+    let print = trace_mode || a.trace;
+    std::panic::set_hook(Box::new(|info| {
+        eprintln!("simtool: trap at tick {}: {info}", TICK.load(Ordering::Relaxed));
+    }));
     let mut next = 0;
     let started = Instant::now();
     let mut ok = true;
     let mut out = String::new();
+    let mut compared = 0u32;
     for t in t0 + 1..=end {
+        TICK.store(t, Ordering::Relaxed);
         let closure: &[u8] = match log.records.get(next) {
             Some(r) if r.tick.0 == t => {
                 next += 1;
@@ -171,31 +277,113 @@ fn cmd_trace(a: &Args) -> Result<bool, String> {
         }
         ctx.tick(closure).map_err(|e| format!("tick {t}: {e}"))?;
         let (d, s, r) = (ctx.last_digest(), ctx.last_slice(), ctx.lineage());
-        out.push_str(&format!("{t} {d:016x} {s:016x} {r:016x}"));
-        if a.full {
-            out.push_str(&format!(" {:016x}", ctx.state_hashes().map_err(|e| e.to_string())?.full));
+        if print {
+            out.push_str(&format!("{t} {d:016x} {s:016x} {r:016x}"));
+            if a.full {
+                out.push_str(&format!(" {:016x}", ctx.state_hashes().map_err(|e| e.to_string())?.full));
+            }
+            out.push('\n');
         }
-        out.push('\n');
-        if a.check {
+        if check {
             let first = log.header.digest_first_tick.0;
             if t >= first
                 && let Some(&want) = log.digests.get((t - first) as usize)
-                && want != d
             {
-                eprintln!("tick {t}: d_t {d:016x}, the log recorded {want:016x}");
-                ok = false;
-                break;
+                compared += 1;
+                if want != d {
+                    eprintln!("tick {t}: d_t {d:016x}, the log recorded {want:016x}");
+                    ok = false;
+                    break;
+                }
             }
         }
     }
+    let _ = std::panic::take_hook();
     print!("{out}");
-    let ticks = end.saturating_sub(t0);
+    let last = ctx.world().ok_or("no world")?.current_tick();
+    let ticks = last.saturating_sub(t0);
     let ms = started.elapsed().as_secs_f64() * 1e3;
+    let hash = ctx.state_hashes().map_err(|e| e.to_string())?.full;
+    if let Some(p) = &a.state_out {
+        std::fs::write(p, ctx.checkpoint().map_err(|e| e.to_string())?).map_err(|e| format!("{p}: {e}"))?;
+    }
     eprintln!(
-        "{ticks} ticks in {ms:.1} ms ({:.4} ms per tick)",
-        if ticks > 0 { ms / f64::from(ticks) } else { 0.0 }
+        "replayed ticks {}..{last} ({ticks} ticks in {ms:.1} ms, {:.4} ms per tick): state {hash:016x}, r {:016x}; {}",
+        t0 + 1,
+        if ticks > 0 { ms / f64::from(ticks) } else { 0.0 },
+        ctx.lineage(),
+        if !check {
+            "digests not checked".to_owned()
+        } else if ok {
+            format!("{compared} recorded digests match")
+        } else {
+            "a digest differs".to_owned()
+        }
     );
     Ok(ok)
+}
+
+/// `bench` (§10.6).
+fn cmd_bench(a: &Args) -> Result<bool, String> {
+    let protos = read(&a.protos)?;
+    let plan = if a.quick { bench::Plan::quick() } else { bench::Plan::full() };
+    let names: Vec<&str> = if a.scenario == "all" {
+        sim::testkit::bench::SCENARIOS.to_vec()
+    } else if sim::testkit::bench::SCENARIOS.contains(&a.scenario.as_str()) {
+        vec![a.scenario.as_str()]
+    } else {
+        return Err(format!("unknown scenario {}: {:?}", a.scenario, sim::testkit::bench::SCENARIOS));
+    };
+    let mut all_ok = true;
+    for name in names {
+        let host = bench::host();
+        let started = Instant::now();
+        let mut report = match name {
+            "m0-walk" => bench::walk(&protos, plan)?,
+            "m0-chests-10k" => bench::chests(&protos, plan)?,
+            "m0-codec" => bench::codec(&protos, plan)?,
+            _ => {
+                let (state, cached) = bench::load_state(&protos, &a.cache)?;
+                let mut r = bench::load(&protos, plan, &state)?;
+                if !cached {
+                    r.notes.push(format!("built and cached the 30,000-chunk state under {}", a.cache));
+                }
+                r
+            }
+        };
+        let mhz_after = bench::mhz();
+        let clock = bench::clock_read_us();
+        report.metrics.push(("clock_read_us".to_owned(), clock));
+        report.notes.push(format!(
+            "{:.1} s; load {}; clock {:.0} → {:.0} MHz; git {}{}",
+            started.elapsed().as_secs_f64(),
+            host.load,
+            host.mhz,
+            mhz_after,
+            &host.git[..host.git.len().min(10)],
+            if host.dirty { " (dirty)" } else { "" }
+        ));
+        let ok =
+            sim::testkit::bench::thresholds(name).iter().all(|t| bench::gate(&report, t).is_none_or(|g| g.2));
+        all_ok &= ok;
+        print!("{}", bench::table(&report));
+        if let Some(path) = &a.history {
+            use std::io::Write as _;
+            if let Some(dir) = std::path::Path::new(path).parent()
+                && !dir.as_os_str().is_empty()
+            {
+                std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+            }
+            let mut f = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .map_err(|e| format!("{path}: {e}"))?;
+            writeln!(f, "{}", bench::history_line(&report, plan, &host, mhz_after, ok))
+                .map_err(|e| format!("{path}: {e}"))?;
+        }
+    }
+    Ok(all_ok)
 }
 
 fn main() -> ExitCode {
@@ -223,7 +411,9 @@ fn main() -> ExitCode {
             Ok(true)
         }
         "hash" => cmd_hash(&args).map(|()| true),
-        "trace" => cmd_trace(&args),
+        "replay" => cmd_replay(&args, false),
+        "trace" => cmd_replay(&args, true),
+        "bench" => cmd_bench(&args),
         _ => Err(format!("unknown command {cmd}")),
     };
     match r {

@@ -22,6 +22,7 @@
 pub mod chunks;
 pub mod context;
 pub mod digest;
+pub mod extract;
 /// GENERATED from `game/schema/` by `scripts/schema-gen.ts`: the SoA pools and save sections.
 pub mod r#gen;
 pub mod handle;
@@ -30,6 +31,8 @@ pub mod heap;
 pub mod index;
 pub mod players;
 pub mod presentation;
+pub mod project;
+pub mod query;
 pub mod regen;
 pub mod remap;
 pub mod rng;

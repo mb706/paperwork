@@ -120,24 +120,29 @@
 - **Crates:** `det` (libm wrappers, `powi`, `fmax`/`fmin`, piecewise tables, the expression interpreter, XXH64),
   `worldgen` (v0: simplex noise ported bit for bit from simplex-noise 4.0.3, terrain, water, ore spots, starting
   patches), `sim` (the World, saves, digests, the scheduler, the rules in `rules/`, statistics, pristine chunks and
-  inline commits in `regen.rs`, the D18 harness and the scenario DSL in `testkit/`), `simabi`/`genabi` (sim.wasm,
-  gen.wasm), `simtool` (the native host). `sim::SimContext` is the module behind the ABI; outputs are the
-  envelopes' payloads.
+  inline commits in `regen.rs`, the boundary in `extract.rs` (packets), `project.rs` (the M0 projections) and
+  `query.rs`, the D18 harness, the scenario DSL and the §10.6 bench scenarios in `testkit/`), `simabi`/`genabi`
+  (sim.wasm, gen.wasm), `simtool` (the native host). `sim::SimContext` is the module behind the ABI; outputs are
+  the envelopes' payloads. Dev builds (`simcheck`): `debug_dump(0xFFFFFFFF)` panics (the shell's dev panic), and
+  `PROFILE` times the 16 phases through the host clock (`DEBUG.phase_us`).
 - **Rules follow the golden model** (`test/golden/model/rules.ts` and its README's numbered rules): when changing a
   rule, port it from there and cite "rule n"; a refusal changes nothing (`SimContext::set_check_refusals` verifies).
 - **ABI feature:** `simabi`/`genabi` export the full §15.8/§15.9 tables with the cargo feature `full-abi`, on by
   default since the Shell's loaders landed (C3-r1); `--no-default-features` builds the M0 scaffold (ABI 0).
-- **Tests:** `cargo test -p sim --features simcheck` (`tests/core/`: the golden set — every digest, state and event of
-  the closure log, the traces; churn, the harness, the scheduler, allocation; `tests/rules/`: R23–R29 and the M0
-  scenarios, each with D18 a–c and a recorded session in `test/logs/` that `replay` replays; `UPDATE_SCENARIO_LOGS=1`
-  rewrites them after review). `npx vitest run test/sim-wasm test/worldgen` runs the same golden set, sessions and
-  worldgen chunks in WebAssembly, and pins the simplex port to the npm package. Scenario DSL:
+- **Tests:** `cargo test -p sim --features simcheck` (`tests/core/`: the golden set — every digest, state, event,
+  packet, projection and query, every ABI trace; churn, the harness, the scheduler, the §2.5 allocation gates on
+  the bench scenarios; `tests/rules/`: R23–R29 and the M0 scenarios, each with D18 a–c and a recorded session in
+  `test/logs/` that `replay` replays; `UPDATE_SCENARIO_LOGS=1` rewrites them after review). `npx vitest run
+  test/sim-wasm test/worldgen` runs the same golden set, sessions and worldgen chunks in WebAssembly (and the
+  module's zero-allocation steady state), and pins the simplex port to the npm package. Scenario DSL:
   `sim::testkit::{Scenario, TestSequencer}` (`act`, `act_at`, `system`, `run`, `events`, `check_equivalence`).
-- **simtool:** `cargo run --release -p simtool -- hash <save|sections> --protos <prototypes.bin>`; `trace <save>
-  <log.pwlog> --protos … [--ticks N] [--full] [--no-sleep] [--check]` prints `tick d slice r` like the golden
-  `digests.txt`. It reads raw containers only.
+- **simtool** (`cargo build --release -p simtool`, run from `game/`): `hash <save|sections>`; `replay <save> <log>`
+  or `replay <bug bundle dir>` (checks the start hash and every recorded digest, names a trap's tick; `--to`,
+  `--trace`, `--state-out`); `trace` (`tick d slice r` like the golden `digests.txt`); `bench [--quick]
+  [--scenario m0-walk|m0-chests-10k|m0-codec|m0-load-30k]` (§10.6's method and thresholds, × 2.4 on this host;
+  appends `bench/history.jsonl`; pin with `taskset -c 0-15`). `--protos` defaults to `public/data/prototypes.bin`.
 - **Build times** (pinned `taskset -c 0-15`): a sim edit rebuilds the `ntest` tests in ≈ 1–6 s (incremental, no
-  LTO) and runs them in ≈ 7 s; the `wasmdev` modules in ≈ 3.5 s; clippy in ≈ 2 s.
+  LTO) and runs them in ≈ 7 s; the `wasmdev` modules in ≈ 3.5 s; clippy in ≈ 2 s; release simtool (fat LTO) ≈ 25 s.
 
 ## The worker shell (`game/src/{simworker,genworker,ioworker}`, `src/app/`; C3, 10 §3, §8, §15.8–§15.9)
 - **Sim worker:** `simworker/shell.ts` around sim.wasm: the handshake (`module.ts`: ABI, `sim_schema_hash`, the

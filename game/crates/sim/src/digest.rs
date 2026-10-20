@@ -137,7 +137,7 @@ fn frame(h: &mut Xxh64, section: SaveSection, key: u64, bytes: &[u8]) {
 
 /// An entity-table row's member bytes: `u32` index, then the saved columns in directory order (rule 37).
 /// The columns are matched by name, so a column added to the schema fails loudly here and in the tests.
-fn entity_row(t: &EntityTable, i: usize, out: &mut Vec<u8>) {
+pub(crate) fn entity_row(t: &EntityTable, i: usize, out: &mut Vec<u8>) {
     out.extend_from_slice(&(i as u32).to_le_bytes());
     for (name, _, _) in EntityTable::SAVED_COLUMNS {
         match name {
@@ -161,7 +161,7 @@ fn entity_row(t: &EntityTable, i: usize, out: &mut Vec<u8>) {
 }
 
 /// A container-pool row's member bytes (rule 37): `u32` index, the entity as its serial, the `InvRef`.
-fn container_row(w: &World, i: usize, out: &mut Vec<u8>) {
+pub(crate) fn container_row(w: &World, i: usize, out: &mut Vec<u8>) {
     out.extend_from_slice(&(i as u32).to_le_bytes());
     for (name, _, _) in crate::r#gen::ContainerPool::SAVED_COLUMNS {
         match name {

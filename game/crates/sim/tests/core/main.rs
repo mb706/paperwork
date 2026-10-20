@@ -10,8 +10,11 @@
 #![allow(clippy::disallowed_methods, clippy::disallowed_macros)] // tests read fixtures; the probe prints
 
 mod alloc_free;
+mod bench_scenarios;
+mod boundary;
 #[allow(dead_code)]
 mod common;
+mod golden_boundary;
 mod golden_core;
 mod golden_rules;
 mod harness;

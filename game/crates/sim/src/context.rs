@@ -82,6 +82,13 @@ pub struct SimContext {
     world_hash: u64,
     /// Ticks verify that refusals change nothing (tests).
     check_refusals: bool,
+    /// The module's linear memory in bytes, for `DEBUG` (simabi sets it; 0 natively).
+    memory_probe: Option<fn() -> u32>,
+    /// The host's clock in milliseconds (simabi's `host_now`, simtool's), read only for `PROFILE`'s per-phase
+    /// times (§10.6), which go to presentation and never into the World (D13).
+    clock: Option<fn() -> f64>,
+    /// The pool columns, reused by [`Self::column_fingerprint`].
+    cols: Vec<(u32, usize, usize)>,
 }
 
 fn order(m: &str) -> SimError {
@@ -273,6 +280,7 @@ impl SimContext {
         let has_blob = |h: &[u8; 32]| blobs.binary_search_by(|b| b.0.cmp(h)).is_ok();
         let mut phases = [0u64; PHASES];
         let profile = self.want_phase_digests;
+        let clock = if self.flags.contains(SimFlags::PROFILE) { self.clock } else { None };
         let mut io = TickIo {
             has_blob: &has_blob,
             pres: &mut self.pres,
@@ -280,6 +288,7 @@ impl SimContext {
             answers: &mut self.answers,
             issued: &mut self.issued,
             phase_digests: if profile { Some(&mut phases) } else { None },
+            clock,
             check_refusals: self.check_refusals,
         };
         let dg = world.tick(closure, &mut io)?;
@@ -350,13 +359,19 @@ impl SimContext {
     /// `sim_pending_chunks` (§15.8, §15.9): the requests issued since the last call; after `sim_load`, every
     /// pending request of the save.
     pub fn pending_chunks(&mut self) -> SimResult<Vec<u8>> {
-        self.world_or_order()?;
         let mut out = Vec::new();
+        self.pending_chunks_into(&mut out)?;
+        Ok(out)
+    }
+
+    /// [`Self::pending_chunks`] appended to `out` (the module's steady state allocates nothing, §2.5).
+    pub fn pending_chunks_into(&mut self, out: &mut Vec<u8>) -> SimResult<()> {
+        self.world_or_order()?;
         schema::PendingChunks { requests: schema::codec::List::from_slice(&self.issued) }
-            .encode(&mut Writer::new(&mut out))
+            .encode(&mut Writer::new(out))
             .map_err(enc)?;
         self.issued.clear();
-        Ok(out)
+        Ok(())
     }
 
     /// `sim_supply_chunk` (§15.8, §15.9): one `chunk_data` record, read strictly. An answer to no pending
@@ -405,14 +420,151 @@ impl SimContext {
         Ok(())
     }
 
-    /// `sim_digest` (§15.8): `DigestResult` = the tick, then d and r.
-    pub fn digest(&self) -> SimResult<Vec<u8>> {
+    /// Sets the probe `DEBUG` reads the module's memory size from (simabi).
+    pub fn set_memory_probe(&mut self, f: fn() -> u32) {
+        self.memory_probe = Some(f);
+    }
+
+    /// Sets the host clock (milliseconds) that `PROFILE` reads between the tick's phases (§10.6's per-phase µs;
+    /// `DEBUG.phase_us`).
+    pub fn set_clock(&mut self, f: fn() -> f64) {
+        self.clock = Some(f);
+    }
+
+    /// The last profiled tick's µs per phase (§4.6's 16 phases), with `PROFILE` and a clock.
+    pub fn phase_us(&self) -> Option<&[f32; PHASES]> {
+        self.pres.phase_us.as_ref()
+    }
+
+    fn debug_inputs(&self) -> crate::project::DebugInputs {
+        crate::project::DebugInputs {
+            d: self.d,
+            r: self.r,
+            memory_bytes: self.memory_probe.map_or(0, |f| f()),
+            phase_us: self.pres.phase_us,
+        }
+    }
+
+    /// `sim_extract` (§15.4, §15.8): one view request (`ViewRequest`, 52 bytes) → one complete packet.
+    pub fn extract(&mut self, view_bytes: &[u8]) -> SimResult<Vec<u8>> {
+        let mut out = Vec::new();
+        self.extract_into(view_bytes, &mut out)?;
+        Ok(out)
+    }
+
+    /// [`Self::extract`] appended to `out`: once its buffers have grown, extraction allocates nothing (§2.5).
+    pub fn extract_into(&mut self, view_bytes: &[u8], out: &mut Vec<u8>) -> SimResult<()> {
+        let dbg = self.debug_inputs();
+        let Some(world) = self.world.as_ref() else {
+            return Err(order("no world: call sim_new_world or sim_load first"));
+        };
+        let mut r = schema::codec::Reader::new(view_bytes);
+        let view = <schema::packet::ViewRequest as Fixed>::read(&mut r, "ViewRequest")
+            .and_then(|v| r.finish("ViewRequest").map(|()| v))
+            .map_err(|e| input(format!("ViewRequest: {e}")))?;
+        let PresentationState { events, moves, extract, .. } = &mut self.pres;
+        let mut io = crate::extract::ExtractIo { events, moves, dbg };
+        extract.extract(world, &view, &mut io, out).map_err(enc)
+    }
+
+    /// `sim_subscribe` (§15.5, §15.8): `SubscribeInput`; `ERR_INPUT` for a malformed request or sub_id 0.
+    pub fn subscribe(&mut self, input_bytes: &[u8]) -> SimResult<()> {
+        self.world_or_order()?;
+        let v = schema::SubscribeInput::decode_exact(input_bytes)
+            .map_err(|e| input(format!("SubscribeInput: {e}")))?;
+        let mut reqs = Vec::with_capacity(v.subs.len());
+        v.subs.for_each(|r| reqs.push(crate::project::SubReq::from_request(r)));
+        if !self.pres.extract.subscribe(&reqs) {
+            return Err(input("sub_id 0 belongs to the hover projection"));
+        }
+        Ok(())
+    }
+
+    /// `sim_unsubscribe` (§15.8): `UnsubscribeInput`; unknown ids are ignored.
+    pub fn unsubscribe(&mut self, input_bytes: &[u8]) -> SimResult<()> {
+        self.world_or_order()?;
+        let v = schema::UnsubscribeInput::decode_exact(input_bytes)
+            .map_err(|e| input(format!("UnsubscribeInput: {e}")))?;
+        let ids: Vec<u32> = v.ids.iter().map(|x| x.0).collect();
+        self.pres.extract.unsubscribe(&ids);
+        Ok(())
+    }
+
+    /// `sim_query` (§15.5, §15.8): `QueryInput`; `ERR_LIMIT` with 4 running.
+    pub fn query(&mut self, input_bytes: &[u8]) -> SimResult<()> {
+        let tick = self.world_or_order()?.current_tick();
+        let v =
+            schema::QueryInput::decode_exact(input_bytes).map_err(|e| input(format!("QueryInput: {e}")))?;
+        self.pres.queries.start(v.id.0, v.header.kind, v.header.flags, v.params, tick)
+    }
+
+    /// `sim_query_step(units)` (§15.8): `QueryStepOutput` of the queries that finished.
+    pub fn query_step(&mut self, units: u32) -> SimResult<Vec<u8>> {
+        let (d, r) = (self.d, self.r);
+        let Some(world) = self.world.as_ref() else {
+            return Err(order("no world: call sim_new_world or sim_load first"));
+        };
+        let mut out = Vec::new();
+        self.pres.queries.step(world, units, d, r, &mut out)?;
+        Ok(out)
+    }
+
+    /// `sim_query_cancel(id)` (§15.8): an unknown id is ignored.
+    pub fn query_cancel(&mut self, id: u32) -> SimResult<()> {
+        self.world_or_order()?;
+        self.pres.queries.cancel(id);
+        Ok(())
+    }
+
+    /// `sim_pool_dir` (§15.8): the generated pool directory for the shell's read views, `(column, ptr, len)`
+    /// (the pointers are linear-memory addresses in the module; natively they are only distinct).
+    pub fn pool_dir(&self) -> SimResult<Vec<u8>> {
         let w = self.world_or_order()?;
-        let mut out = Vec::with_capacity(DigestResult::SIZE);
-        DigestResult { tick: Tick(w.current_tick()), d: self.d, r: self.r }
-            .write(&mut Writer::new(&mut out), "DigestResult")
+        let mut cols = Vec::new();
+        w.containers.view_columns(&mut cols);
+        w.entities.view_columns(&mut cols);
+        cols.sort_unstable_by_key(|c| c.0);
+        let list: Vec<schema::PoolColumn> = cols
+            .iter()
+            .map(|&(column, ptr, len)| schema::PoolColumn { column, ptr: ptr as u32, len: len as u32 })
+            .collect();
+        let mut out = Vec::new();
+        schema::PoolDir { columns: schema::codec::List::from_slice(&list) }
+            .encode(&mut Writer::new(&mut out))
             .map_err(enc)?;
         Ok(out)
+    }
+
+    /// The pool columns' `(ptr, len)` in a fixed order (simabi's memory epoch rises when one moves, §15.8).
+    pub fn column_fingerprint(&mut self) -> u64 {
+        let Some(w) = self.world.as_ref() else {
+            return 0;
+        };
+        self.cols.clear();
+        w.containers.view_columns(&mut self.cols);
+        w.entities.view_columns(&mut self.cols);
+        let mut h = crate::hash::Xxh64::new();
+        for &(c, p, l) in &self.cols {
+            h.u32(c);
+            h.u64(p as u64);
+            h.u64(l as u64);
+        }
+        h.digest()
+    }
+
+    /// `sim_digest` (§15.8): `DigestResult` = the tick, then d and r.
+    pub fn digest(&self) -> SimResult<Vec<u8>> {
+        let mut out = Vec::with_capacity(DigestResult::SIZE);
+        self.digest_into(&mut out)?;
+        Ok(out)
+    }
+
+    /// [`Self::digest`] appended to `out`.
+    pub fn digest_into(&self, out: &mut Vec<u8>) -> SimResult<()> {
+        let w = self.world_or_order()?;
+        DigestResult { tick: Tick(w.current_tick()), d: self.d, r: self.r }
+            .write(&mut Writer::new(out), "DigestResult")
+            .map_err(enc)
     }
 
     /// The full state hash and each section's (§4.8).

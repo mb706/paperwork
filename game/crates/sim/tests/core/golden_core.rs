@@ -2,7 +2,8 @@
 //! start save and every frozen state, saving them back byte for byte, the full state hash and each section's,
 //! r₀ and the rolling digest's arithmetic, the slice hashes of the frozen states (every shard at tick 600),
 //! the digest preimages, the save and closure refusals, and the ABI traces whose calls need no rule.
-//! C2b adds the ticks (the closure log's states and digests), C2c the packets, projections and queries.
+//! C2b adds the ticks (the closure log's states and digests), C2c the packets, projections and queries
+//! (golden_boundary.rs) and the boundary's exports in the traces and the negative cases.
 
 use crate::common::*;
 use schema::container::ClosureLog;
@@ -328,13 +329,17 @@ fn refused_abi_inputs() {
             "sim_blob_put" => status_of(&c.blob_put(&input)),
             "sim_supply_chunk" => status_of(&c.supply_chunk(&input)),
             "sim_save" => status_of(&c.save(&input)),
-            // Extraction, subscriptions and queries are C2c's; worldgen's exports C2b's.
+            "sim_extract" => status_of(&c.extract(&input)),
+            "sim_subscribe" => status_of(&c.subscribe(&input)),
+            "sim_unsubscribe" => status_of(&c.unsubscribe(&input)),
+            "sim_query" => status_of(&c.query(&input)),
+            // gen_init and gen_preview are genabi's (crates/genabi/tests).
             _ => continue,
         };
         assert_eq!(got.name(), want, "{file} ({call})");
         n += 1;
     }
-    assert_eq!(n, 13);
+    assert_eq!(n, 21);
 }
 
 /// `InitInput` around a prototypes.bin (§15.8).
@@ -345,13 +350,8 @@ fn init_input(protos: &[u8]) -> Vec<u8> {
     v
 }
 
-/// The exports that arrive with C2c (extraction, subscriptions, queries). None of them changes the World (D9),
-/// so a replay that skips them still checks every other call's status, envelope and state assertion.
-const C2C_EXPORTS: [&str; 6] =
-    ["sim_extract", "sim_subscribe", "sim_unsubscribe", "sim_query", "sim_query_step", "sim_query_cancel"];
-
 /// Replays an ABI trace (README "ABI traces") against a fresh module, up to `calls` calls: each call's status,
-/// envelope payload and state assertion; the C2c exports are skipped.
+/// envelope payload and state assertion.
 pub(crate) fn replay(name: &str, calls: usize) {
     let traces = parse_json(&golden_text("abi/traces.json"));
     let trace = traces
@@ -364,9 +364,6 @@ pub(crate) fn replay(name: &str, calls: usize) {
     let mut c = sim::SimContext::new();
     for (i, call) in trace.get("calls").expect("calls").arr().iter().take(calls).enumerate() {
         let export = call.get("call").and_then(Json::str).expect("call");
-        if C2C_EXPORTS.contains(&export) {
-            continue;
-        }
         let input = call.get("in").and_then(Json::str).map(golden).unwrap_or_default();
         let param = call
             .get("params")
@@ -387,7 +384,13 @@ pub(crate) fn replay(name: &str, calls: usize) {
             "sim_digest" => split(c.digest()),
             "sim_state_hash" => split(c.state_hash()),
             "sim_save" => split(c.save(&input)),
-            other => panic!("{name} call {i}: {other} is not a C2a export"),
+            "sim_extract" => split(c.extract(&input)),
+            "sim_subscribe" => (status_of(&c.subscribe(&input)), None),
+            "sim_unsubscribe" => (status_of(&c.unsubscribe(&input)), None),
+            "sim_query" => (status_of(&c.query(&input)), None),
+            "sim_query_step" => split(c.query_step(param)),
+            "sim_query_cancel" => (status_of(&c.query_cancel(param)), None),
+            other => panic!("{name} call {i}: {other} is no sim export"),
         };
         let want = call.get("status").and_then(Json::str).expect("status");
         assert_eq!(status.name(), want, "{name} call {i} ({export})");
@@ -435,7 +438,7 @@ fn trace_watermarks() {
 }
 
 #[test]
-fn trace_capacity_without_extraction() {
+fn trace_capacity() {
     // A full inventory: mining refused without depletion, crafting paused and resumed, partial transfers, Q,
     // the bar, a craft request over what is affordable, a cancel whose refund does not fit, a stale stop and
     // begin after a release, leaving with a hand that does not fit; the final sim_meta and sim_save.
@@ -443,8 +446,16 @@ fn trace_capacity_without_extraction() {
 }
 
 #[test]
-fn traces_packet_transitions_queries_and_subscriptions_without_c2c_calls() {
-    for name in ["packet-transitions", "queries", "subscriptions"] {
-        replay(name, usize::MAX);
-    }
+fn trace_packet_transitions() {
+    replay("packet-transitions", usize::MAX);
+}
+
+#[test]
+fn trace_queries() {
+    replay("queries", usize::MAX);
+}
+
+#[test]
+fn trace_subscriptions() {
+    replay("subscriptions", usize::MAX);
 }

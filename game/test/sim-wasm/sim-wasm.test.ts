@@ -1,15 +1,30 @@
 // The simulation in WebAssembly (10 §4.1: native code and every engine compute the same bits). Runs sim.wasm
-// (built by cargo with the full ABI) against the golden set's no-system parts and the regression cases of
-// codex's review C2a-r1 (test/sim-wasm/cases/, written by the native test `review_c2a`), so the native and the
-// wasm32 answers are compared on the same inputs.
+// (built by cargo with the full ABI) against the golden set (states, ticks, packets, projections, queries, the ABI
+// traces and the negative cases) and the regression cases of codex's reviews (test/sim-wasm/cases/, written by
+// the native tests), so the native and the wasm32 answers are compared on the same inputs.
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
+import {
+  AllocStatsCodec,
+  PoolDirCodec,
+  QueryInputCodec,
+  QueryStepOutputCodec,
+  SubscribeInputCodec,
+  UnsubscribeInputCodec,
+} from '../../src/shared/gen/abi.ts';
 import { actionBlob, closureActions, decodeAction } from '../../src/shared/gen/actions.ts';
 import { Reader } from '../../src/shared/gen/codec.ts';
 import { parseClosureLog } from '../../src/shared/gen/container.ts';
-import { DigestResultCodec } from '../../src/shared/gen/projections.ts';
+import { decodePacket } from '../../src/shared/gen/packet.ts';
+import {
+  DebugCodec,
+  DigestResultCodec,
+  ProjectionKind,
+  QueryKind,
+  readUiRecords,
+} from '../../src/shared/gen/projections.ts';
 import { GEN_ABI_VERSION } from '../../src/shared/gen/schema.ts';
 import { GAME } from '../helpers/paths.ts';
 import { buildModule, initInput, stateInput, WasmSim } from './module.ts';
@@ -91,7 +106,7 @@ describe('sim.wasm: the golden set without systems', () => {
     }
   });
 
-  it('replays every ABI trace, skipping the exports that arrive with C2c', () => {
+  it('replays every ABI trace: statuses, envelopes and state assertions', () => {
     const traces = JSON.parse(readFileSync(join(GOLDEN, 'abi', 'traces.json'), 'utf8')) as {
       traces: {
         name: string;
@@ -105,15 +120,6 @@ describe('sim.wasm: the golden set without systems', () => {
         }[];
       }[];
     };
-    // Extraction, subscriptions and queries arrive with C2c; none of them changes the World (D9).
-    const c2c = [
-      'sim_extract',
-      'sim_subscribe',
-      'sim_unsubscribe',
-      'sim_query',
-      'sim_query_step',
-      'sim_query_cancel',
-    ];
     expect(traces.traces.map((t) => t.name).sort()).toEqual(
       [
         'boot-and-order',
@@ -129,12 +135,12 @@ describe('sim.wasm: the golden set without systems', () => {
       const name = t.name;
       const s = new WasmSim(module);
       t.calls.forEach((c, i) => {
-        if (c2c.includes(c.call)) return;
         const input = c.in ? golden(c.in) : new Uint8Array();
         const before = s.stateHash();
         let status: string;
         let out: Uint8Array | null = null;
-        if (['sim_set_flags'].includes(c.call)) status = s.statusArgs(c.call, ...(c.params ?? []));
+        if (['sim_set_flags', 'sim_query_cancel'].includes(c.call))
+          status = s.statusArgs(c.call, ...(c.params ?? []));
         else if (
           [
             'sim_meta',
@@ -142,10 +148,14 @@ describe('sim.wasm: the golden set without systems', () => {
             'sim_digest',
             'sim_state_hash',
             'sim_pending_chunks',
-            'sim_save',
+            'sim_query_step',
           ].includes(c.call)
         ) {
-          const r = c.call === 'sim_save' ? s.envelope(c.call, input) : s.envelope(c.call);
+          const r = s.envelope(c.call, undefined, ...(c.params ?? []));
+          status = r.status;
+          out = r.out;
+        } else if (['sim_save', 'sim_extract'].includes(c.call)) {
+          const r = s.envelope(c.call, input);
           status = r.status;
           out = r.out;
         } else status = s.status(c.call, input);
@@ -175,6 +185,43 @@ describe('sim.wasm: the golden set without systems', () => {
       n++;
     }
     expect(n).toBe(19);
+  });
+
+  it('refuses every negative ABI input of sim.wasm and gen.wasm as indexed', () => {
+    const index = JSON.parse(readFileSync(join(GOLDEN, 'negative', 'index.json'), 'utf8')) as {
+      file: string;
+      call: string;
+      expect: string;
+    }[];
+    const envelopes = ['sim_save', 'sim_extract', 'gen_init', 'gen_preview'];
+    const genModule = buildModule('genabi');
+    let n = 0;
+    for (const c of index) {
+      if (!c.file.startsWith('abi/') && !c.file.startsWith('protos/')) continue;
+      const call = c.call.split(' ')[0] as string;
+      const input = golden(`negative/${c.file}`);
+      if (call.startsWith('gen_')) {
+        const gen = new WasmSim(genModule, 'gen');
+        if (call === 'gen_preview') {
+          const init = readFileSync(join(GAME, 'test', 'sim-wasm', 'worldgen', 'init.bin'));
+          expect(gen.envelope('gen_init', new Uint8Array(init)).status).toBe('ok');
+        }
+        expect(gen.envelope(call, input).status, c.file).toBe(c.expect);
+        expect(gen.panics, c.file).toEqual([]);
+        n++;
+        continue;
+      }
+      const s = fresh();
+      expect(s.status('sim_load', containerInput(golden('start.save')))).toBe('ok');
+      const before = s.stateHash();
+      const bytes = c.file.startsWith('protos/') ? initInput(input) : input;
+      const status = envelopes.includes(call) ? s.envelope(call, bytes).status : s.status(call, bytes);
+      expect(status, `${c.file} (${call})`).toBe(c.expect);
+      if (call !== 'sim_init') expect(s.stateHash(), c.file).toBe(before);
+      expect(s.panics, c.file).toEqual([]);
+      n++;
+    }
+    expect(n).toBe(28);
   });
 });
 
@@ -256,6 +303,203 @@ describe('sim.wasm: the golden set ticks', () => {
       hex(golden('states/tick-3600.sections')),
     );
   }, 120_000);
+});
+
+/** The state ticks of the golden set: its states, projections and queries. */
+const STATE_TICKS = [0, 1, 2, 300, 600, 3600];
+
+/** One line of `projections/tick-NNNN.txt` (DEBUG's is masked and checked apart). */
+interface ProjectionLine {
+  name: string;
+  kind: number;
+  target: number;
+  p: [number, number, number];
+  status: string;
+}
+
+function projectionIndex(t: number): ProjectionLine[] {
+  const text = readFileSync(join(GOLDEN, 'projections', `tick-${String(t).padStart(4, '0')}.txt`), 'utf8');
+  return text
+    .split('\n')
+    .filter((l) => l.startsWith('## ') && !l.startsWith('## debug '))
+    .map((l) => {
+      const f = new Map(
+        l
+          .slice(3)
+          .split(' ')
+          .map((x) => x.split('=') as [string, string]),
+      );
+      const num = (k: string) => Number(f.get(k));
+      return {
+        name: l.slice(3).split(' ')[0] as string,
+        kind: (ProjectionKind as Record<string, number>)[f.get('kind') as string] as number,
+        target: num('target'),
+        p: [num('p0'), num('p1'), num('p2')],
+        status: f.get('status') as string,
+      };
+    });
+}
+
+describe('sim.wasm: the boundary (extraction, projections, queries)', () => {
+  it('extracts the golden packets in the golden flow', () => {
+    const run = goldenRun();
+    const s = fresh();
+    expect(s.status('sim_load', containerInput(golden('start.save')))).toBe('ok');
+    const view = golden('view.bin');
+    const check = (name: string) => {
+      const r = s.envelope('sim_extract', view);
+      expect(r.status, s.lastError().message).toBe('ok');
+      expect(hex(r.out as Uint8Array), name).toBe(hex(golden(`packets/${name}.bin`)));
+    };
+    check('tick-0000-full');
+    expect(s.status('sim_subscribe', golden('subs.bin'))).toBe('ok');
+    check('tick-0000');
+    tickGolden(s, run, 1);
+    check('tick-0001');
+    for (let t = 2; t <= 600; t++) tickGolden(s, run, t);
+    check('tick-0600');
+    expect(s.panics).toEqual([]);
+  }, 120_000);
+
+  it('answers every projection and query of the state ticks with the golden records', () => {
+    const run = goldenRun();
+    const s = fresh();
+    expect(s.status('sim_load', containerInput(golden('start.save')))).toBe('ok');
+    const view = golden('view.bin');
+    // The first packet of a world carries no subscription record (rule 31).
+    expect(s.envelope('sim_extract', view).status).toBe('ok');
+    let live: number[] = [];
+    let checked = 0;
+    for (let t = 0; t <= 3600; t++) {
+      if (t > 0) tickGolden(s, run, t);
+      if (!STATE_TICKS.includes(t)) continue;
+      const tt = String(t).padStart(4, '0');
+      // Fresh subscriptions (STATS whole): one per index line, then DEBUG.
+      const lines = projectionIndex(t);
+      expect(s.status('sim_unsubscribe', UnsubscribeInputCodec.encode({ ids: live }))).toBe('ok');
+      const subs = lines.map((l, i) => ({
+        sub_id: i + 1,
+        kind: l.kind,
+        flags: 0,
+        target: l.target,
+        p0: l.p[0],
+        p1: l.p[1],
+        p2: l.p[2],
+        p3: 0,
+      }));
+      const debugId = lines.length + 1;
+      subs.push({
+        sub_id: debugId,
+        kind: ProjectionKind.debug,
+        flags: 0,
+        target: 0,
+        p0: 0,
+        p1: 0,
+        p2: 0,
+        p3: 0,
+      });
+      expect(s.status('sim_subscribe', SubscribeInputCodec.encode({ subs })), `tick ${t}`).toBe('ok');
+      live = subs.map((x) => x.sub_id);
+      const packet = decodePacket(s.envelope('sim_extract', view).out as Uint8Array);
+      const ui = packet.sections.find((x) => x.name === 'UI');
+      const records = new Map(
+        readUiRecords(ui?.bytes ?? new Uint8Array(), ui?.count ?? 0).map((r) => [r.sub_id, r]),
+      );
+      lines.forEach((l, i) => {
+        const r = records.get(i + 1);
+        expect(r, `tick ${t}: ${l.name}`).toBeDefined();
+        const status = ['ok', 'gone', 'invalid'][r?.status ?? 3];
+        expect(status, `tick ${t}: ${l.name}`).toBe(l.status.split(' ')[0]);
+        if (status === 'ok')
+          expect(hex(r?.body as Uint8Array), `tick ${t}: ${l.name}`).toBe(
+            hex(golden(`projections/tick-${tt}/${l.name}.bin`)),
+          );
+        checked++;
+      });
+      // DEBUG, its implementation-defined fields masked (memory_bytes, pools[].capacity, phase_us).
+      const ours = DebugCodec.decode(records.get(debugId)?.body as Uint8Array);
+      const want = DebugCodec.decode(golden(`projections/tick-${tt}/debug.bin`));
+      const masked = (d: typeof ours) => ({
+        tick: d.tick,
+        entity_count: d.entity_count,
+        d: d.d,
+        r: d.r,
+        pools: d.pools.map((p) => [p.pool, p.rows, p.active]),
+      });
+      expect(masked(ours), `tick ${t}: DEBUG`).toEqual(masked(want));
+      expect(ours.memory_bytes, 'the module reports its memory').toBeGreaterThan(0);
+      // The queries: each file of queries/tick-NNNN/ (inspect-S, hash, digest).
+      const files = readdirSync(join(GOLDEN, 'queries', `tick-${tt}`)).sort();
+      expect(files.length).toBeGreaterThanOrEqual(4);
+      for (const f of files) {
+        const name = f.slice(0, -4);
+        const kind = name.startsWith('inspect-')
+          ? QueryKind.inspect
+          : (QueryKind as Record<string, number>)[name];
+        const params = name.startsWith('inspect-')
+          ? new Uint8Array(new Uint32Array([Number(name.slice(8))]).buffer)
+          : new Uint8Array();
+        const q = QueryInputCodec.encode({ id: 7, header: { kind: kind as number, flags: 0 }, params });
+        expect(s.status('sim_query', q), `tick ${t}: ${name}`).toBe('ok');
+        const step = QueryStepOutputCodec.decode(
+          s.envelope('sim_query_step', undefined, 0xffffffff).out as Uint8Array,
+        );
+        expect(step.results.length).toBe(1);
+        const r = step.results[0];
+        expect(r?.ok, `tick ${t}: ${name}`).toBe(true);
+        expect(hex(r?.body as Uint8Array), `tick ${t}: ${name}`).toBe(hex(golden(`queries/tick-${tt}/${f}`)));
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
+    expect(s.panics).toEqual([]);
+  }, 120_000);
+
+  it('allocates nothing per tick once warm: sim_tick, sim_digest, sim_pending_chunks, sim_extract (§2.5)', () => {
+    const run = goldenRun();
+    const s = fresh();
+    expect(s.status('sim_load', containerInput(golden('start.save')))).toBe('ok');
+    const view = golden('view.bin');
+    expect(s.envelope('sim_extract', view).status).toBe('ok');
+    expect(s.status('sim_subscribe', golden('subs.bin'))).toBe('ok');
+    const allocs = (): bigint =>
+      AllocStatsCodec.decode(s.envelope('sim_allocs').out as Uint8Array).allocations;
+    const step = (t: number) => {
+      tickGolden(s, run, t);
+      expect(s.envelope('sim_pending_chunks').status).toBe('ok');
+      expect(s.envelope('sim_extract', view).status).toBe('ok');
+    };
+    // The golden log's last actions are at tick 595. A whole cycle of the 3,600 digest shards grows every
+    // buffer to its largest member (the slices visit each shard once per cycle); then 2,400 idle ticks.
+    for (let t = 1; t <= 3600; t++) step(t);
+    allocs();
+    const before = allocs();
+    for (let t = 3601; t <= 6000; t++) step(t);
+    expect(allocs() - before).toBe(0n);
+    expect(s.panics).toEqual([]);
+  }, 120_000);
+
+  it('describes its pool columns and counts its allocations (simcheck)', () => {
+    const s = fresh();
+    expect(s.envelope('sim_pool_dir').status).toBe('err_order');
+    expect(s.status('sim_load', containerInput(golden('start.save')))).toBe('ok');
+    const epoch = s.exports.sim_memory_epoch?.();
+    const dir = s.envelope('sim_pool_dir');
+    expect(dir.status).toBe('ok');
+    const columns = PoolDirCodec.decode(dir.out as Uint8Array).columns;
+    expect(columns.length).toBeGreaterThan(0);
+    // Each column is a live range of the module's memory (§15.8: the shell's read views).
+    for (const c of columns) {
+      expect(c.ptr + c.len).toBeLessThanOrEqual(s.memory.buffer.byteLength);
+    }
+    expect(columns.map((c) => c.column)).toEqual([...columns.map((c) => c.column)].sort((x, y) => x - y));
+    const allocs = s.envelope('sim_allocs');
+    expect(allocs.status).toBe('ok');
+    const a = AllocStatsCodec.decode(allocs.out as Uint8Array);
+    expect(a.allocations).toBeGreaterThan(0n);
+    expect(a.peak_bytes).toBeGreaterThanOrEqual(a.live_bytes);
+    expect(s.exports.sim_memory_epoch?.()).toBeGreaterThanOrEqual(epoch as number);
+  });
 });
 
 describe('sim.wasm: the recorded sessions of test/logs/ (D18 e, natively and in WebAssembly)', () => {

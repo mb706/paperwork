@@ -376,4 +376,4 @@ impl World {
     }
 }
 
-pub use system::watermark_player;
+pub use system::{DEV_PANIC_DUMP_ID, watermark_player};

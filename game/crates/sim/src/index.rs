@@ -210,6 +210,52 @@ impl<K: Ord + Copy> ShardBuckets<K> {
     }
 }
 
+/// Per digest shard (§4.8), the keys of a small collection that fall in it, kept as one vector sorted by
+/// `(shard, key)`: no vector per shard, so a key in a shard never used before allocates nothing once the vector
+/// has grown (§2.5). For the worldgen requests, which a commit rate of 8 per tick keeps to a few hundred.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ShardPairs<K> {
+    pairs: Vec<(u32, K)>,
+}
+
+impl<K> Default for ShardPairs<K> {
+    fn default() -> Self {
+        Self { pairs: Vec::new() }
+    }
+}
+
+impl<K: Ord + Copy> ShardPairs<K> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Adds `k` to shard `shard` (once).
+    pub fn insert(&mut self, shard: u32, k: K) {
+        let x = (shard % SHARDS, k);
+        if let Err(i) = self.pairs.binary_search(&x) {
+            self.pairs.insert(i, x);
+        }
+    }
+
+    pub fn remove(&mut self, shard: u32, k: &K) {
+        if let Ok(i) = self.pairs.binary_search(&(shard % SHARDS, *k)) {
+            self.pairs.remove(i);
+        }
+    }
+
+    /// The keys of shard `shard`, ascending.
+    pub fn bucket(&self, shard: u32) -> impl ExactSizeIterator<Item = &K> + '_ {
+        let s = shard % SHARDS;
+        let lo = self.pairs.partition_point(|p| p.0 < s);
+        let hi = self.pairs.partition_point(|p| p.0 <= s);
+        self.pairs[lo..hi].iter().map(|p| &p.1)
+    }
+
+    pub fn clear(&mut self) {
+        self.pairs.clear();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

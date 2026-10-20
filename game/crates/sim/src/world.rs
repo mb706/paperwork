@@ -9,7 +9,7 @@ use crate::chunks::{ChunkStore, map_bounds, tile_chunk, tile_chunk_key, tile_ind
 use crate::r#gen::{ContainerPool, EntityTable, Globals, Stat, Timer, WorldgenRequest, shard_of_timer};
 use crate::handle::{self, SerialIndex};
 use crate::heap::SlotHeap;
-use crate::index::{BlockList, ShardBuckets};
+use crate::index::{BlockList, ShardBuckets, ShardPairs};
 use crate::players::Players;
 use crate::rng::RngStreams;
 use crate::sched::Scheduler;
@@ -117,7 +117,7 @@ pub struct World {
     pub(crate) shards: ShardBuckets<Serial>,
     pub(crate) stat_shards: ShardBuckets<StatKey>,
     pub(crate) timer_shards: ShardBuckets<TimerKey>,
-    pub(crate) pending_shards: ShardBuckets<PendingKey>,
+    pub(crate) pending_shards: ShardPairs<PendingKey>,
     /// Derived: active sets, wake sequence numbers, registrations and wake timers (§4.6).
     pub sched: Scheduler,
     /// Derived: the chunks with a pending worldgen request, ascending by `(surface, cy, cx)` (regen.rs).
@@ -150,7 +150,7 @@ impl World {
             shards: ShardBuckets::new(),
             stat_shards: ShardBuckets::new(),
             timer_shards: ShardBuckets::new(),
-            pending_shards: ShardBuckets::new(),
+            pending_shards: ShardPairs::new(),
             sched,
             pending_chunks: Vec::new(),
             regen: crate::regen::RegenCache::default(),
