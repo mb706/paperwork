@@ -7,6 +7,7 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts', 'scripts/**/*.test.ts', 'test/**/*.test.ts'],
     pool: 'threads',
+    globalSetup: ['test/helpers/global-setup.ts'],
     testTimeout: 60_000,
     reporters: ['default'],
   },

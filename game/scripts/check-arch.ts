@@ -10,8 +10,9 @@
 //     bans except the clock, which pacing needs (10 §3.3).
 //  4. Generated files: every file in src/shared/gen/, crates/schema/src/ and crates/sim/src/gen/ carries
 //     a valid `@generated` header whose content hash matches, so hand edits fail (10 §15.1).
-//  5. The crate graph (10 §2.2): each crate depends only on the crates its job allows, and the four pure
-//     crates forbid unsafe code.
+//  5. The crate graph (10 §2.2): each crate depends only on the crates its job allows, the four pure
+//     crates forbid unsafe code, and det, worldgen and sim do no I/O (10 §2.5; clippy.toml bans their
+//     clock and threads).
 //
 // A line may opt out of one rule with a comment on the line before: `// check-arch-ignore <rule>: <reason>`.
 //
@@ -497,6 +498,38 @@ function checkCrates(): Violation[] {
   return out;
 }
 
+/** I/O, environment and process access, which det, worldgen and sim never use (10 §2.5, D13, D19). */
+const RUST_IO = /\bstd::(fs|net|env|process|io::(stdin|stdout|stderr))\b/g;
+
+/** Scans the pure crates' sources (not their tests) for I/O. Exported for tests. */
+export function checkRustSource(file: string, src: string): Violation[] {
+  const out: Violation[] = [];
+  const lines = src.split('\n');
+  lines.forEach((line, i) => {
+    const code = line.replace(/\/\/.*$/, '');
+    for (const m of code.matchAll(RUST_IO))
+      out.push({
+        file,
+        line: i + 1,
+        col: (m.index ?? 0) + 1,
+        rule: 'rust-io',
+        message: `${m[0]}: no I/O in det, worldgen or sim (10 §2.5); the host does it`,
+      });
+  });
+  return out;
+}
+
+function checkRustIo(): Violation[] {
+  const out: Violation[] = [];
+  for (const c of ['det', 'worldgen', 'sim']) {
+    for (const abs of files(join(ROOT, 'crates', c, 'src'), /\.rs$/)) {
+      const file = relative(ROOT, abs).split(sep).join('/');
+      out.push(...checkRustSource(file, readFileSync(abs, 'utf8')));
+    }
+  }
+  return out;
+}
+
 function checkGenerated(): Violation[] {
   const out: Violation[] = [];
   for (const dir of GENERATED_DIRS) {
@@ -530,6 +563,7 @@ function main(): number {
     violations.push(...checkSource(file, readFileSync(abs, 'utf8')));
   }
   violations.push(...checkGenerated());
+  violations.push(...checkRustIo());
   if (!process.argv.includes('--no-cargo')) violations.push(...checkCrates());
   for (const x of violations) console.error(`${x.file}:${x.line}:${x.col}: [${x.rule}] ${x.message}`);
   const ms = Math.round(performance.now() - started);

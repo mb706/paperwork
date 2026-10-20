@@ -135,7 +135,6 @@ interface Result {
 function runStep(s: Step): Promise<Result> {
   const reason = s.skip?.();
   if (reason) return Promise.resolve({ name: s.name, ok: true, ms: 0, note: `skipped: ${reason}` });
-  // check-arch-ignore determinism: timing for the log
   const t0 = performance.now();
   return new Promise((resolve) => {
     const [cmd, ...args] = s.cmd as [string, ...string[]];
@@ -152,7 +151,6 @@ function runStep(s: Step): Promise<Result> {
       out += d;
     });
     const done = (ok: boolean, extra = ''): void => {
-      // check-arch-ignore determinism: timing for the log
       const ms = Math.round(performance.now() - t0);
       if (ok) s.after?.();
       else console.log(`\n── ${s.name} FAILED ──\n${out.trim()}${extra}\n`);
@@ -181,7 +179,6 @@ async function runLanes(lanes: Lane[]): Promise<Result[]> {
 
 async function main(): Promise<number> {
   const mode = process.argv[2] ?? 'ci';
-  // check-arch-ignore determinism: timing for the log
   const t0 = performance.now();
   let results: Result[] = [];
   if (mode === 'check') results = await runLanes([...CHECK, CARGO_CHECK]);
@@ -193,7 +190,6 @@ async function main(): Promise<number> {
     console.error('usage: node scripts/ci.ts check|test|ci');
     return 2;
   }
-  // check-arch-ignore determinism: timing for the log
   const wall = (performance.now() - t0) / 1000;
   const failed = results.filter((r) => !r.ok);
   for (const r of results) if (r.note) console.log(`  ${r.name}: ${r.note}`);

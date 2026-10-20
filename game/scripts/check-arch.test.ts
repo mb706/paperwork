@@ -1,6 +1,6 @@
 // check-arch's rules fire on the code they target and stay quiet elsewhere (10 §2.2, §2.5, D14).
 import { describe, expect, it } from 'vitest';
-import { checkSource } from './check-arch.ts';
+import { checkRustSource, checkSource } from './check-arch.ts';
 
 const rules = (file: string, src: string) => checkSource(file, src).map((v) => v.rule);
 
@@ -124,5 +124,18 @@ describe('determinism bans (D14)', () => {
         '// check-arch-ignore threads: wrong rule\nconst t = performance.now();',
       ),
     ).toEqual(['determinism']);
+  });
+});
+
+describe('the pure crates do no I/O (10 §2.5)', () => {
+  it('flags std::fs, std::net, std::env, std::process and the standard streams, not comments', () => {
+    const src =
+      'use std::fs;\nlet x = std::env::var("A");\n// std::fs in a comment\nlet n = std::net::TcpStream::connect(a);\nstd::io::stdout();\nuse std::io::Write;';
+    expect(checkRustSource('crates/sim/src/a.rs', src).map((v) => `${v.line}:${v.rule}`)).toEqual([
+      '1:rust-io',
+      '2:rust-io',
+      '4:rust-io',
+      '5:rust-io',
+    ]);
   });
 });

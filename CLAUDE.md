@@ -60,6 +60,28 @@
   (e.g. `window.__game.step(n)`) so automated playtests are deterministic regardless of frame rate.
 - Anything with heavy or new-glibc deps: `podman run --rm -v "$PWD:$PWD" -w "$PWD" docker.io/library/ubuntu:24.04 …`.
 
+## The code (`game/`; M0 scaffold by C1a)
+- **Install:** `cd game && npm ci` (exact pins from `package-lock.json`; Cargo pins in `Cargo.lock`, toolchain in
+  `rust-toolchain.toml`). Needs Node 24, Rust 1.99.1 + wasm32, binaryen (`wasm-opt`, `wasm-as`), `gamedev-python`
+  (pyyaml) and the Playwright browsers above. All commands run in `game/`.
+- **Run:** `npm run dev`: Vite on `127.0.0.1:5173` (`PAPERWORK_PORT` overrides) with the schema generator and the data
+  stage in watch mode and the cargo plugin (`wasmdev` modules, full reload after each build). `npm run build` /
+  `npm run preview`: release WebAssembly + feature gate, `dist/` with brotli/gzip siblings and `build-manifest.json`.
+- **Check and test:** `npm run check` (Biome, `tsc -b`, check-arch, schema-gen --check, rustfmt, clippy -D warnings
+  with the determinism bans, the bans' own fixture, the data stage --check, the Python spec checks; ~12 s warm),
+  `npm test` (cargo test, dev and ntest profiles; Vitest), `npm run e2e` (Playwright, Chrome + Firefox, own server
+  on port 5191), `npm run ci` (all of it plus the e2e smoke and the release wasm gate; ~25 s warm, ~30 s from a
+  clean clone). On a busy host: `taskset -c 0-15 npm run ci`. `npm run format` applies Biome's fixes.
+- **Data stage:** `npm run data` turns `design/spec/data` + `game/data/engine/*.yaml` into `public/data/` (gitignored)
+  and refreshes the committed `src/shared/gen/proto-ids.ts` and `test/fixtures/expr/cases.txt`: run it after any data
+  edit and commit those two. Errors name the file, line and path. `--manifest m1…m5 [--allow-incomplete]` builds a
+  milestone filter into `.cache/data/`. `data/engine/manifests.yaml` must equal 10 §12's block.
+- **Where things live** (10 §2.2): `crates/` (schema, det, worldgen, sim, simabi, genabi, simtool), `src/<layer>/`
+  (layer boundaries enforced by `scripts/check-arch.ts`), `scripts/` (data stage, schema-gen, check-arch, plugins,
+  `ci.ts`), `schema/` (C1b), `test/`, `e2e/`. Files in `src/shared/gen/`, `crates/schema/src/` and
+  `crates/sim/src/gen/` are generated: their header hash refuses hand edits. A justified exception to a check-arch
+  rule is a comment on the line before: `// check-arch-ignore <rule>: <reason>`.
+
 ## Showing the game to the user
 - Dev server on `127.0.0.1:<high port>`; the user tunnels in: `ssh -L 5173:127.0.0.1:5173 cpuserver10`.
 - Builds can also be published as a private claude.ai Artifact (≤ 16 MB per file).
@@ -74,5 +96,5 @@
 - **Engine plan:** `design/spec/10-architecture.md` (version 2); multiplayer in `design/spec/11-multiplayer.md`.
   - The simulation is **Rust 1.99.1 compiled to WebAssembly** (a Cargo workspace in `game/crates/`): one thread in a sim Worker, a deterministic 60 UPS, closures as its only input. TypeScript 7 does the worker shell, the data stage, the UI (SolidJS, DOM), the custom WebGL2 renderer, audio and tools. Vite 8, Vitest, Biome; `cargo test` natively; clippy with determinism bans.
   - One schema (`game/schema/`) generates every Rust/TypeScript contract; the M0 contracts are 10 §15. No transcendental from `std` in sim code: use the `det` crate (the `libm` crate inside). Determinism rules D1–D23: 10 §4.1.
-  - The pinned, tested npm set is in `design/round2/A-stack-test/` (with its lockfile); proven Rust/WebAssembly settings, kernels and harnesses are in `design/engine-study/`.
+  - The pinned npm set is `game/package-lock.json` (tested first in `design/round2/A-stack-test/`); proven Rust/WebAssembly settings, kernels and harnesses are in `design/engine-study/`.
 - **Milestones:** M0 (foundations) → M1 (the vertical slice: Memo + Report tiers, peaceful) → … → M7. See 10 §12 and 09.

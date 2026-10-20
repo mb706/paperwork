@@ -130,9 +130,17 @@ export function capabilityBuild(
   const p = cap.prototypes;
   const base = ['manifests', cap.name, 'prototypes'];
   const err = (path: (string | number)[], msg: string): void => diags.error(msg, at(src, [...base, ...path]));
+  const singular: Record<string, string> = {
+    entities: 'entity',
+    recipes: 'recipe',
+    resources: 'resource',
+    tiles: 'tile',
+    world_objects: 'world object',
+    technologies: 'technology',
+  };
   const known = <T>(list: string[], map: Map<string, T>, key: string): Set<string> => {
     list.forEach((x, k) => {
-      if (!map.has(x)) err([key, k], `unknown ${key.replace(/s$/, '').replace('_', ' ')} ${x}`);
+      if (!map.has(x)) err([key, k], `unknown ${singular[key] ?? key} ${x}`);
     });
     return new Set(list.filter((x) => map.has(x)));
   };

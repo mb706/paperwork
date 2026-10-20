@@ -36,6 +36,10 @@ check rustc          rustc --version
 check cargo          cargo --version
 check wasm32-target  sh -c "rustup target list --installed | grep -x wasm32-unknown-unknown"
 check wasm-opt       wasm-opt --version
+check wasm-as        wasm-as --version
+check clippy         cargo clippy --version
+check rustfmt        rustfmt --version
+check pyyaml         gamedev-python -c "import yaml; print('pyyaml', yaml.__version__)"
 check numactl        sh -c "numactl --show | head -1"
 
 echo "functional:"

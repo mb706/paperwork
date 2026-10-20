@@ -18,7 +18,7 @@ export default defineConfig({
     dataStagePlugin({ root }),
     cargoPlugin({ root }),
     solid(),
-    releasePlugin({ root, build: 'm0' }),
+    releasePlugin({ root }),
   ],
   server: {
     host: '127.0.0.1',

@@ -4,17 +4,21 @@
 //                                         and refresh src/shared/gen/proto-ids.ts and the expression
 //                                         cross-check fixture
 //   node scripts/data-stage.ts --check    strict mode (npm run check): run twice and require byte-identical
-//                                         outputs (D14), require the committed outputs to be fresh, and
-//                                         emit every milestone filter in memory; writes nothing
+//                                         outputs (D14; the second run in another process, under another
+//                                         locale and time zone), require the committed outputs to be fresh,
+//                                         and emit every milestone filter in memory; writes nothing
+//   node scripts/data-stage.ts --hashes   print the SHA-256 of every output as JSON; writes nothing
 //   node scripts/data-stage.ts --manifest m2 [--allow-incomplete]
 //                                         build a milestone filter into .cache/data/m2/
 //   --quiet                               print only problems
+import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PROTOCOL_VERSION, SCHEMA_HASH } from '../src/shared/gen/schema.ts';
 import { formatDiagnostic } from './data-stage/diagnostics.ts';
 import { type DataStageOptions, OUTPUT_PATHS, runDataStage } from './data-stage/index.ts';
+import { sha256Hex } from './lib/hash.ts';
 
 const GAME = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SPEC = join(GAME, '..', 'design', 'spec');
@@ -28,8 +32,48 @@ function same(a: Uint8Array, b: Uint8Array): boolean {
   return a.length === b.length && a.every((x, i) => x === b[i]);
 }
 
-function main(): number {
+/**
+ * The second run of --check (D14): the same stage in another process, under a locale and a time zone
+ * chosen to break careless code (Turkish case mapping, a +14:00 offset). Resolves with its output hashes.
+ */
+function hashesElsewhere(): Promise<Record<string, string>> {
+  return new Promise((resolve, reject) => {
+    const env = { ...process.env, LANG: 'tr_TR.UTF-8', LC_ALL: 'tr_TR.UTF-8', TZ: 'Pacific/Kiritimati' };
+    const child = spawn(process.execPath, [fileURLToPath(import.meta.url), '--hashes'], {
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let out = '';
+    let err = '';
+    child.stdout.on('data', (d) => {
+      out += d;
+    });
+    child.stderr.on('data', (d) => {
+      err += d;
+    });
+    child.on('close', (code) =>
+      code === 0
+        ? resolve(JSON.parse(out) as Record<string, string>)
+        : reject(new Error(err || `exit ${code}`)),
+    );
+  });
+}
+
+async function main(): Promise<number> {
   const check = process.argv.includes('--check');
+  if (process.argv.includes('--hashes')) {
+    const r = runDataStage({
+      gameDir: GAME,
+      specDir: SPEC,
+      schemaHash: SCHEMA_HASH,
+      protocolVersion: PROTOCOL_VERSION,
+    });
+    if (r.diagnostics.errors.length > 0) return 1;
+    process.stdout.write(
+      JSON.stringify(Object.fromEntries([...r.outputs].map(([p, b]) => [p, sha256Hex(b)]))),
+    );
+    return 0;
+  }
   const quiet = process.argv.includes('--quiet');
   const manifest = arg('--manifest');
   // check-arch-ignore determinism: the elapsed time goes to the log, never into an output
@@ -43,6 +87,7 @@ function main(): number {
     ...(manifest ? { manifest } : {}),
     ...(check ? { extraBuilds: ['m1', 'm2', 'm3', 'm4', 'm5'] } : {}),
   };
+  const elsewhere = check && !manifest ? hashesElsewhere() : null;
   const r = runDataStage(opts);
   for (const d of r.diagnostics.list) console.error(formatDiagnostic(d));
   if (!quiet) for (const line of r.report) console.log(line);
@@ -53,11 +98,10 @@ function main(): number {
   }
   const problems: string[] = [];
   if (check) {
-    // D14: a second run from the same files gives the same bytes.
-    const again = runDataStage(opts);
+    // D14: a second run from the same files, in another process, locale and time zone, gives the same bytes.
+    const again = await (elsewhere as Promise<Record<string, string>>);
     for (const [path, bytes] of r.outputs) {
-      const b = again.outputs.get(path);
-      if (!b || !same(bytes, b)) problems.push(`${path}: a second run gave different bytes (D14)`);
+      if (again[path] !== sha256Hex(bytes)) problems.push(`${path}: a second run gave different bytes (D14)`);
     }
     // The committed outputs are fresh.
     for (const path of [OUTPUT_PATHS.protoIds, OUTPUT_PATHS.exprFixture]) {
@@ -94,4 +138,4 @@ function main(): number {
   return problems.length === 0 ? 0 : 1;
 }
 
-process.exitCode = main();
+process.exitCode = await main();

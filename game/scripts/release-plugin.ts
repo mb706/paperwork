@@ -86,11 +86,9 @@ export function cacheControl(path: string): string {
 
 export interface ReleasePluginOptions {
   root: string;
-  /** The build's capability manifest (`m0`, …), recorded in the manifest. */
-  build: string;
 }
 
-export function releasePlugin({ root, build }: ReleasePluginOptions): Plugin {
+export function releasePlugin({ root }: ReleasePluginOptions): Plugin {
   let command: 'serve' | 'build' = 'serve';
   return {
     name: 'paperwork:release',
@@ -102,6 +100,8 @@ export function releasePlugin({ root, build }: ReleasePluginOptions): Plugin {
       handler() {
         if (command !== 'build') return;
         const dist = join(root, 'dist');
+        // The build's name (its capability manifest) comes from the data stage's manifest in public/data.
+        const { build } = JSON.parse(readFileSync(join(dist, MANIFEST_PATH), 'utf8')) as { build: string };
         const m = releaseManifest(dist, {
           schemaHash: SCHEMA_HASH,
           protocolVersion: PROTOCOL_VERSION,
