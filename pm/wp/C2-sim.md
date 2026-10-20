@@ -71,7 +71,7 @@ Binding decisions: `pm/DECISIONS-IMPL.md`, especially:
 
 - **Extraction** with `PresentationState` (§15.4): the render packet, events, and `AUDIO_WORKING`.
 - **The M0 projections** (`HUD`, `CHARACTER`, `INVENTORY`, `ENTITY_PANEL`, `HOVER`, `STATS`, `DEBUG`) and M0's queries, within the §15.5 limits.
-- `simabi` and `genabi`, completed through the generated export macros, with `schema::ABI_VERSION` 1.
+- `simabi` and `genabi`, completed through the generated export macros, using the generated constants `ABI_VERSION` for the sim ABI (2 since GATE-r1) and `GEN_ABI_VERSION` for the worldgen ABI. Read them from the generated code; never hard-code them.
 - The panic hook.
 - `simtool replay` and `simtool bench`.
 
@@ -95,3 +95,5 @@ Binding decisions: `pm/DECISIONS-IMPL.md`, especially:
 - **Query cost model:** open. The golden traces pin `sim_query_step` at both 0 units and all units (rule 44), so cost queries however you like between those (C1c open issue 7).
 - **Spilling cancelled-craft refunds** onto the ground is M1, not M0 (C1c open issue 5).
 - **Golden-set changes** follow `pm/DECISIONS-IMPL.md` decision 14. Never edit golden values yourself; propose them in your report.
+- **GATE-r2 finding 1:** the golden model serialises digest-slice members in pool-row order. §4.8 and golden README rule 41 require sorting by `(section, key)`, and C1c is correcting the golden model and set. Implement the spec's order (sorted). If the golden set still disagrees when you reach the rolling digests, wait for C1c's fix rather than matching the model.
+- **Shared git index:** you share the main tree's git index with C1c. Commit only your own paths explicitly, with `git commit -m "..." -- <paths>`, so you never commit another agent's staged files.
