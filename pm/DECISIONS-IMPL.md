@@ -39,9 +39,9 @@ Numbered like DECISIONS.md. Each entry gives the decision, the reason and the so
    - The HUD keeps Factorio's layout, skinned as 1945 federal paperwork.
    - Information items are light and matter items dark (lightness split).
    - Emitters stain the paper warm, and the night is a cyanotype that lamps colour back in.
-   - The realism variant stays a one-table switch, so the choice is cheap to reverse; the user has been asked for their taste on the studio page.
+   - **The user approved Survey on 2026-10-20** ("let's go ahead with the 'Survey' look!"). The realism variant stays a one-table switch.
    - **Binding production constraint:** render only the moving parts per animation frame. Rebuilding every model per frame would take about 11 h for the full game. Atlases must use animated layers and compression to fit the GPU budget.
-6. **Audio direction: process music played by the history of machine music** (A4; `design/audio/DIRECTION.md`).
+6. **Audio direction: process music played by the history of machine music** (A4; `design/audio/DIRECTION.md`). **The user approved it on 2026-10-20**, except that "the organs in the 1962 sound somewhat dissonant". A4 is fixing Era II's organ in the engine rules: no unresolved sustained dissonance in organ and pad voices.
    - A generative-first hybrid: WebAudio plays the rules live from about 7.5 MB of public-domain samples, and the same code renders offline tracks and fallbacks.
    - **Binding constraints:**
      - The audio CPU must come down to a budget the engine work package sets. It is 36–76% of a core here today; use lighter reverbs or pre-rendered stems.
