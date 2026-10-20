@@ -1,0 +1,98 @@
+# Every action of the closure log, what it tests, and what the reference model did with it.
+   1  player 0  seq   1  applied                               mine the 2-ore tile until it is depleted
+   1  player 0  seq   2  applied                               trimmed collision off (world state, D11)
+   1  system    seq   1  applied                               a system batch beside a player batch; nothing in the World
+   2  player 0  seq   3  applied                               hand-craft an iron chest (8 plates leave at enqueue)
+   2  player 5  seq   1  refused: player_not_present           a player without state: player_not_present
+   3  player 0  seq   4  applied                               pick up the chests (hand, origin slot 0)
+   4  player 0  seq   5  applied                               build chest C (serial 4)
+   4  player 0  seq   6  applied                               fast transfer into chest C named by creation id (S5)
+   5  system    seq   2  applied                               a new player: character 5 at the spawn point
+   5  player 0  seq   7  refused: no_item_in_hand              the hand is empty: no_item_in_hand
+   6  player 1  seq   1  applied                               take every plate from chest B
+   7  player 1  seq   2  applied                               P1 crafts two chests
+   8  player 1  seq   3  applied                               P1 mines ore by the spawn point
+   9  player 1  seq   4  applied                               P1 holds its plates (origin slot 0)
+   9  player 1  seq   5  refused: not_enough_ingredients       crafting reads the main inventory, not the hand: not_enough_ingredients
+  10  player 1  seq   6  applied                               P1 walks east while mining
+  10  player 0  seq   8  applied                               limit chest A to one slot
+  11  player 0  seq   9  applied                               empty hand: take everything from chest A
+  12  player 0  seq  10  applied                               pick up the ore
+  13  player 0  seq  11  applied                               the hand into chest A (its one unlocked slot)
+  14  player 0  seq  12  applied                               pick up the plates
+  15  player 0  seq  13  refused: inventory_full               chest A has no room for plates: inventory_full
+  16  player 0  seq  14  applied                               half the hand into chest C
+  17  player 0  seq  15  refused: cannot_insert                slot 5 is past the bar: cannot_insert
+  18  player 0  seq  16  applied                               Q: the rest goes back to its origin slot
+  19  player 0  seq  17  applied                               half a stack into chest C
+  20  player 0  seq  18  applied                               a chest's stack into the main inventory
+  21  player 0  seq  19  applied                               an empty slot: everything from chest C
+  22  player 0  seq  20  applied                               half of every plate into chest C
+  23  player 0  seq  21  applied                               RMB with an empty hand: half of the stack
+  24  player 0  seq  22  applied                               RMB with a stack: one item into an empty slot
+  25  player 0  seq  23  applied                               a different item in the slot: swap
+  26  player 0  seq  24  applied                               auto-sort off (D11)
+  26  player 0  seq  25  refused: invalid_setting              a value other than 0 or 1: invalid_setting
+  26  player 0  seq  26  applied                               auto-sort on again: the inventory sorts
+  27  player 0  seq  27  applied                               Q with the swapped stack
+  28  player 0  seq  28  applied                               no limit (the entry goes)
+  28  player 0  seq  29  refused: invalid_index                a bar past the 32 slots: invalid_index
+  29  player 0  seq  30  refused: invalid_index                no queue entry 3: invalid_index
+  30  player 0  seq  31  applied                               two more chests: merged into the queued entry
+  30  system    seq   3  applied                               P1 leaves (R26): stops, its hand returns, its queue pauses
+  31  player 1  seq   7  refused: player_not_present           an offline player: player_not_present
+  35  player 0  seq  32  applied                               cancel one unit: its plates come back
+  40  system    seq   4  applied                               P1 returns: the same character, its queue resumes
+  41  player 1  seq   8  fenced (input_fenced)                 stamped before the release: fenced (D22)
+  42  player 1  seq   9  applied                               P1 walks south-east
+  43  player 0  seq  33  applied                               pick a ghost cursor when out of items
+  43  player 1  seq  10  applied                               P1 stops
+  43  player 0  seq  34  applied                               P0 picks up its chests
+  44  player 1  seq  11  applied                               P1 turns auto-sort off; P0 keeps it on (R29)
+  44  player 0  seq  35  refused: entity_in_the_way            P0's own character is in the way
+  45  player 0  seq  36  refused: cannot_build_on_tile         water: cannot_build_on_tile
+  46  player 0  seq  37  refused: out_of_map                   past the map edge: out_of_map
+  47  player 0  seq  38  refused: out_of_reach                 too far: out_of_reach
+  48  player 0  seq  39  refused: malformed                    an even centre for a 1×1 chest: malformed
+  49  player 0  seq  40  refused: entity_in_the_way            chest A is in the way
+  50  player 0  seq  41  refused: unsupported                  ghost mode is not in M0: unsupported
+  51  player 0  seq  42  applied                               build
+  52  player 0  seq  43  applied                               build the last chest: the hand becomes a ghost cursor
+  53  player 0  seq  44  applied                               Q clears the ghost cursor
+  53  player 0  seq  45  refused: unsupported                  outside the capability manifest: unsupported
+  54  player 0  seq  46  refused: target_gone                  a creation id of a failed build: target_gone (R25)
+  55  player 0  seq  47  refused: unsupported                  a blob (supplied for its tick); the action itself is unsupported in M0
+  56  player 0  seq  48  refused: malformed                    start_walking with direction 3: malformed
+  56  player 0  seq  49  refused: malformed                    an unknown action type: malformed
+  57  player 0  seq  50  refused: not_minable                  grass is not minable
+  58  player 0  seq  51  refused: nothing_to_mine              no resource there: nothing_to_mine
+  59  player 0  seq  52  refused: out_of_reach                 ore out of reach
+  60  player 0  seq  53  refused: nothing_to_transfer          an empty slot: nothing_to_transfer
+  60  player 0  seq  54  refused: invalid_index                slot 200 of 80: invalid_index
+  61  player 1  seq  12  applied                               P1 picks up its chest (no auto-sort: slot 1)
+  62  player 1  seq  13  refused: entity_in_the_way            P1's own character is in the way
+  63  player 1  seq  14  applied                               P1 builds chest D
+  64  player 1  seq  15  applied                               P1 mines chest D back, named by creation id
+  89  player 1  seq  16  applied                               P1 picks up its chests again
+  90  player 1  seq  17  applied                               P1 builds again on the same tile: a new serial
+  91  player 0  seq  55  refused: target_gone                  the old serial: target_gone, never the new chest (R24)
+  92  player 1  seq  18  refused: target_gone                  the mined chest: target_gone
+ 241  player 0  seq  56  applied                               walk east, toward the map edge
+ 300  system    seq   5  applied                               released at 300: the character stops at 300 (R23)
+ 301  player 0  seq  57  fenced (input_fenced)                 stamped before the release: fenced
+ 302  player 0  seq  58  applied                               north-east into the edge: slides north
+ 320  player 0  seq  59  applied                               stop in chest A's row
+ 341  system    seq   6  applied                               nothing in the World
+ 341  player 0  seq  60  applied                               trimmed collision back on
+ 342  player 0  seq  61  applied                               walk west until chest A blocks
+ 420  player 0  seq  62  applied                               north-west: slides north along chest A
+ 430  player 0  seq  63  applied                               stop
+ 431  player 0  seq  64  applied                               mine chest C and its contents
+ 460  player 0  seq  65  refused: target_gone                  chest C is gone: target_gone
+ 461  player 0  seq  66  applied                               back east, toward the ore
+ 471  player 0  seq  67  applied                               stop
+ 472  player 0  seq  68  applied                               mine ore: one unit by tick 591
+ 501  player 0  seq  69  applied                               the hand is empty: take from chest A
+ 502  player 0  seq  70  refused: nothing_to_transfer          chest A is empty: nothing_to_transfer
+ 503  player 0  seq  71  applied                               craft all that can be crafted
+ 595  player 0  seq  72  applied                               stop mining

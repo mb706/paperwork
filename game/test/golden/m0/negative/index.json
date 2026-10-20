@@ -1,0 +1,350 @@
+[
+  {
+    "file": "closures/truncated-header.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 1: 10 bytes, a batch header is 16"
+  },
+  {
+    "file": "closures/trailing-bytes.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 1: the batches do not consume the closure"
+  },
+  {
+    "file": "closures/bad-version.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 2: version is not ACTION_SCHEMA_VERSION"
+  },
+  {
+    "file": "closures/bad-flags.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 2: an undeclared batch flag"
+  },
+  {
+    "file": "closures/reserved-nonzero.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 2: reserved is not zero"
+  },
+  {
+    "file": "closures/wrong-tick.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 2: the batch is stamped for tick 2"
+  },
+  {
+    "file": "closures/empty-batch.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 2: count 0"
+  },
+  {
+    "file": "closures/player-32.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 2: player 32 without SYSTEM"
+  },
+  {
+    "file": "closures/system-flag-player-0.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 2: SYSTEM with a player index"
+  },
+  {
+    "file": "closures/action-past-batch.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 3: the second action header lies outside the closure"
+  },
+  {
+    "file": "closures/payload-past-end.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 3: the payload runs past the closure"
+  },
+  {
+    "file": "closures/system-action-in-player-batch.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 3: a system type in a player batch"
+  },
+  {
+    "file": "closures/player-action-in-system-batch.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 3: a player type in a system batch"
+  },
+  {
+    "file": "closures/seq-not-rising.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 4 (D21, R27): first_seq 0 is not above player 0's last_seq 0"
+  },
+  {
+    "file": "closures/seq-repeats-across-batches.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 4: player 0 reuses seq 2 in a later batch of the same tick"
+  },
+  {
+    "file": "closures/system-seq-not-rising.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 4: a system seq not above last_system_seq"
+  },
+  {
+    "file": "closures/seq-overflow.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 4: first_seq + count − 1 passes u32::MAX"
+  },
+  {
+    "file": "closures/blob-missing.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_blob_missing",
+    "why": "rule 5: the action names a blob no sim_blob_put supplied"
+  },
+  {
+    "file": "closures/larger-than-closure-max.bin",
+    "call": "sim_tick (tick 1, after loading start.save)",
+    "expect": "err_framing",
+    "why": "rule 1: 1050872 bytes, over CLOSURE_MAX (1,048,576)"
+  },
+  {
+    "file": "logs/truncated.pwlog",
+    "call": "parseClosureLog (§8.5)",
+    "expect": "truncated ClosureLog.blobs @8274",
+    "why": "the blob region is one byte short"
+  },
+  {
+    "file": "logs/trailing.pwlog",
+    "call": "parseClosureLog (§8.5)",
+    "expect": "trailing ClosureLog @12406",
+    "why": "a byte after the last region"
+  },
+  {
+    "file": "logs/header-only-truncated.pwlog",
+    "call": "parseClosureLog (§8.5)",
+    "expect": "truncated ClosureLogHeader.digest_count @100",
+    "why": "a header cut short"
+  },
+  {
+    "file": "logs/record-count-too-high.pwlog",
+    "call": "parseClosureLog (§8.5)",
+    "expect": "truncated ClosureRecord.tick @3474",
+    "why": "one more record than the record region holds"
+  },
+  {
+    "file": "logs/end-before-start.pwlog",
+    "call": "parseClosureLog (§8.5)",
+    "expect": "unsorted ClosureRecord.tick @116",
+    "why": "end_tick 0 below records at ticks 1 … 600"
+  },
+  {
+    "file": "logs/digest-range-outside.pwlog",
+    "call": "parseClosureLog (§8.5)",
+    "expect": "range ClosureLogHeader.digest_first_tick @96",
+    "why": "the digests would start at tick 0, which is start_tick"
+  },
+  {
+    "file": "saves/truncated.save",
+    "call": "sim_load (its sections, codec raw)",
+    "expect": "refused by the container reader (truncated)",
+    "why": "the last section frame is cut short"
+  },
+  {
+    "file": "saves/trailing.save",
+    "call": "sim_load (its sections, codec raw)",
+    "expect": "refused by the container reader (truncated)",
+    "why": "bytes after the last frame that are no frame"
+  },
+  {
+    "file": "saves/other-worldgen-version.save",
+    "call": "sim_load (its sections, codec raw)",
+    "expect": "err_worldgen",
+    "why": "worldgen version 2 with a pristine chunk: the build cannot regenerate it (§4.4, §8.3)"
+  },
+  {
+    "file": "saves/other-worldgen-data.save",
+    "call": "sim_load (its sections, codec raw)",
+    "expect": "err_worldgen",
+    "why": "another worldgen data hash with a pristine chunk"
+  },
+  {
+    "file": "saves/other-worldgen-version-baked.save",
+    "call": "sim_load (its sections, codec raw)",
+    "expect": "ok",
+    "why": "model decision: every generated chunk is stored (a baked save, §4.4), so the save loads"
+  },
+  {
+    "file": "saves/column-type-mismatch.save",
+    "call": "sim_load (its sections, codec raw)",
+    "expect": "err_load_schema",
+    "why": "ENTITY_TABLE's proto column stored as u32 (schema_mismatch)"
+  },
+  {
+    "file": "saves/newer-section-version.save",
+    "call": "sim_load (its sections, codec raw)",
+    "expect": "err_load_format",
+    "why": "GLOBALS at section version 99: a newer format"
+  },
+  {
+    "file": "abi/init-protos-len-past-end.bin",
+    "call": "sim_init",
+    "expect": "err_input",
+    "why": "protos_len one past the bytes"
+  },
+  {
+    "file": "abi/init-undeclared-flag.bin",
+    "call": "sim_init",
+    "expect": "err_input",
+    "why": "SimFlags bit 3"
+  },
+  {
+    "file": "abi/init-stale-protos.bin",
+    "call": "sim_init",
+    "expect": "err_protos",
+    "why": "prototypes.bin's schema hash is another schema's"
+  },
+  {
+    "file": "abi/new-world-truncated.bin",
+    "call": "sim_new_world",
+    "expect": "err_input",
+    "why": "the record is one byte short"
+  },
+  {
+    "file": "abi/new-world-unknown-field.bin",
+    "call": "sim_new_world",
+    "expect": "err_input",
+    "why": "field id 9 is not declared"
+  },
+  {
+    "file": "abi/new-world-missing-field.bin",
+    "call": "sim_new_world",
+    "expect": "err_input",
+    "why": "no fields at all (strict)"
+  },
+  {
+    "file": "abi/load-section-count.bin",
+    "call": "sim_load",
+    "expect": "err_input",
+    "why": "two sections announced, none present"
+  },
+  {
+    "file": "abi/load-kind-count.bin",
+    "call": "sim_load",
+    "expect": "err_input",
+    "why": "kind_count 10 (at most 9 ProtoKinds)"
+  },
+  {
+    "file": "abi/blob-put-short.bin",
+    "call": "sim_blob_put",
+    "expect": "err_input",
+    "why": "shorter than its 32-byte hash"
+  },
+  {
+    "file": "abi/supply-chunk-truncated.bin",
+    "call": "sim_supply_chunk",
+    "expect": "err_input",
+    "why": "a chunk_data record cut short"
+  },
+  {
+    "file": "abi/extract-short.bin",
+    "call": "sim_extract",
+    "expect": "err_input",
+    "why": "a 51-byte view request (52)"
+  },
+  {
+    "file": "abi/extract-undeclared-flag.bin",
+    "call": "sim_extract",
+    "expect": "err_input",
+    "why": "ViewFlags bit 7"
+  },
+  {
+    "file": "abi/subscribe-count.bin",
+    "call": "sim_subscribe",
+    "expect": "err_input",
+    "why": "two requests announced, none present"
+  },
+  {
+    "file": "abi/subscribe-bad-kind.bin",
+    "call": "sim_subscribe",
+    "expect": "err_input",
+    "why": "projection kind 99"
+  },
+  {
+    "file": "abi/subscribe-sub-id-0.bin",
+    "call": "sim_subscribe",
+    "expect": "err_input",
+    "why": "model decision: sub_id 0 is the hover projection"
+  },
+  {
+    "file": "abi/unsubscribe-count.bin",
+    "call": "sim_unsubscribe",
+    "expect": "err_input",
+    "why": "three ids announced, none present"
+  },
+  {
+    "file": "abi/query-short.bin",
+    "call": "sim_query",
+    "expect": "err_input",
+    "why": "a query header cut short"
+  },
+  {
+    "file": "abi/query-bad-kind.bin",
+    "call": "sim_query",
+    "expect": "err_input",
+    "why": "query kind 99"
+  },
+  {
+    "file": "abi/save-undeclared-flag.bin",
+    "call": "sim_save",
+    "expect": "err_input",
+    "why": "SaveFlags bit 1"
+  },
+  {
+    "file": "abi/save-wrong-length.bin",
+    "call": "sim_save",
+    "expect": "err_input",
+    "why": "a 5-byte SaveInput"
+  },
+  {
+    "file": null,
+    "call": "sim_set_flags(8)",
+    "expect": "err_input",
+    "why": "SimFlags bit 3 (a parameter, not a record)"
+  },
+  {
+    "file": null,
+    "call": "sim_init, then sim_tick of an empty closure",
+    "expect": "err_order",
+    "why": "no world exists yet"
+  },
+  {
+    "file": null,
+    "call": "sim_init, sim_new_world, then sim_load_report",
+    "expect": "err_order",
+    "why": "the last world call was not sim_load"
+  },
+  {
+    "file": null,
+    "call": "sim_query × 5 (hash), no step in between",
+    "expect": "err_limit",
+    "why": "at most 4 queries run at once (§15.5)"
+  },
+  {
+    "file": "module/stale-schema.wasm",
+    "call": "the shell: compile, instantiate, sim_schema_hash",
+    "expect": "refused by the handshake",
+    "why": "another schema hash (§15.1)"
+  },
+  {
+    "file": "protos/stale-schema.bin",
+    "call": "sim_init (InitInput around it)",
+    "expect": "err_protos",
+    "why": "the header's schema hash is another schema's (§15.2)"
+  }
+]

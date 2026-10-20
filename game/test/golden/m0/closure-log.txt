@@ -1,0 +1,177 @@
+# The closure log, record by record: each batch, then each action with its seq and dump.
+tick 1 (68 bytes)
+  player 0 seq 1: type=begin_mining_terrain input_gen=0 kind=0 pos.x=10368 pos.y=-384
+  player 0 seq 2: type=set_game_setting setting=1 value=0
+  system seq 1: type=snapshot_marker snapshot_id=1 donor=0
+tick 2 (49 bytes)
+  player 0 seq 3: type=craft recipe=0 count=1
+  player 5 seq 1: type=start_walking input_gen=0 dir=0
+tick 3 (32 bytes)
+  player 0 seq 4: type=cursor_transfer slot.owner.a=0 slot.owner.b=0 slot.owner.tag=0 slot.inv=1 slot.slot=0
+tick 4 (50 bytes)
+  player 0 seq 5: type=build item=0 pos.x2=77 pos.y2=5 dir=0 flip=false mode=0 flags=0 drag_id=0
+  player 0 seq 6: type=fast_entity_transfer target.a=5 target.b=0 target.tag=2
+tick 5 (62 bytes)
+  system seq 2: type=player_joined player=1 flags=0
+  player 0 seq 7: type=build item=0 pos.x2=75 pos.y2=5 dir=0 flip=false mode=0 flags=0 drag_id=0
+tick 6 (28 bytes)
+  player 1 seq 1: type=fast_entity_transfer target.a=3 target.b=0 target.tag=1
+tick 7 (26 bytes)
+  player 1 seq 2: type=craft recipe=0 count=2
+tick 8 (32 bytes)
+  player 1 seq 3: type=begin_mining_terrain input_gen=0 kind=0 pos.x=384 pos.y=384
+tick 9 (42 bytes)
+  player 1 seq 4: type=cursor_transfer slot.owner.a=0 slot.owner.b=0 slot.owner.tag=0 slot.inv=1 slot.slot=0
+  player 1 seq 5: type=craft recipe=0 count=1
+tick 10 (55 bytes)
+  player 1 seq 6: type=start_walking input_gen=0 dir=4
+  player 0 seq 8: type=set_inventory_bar target.a=2 target.b=0 target.tag=1 inv=2 bar=1
+tick 11 (28 bytes)
+  player 0 seq 9: type=fast_entity_transfer target.a=2 target.b=0 target.tag=1
+tick 12 (32 bytes)
+  player 0 seq 10: type=cursor_transfer slot.owner.a=0 slot.owner.b=0 slot.owner.tag=0 slot.inv=1 slot.slot=0
+tick 13 (28 bytes)
+  player 0 seq 11: type=fast_entity_transfer target.a=2 target.b=0 target.tag=1
+tick 14 (32 bytes)
+  player 0 seq 12: type=cursor_transfer slot.owner.a=0 slot.owner.b=0 slot.owner.tag=0 slot.inv=1 slot.slot=0
+tick 15 (28 bytes)
+  player 0 seq 13: type=fast_entity_transfer target.a=2 target.b=0 target.tag=1
+tick 16 (28 bytes)
+  player 0 seq 14: type=fast_entity_split target.a=4 target.b=0 target.tag=1
+tick 17 (32 bytes)
+  player 0 seq 15: type=cursor_transfer slot.owner.a=2 slot.owner.b=0 slot.owner.tag=1 slot.inv=2 slot.slot=5
+tick 18 (20 bytes)
+  player 0 seq 16: type=clear_cursor
+tick 19 (40 bytes)
+  player 0 seq 17: type=stack_split from.owner.a=0 from.owner.b=0 from.owner.tag=0 from.inv=1 from.slot=0 to.a=4 to.b=0 to.tag=1
+tick 20 (40 bytes)
+  player 0 seq 18: type=stack_transfer from.owner.a=4 from.owner.b=0 from.owner.tag=1 from.inv=2 from.slot=1 to.a=0 to.b=0 to.tag=0
+tick 21 (40 bytes)
+  player 0 seq 19: type=inventory_transfer from.owner.a=4 from.owner.b=0 from.owner.tag=1 from.inv=2 from.slot=5 to.a=0 to.b=0 to.tag=0
+tick 22 (40 bytes)
+  player 0 seq 20: type=inventory_split from.owner.a=0 from.owner.b=0 from.owner.tag=0 from.inv=1 from.slot=1 to.a=4 to.b=0 to.tag=1
+tick 23 (32 bytes)
+  player 0 seq 21: type=cursor_split slot.owner.a=4 slot.owner.b=0 slot.owner.tag=1 slot.inv=2 slot.slot=0
+tick 24 (32 bytes)
+  player 0 seq 22: type=cursor_split slot.owner.a=0 slot.owner.b=0 slot.owner.tag=0 slot.inv=1 slot.slot=5
+tick 25 (32 bytes)
+  player 0 seq 23: type=cursor_transfer slot.owner.a=0 slot.owner.b=0 slot.owner.tag=0 slot.inv=1 slot.slot=0
+tick 26 (46 bytes)
+  player 0 seq 24: type=set_player_setting setting=1 value=0
+  player 0 seq 25: type=set_player_setting setting=1 value=7
+  player 0 seq 26: type=set_player_setting setting=1 value=1
+tick 27 (20 bytes)
+  player 0 seq 27: type=clear_cursor
+tick 28 (48 bytes)
+  player 0 seq 28: type=set_inventory_bar target.a=2 target.b=0 target.tag=1 inv=2 bar=32
+  player 0 seq 29: type=set_inventory_bar target.a=2 target.b=0 target.tag=1 inv=2 bar=40
+tick 29 (24 bytes)
+  player 0 seq 30: type=cancel_craft index=3 count=1
+tick 30 (48 bytes)
+  player 0 seq 31: type=craft recipe=0 count=2
+  system seq 3: type=player_left player=1
+tick 31 (23 bytes)
+  player 1 seq 7: type=start_walking input_gen=1 dir=4
+tick 35 (24 bytes)
+  player 0 seq 32: type=cancel_craft index=0 count=1
+tick 40 (24 bytes)
+  system seq 4: type=player_joined player=1 flags=1
+tick 41 (23 bytes)
+  player 1 seq 8: type=start_walking input_gen=0 dir=4
+tick 42 (23 bytes)
+  player 1 seq 9: type=start_walking input_gen=1 dir=6
+tick 43 (80 bytes)
+  player 0 seq 33: type=set_player_setting setting=2 value=1
+  player 1 seq 10: type=stop_walking input_gen=1
+  player 0 seq 34: type=cursor_transfer slot.owner.a=0 slot.owner.b=0 slot.owner.tag=0 slot.inv=1 slot.slot=0
+tick 44 (64 bytes)
+  player 1 seq 11: type=set_player_setting setting=1 value=0
+  player 0 seq 35: type=build item=0 pos.x2=77 pos.y2=-1 dir=0 flip=false mode=0 flags=0 drag_id=0
+tick 45 (38 bytes)
+  player 0 seq 36: type=build item=0 pos.x2=69 pos.y2=13 dir=0 flip=false mode=0 flags=0 drag_id=0
+tick 46 (38 bytes)
+  player 0 seq 37: type=build item=0 pos.x2=97 pos.y2=-1 dir=0 flip=false mode=0 flags=0 drag_id=0
+tick 47 (38 bytes)
+  player 0 seq 38: type=build item=0 pos.x2=51 pos.y2=1 dir=0 flip=false mode=0 flags=0 drag_id=0
+tick 48 (38 bytes)
+  player 0 seq 39: type=build item=0 pos.x2=72 pos.y2=5 dir=0 flip=false mode=0 flags=0 drag_id=0
+tick 49 (38 bytes)
+  player 0 seq 40: type=build item=0 pos.x2=73 pos.y2=-5 dir=0 flip=false mode=0 flags=0 drag_id=0
+tick 50 (38 bytes)
+  player 0 seq 41: type=build item=0 pos.x2=75 pos.y2=7 dir=0 flip=false mode=1 flags=0 drag_id=0
+tick 51 (38 bytes)
+  player 0 seq 42: type=build item=0 pos.x2=75 pos.y2=7 dir=0 flip=false mode=0 flags=0 drag_id=0
+tick 52 (38 bytes)
+  player 0 seq 43: type=build item=0 pos.x2=73 pos.y2=7 dir=0 flip=false mode=0 flags=0 drag_id=0
+tick 53 (33 bytes)
+  player 0 seq 44: type=clear_cursor
+  player 0 seq 45: type=rotate_entity target.a=2 target.b=0 target.tag=1 reverse=false
+tick 54 (30 bytes)
+  player 0 seq 46: type=begin_mining input_gen=0 target.a=38 target.b=0 target.tag=2
+tick 55 (65 bytes)
+  player 0 seq 47: type=place_blueprint pos.x2=61 pos.y2=1 dir=0 flip=false mode=0 record.blob=hex:76bf251996619e4d7141a76dfeb867c6cecae95ea86503a29af39d45db59d69b
+tick 56 (29 bytes)
+  player 0 seq 48: malformed type=1 payload=000003
+  player 0 seq 49: malformed type=999 payload=0102
+tick 57 (32 bytes)
+  player 0 seq 50: type=begin_mining_terrain input_gen=0 kind=3 pos.x=9600 pos.y=128
+tick 58 (32 bytes)
+  player 0 seq 51: type=begin_mining_terrain input_gen=0 kind=0 pos.x=9600 pos.y=128
+tick 59 (32 bytes)
+  player 0 seq 52: type=begin_mining_terrain input_gen=0 kind=0 pos.x=11648 pos.y=-1408
+tick 60 (56 bytes)
+  player 0 seq 53: type=stack_transfer from.owner.a=0 from.owner.b=0 from.owner.tag=0 from.inv=1 from.slot=40 to.a=2 to.b=0 to.tag=1
+  player 0 seq 54: type=cursor_transfer slot.owner.a=0 slot.owner.b=0 slot.owner.tag=0 slot.inv=1 slot.slot=200
+tick 61 (32 bytes)
+  player 1 seq 12: type=cursor_transfer slot.owner.a=0 slot.owner.b=0 slot.owner.tag=0 slot.inv=1 slot.slot=1
+tick 62 (38 bytes)
+  player 1 seq 13: type=build item=0 pos.x2=7 pos.y2=1 dir=0 flip=false mode=0 flags=0 drag_id=0
+tick 63 (38 bytes)
+  player 1 seq 14: type=build item=0 pos.x2=15 pos.y2=7 dir=0 flip=false mode=0 flags=0 drag_id=0
+tick 64 (30 bytes)
+  player 1 seq 15: type=begin_mining input_gen=1 target.a=14 target.b=0 target.tag=2
+tick 89 (32 bytes)
+  player 1 seq 16: type=cursor_transfer slot.owner.a=0 slot.owner.b=0 slot.owner.tag=0 slot.inv=1 slot.slot=1
+tick 90 (38 bytes)
+  player 1 seq 17: type=build item=0 pos.x2=15 pos.y2=7 dir=0 flip=false mode=0 flags=0 drag_id=0
+tick 91 (28 bytes)
+  player 0 seq 55: type=fast_entity_transfer target.a=8 target.b=0 target.tag=1
+tick 92 (30 bytes)
+  player 1 seq 18: type=begin_mining input_gen=1 target.a=8 target.b=0 target.tag=1
+tick 241 (23 bytes)
+  player 0 seq 56: type=start_walking input_gen=0 dir=4
+tick 300 (22 bytes)
+  system seq 5: type=release_inputs player=0
+tick 301 (23 bytes)
+  player 0 seq 57: type=start_walking input_gen=0 dir=2
+tick 302 (23 bytes)
+  player 0 seq 58: type=start_walking input_gen=1 dir=2
+tick 320 (22 bytes)
+  player 0 seq 59: type=stop_walking input_gen=1
+tick 341 (50 bytes)
+  system seq 6: type=debug_dump dump_id=7
+  player 0 seq 60: type=set_game_setting setting=1 value=1
+tick 342 (23 bytes)
+  player 0 seq 61: type=start_walking input_gen=1 dir=12
+tick 420 (23 bytes)
+  player 0 seq 62: type=start_walking input_gen=1 dir=14
+tick 430 (22 bytes)
+  player 0 seq 63: type=stop_walking input_gen=1
+tick 431 (30 bytes)
+  player 0 seq 64: type=begin_mining input_gen=1 target.a=4 target.b=0 target.tag=1
+tick 460 (30 bytes)
+  player 0 seq 65: type=begin_mining input_gen=1 target.a=4 target.b=0 target.tag=1
+tick 461 (23 bytes)
+  player 0 seq 66: type=start_walking input_gen=1 dir=4
+tick 471 (22 bytes)
+  player 0 seq 67: type=stop_walking input_gen=1
+tick 472 (32 bytes)
+  player 0 seq 68: type=begin_mining_terrain input_gen=1 kind=0 pos.x=10368 pos.y=-640
+tick 501 (28 bytes)
+  player 0 seq 69: type=fast_entity_transfer target.a=2 target.b=0 target.tag=1
+tick 502 (28 bytes)
+  player 0 seq 70: type=fast_entity_transfer target.a=2 target.b=0 target.tag=1
+tick 503 (26 bytes)
+  player 0 seq 71: type=craft recipe=0 count=0
+tick 595 (22 bytes)
+  player 0 seq 72: type=stop_mining input_gen=1

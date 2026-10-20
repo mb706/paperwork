@@ -1,0 +1,3 @@
+# The golden set's versions, append-only (test/golden/README.md "Freezing"): the version, the SHA-256 of
+# MANIFEST.json's "files" as canonical JSON, and why it changed. Never edit or delete a line.
+1 f224fbe0bab115025b297691e47ed850630b017a29d955c0adf88eac86f8a21d initial M0 golden set (C1c)

@@ -1,0 +1,1469 @@
+{
+  "cases": [
+    {
+      "camera": {
+        "cx": -4,
+        "cy": 2,
+        "dpr": 1,
+        "zoom": 1
+      },
+      "draws": [
+        {
+          "frames": [1, 2, 3, 4],
+          "part": "base",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-32, -16],
+                [32, -16],
+                [32, 16],
+                [-32, 16]
+              ],
+              "frame": 1,
+              "layer": 0,
+              "uv": [0.015625, 0.015625, 0.078125, 0.046875]
+            },
+            {
+              "array": 0,
+              "corners": [
+                [-32, 48],
+                [32, 48],
+                [32, 64],
+                [-32, 64]
+              ],
+              "frame": 2,
+              "layer": 0,
+              "uv": [0.015625, 0.078125, 0.078125, 0.09375]
+            },
+            {
+              "array": 0,
+              "corners": [
+                [-32, 16],
+                [-16, 16],
+                [-16, 48],
+                [-32, 48]
+              ],
+              "frame": 3,
+              "layer": 0,
+              "uv": [0.015625, 0.046875, 0.03125, 0.078125]
+            },
+            {
+              "array": 0,
+              "corners": [
+                [16, 16],
+                [32, 16],
+                [32, 48],
+                [16, 48]
+              ],
+              "frame": 4,
+              "layer": 0,
+              "uv": [0.0625, 0.046875, 0.078125, 0.078125]
+            }
+          ],
+          "set": "entity/stone-furnace"
+        },
+        {
+          "frames": [5],
+          "part": "layers[0]",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-16, 16],
+                [16, 16],
+                [16, 48],
+                [-16, 48]
+              ],
+              "frame": 5,
+              "layer": 0,
+              "uv": [0.140625, 0.015625, 0.171875, 0.046875]
+            }
+          ],
+          "set": "entity/stone-furnace"
+        },
+        {
+          "frames": [22],
+          "part": "shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [-32, 0],
+                [64, 0],
+                [64, 64],
+                [-32, 64]
+              ],
+              "frame": 22,
+              "layer": 0,
+              "uv": [0.03125, 0.03125, 0.125, 0.09375]
+            }
+          ],
+          "set": "entity/stone-furnace"
+        }
+      ],
+      "input": {
+        "dyn": null,
+        "entity": {
+          "alt_icon": 65535,
+          "dir": 0,
+          "flags": 0,
+          "flip": 0,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "status": 0,
+          "variant": 0,
+          "x2": -8,
+          "y2": 6
+        },
+        "set": "entity/stone-furnace"
+      },
+      "name": "furnace without DYN: base pieces and layer frame 0, shadow"
+    },
+    {
+      "camera": {
+        "cx": -4,
+        "cy": 2,
+        "dpr": 2,
+        "zoom": 1
+      },
+      "draws": [
+        {
+          "frames": [1, 2, 3, 4],
+          "part": "base",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-64, -32],
+                [64, -32],
+                [64, 32],
+                [-64, 32]
+              ],
+              "frame": 1,
+              "layer": 0,
+              "uv": [0.015625, 0.015625, 0.078125, 0.046875]
+            },
+            {
+              "array": 0,
+              "corners": [
+                [-64, 96],
+                [64, 96],
+                [64, 128],
+                [-64, 128]
+              ],
+              "frame": 2,
+              "layer": 0,
+              "uv": [0.015625, 0.078125, 0.078125, 0.09375]
+            },
+            {
+              "array": 0,
+              "corners": [
+                [-64, 32],
+                [-32, 32],
+                [-32, 96],
+                [-64, 96]
+              ],
+              "frame": 3,
+              "layer": 0,
+              "uv": [0.015625, 0.046875, 0.03125, 0.078125]
+            },
+            {
+              "array": 0,
+              "corners": [
+                [32, 32],
+                [64, 32],
+                [64, 96],
+                [32, 96]
+              ],
+              "frame": 4,
+              "layer": 0,
+              "uv": [0.0625, 0.046875, 0.078125, 0.078125]
+            }
+          ],
+          "set": "entity/stone-furnace"
+        },
+        {
+          "frames": [14],
+          "part": "layers[0]",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-32, 32],
+                [32, 32],
+                [32, 96],
+                [-32, 96]
+              ],
+              "frame": 14,
+              "layer": 0,
+              "uv": [0.703125, 0.015625, 0.734375, 0.046875]
+            }
+          ],
+          "set": "entity/stone-furnace"
+        },
+        {
+          "frames": [23],
+          "part": "light",
+          "pass": "light",
+          "quads": [
+            {
+              "array": 2,
+              "corners": [
+                [-32, 32],
+                [32, 32],
+                [32, 96],
+                [-32, 96]
+              ],
+              "frame": 23,
+              "layer": 0,
+              "uv": [0.0625, 0.0625, 0.125, 0.125]
+            }
+          ],
+          "set": "entity/stone-furnace",
+          "strength": 0.784314
+        },
+        {
+          "frames": [22],
+          "part": "shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [-64, 0],
+                [128, 0],
+                [128, 128],
+                [-64, 128]
+              ],
+              "frame": 22,
+              "layer": 0,
+              "uv": [0.03125, 0.03125, 0.125, 0.09375]
+            }
+          ],
+          "set": "entity/stone-furnace"
+        }
+      ],
+      "input": {
+        "dyn": {
+          "dir": 0,
+          "light": 200,
+          "phase": 40000,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "state": 1,
+          "x2": -8,
+          "y2": 6
+        },
+        "entity": {
+          "alt_icon": 65535,
+          "dir": 0,
+          "flags": 0,
+          "flip": 0,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "status": 0,
+          "variant": 0,
+          "x2": -8,
+          "y2": 6
+        },
+        "set": "entity/stone-furnace"
+      },
+      "name": "furnace working at phase 40000: layer frame 9, light at 200/255"
+    },
+    {
+      "camera": {
+        "cx": -4,
+        "cy": 2,
+        "dpr": 1,
+        "zoom": 0.5
+      },
+      "draws": [
+        {
+          "frames": [21],
+          "part": "idle",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-16, -8],
+                [16, -8],
+                [16, 32],
+                [-16, 32]
+              ],
+              "frame": 21,
+              "layer": 0,
+              "uv": [0.140625, 0.140625, 0.203125, 0.21875]
+            }
+          ],
+          "set": "entity/stone-furnace"
+        },
+        {
+          "frames": [22],
+          "part": "shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [-16, 0],
+                [32, 0],
+                [32, 32],
+                [-16, 32]
+              ],
+              "frame": 22,
+              "layer": 0,
+              "uv": [0.03125, 0.03125, 0.125, 0.09375]
+            }
+          ],
+          "set": "entity/stone-furnace"
+        }
+      ],
+      "input": {
+        "dyn": {
+          "dir": 0,
+          "light": 0,
+          "phase": 40000,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "state": 0,
+          "x2": -8,
+          "y2": 6
+        },
+        "entity": {
+          "alt_icon": 65535,
+          "dir": 0,
+          "flags": 0,
+          "flip": 0,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "status": 0,
+          "variant": 0,
+          "x2": -8,
+          "y2": 6
+        },
+        "set": "entity/stone-furnace"
+      },
+      "name": "furnace idle: the idle image, no light"
+    },
+    {
+      "camera": {
+        "cx": 100.5,
+        "cy": -200.5,
+        "dpr": 1,
+        "zoom": 3
+      },
+      "draws": [
+        {
+          "frames": [44],
+          "part": "base",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-48, -48],
+                [48, -48],
+                [48, 48],
+                [-48, 48]
+              ],
+              "frame": 44,
+              "layer": 0,
+              "uv": [0.515625, 0.265625, 0.546875, 0.296875]
+            }
+          ],
+          "set": "entity/transport-belt"
+        },
+        {
+          "frames": [48],
+          "part": "layers[0]",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-48, -48],
+                [48, -48],
+                [48, 48],
+                [-48, 48]
+              ],
+              "frame": 48,
+              "layer": 0,
+              "uv": [0.765625, 0.265625, 0.796875, 0.296875]
+            }
+          ],
+          "set": "entity/transport-belt"
+        }
+      ],
+      "input": {
+        "dyn": {
+          "dir": 4,
+          "light": 0,
+          "phase": 50000,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "state": 1,
+          "x2": 201,
+          "y2": -401
+        },
+        "entity": {
+          "alt_icon": 65535,
+          "dir": 4,
+          "flags": 0,
+          "flip": 0,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "status": 0,
+          "variant": 1,
+          "x2": 201,
+          "y2": -401
+        },
+        "set": "entity/transport-belt"
+      },
+      "name": "belt east, mask 1 (from the left), phase 50000: layer frame 3"
+    },
+    {
+      "camera": {
+        "cx": 100.5,
+        "cy": -200.5,
+        "dpr": 1,
+        "zoom": 1
+      },
+      "draws": [
+        {
+          "frames": [],
+          "greybox": true,
+          "part": "base",
+          "pass": "colour",
+          "quads": [],
+          "set": "entity/transport-belt"
+        },
+        {
+          "frames": [],
+          "greybox": true,
+          "part": "layers[0]",
+          "pass": "colour",
+          "quads": [],
+          "set": "entity/transport-belt"
+        }
+      ],
+      "input": {
+        "dyn": null,
+        "entity": {
+          "alt_icon": 65535,
+          "dir": 2,
+          "flags": 0,
+          "flip": 0,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "status": 0,
+          "variant": 0,
+          "x2": 201,
+          "y2": -401
+        },
+        "set": "entity/transport-belt"
+      },
+      "name": "belt facing north-east: an empty table entry (greybox)"
+    },
+    {
+      "camera": {
+        "cx": 5,
+        "cy": 3,
+        "dpr": 2,
+        "zoom": 2
+      },
+      "draws": [
+        {
+          "frames": [86],
+          "part": "platform",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [0, 0],
+                [128, 0],
+                [128, 128],
+                [0, 128]
+              ],
+              "frame": 86,
+              "layer": 0,
+              "uv": [0.140625, 0.453125, 0.171875, 0.484375]
+            }
+          ],
+          "set": "entity/inserter"
+        },
+        {
+          "frames": [92],
+          "part": "arm",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [202.022088, 163.394671],
+                [179.394671, 186.022088],
+                [34.585094, 41.212511],
+                [57.212511, 18.585094]
+              ],
+              "frame": 92,
+              "layer": 0,
+              "uv": [0.265625, 0.453125, 0.273438, 0.484375]
+            }
+          ],
+          "set": "entity/inserter"
+        },
+        {
+          "frames": [96],
+          "part": "hand_closed",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [263.11685, 167.920891],
+                [183.920891, 247.11685],
+                [116.03864, 179.234599],
+                [195.234599, 100.03864]
+              ],
+              "frame": 96,
+              "layer": 0,
+              "uv": [0.390625, 0.453125, 0.417969, 0.476563]
+            }
+          ],
+          "set": "entity/inserter"
+        },
+        {
+          "frames": [611],
+          "part": "icon",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 3,
+              "corners": [
+                [140.607182, 124.607182],
+                [204.607182, 124.607182],
+                [204.607182, 188.607182],
+                [140.607182, 188.607182]
+              ],
+              "frame": 611,
+              "layer": 0,
+              "uv": [0.5625, 0.0625, 0.6875, 0.1875]
+            }
+          ],
+          "set": "item/iron-plate"
+        },
+        {
+          "frames": [90],
+          "part": "platform_shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [0, 0],
+                [128, 0],
+                [128, 128],
+                [0, 128]
+              ],
+              "frame": 90,
+              "layer": 0,
+              "uv": [0.53125, 0.03125, 0.5625, 0.0625]
+            }
+          ],
+          "set": "entity/inserter"
+        },
+        {
+          "frames": [93],
+          "part": "arm_shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [213.335796, 152.080962],
+                [168.080962, 197.335796],
+                [23.271386, 52.52622],
+                [68.52622, 7.271386]
+              ],
+              "frame": 93,
+              "layer": 0,
+              "uv": [0.78125, 0.03125, 0.796875, 0.0625]
+            }
+          ],
+          "set": "entity/inserter"
+        },
+        {
+          "frames": [97],
+          "part": "hand_closed_shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [229.175725, 167.920891],
+                [183.920891, 213.175725],
+                [138.666057, 167.920891],
+                [183.920891, 122.666057]
+              ],
+              "frame": 97,
+              "layer": 0,
+              "uv": [0.03125, 0.15625, 0.046875, 0.171875]
+            }
+          ],
+          "set": "entity/inserter"
+        }
+      ],
+      "input": {
+        "entity": {
+          "alt_icon": 65535,
+          "dir": 8,
+          "flags": 0,
+          "flip": 0,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "status": 0,
+          "variant": 0,
+          "x2": 11,
+          "y2": 7
+        },
+        "hand": {
+          "ext": 4915,
+          "held": 16,
+          "held_count": 1,
+          "theta": 24576
+        },
+        "heldIcon": "item/iron-plate",
+        "set": "entity/inserter"
+      },
+      "name": "inserter facing south, θ 0.375, reach 1.2 tiles, holding a plate"
+    },
+    {
+      "camera": {
+        "cx": 5,
+        "cy": 3,
+        "dpr": 1,
+        "zoom": 1
+      },
+      "draws": [
+        {
+          "frames": [85],
+          "part": "platform",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [0, 0],
+                [32, 0],
+                [32, 32],
+                [0, 32]
+              ],
+              "frame": 85,
+              "layer": 0,
+              "uv": [0.078125, 0.453125, 0.109375, 0.484375]
+            }
+          ],
+          "set": "entity/inserter"
+        },
+        {
+          "frames": [92],
+          "part": "arm",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [12, -14.13151],
+                [20, -14.13151],
+                [20, 15.733073],
+                [12, 15.733073]
+              ],
+              "frame": 92,
+              "layer": 0,
+              "uv": [0.265625, 0.453125, 0.273438, 0.484375]
+            }
+          ],
+          "set": "entity/inserter"
+        },
+        {
+          "frames": [94],
+          "part": "hand_open",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [2, -28.398437],
+                [30, -28.398437],
+                [30, -4.398437],
+                [2, -4.398437]
+              ],
+              "frame": 94,
+              "layer": 0,
+              "uv": [0.328125, 0.453125, 0.355469, 0.476563]
+            }
+          ],
+          "set": "entity/inserter"
+        },
+        {
+          "frames": [89],
+          "part": "platform_shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [0, 0],
+                [32, 0],
+                [32, 32],
+                [0, 32]
+              ],
+              "frame": 89,
+              "layer": 0,
+              "uv": [0.40625, 0.03125, 0.4375, 0.0625]
+            }
+          ],
+          "set": "entity/inserter"
+        },
+        {
+          "frames": [93],
+          "part": "arm_shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [8, -14.13151],
+                [24, -14.13151],
+                [24, 15.733073],
+                [8, 15.733073]
+              ],
+              "frame": 93,
+              "layer": 0,
+              "uv": [0.78125, 0.03125, 0.796875, 0.0625]
+            }
+          ],
+          "set": "entity/inserter"
+        },
+        {
+          "frames": [95],
+          "part": "hand_open_shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [8, -22.398437],
+                [24, -22.398437],
+                [24, -6.398437],
+                [8, -6.398437]
+              ],
+              "frame": 95,
+              "layer": 0,
+              "uv": [0.90625, 0.03125, 0.921875, 0.046875]
+            }
+          ],
+          "set": "entity/inserter"
+        }
+      ],
+      "input": {
+        "entity": {
+          "alt_icon": 65535,
+          "dir": 4,
+          "flags": 0,
+          "flip": 0,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "status": 0,
+          "variant": 0,
+          "x2": 11,
+          "y2": 7
+        },
+        "hand": {
+          "ext": 2867,
+          "held": 65535,
+          "held_count": 0,
+          "theta": 0
+        },
+        "heldIcon": null,
+        "set": "entity/inserter"
+      },
+      "name": "inserter facing east, θ 0, reach 0.7 tiles, empty hand"
+    },
+    {
+      "camera": {
+        "cx": -10,
+        "cy": 1,
+        "dpr": 1,
+        "zoom": 1
+      },
+      "draws": [
+        {
+          "frames": [109],
+          "part": "idle",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-16, -12],
+                [16, -12],
+                [16, 20],
+                [-16, 20]
+              ],
+              "frame": 109,
+              "layer": 0,
+              "uv": [0.953125, 0.453125, 0.984375, 0.484375]
+            }
+          ],
+          "set": "mover/character"
+        },
+        {
+          "frames": [108],
+          "part": "idle_shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [-8, 8],
+                [24, 8],
+                [24, 24],
+                [-8, 24]
+              ],
+              "frame": 108,
+              "layer": 0,
+              "uv": [0.40625, 0.15625, 0.4375, 0.171875]
+            }
+          ],
+          "set": "mover/character"
+        }
+      ],
+      "input": {
+        "distance": 0,
+        "mover": {
+          "aux": 0,
+          "base_tick": 100,
+          "flags": 0,
+          "kind": 0,
+          "orientation": 16384,
+          "proto": 1,
+          "serial": 1,
+          "vx": 0,
+          "vy": 0,
+          "x": -2560,
+          "y": 384
+        },
+        "set": "mover/character",
+        "ticksSinceBase": 37
+      },
+      "name": "character idle facing east, 37 ticks after base_tick (8 fps)"
+    },
+    {
+      "camera": {
+        "cx": -10,
+        "cy": 1,
+        "dpr": 2,
+        "zoom": 1
+      },
+      "draws": [
+        {
+          "frames": [166],
+          "part": "run",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-11.75, -44.25],
+                [52.25, -44.25],
+                [52.25, 19.75],
+                [-11.75, 19.75]
+              ],
+              "frame": 166,
+              "layer": 0,
+              "uv": [0.078125, 0.703125, 0.109375, 0.734375]
+            }
+          ],
+          "set": "mover/character"
+        },
+        {
+          "frames": [155],
+          "part": "run_shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [4.25, -4.25],
+                [68.25, -4.25],
+                [68.25, 27.75],
+                [4.25, 27.75]
+              ],
+              "frame": 155,
+              "layer": 0,
+              "uv": [0.28125, 0.28125, 0.3125, 0.296875]
+            }
+          ],
+          "set": "mover/character"
+        }
+      ],
+      "input": {
+        "distance": 1.3,
+        "mover": {
+          "aux": 0,
+          "base_tick": 100,
+          "flags": 0,
+          "kind": 0,
+          "orientation": 8192,
+          "proto": 1,
+          "serial": 1,
+          "vx": 27,
+          "vy": -27,
+          "x": -2560,
+          "y": 384
+        },
+        "set": "mover/character",
+        "ticksSinceBase": 3
+      },
+      "name": "character running north-east, 3 ticks extrapolated, 1.3 tiles walked"
+    },
+    {
+      "camera": {
+        "cx": -10,
+        "cy": 1,
+        "dpr": 1,
+        "zoom": 1
+      },
+      "draws": [
+        {
+          "frames": [280],
+          "part": "mine",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [17.75, -45.75],
+                [49.75, -45.75],
+                [49.75, -13.75],
+                [17.75, -13.75]
+              ],
+              "frame": 280,
+              "layer": 1,
+              "uv": [0.765625, 0.078125, 0.796875, 0.109375]
+            }
+          ],
+          "set": "mover/character"
+        },
+        {
+          "frames": [274],
+          "part": "mine_shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [25.75, -25.75],
+                [57.75, -25.75],
+                [57.75, -9.75],
+                [25.75, -9.75]
+              ],
+              "frame": 274,
+              "layer": 0,
+              "uv": [0.15625, 0.40625, 0.1875, 0.421875]
+            }
+          ],
+          "set": "mover/character"
+        }
+      ],
+      "input": {
+        "distance": 1.3,
+        "mover": {
+          "aux": 0,
+          "base_tick": 100,
+          "flags": 1,
+          "kind": 0,
+          "orientation": 61440,
+          "proto": 1,
+          "serial": 1,
+          "vx": 27,
+          "vy": -27,
+          "x": -2560,
+          "y": 384
+        },
+        "set": "mover/character",
+        "ticksSinceBase": 10
+      },
+      "name": "character mining while moving: the mine clip, facing north-north-west (rounds to north)"
+    },
+    {
+      "camera": {
+        "cx": -15,
+        "cy": -30,
+        "dpr": 1,
+        "zoom": 1
+      },
+      "draws": [
+        {
+          "frames": [416],
+          "part": "base",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-32, -44],
+                [0, -44],
+                [0, -12],
+                [-32, -12]
+              ],
+              "frame": 416,
+              "layer": 1,
+              "uv": [0.828125, 0.578125, 0.859375, 0.609375]
+            }
+          ],
+          "set": "entity/rail-signal"
+        },
+        {
+          "frames": [428],
+          "part": "light",
+          "pass": "light",
+          "quads": [
+            {
+              "array": 2,
+              "corners": [
+                [-24, -24],
+                [-8, -24],
+                [-8, -8],
+                [-24, -8]
+              ],
+              "frame": 428,
+              "layer": 0,
+              "uv": [0.8125, 0.0625, 0.84375, 0.09375]
+            }
+          ],
+          "set": "entity/rail-signal",
+          "strength": 1
+        }
+      ],
+      "input": {
+        "dyn": null,
+        "entity": {
+          "alt_icon": 65535,
+          "dir": 6,
+          "flags": 0,
+          "flip": 0,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "status": 2,
+          "variant": 0,
+          "x2": -31,
+          "y2": -61
+        },
+        "set": "entity/rail-signal"
+      },
+      "name": "rail signal facing south-east, status 2: green light"
+    },
+    {
+      "camera": {
+        "cx": -20,
+        "cy": 27,
+        "dpr": 1,
+        "zoom": 1
+      },
+      "draws": [
+        {
+          "frames": [442],
+          "part": "base",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-1, -33],
+                [31, -33],
+                [31, 15],
+                [-1, 15]
+              ],
+              "frame": 442,
+              "layer": 1,
+              "uv": [0.265625, 0.765625, 0.296875, 0.8125]
+            }
+          ],
+          "set": "object/tree-oak"
+        },
+        {
+          "frames": [451],
+          "part": "shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [-1, -5],
+                [47, -5],
+                [47, 27],
+                [-1, 27]
+              ],
+              "frame": 451,
+              "layer": 0,
+              "uv": [0.40625, 0.53125, 0.453125, 0.5625]
+            }
+          ],
+          "set": "object/tree-oak"
+        }
+      ],
+      "input": {
+        "object": {
+          "count": 0,
+          "id": 0,
+          "kind": 0,
+          "variant": 3,
+          "x": -5000,
+          "y": 7000
+        },
+        "set": "object/tree-oak",
+        "shapeIndex": 2
+      },
+      "name": "tree at (−5000, 7000)/256: shape posHash % 4, stage 3"
+    },
+    {
+      "camera": {
+        "cx": -59.5,
+        "cy": 33,
+        "dpr": 1,
+        "zoom": 1
+      },
+      "draws": [
+        {
+          "frames": [482],
+          "part": "base",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [16, 0],
+                [48, 0],
+                [48, 32],
+                [16, 32]
+              ],
+              "frame": 482,
+              "layer": 1,
+              "uv": [0.515625, 0.953125, 0.546875, 0.984375]
+            }
+          ],
+          "set": "resource/iron-ore-patch"
+        }
+      ],
+      "input": {
+        "chunk": [-2, 1],
+        "resource": {
+          "band": 5,
+          "resource": 0,
+          "tile": 37
+        },
+        "set": "resource/iron-ore-patch",
+        "shapeIndex": 3,
+        "tileXY": [-59, 33]
+      },
+      "name": "iron ore in chunk (−2, 1), tile 37: shape posHash(tx, ty) % 6, band 5"
+    },
+    {
+      "camera": {
+        "cx": 100000,
+        "cy": -50000,
+        "dpr": 1,
+        "zoom": 0.5
+      },
+      "draws": [
+        {
+          "frames": [521],
+          "part": "base",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-8, -8],
+                [8, -8],
+                [8, 8],
+                [-8, 8]
+              ],
+              "frame": 521,
+              "layer": 2,
+              "uv": [0.453125, 0.078125, 0.484375, 0.109375]
+            }
+          ],
+          "set": "mover/locomotive"
+        },
+        {
+          "frames": [502],
+          "part": "shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [-12, -8],
+                [12, -8],
+                [12, 8],
+                [-12, 8]
+              ],
+              "frame": 502,
+              "layer": 0,
+              "uv": [0.78125, 0.53125, 0.828125, 0.5625]
+            }
+          ],
+          "set": "mover/locomotive"
+        }
+      ],
+      "input": {
+        "distance": 0,
+        "mover": {
+          "aux": 0,
+          "base_tick": 0,
+          "flags": 0,
+          "kind": 2,
+          "orientation": 12345,
+          "proto": 0,
+          "serial": 99,
+          "vx": 0,
+          "vy": 0,
+          "x": 25600000,
+          "y": -12800000
+        },
+        "set": "mover/locomotive",
+        "ticksSinceBase": 0
+      },
+      "name": "locomotive at (100000, −50000) tiles, orientation 12345: index round(12345 × 64 / 65536) = 12"
+    },
+    {
+      "camera": {
+        "cx": 0,
+        "cy": 0,
+        "dpr": 2,
+        "zoom": 2
+      },
+      "draws": [
+        {
+          "frames": [573],
+          "part": "base",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-128, -192],
+                [256, -192],
+                [256, 256],
+                [-128, 256]
+              ],
+              "frame": 573,
+              "layer": 2,
+              "uv": [0.703125, 0.265625, 0.796875, 0.375]
+            }
+          ],
+          "set": "entity/radar"
+        },
+        {
+          "frames": [577],
+          "part": "layers[0]",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [0, -128],
+                [128, -128],
+                [128, 0],
+                [0, 0]
+              ],
+              "frame": 577,
+              "layer": 2,
+              "uv": [0.015625, 0.453125, 0.046875, 0.484375]
+            }
+          ],
+          "set": "entity/radar"
+        },
+        {
+          "frames": [593],
+          "part": "shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [-64, -64],
+                [320, -64],
+                [320, 192],
+                [-64, 192]
+              ],
+              "frame": 593,
+              "layer": 0,
+              "uv": [0.53125, 0.78125, 0.625, 0.84375]
+            }
+          ],
+          "set": "entity/radar"
+        }
+      ],
+      "input": {
+        "dyn": {
+          "dir": 0,
+          "light": 0,
+          "phase": 12288,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "state": 1,
+          "x2": 1,
+          "y2": 1
+        },
+        "entity": {
+          "alt_icon": 65535,
+          "dir": 0,
+          "flags": 0,
+          "flip": 0,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "status": 0,
+          "variant": 0,
+          "x2": 1,
+          "y2": 1
+        },
+        "set": "entity/radar"
+      },
+      "name": "radar working at phase 12288: dish frame 3, shadow frame 3"
+    },
+    {
+      "camera": {
+        "cx": 40,
+        "cy": 0,
+        "dpr": 1,
+        "zoom": 1
+      },
+      "draws": [
+        {
+          "frames": [606],
+          "part": "base",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 0,
+              "corners": [
+                [-128, -100],
+                [-96, -100],
+                [-96, -64],
+                [-128, -64]
+              ],
+              "frame": 606,
+              "layer": 2,
+              "uv": [0.828125, 0.453125, 0.859375, 0.488281]
+            }
+          ],
+          "set": "entity/iron-chest"
+        },
+        {
+          "frames": [607],
+          "part": "shadow",
+          "pass": "shadow",
+          "quads": [
+            {
+              "array": 1,
+              "corners": [
+                [-128, -96],
+                [-80, -96],
+                [-80, -64],
+                [-128, -64]
+              ],
+              "frame": 607,
+              "layer": 1,
+              "uv": [0.78125, 0.15625, 0.828125, 0.1875]
+            }
+          ],
+          "set": "entity/iron-chest"
+        }
+      ],
+      "input": {
+        "dyn": null,
+        "entity": {
+          "alt_icon": 65535,
+          "dir": 0,
+          "flags": 0,
+          "flip": 0,
+          "proto": 0,
+          "quality": 0,
+          "serial": 7,
+          "status": 0,
+          "variant": 0,
+          "x2": 73,
+          "y2": -5
+        },
+        "set": "entity/iron-chest"
+      },
+      "name": "iron chest (the golden packets' chest A)"
+    },
+    {
+      "camera": {
+        "cx": 2,
+        "cy": -1,
+        "dpr": 2,
+        "zoom": 1
+      },
+      "draws": [
+        {
+          "frames": [611],
+          "part": "icon",
+          "pass": "colour",
+          "quads": [
+            {
+              "array": 3,
+              "corners": [
+                [0, 0],
+                [32, 0],
+                [32, 32],
+                [0, 32]
+              ],
+              "frame": 611,
+              "layer": 0,
+              "uv": [0.5625, 0.0625, 0.6875, 0.1875]
+            }
+          ],
+          "set": "item/iron-plate"
+        }
+      ],
+      "input": {
+        "centre": [2.25, -0.75],
+        "set": "item/iron-plate",
+        "sizeTiles": 0.5
+      },
+      "name": "iron plate icon centred at (2.25, −0.75), BELT_ITEM_SIZE 0.5 tile"
+    }
+  ],
+  "constants": {
+    "BELT_ITEM_SIZE": 0.5,
+    "PX_PER_TILE": 32
+  },
+  "note": "Expected draws of §15.7's programs over manifest.json: device pixels from the canvas centre, S = 32 × zoom × dpr; compare corners and uv with a tolerance of 0.001. Passes: colour, shadow, light. README.md \"The tiny atlas\" states the readings this file fixes.",
+  "version": 1
+}

@@ -11,6 +11,7 @@
       "!**/public/data",
       "!**/test-results",
       "!**/playwright-report",
+      "!test/golden/m0",
       "!package-lock.json"
     ]
   },
