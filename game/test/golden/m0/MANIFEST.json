@@ -1,6 +1,6 @@
 {
   "contract": {
-    "test/golden/README.md": "26364ac2fa28b037a633e20a4b4a0b7f6d8435c1b8025047e30b52f7679b41e7",
+    "test/golden/README.md": "751f7b09f54f35801403b79a036cf290cc83dfd0973164ea80c74839a6bcf995",
     "test/golden/model/extract.ts": "9adb6f97687d57be786bc76753748cba2bb09e5fdd9f67da22a22efbefdcd46f",
     "test/golden/model/inventory.ts": "1672b3af1f263fd6a26fac2d0babcf56c6a1bb9fc40d9b6dec161c5dd9858b04",
     "test/golden/model/module.ts": "94ecf5bbf6d83ccaf8bfe220cfa14a0bbac47de721cfc3727a733542b65f67ac",
@@ -10,7 +10,7 @@
     "test/golden/model/remap.ts": "9a3b57e4ddd9a43aa7f451c03178419ba521a41ce1a63fcbad6f5e49bab43111",
     "test/golden/model/rules.ts": "8b20a23c1e5a5c67bcb21e800d9202fe776049b36290325fc55fce791f79bf2a",
     "test/golden/model/sim.ts": "2b80ee4ce889ae48d64eca7208536e2fd35a43e776b0d6c7bc2977451f661e69",
-    "test/golden/model/slices.ts": "1d60d857986c0b400dffc056c70607fcf7bf78c0118836c9535b4c9fad45b5a1",
+    "test/golden/model/slices.ts": "bfb544817ef513c3329ebfd2174b27429de65cb2e5e7e7c2fb4499b6a91a311e",
     "test/golden/model/stats.ts": "6b657b085624e059a69252f22c1bfbf651b94230d80351a5ed0b235b167aa6b9",
     "test/golden/model/world.ts": "b6a2b57165baa6055b4bc86211a28dfc36a0e97201439765a78a031a95d1ac57",
     "test/golden/model/xxh64.ts": "b730c26f0a8ae5606aef3de1299829fda42083bf4c1ed5207818537550d59f14"
@@ -470,7 +470,10 @@
     "queries/tick-3600/inspect-7.bin": "a3f4c46ac844599a977f898bf0fd29fc51e12a05c7ae0359bdd47aec29dd9984",
     "queries/tick-3600/inspect-9.bin": "3cf867dcf32f7d19045041e6f7d609f00a1eca6d625f1ab530cf579fd2ca9c29",
     "scenario.txt": "745287e206280c3635a001aedfe8a9534b84ba2d41185cf6e9b9c3844facd1a9",
-    "slices/tick-0600-members.txt": "777b5b49b69ebd2107a9eacca363c57ba22d7b87d827f3fb8fa38ac321a0a2e9",
+    "slices/collisions-members.txt": "1f4fe56e6a6d02fa1086b183d3b1502b59cd719f9a14d3b3d808d872ced28279",
+    "slices/collisions.sections": "57fb634cd4c53e083e6d0341d8d988acab0c6da305aa10a7fbaac70d2f3a7264",
+    "slices/collisions.txt": "849261ddf7873d711d9bce36767744b5def65ffb0bdbbb7be901aa9d183101da",
+    "slices/tick-0600-members.txt": "8bcc005369fb544dbbc05f7ac9eef96461e0a372547dd3dcc8d90c176ec9c291",
     "slices/tick-0600.txt": "da04d17169560a8d4c4c7576addeb885decf751a5334a249638b21546b2a9bd6",
     "start.save": "f7eac5e72ebbcb060801b19423f2f969a4d3db5d00be98a1ee58712d565f2e56",
     "states/hashes.txt": "136c23ccf3d3f296afdd9866230d783cdd90c86f9d43c853fc1c90fc51ca85fc",
@@ -490,5 +493,5 @@
     "view.bin": "daa6576b55def4e169b3472f0f3370edb84a9182004aa9a63ebc52994a641517"
   },
   "schemaHash": "bed0caa0b5b03465cddfbab410209d9611f1f8416ba834d7ac0b33304e240444",
-  "version": 5
+  "version": 6
 }

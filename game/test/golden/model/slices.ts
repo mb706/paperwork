@@ -214,9 +214,12 @@ function heapMembers(w: World): Member[] {
   return out;
 }
 
-/** Every member of the canonical state, in (section id, key) order. */
+/**
+ * Every member of the canonical state, sorted by (section id, key) (rule 41; GATE-r2 finding 1): a table's rows
+ * are built in row order, but a reused row can hold a higher serial than a later row, so the order is the key's.
+ */
 export function members(w: World): Member[] {
-  const out: Member[] = [
+  const all: Member[] = [
     ...tableMembers(
       SECTION_ID.ENTITY_TABLE,
       ENTITYTABLE_COLUMNS,
@@ -251,7 +254,7 @@ export function members(w: World): Member[] {
       (r) => (r as unknown as ContainerPoolRow).entity,
     ),
   ];
-  return out;
+  return all.sort((a, b) => a.section - b.section || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 }
 
 /**

@@ -15,8 +15,15 @@
 // `world {op: 'load'}` with those bytes restores that world exactly: the ticks after a load produce the same
 // world as an uninterrupted run. Anything else given to `load` is refused explicitly: a `trap` message that
 // says why, and a log line; no world is bound.
-import { decodeAction } from '../shared/gen/actions.ts';
+import {
+  type Action,
+  decodeAction,
+  encodeActionPayload,
+  HELD_ACTIONS,
+  withInputGen,
+} from '../shared/gen/actions.ts';
 import { SUPPORTED_ACTIONS } from '../shared/gen/capabilities.ts';
+import { Writer } from '../shared/gen/codec.ts';
 import { QueryKind } from '../shared/gen/projections.ts';
 import type { PrototypesJson } from '../shared/gen/protos.ts';
 import { ABI_VERSION, SCHEMA_HASH } from '../shared/gen/schema.ts';
@@ -96,6 +103,14 @@ export class FakeSim {
   private viewSeq = 0;
   private pending: { player: number; seq: number; type: number; payload: Uint8Array }[] = [];
   private lastSeq = 0;
+  /**
+   * The LocalSequencer's input generation for player 0 (§15.3, D22): the world's at `bound`, plus one for every
+   * release_inputs(0) and player_left(0) it has put into the closure stream since. It is written into every held
+   * input as the input is stamped; the main thread never needs to know generations.
+   */
+  private tracked = 0;
+  /** System actions for the next tick, ahead of its player actions (`injectSystem`). */
+  private system: Action[] = [];
   private readonly free: ArrayBuffer[] = [];
   private paused = false;
   private speed = 1;
@@ -169,6 +184,8 @@ export class FakeSim {
         this.pending = [];
         const me = world.chars.find((c) => c.player === 0);
         this.lastSeq = me?.lastSeq ?? 0;
+        this.tracked = me?.inputGen ?? 0;
+        this.system = [];
         this.host.post({
           t: 'bound',
           gen: this.gen,
@@ -255,11 +272,46 @@ export class FakeSim {
       }
       // A player's action with a system type id never enters a tick: the LocalSequencer drops it (§15.3).
       if (type >= 0xff00) this.log('error', `seq ${seq}: system action type ${type} from a player: dropped`);
-      else this.pending.push({ player: 0, seq, type, payload: bytes.slice(at + 4, at + 4 + len) });
+      else
+        this.pending.push({
+          player: 0,
+          seq,
+          type,
+          payload: this.stamp(type, bytes.slice(at + 4, at + 4 + len)),
+        });
       this.lastSeq = seq;
       seq++;
       at += 4 + len;
     }
+  }
+
+  /**
+   * The LocalSequencer stamps a held input with the generation it tracks (§15.3: "The sequencer writes input_gen
+   * into each held-input action when it stamps it"), whatever the main thread wrote. A payload that does not decode
+   * goes on as it is: the tick refuses it as malformed.
+   */
+  private stamp(type: number, payload: Uint8Array): Uint8Array {
+    let a: Action;
+    try {
+      a = decodeAction(type, payload);
+    } catch {
+      return payload;
+    }
+    if (!HELD_ACTIONS.has(a.type)) return payload;
+    const w = new Writer();
+    encodeActionPayload(w, withInputGen(a, this.tracked));
+    return w.finish();
+  }
+
+  /**
+   * Puts a system action into the next tick's closure, ahead of its player actions, as the relay injects
+   * release_inputs (11 §2.6): held inputs stamped before it carry the old generation and are fenced. For tests and
+   * dev tools (the real LocalSequencer issues none of these in single player but player_joined(0)).
+   */
+  injectSystem(a: Action): void {
+    this.system.push(a);
+    if ((a.type === 'release_inputs' || a.type === 'player_left') && a.player === 0)
+      this.tracked = (this.tracked + 1) & 0xffff;
   }
 
   private control(op: MainToSim & { t: 'seq' } extends { op: infer O } ? O : never): void {
@@ -322,7 +374,20 @@ export class FakeSim {
     // The closure of this tick: the pending actions in seq order (phase 1), then the world's own step.
     const actions = this.pending;
     this.pending = [];
+    const system = this.system;
+    this.system = [];
     w.begin();
+    for (const a of system) {
+      const c = w.chars.find((x) => 'player' in a && x.player === a.player);
+      if (!c) continue;
+      if (a.type === 'release_inputs' || a.type === 'player_left') {
+        // §15.3: stop walking, mining and picking; raise the input generation (wrapping).
+        c.walking = false;
+        c.mining = null;
+        c.miningProgress = 0;
+        c.inputGen = (c.inputGen + 1) & 0xffff;
+      }
+    }
     for (const a of actions) {
       const c = w.chars.find((x) => x.player === a.player);
       if (!c) continue;
@@ -346,6 +411,11 @@ export class FakeSim {
       }
       if (!SUPPORTED_ACTIONS.has(act.type)) {
         fail(2); // unsupported: outside the capability manifest (§2.4)
+        continue;
+      }
+      // Input fencing (§15.3, D22): a held input of another generation is a no-op with an event; its seq is consumed.
+      if ('input_gen' in act && act.input_gen !== c.inputGen) {
+        w.emit({ seq: a.seq, player: a.player }, { type: 'input_fenced' });
         continue;
       }
       const r = applyAction(w, c, a.seq, act);

@@ -15,6 +15,7 @@ import { ABI_VERSION, SCHEMA_HASH } from '../../src/shared/gen/schema.ts';
 import { decodeAll, encodeAll, UI_CODECS } from '../helpers/packets.ts';
 import { type Golden, goldenFiles } from './build/files.ts';
 import {
+  bumpProblems,
   committedFiles,
   contractFiles,
   externalFiles,
@@ -28,6 +29,7 @@ import {
 import { dumpOut, type IndexedCall, replay } from './build/traces.ts';
 import { loadProtos } from './model/protos.ts';
 import { Sim } from './model/sim.ts';
+import { members, sliceHash } from './model/slices.ts';
 import { World } from './model/world.ts';
 import { hex64, u64le, xxh64 } from './model/xxh64.ts';
 
@@ -70,6 +72,37 @@ describe('the golden set is frozen', () => {
     // Decision 14: every bump since version 2 has a kind, a value bump an approval, a real reason, and the lines
     // form a hash chain.
     expect(ledgerProblems(versions)).toEqual([]);
+  });
+
+  it('classifies a bump against the ledger-verified manifest, never a regenerated one (decision 14)', () => {
+    const m = manifest();
+    const versions = readVersions();
+    const latest = versions[versions.length - 1] ?? null;
+    const same = { files: m.files, external: m.external, contract: m.contract, schemaHash: m.schemaHash };
+    const ask = (kind: string, next = same, baseline: Manifest | null = m, approval: string | null = null) =>
+      bumpProblems({ kind, approval, why: 'a reason long enough to pass the check', baseline, latest, next });
+    expect(ask('mechanical')).toEqual([]);
+    // A changed expected value is not mechanical, and a value bump needs an approval.
+    const changedFile = { ...same, files: { ...m.files, 'digests.txt': '0'.repeat(64) } };
+    expect(ask('mechanical', changedFile).join()).toMatch(/that is a value bump/);
+    expect(ask('value', changedFile).join()).toMatch(/names its approval/);
+    expect(ask('value', changedFile, m, 'pm/reviews/X.md')).toEqual([]);
+    // A changed rule (a contract input) is never mechanical; only the atlas, a schema move or protos/ are.
+    expect(
+      ask('mechanical', {
+        ...same,
+        contract: { ...m.contract, 'test/golden/README.md': '0'.repeat(64) },
+      }).join(),
+    ).toMatch(/value bump/);
+    expect(ask('mechanical', { ...same, external: {} })).toEqual([]);
+    expect(
+      ask('mechanical', { ...same, files: { ...m.files, 'protos/prototypes.json': '0'.repeat(64) } }),
+    ).toEqual([]);
+    expect(ask('mechanical', { ...changedFile, schemaHash: '1'.repeat(64) })).toEqual([]);
+    // A manifest that a regeneration rewrote is no baseline: it no longer hashes to the latest ledger line.
+    expect(ask('mechanical', changedFile, { ...m, files: changedFile.files }).join()).toMatch(
+      /restore it from git/,
+    );
   });
 
   it('keeps its history append-only against the reviewed base (dev, or the last commit on dev)', () => {
@@ -291,6 +324,20 @@ describe('the digests (§4.8; README rules 37–41)', () => {
       .slice(1);
     const keys = members.map((l) => l.split(' ').slice(0, 2).join(' '));
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("orders a shard's members by (section, key), not row order: reused, colliding and free rows (rule 41)", () => {
+    const protos = loadProtos(read('protos/prototypes.bin'));
+    const w = World.load(protos, new SaveOutputReader(read('slices/collisions.sections')).frames);
+    // Row 0 holds serial 3603 (reused), row 1 serial 3, row 3 is free: all three are shard 3.
+    expect(w.entities.map((e) => e.serial)).toEqual([3603, 3, 3601, 0]);
+    const shard3 = members(w)
+      .filter((m) => m.shard === 3 && m.section === 1)
+      .map((m) => m.key);
+    expect(shard3).toEqual([3n, 3603n, 2n ** 32n + 3n]);
+    const want = new TextDecoder().decode(read('slices/collisions.txt')).trim().split('\n').slice(1);
+    for (let shard = 0; shard < 3600; shard++)
+      expect(`${shard} ${hex64(sliceHash(w, shard))}`).toBe(want[shard]);
   });
 
   it('a save carries its lineage: loaded at tick 300, ticks 301–3,600 give the same d_t and r_t', () => {

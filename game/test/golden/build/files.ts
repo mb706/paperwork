@@ -46,6 +46,7 @@ import { lineage0, Sim, Status } from '../model/sim.ts';
 import { members, sliceHash } from '../model/slices.ts';
 import { World } from '../model/world.ts';
 import { hex64, xxh64 } from '../model/xxh64.ts';
+import { collisionWorld } from './collisions.ts';
 import {
   abiCases,
   closureCases,
@@ -479,6 +480,20 @@ export function goldenFiles(): Golden {
       ml.push(`${m.section} ${m.key} ${m.shard} ${b.length} ${hex64(xxh64(b))}`);
     }
     files.set('slices/tick-0600-members.txt', text(`${ml.join('\n')}\n`));
+    // Rows reused out of serial order, with serials and free rows colliding in shard 3 (GATE-r2 finding 1).
+    const cw = collisionWorld(r.model, r.start.bytes);
+    files.set('slices/collisions.sections', saveOutputBytes(cw.sections(), lineage0(START.seed)));
+    const cl = [
+      '# shard, then the slice hash of the state in collisions.sections (rule 41: members sorted by section and key), hex',
+    ];
+    for (let shard = 0; shard < 3600; shard++) cl.push(`${shard} ${hex64(sliceHash(cw, shard))}`);
+    files.set('slices/collisions.txt', text(`${cl.join('\n')}\n`));
+    const cm = ['# section, key, shard, length, XXH64 of the member bytes (hex), in (section, key) order'];
+    for (const m of members(cw)) {
+      const b = m.bytes();
+      cm.push(`${m.section} ${m.key} ${m.shard} ${b.length} ${hex64(xxh64(b))}`);
+    }
+    files.set('slices/collisions-members.txt', text(`${cm.join('\n')}\n`));
   }
   // Valid logs a reader must accept (§8.5): the empty log, and the golden log without its digests.
   files.set(

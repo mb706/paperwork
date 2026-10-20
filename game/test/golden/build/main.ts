@@ -1,7 +1,7 @@
 // The golden set's command line (10 §15.10; test/golden/README.md "Freezing"; pm/DECISIONS-IMPL.md decision 14).
 //
 //   node test/golden/build/main.ts                         check: the reference model reproduces m0/ exactly
-//   node test/golden/build/main.ts --write                 rewrite m0/ and MANIFEST.json from the model
+//   node test/golden/build/main.ts --write                 rewrite m0/'s files from the model (not MANIFEST.json)
 //   node test/golden/build/main.ts --write --bump mechanical "why"
 //   node test/golden/build/main.ts --write --bump value --approval <ref> "why"
 //                                                          record the reviewed change as a new version
@@ -178,6 +178,61 @@ function manifestText(m: Manifest): string {
   return `${JSON.stringify(body, null, 2)}\n`;
 }
 
+/**
+ * Why a bump may not be recorded (decision 14; GATE-r1 finding 15, GATE-r2 finding 4), or nothing. The baseline is
+ * MANIFEST.json, which only a bump writes, and it must still be the latest ledger version's (its tables hash to
+ * that line's digest), so a regeneration (`--write`) cannot move it. A mechanical bump changes no expected value:
+ * against the baseline, only the tiny atlas changed, the schema layout did (the schema hash moved), or only the
+ * frozen prototype files (protos/); the contract inputs never.
+ */
+export function bumpProblems(o: {
+  kind: string;
+  approval: string | null;
+  why: string;
+  baseline: Manifest | null;
+  latest: Version | null;
+  next: {
+    files: Record<string, string>;
+    external: Record<string, string>;
+    contract: Record<string, string>;
+    schemaHash: string;
+  };
+}): string[] {
+  const out: string[] = [];
+  if (!BUMP_KINDS.includes(o.kind as BumpKind))
+    out.push(`--bump takes ${BUMP_KINDS.join(' or ')} (decision 14), not "${o.kind}"`);
+  if (o.why.trim().length < 20)
+    out.push('a bump needs a reason of at least 20 characters: what changed, and why');
+  if (o.kind === 'value' && !o.approval)
+    out.push('a value bump names its approval: --approval <review or decision>');
+  const b = o.baseline;
+  if (o.latest) {
+    const verified =
+      b !== null &&
+      b.version === o.latest.version &&
+      filesDigest(b.files, b.external, b.contract) === o.latest.digest;
+    if (!verified) {
+      out.push(
+        `MANIFEST.json is not version ${o.latest.version}'s (its tables do not hash to the ledger's digest): restore it from git, then bump`,
+      );
+      return out;
+    }
+  }
+  if (o.kind === 'mechanical' && b) {
+    const changed = [...new Set([...Object.keys(b.files), ...Object.keys(o.next.files)])].filter(
+      (p) => b.files[p] !== o.next.files[p],
+    );
+    const protosOnly = changed.length > 0 && changed.every((p) => p.startsWith('protos/'));
+    const contractChanged = canonical(b.contract ?? {}) !== canonical(o.next.contract);
+    const schemaMoved = b.schemaHash !== o.next.schemaHash;
+    if (contractChanged || (changed.length > 0 && !schemaMoved && !protosOnly))
+      out.push(
+        'expected values or the contract changed without a schema change: that is a value bump (--bump value --approval …)',
+      );
+  }
+  return out;
+}
+
 function argAfter(flag: string): string | null {
   const i = process.argv.indexOf(flag);
   return i >= 0 ? (process.argv[i + 1] ?? null) : null;
@@ -233,77 +288,61 @@ function main(): number {
     return ok ? 0 : 1;
   }
 
-  // A bump's checks come before anything is written.
+  // The baseline every bump is classified against (GATE-r2 finding 4): MANIFEST.json, which only a bump writes.
+  const baseline = existsSync(join(M0, MANIFEST))
+    ? (JSON.parse(readFileSync(join(M0, MANIFEST), 'utf8')) as Manifest)
+    : null;
   if (bumpKind !== null) {
-    if (!BUMP_KINDS.includes(bumpKind as BumpKind)) {
-      console.error(`golden set: --bump takes ${BUMP_KINDS.join(' or ')} (decision 14), not "${bumpKind}"`);
+    const problems = bumpProblems({
+      kind: bumpKind,
+      approval,
+      why,
+      baseline,
+      latest: latest ?? null,
+      next: { files: table, external, contract, schemaHash: SCHEMA_HASH },
+    });
+    if (problems.length > 0) {
+      for (const p of problems) console.error(`golden set: ${p}`);
       return 1;
-    }
-    if (why.trim().length < 20) {
-      console.error('golden set: a bump needs a reason of at least 20 characters: what changed, and why');
-      return 1;
-    }
-    if (bumpKind === 'value' && !approval) {
-      console.error('golden set: a value bump names its approval: --approval <review or decision>');
-      return 1;
-    }
-    if (bumpKind === 'mechanical' && latest) {
-      // Mechanical (decision 14): only the tiny atlas changed, the schema layout did (the hash moved), or only the
-      // frozen prototype files did (protos/: a data change that alters no expected state, digest, record or
-      // packet, since every other file is unchanged).
-      const old = existsSync(join(M0, MANIFEST))
-        ? (JSON.parse(readFileSync(join(M0, MANIFEST), 'utf8')) as Manifest)
-        : null;
-      const changed = [...new Set([...Object.keys(old?.files ?? {}), ...Object.keys(table)])].filter(
-        (p) => old?.files[p] !== table[p],
-      );
-      const filesChanged = !old || changed.length > 0;
-      const protosOnly = changed.length > 0 && changed.every((p) => p.startsWith('protos/'));
-      const contractChanged = !old || canonical(old.contract ?? {}) !== canonical(contract);
-      const schemaMoved = !old || old.schemaHash !== SCHEMA_HASH;
-      if (contractChanged || (filesChanged && !schemaMoved && !protosOnly)) {
-        console.error(
-          'golden set: expected values or the contract changed without a schema change: that is a value bump (--bump value --approval …)',
-        );
-        return 1;
-      }
     }
   }
 
-  // --write: replace m0/'s files with the model's.
+  // --write: replace m0/'s files with the model's (MANIFEST.json and VERSIONS.txt only with --bump).
   for (const p of committedFiles()) if (!files.has(p)) rmSync(join(M0, p));
   for (const [p, b] of files) {
     const abs = join(M0, p);
     mkdirSync(dirname(abs), { recursive: true });
     if (!existsSync(abs) || sha256(readFileSync(abs)) !== sha256(b)) writeFileSync(abs, b);
   }
+  if (bumpKind === null) {
+    const same = latest?.digest === digest;
+    console.log(
+      same
+        ? `golden set: wrote ${files.size} files: version ${latest?.version ?? 0}, unchanged`
+        : `golden set: wrote ${files.size} files; they differ from version ${latest?.version ?? 0}: review the diff, then run with --bump (MANIFEST.json still names version ${latest?.version ?? 0})`,
+    );
+    return 0;
+  }
   let version = latest?.version ?? 0;
-  if (bumpKind !== null) {
-    if (latest?.digest === digest) console.log('golden set: unchanged; no new version recorded');
-    else {
-      version += 1;
-      const header =
-        versions.length === 0
-          ? '# The golden set\'s versions, append-only (test/golden/README.md "Freezing"): the version, the SHA-256 of\n# MANIFEST.json\'s tables as canonical JSON, and why it changed. Never edit or delete a line.\n'
-          : '';
-      const prev = latest ? ` prev=${sha256(latest.line).slice(0, 16)}` : '';
-      const line = `${version} ${digest} kind=${bumpKind} approval=${approval ?? '-'}${prev} ${why}\n`;
-      writeFileSync(
-        join(M0, VERSIONS),
-        `${header}${versions.length === 0 ? '' : readFileSync(join(M0, VERSIONS), 'utf8')}${line}`,
-      );
-    }
+  if (latest?.digest === digest) console.log('golden set: unchanged; no new version recorded');
+  else {
+    version += 1;
+    const header =
+      versions.length === 0
+        ? '# The golden set\'s versions, append-only (test/golden/README.md "Freezing"): the version, the SHA-256 of\n# MANIFEST.json\'s tables as canonical JSON, and why it changed. Never edit or delete a line.\n'
+        : '';
+    const prev = latest ? ` prev=${sha256(latest.line).slice(0, 16)}` : '';
+    const line = `${version} ${digest} kind=${bumpKind} approval=${approval ?? '-'}${prev} ${why}\n`;
+    writeFileSync(
+      join(M0, VERSIONS),
+      `${header}${versions.length === 0 ? '' : readFileSync(join(M0, VERSIONS), 'utf8')}${line}`,
+    );
   }
   writeFileSync(
     join(M0, MANIFEST),
     manifestText({ version, schemaHash: SCHEMA_HASH, files: table, external, contract }),
   );
-  const frozen = readVersions().some((v) => v.version === version && v.digest === digest);
-  console.log(
-    frozen
-      ? `golden set: wrote ${files.size} files, version ${version}`
-      : `golden set: wrote ${files.size} files; they differ from version ${version}: review the diff, then run with --bump`,
-  );
+  console.log(`golden set: wrote ${files.size} files, version ${version}`);
   return 0;
 }
 

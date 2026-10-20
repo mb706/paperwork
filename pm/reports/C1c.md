@@ -673,3 +673,61 @@ C6-r1 (merge 78b9e87) regenerated `test/fixtures/sprites/`, and the merge took i
 - **The Biome error** that C7 and C6-r1 reported (`golden.test.ts:206`, `useIterableCallbackReturn`) came from
   commit 5584174. It was fixed in acdd497, before either merge; `dev` is clean.
 - `npm run ci`: green in 40.9 s.
+
+## Gate review r2 response (GATE-r2)
+
+Findings 1, 3, 4 and 5 are mine. #2 (the sprite cases' greybox fallback) is the asset agent's, and #6 (the C2
+brief) the manager's. Golden version 6 records this as a **value bump approved by the manager under decision 14**
+(`approval=pm/reviews/GATE-r2.md`).
+
+**1. Major: slice members were not sorted. Fixed.**
+- `model/slices.ts` `members()` now sorts by (section id, key) before serialising (rule 41). Tables are still built
+  in row order.
+- The golden world had no shard whose rows were out of serial order. So no digest, slice hash or r changed: only
+  the order of lines in `slices/tick-0600-members.txt`.
+- New frozen vector `slices/collisions.{sections,txt}` and `collisions-members.txt`, built through the World's own
+  allocator:
+  - row 0 holds serial 3,603, reused after chest A was mined;
+  - row 1 holds serial 3;
+  - row 3 is free;
+  - all three are in shard 3, and the slot heap's blocks are reused the same way.
+- A test checks shard 3's order (3, 3,603, 2³² + 3) and all 3,600 shard hashes of that state. The C2 sim must
+  reproduce the file.
+
+**3. Major: the fake ignored input fencing. Fixed.**
+- The fake now does what the real contract does, in both of its roles (`src/simworker/fake.ts`):
+  - **As the LocalSequencer**, it writes the generation it tracks into every held input as it stamps it (§15.3).
+    That generation is the world's at `bound`, plus one for every `release_inputs(0)` or `player_left(0)` in the
+    closure stream.
+  - **As the tick**, it fences a held input of another generation: its seq is consumed, `input_fenced` names it,
+    and nothing else changes.
+- `injectSystem()` puts a system action ahead of the next tick's player actions, as the relay injects
+  `release_inputs`. Tests and dev tools use it; in single player the real LocalSequencer issues none besides
+  `player_joined(0)`.
+- `test/fake/fencing.test.ts` covers the stamping, a stale start, a stale stop (a fresh start in the same tick
+  keeps the character walking) and a stale mining begin.
+- The reviewer's reproduction, `start_walking(input_gen=123)`, still walks, and that is the contract. The sequencer
+  overwrites the client's value ("The main thread never needs to know generations", §15.3). A client's encoding
+  of `input_gen` cannot be wrong, and an input is fenced only when it was stamped before a release.
+
+**4. Minor: the mechanical-bump protection could be bypassed. Fixed.**
+- `MANIFEST.json` is now written only by a bump; a plain `--write` leaves it, so the freeze test fails until a bump.
+- A bump is classified against `MANIFEST.json` only after checking that its tables hash to the latest ledger line,
+  so the baseline is version N's and a regeneration cannot move it.
+- `bumpProblems()` holds the rules, and a test covers them:
+  - a regenerated manifest is refused;
+  - a contract change is never mechanical;
+  - atlas-only, `protos/`-only and schema-moving changes are mechanical;
+  - a value bump needs an approval.
+
+**5. Minor: ABI trace outputs were labelled as complete envelopes. Fixed by definition.**
+- README "ABI traces" now defines `out` as the envelope's **payload**: the bytes after §15.8's `u32 len` prefix,
+  at the pointer the export returns.
+- The wrapper (pointer, length prefix, `sim_last_error`'s envelope) is §15.8's calling convention, which the shell
+  checks.
+
+Also in this value bump, as README edits:
+- the Freezing section describes the baseline and the `protos/` rule from the sounds integration;
+- the audio paragraph no longer names the deleted sound fixture.
+
+`npm run ci`: green in 44.3 s.
