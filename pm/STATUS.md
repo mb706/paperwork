@@ -48,7 +48,7 @@ The Schema package is split into sequential parts: C1a (scaffold, CI, data stage
 | C1a | Scaffold, toolchains, CI, check-arch, data stage, capability manifest | done (3ebd435..53e1d61); `npm run ci` takes about 33 s. Codex r1's 15 findings are fixed |
 | C1b | Schema, generator, codec fixtures (gate items 1–3) | done (e9f0850..529182a). Codex r1's 10 findings are fixed, with shared fixtures; `npm run ci` takes 35 s |
 | C1c | Fake sim, reference model, frozen M0 golden set (gate items 4 and 6) | running (commits to `dev`) |
-| C6 | Asset pipeline v0 (Survey): rig, passes, layered renders, KTX2 atlases, manifest, greyboxes, M0 art | done and merged (b2bec76). Cold build 12 min, warm 30 s; the cache is in the main tree's `game/.cache/assets`. Codex r1 running |
+| C6 | Asset pipeline v0 (Survey): rig, passes, layered renders, KTX2 atlases, manifest, greyboxes, M0 art | done and merged (b2bec76). Cold build 12 min, warm 30 s; the cache is in the main tree's `game/.cache/assets`. Codex r1: 1 critical, 8 major. A fresh agent (C6-r1) is fixing them in a worktree |
 | C7 | Audio v0: worklet engine port, mixer, SFX, working sounds | running in a worktree (independent of the gate) |
 - Spec §9.5 #5: restate the texture PSNR targets to match the floors measured on real pages (decision 13).
 - M1 download budget: greyboxes add 0.83 MB, which B2's model left out, so the M1 first frame projects to about 5.6 MB against the 5 MB gate. Do not load greyboxes of entities not yet unlocked; stream them lazily.
