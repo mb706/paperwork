@@ -24,6 +24,7 @@ const c = new Client({
   corruptAt: arg('corrupt-at') ? +arg('corrupt-at') : undefined,
   seed: +arg('seed', 7),
   bulkPace: arg('bulk-pace', 'off'),
+  extraDelayMs: +arg('extra-delay-ms', 0), // runs this far behind the relay on purpose (late digest reports)
   sleep: (ms) => Atomics.wait(sab, 0, 0, ms), // emulated tick cost without burning CPU
   yield: (f) => setImmediate(f),
   // background re-sync in a second thread, as the design's shadow simulation worker

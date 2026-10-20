@@ -13,7 +13,7 @@ const pctOf = (a, b) => (b ? `${((100 * a) / b).toFixed(1)}%` : '—');
 console.log('### Latency, stamping and playout\n');
 console.log('| Scenario | Client (profile) | RTT ms | Margin (ticks) | Input delay p50 (ticks) | Late actions | Walk inputs mispredicted | Confirm p50 / p95 ms | Applied p50 / p95 ms | Playout delay ms | Underruns (total ms) | Reconnects |');
 console.log('|---|---|---|---|---|---|---|---|---|---|---|---|');
-for (const n of ['base', 'relaystamp', 'hz30', 'mixed', 'harsh', 'slow', 'bigjoin', 'bigjoin-paced', 'bigresync', 'bigresync-paced']) {
+for (const n of ['base', 'relaystamp', 'hz30', 'mixed', 'harsh', 'lagreport', 'slow', 'bigjoin', 'bigjoin-paced', 'slowlink-paced', 'bigresync', 'bigresync-paced']) {
   const r = load(n);
   if (!r) continue;
   r.clients.forEach((c, i) => {
@@ -27,9 +27,9 @@ for (const n of ['base', 'relaystamp', 'hz30', 'mixed', 'harsh', 'slow', 'bigjoi
 }
 
 console.log('\n### Agreement, desyncs, joins and transfers\n');
-console.log('| Scenario | Final digests agree | Desyncs detected | Snapshots (bytes, upload ms) | Join: download ms, catch-up ticks / ms | Re-sync: download ms, swapped after ms | Donor RTT idle p50 → during upload p50 / p95 |');
-console.log('|---|---|---|---|---|---|---|');
-for (const n of ['base', 'relaystamp', 'hz30', 'mixed', 'harsh', 'slow', 'bigjoin', 'bigjoin-paced', 'bigresync', 'bigresync-paced']) {
+console.log('| Scenario | Rolling digests / full state agree at the last two checkpoints | Players in the game at the end | Desyncs detected | Snapshots (bytes, upload ms) | Join: download ms, catch-up ticks / ms | Re-sync: download ms, swapped after ms | Donor RTT idle p50 → during upload p50 / p95 |');
+console.log('|---|---|---|---|---|---|---|---|');
+for (const n of ['base', 'relaystamp', 'hz30', 'mixed', 'harsh', 'lagreport', 'slow', 'bigjoin', 'bigjoin-paced', 'slowlink-paced', 'bigresync', 'bigresync-paced']) {
   const r = load(n);
   if (!r) continue;
   const snaps = (r.relay?.snaps ?? []).map((s) => `${s.reason} ${(s.bytes / 1e6).toFixed(1)} MB ${Math.round(s.uploadMs ?? 0)}`).join('; ');
@@ -44,7 +44,8 @@ for (const n of ['base', 'relaystamp', 'hz30', 'mixed', 'harsh', 'slow', 'bigjoi
     .filter((c) => c.rttDuringTransfer?.n > 0 && (c.uploads ?? []).length)
     .map((c) => `${c.client}: ${c.rttIdle.p50} → ${c.rttDuringTransfer.p50} / ${c.rttDuringTransfer.p95}`)
     .join('; ');
-  console.log(`| ${n} | ${r.agree ? 'yes' : 'no'} (ticks ${r.agreeAtTicks.join(', ')}) | ${r.relay?.desyncs?.length ?? 0} | ${snaps || '—'} | ${joins || '—'} | ${res || '—'} | ${donors || '—'} |`);
+  const ing = r.inGame ? Object.entries(r.inGame).map(([k, v]) => `${k}${v ? '' : ' (not)'}`).join(' ') : '—';
+  console.log(`| ${n} | ${r.agree ? 'yes' : 'no'} / ${r.fullAgree === undefined ? '—' : r.fullAgree ? 'yes' : 'no'} (ticks ${r.agreeAtTicks.join(', ')}) | ${ing} | ${r.relay?.desyncs?.length ?? 0} | ${snaps || '—'} | ${joins || '—'} | ${res || '—'} | ${donors || '—'} |`);
 }
 
 console.log('\n### Bytes (payload, both directions as seen by the client)\n');

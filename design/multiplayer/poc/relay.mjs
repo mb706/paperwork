@@ -19,6 +19,7 @@ const STAMP = arg('stamp', 'client');
 const GRACE = +arg('grace', 10000);
 const SILENCE = +arg('silence', 1000);
 const CACHE_TICKS = +arg('cache-ticks', 600);
+const MAX_LAG_MS = +arg('max-lag-ms', 60000); // digest verdicts are kept this long for late reporters (DESIGN §5.1)
 const STATIC = arg('static', null);
 const DEBUG = process.argv.includes('--debug');
 const TICK = P.TICK_MS;
@@ -56,7 +57,8 @@ class Room {
     const due = Math.floor((performance.now() - this.t0) / TICK);
     if (due > this.closed) this.closeThrough(due);
     const next = this.t0 + (this.closed + this.k) * TICK;
-    this.timer = setTimeout(() => this.wake(), Math.max(0, next - performance.now()));
+    // wake 1 ms after the boundary: ms-granular timers otherwise fire just before it and split batches
+    this.timer = setTimeout(() => this.wake(), Math.max(0, next - performance.now()) + 1);
   }
   closeThrough(due) {
     const first = this.closed + 1;
@@ -81,7 +83,7 @@ class Room {
     return tick;
   }
   backlog(from) {
-    return P.encodeTicks(from, this.closed, this.log.filter((en) => en.tick >= from));
+    return P.splitTicks(from, this.closed, this.log.filter((en) => en.tick >= from)); // bounded messages (review finding 9)
   }
   trimLog() {
     // Keep the log back to the newest complete snapshot, so cached joins and resumes can replay it.
@@ -105,7 +107,8 @@ function sendBulk(pl, msg) {
 }
 function pumpBulk(pl) {
   const now = performance.now();
-  if (pl.bulkRate > 0) pl.bulkTokens = Math.min(pl.bulkRate * 0.1, (pl.bulkTokens ?? 0) + ((now - (pl.bulkAt ?? now)) / 1000) * pl.bulkRate);
+  // capacity of at least one whole chunk, or a slow rate could never send one (review finding 10)
+  if (pl.bulkRate > 0) pl.bulkTokens = Math.min(Math.max(pl.bulkRate * 0.1, P.SNAP_MSG_MAX), (pl.bulkTokens ?? 0) + ((now - (pl.bulkAt ?? now)) / 1000) * pl.bulkRate);
   pl.bulkAt = now;
   while (pl.bulk && pl.bulk.readyState === 1 && pl.bulkQueue.length && pl.bulk.bufferedAmount < (pl.bulkRate > 0 ? 64 << 10 : 4 << 20)) {
     const m = pl.bulkQueue[0];
@@ -120,7 +123,7 @@ function pumpBulk(pl) {
 }
 
 function startSnapshot(room, donor, subs, reason) {
-  const snap = { id: room.nextSnap++, tick: room.open(), donor: donor.index, chunks: [], count: 0, total: 0, received: 0, done: false, subs, reason, startedAt: performance.now() };
+  const snap = { id: room.nextSnap++, tick: room.open(), donor: donor.index, chunks: [], count: 0, total: 0, received: 0, bytes: 0, done: false, subs, reason, startedAt: performance.now() };
   room.snaps.set(snap.id, snap);
   room.inject(P.A.SNAPMARK, donor.index, snap.id);
   return snap;
@@ -129,10 +132,11 @@ function feedSnap(snap, sub) {
   for (const c of snap.chunks) if (c) sendBulk(sub, c);
 }
 
-function chooseDonor(room, exclude) {
+function chooseDonor(room, exclude, winners = null) {
   let best = null;
   for (const pl of room.byIndex) {
     if (!pl || pl === exclude || !pl.conn || !pl.live || pl.resyncing) continue;
+    if (winners && !winners.has(pl.index)) continue; // only a client in the winning group may donate
     const lag = room.closed - pl.simTick;
     if (!best || lag < room.closed - best.simTick) best = pl;
   }
@@ -146,16 +150,18 @@ function onHello(room, pl, msg) {
     room.start();
     pl.streaming = true;
     pl.live = true;
+    pl.liveFrom = 0;
     room.inject(P.A.JOIN, pl.index);
     pl.inSim = true;
-    send(pl, P.jsonMsg({ t: 'welcome', mode: 'new', index: pl.index, startTick: 0 }));
+    send(pl, P.jsonMsg({ t: 'welcome', mode: 'new', index: pl.index, startTick: 0, epoch: pl.epoch }));
     return;
   }
   if (from !== undefined && from >= room.logStart && from <= room.closed + 1) {
-    send(pl, P.jsonMsg({ t: 'welcome', mode: 'resume', index: pl.index }));
-    send(pl, room.backlog(from));
+    send(pl, P.jsonMsg({ t: 'welcome', mode: 'resume', index: pl.index, epoch: pl.epoch }));
+    for (const m of room.backlog(from)) send(pl, m);
     pl.streaming = true;
     pl.live = true;
+    pl.liveFrom = room.open();
     if (!pl.inSim) {
       room.inject(P.A.JOIN, pl.index);
       pl.inSim = true;
@@ -167,8 +173,9 @@ function onHello(room, pl, msg) {
   let snap;
   if (cache && room.closed - cache.tick <= CACHE_TICKS && cache.tick + 1 >= room.logStart) {
     snap = cache;
-    send(pl, P.jsonMsg({ t: 'welcome', mode: 'snapshot', index: pl.index, snapId: snap.id, snapTick: snap.tick, cached: true }));
-    send(pl, room.backlog(snap.tick + 1));
+    pl.epoch++;
+    send(pl, P.jsonMsg({ t: 'welcome', mode: 'snapshot', index: pl.index, snapId: snap.id, snapTick: snap.tick, cached: true, epoch: pl.epoch }));
+    for (const m of room.backlog(snap.tick + 1)) send(pl, m);
   } else {
     const donor = chooseDonor(room, pl);
     if (!donor) {
@@ -176,7 +183,8 @@ function onHello(room, pl, msg) {
       return;
     }
     snap = startSnapshot(room, donor, [], 'join');
-    send(pl, P.jsonMsg({ t: 'welcome', mode: 'snapshot', index: pl.index, snapId: snap.id, snapTick: snap.tick, cached: false }));
+    pl.epoch++;
+    send(pl, P.jsonMsg({ t: 'welcome', mode: 'snapshot', index: pl.index, snapId: snap.id, snapTick: snap.tick, cached: false, epoch: pl.epoch }));
   }
   pl.streaming = true;
   pl.live = false;
@@ -187,55 +195,70 @@ function onHello(room, pl, msg) {
 }
 
 function onDigest(room, pl, d) {
-  if (!pl.live || pl.resyncing) return; // a re-syncing client's digests come from its divergent state
-  if (!room.digests.has(d.tick)) room.digests.set(d.tick, { at: performance.now(), m: new Map() });
-  room.digests.get(d.tick).m.set(pl.index, d.digest);
+  if (d.epoch !== pl.epoch || pl.resyncing) return; // a digest from a state that is being replaced (review finding 4)
+  let rec = room.digests.get(d.tick);
+  if (!rec) {
+    rec = { at: performance.now(), m: new Map(), verdict: null, winners: null };
+    room.digests.set(d.tick, rec);
+  }
+  rec.m.set(pl.index, d.digest);
+  if (rec.verdict !== null && d.digest !== rec.verdict) desynced(room, pl, d.tick, rec); // a late reporter
   evaluateDigests(room);
 }
 
-// Compare once every live player has reported a tick, or after 5 s with whoever has (a laggard is skipped).
+function desynced(room, bad, tick, rec) {
+  if (bad.resyncing) return;
+  const donor = chooseDonor(room, bad, rec.winners);
+  room.stats.desyncs.push({ tick, player: bad.index, detectedAtTick: room.closed, donor: donor?.index ?? null, late: rec.lateCheck ?? false });
+  if (!donor) return; // nobody in the winning group to copy from: the next comparison retries
+  const snap = startSnapshot(room, donor, [bad], 'resync');
+  bad.resyncing = snap;
+  bad.snapSub = snap;
+  bad.epoch++; // digests from the divergent state are stale from now on
+  send(bad, P.jsonMsg({ t: 'resync', snapId: snap.id, snapTick: snap.tick, desyncTick: tick, epoch: bad.epoch }));
+}
+
+// A tick's verdict forms once every player expected at that tick has reported, or after 5 s with at least two
+// reports. It is then kept for MAX_LAG_MS, so that a player who runs far behind is still compared (finding 4).
 function evaluateDigests(room) {
   const now = performance.now();
-  const expected = room.byIndex.filter((p) => p?.conn && p.live && !p.resyncing);
   for (const [tick, rec] of room.digests) {
+    if (now - rec.at > MAX_LAG_MS) {
+      room.digests.delete(tick);
+      continue;
+    }
+    if (rec.verdict !== null) continue;
+    const expected = room.byIndex.filter((p) => p?.conn && p.inSim && !p.resyncing && (p.liveFrom ?? Infinity) <= tick);
     const complete = expected.every((p) => rec.m.has(p.index));
-    if (!complete && now - rec.at < 5000) continue;
-    room.digests.delete(tick);
-    if (DEBUG) console.error(JSON.stringify({ cmp: tick, closed: room.closed, complete, ageMs: Math.round(now - rec.at), got: [...rec.m.entries()] }));
-    if (rec.m.size < 2) continue;
+    if (!(complete && rec.m.size >= 2) && !(now - rec.at >= 5000 && rec.m.size >= 2)) continue;
     const votes = new Map();
     for (const v of rec.m.values()) votes.set(v, (votes.get(v) ?? 0) + 1);
     let win = null;
     let best = -1;
     const anchor = Math.min(...rec.m.keys()); // tie-break: the lowest index (the longest-standing player)
     for (const [v, n] of votes) if (n > best || (n === best && rec.m.get(anchor) === v)) [win, best] = [v, n];
+    rec.verdict = win;
+    rec.winners = new Set([...rec.m].filter(([, v]) => v === win).map(([i]) => i));
+    if (DEBUG) console.error(JSON.stringify({ cmp: tick, closed: room.closed, complete, ageMs: Math.round(now - rec.at), got: [...rec.m.entries()] }));
     room.stats.compared++;
-    for (const [idx, v] of rec.m) {
-      if (v === win) continue;
-      const bad = room.byIndex[idx];
-      if (!bad || bad.resyncing) continue;
-      const donor = chooseDonor(room, bad);
-      room.stats.desyncs.push({ tick, player: idx, detectedAtTick: room.closed, donor: donor?.index ?? null });
-      if (!donor) continue; // nobody to copy from: keep playing, the next comparison will retry
-      const snap = startSnapshot(room, donor, [bad], 'resync');
-      bad.resyncing = snap;
-      bad.snapSub = snap;
-      for (const r of room.digests.values()) r.m.delete(bad.index); // queued digests are from the divergent state
-      send(bad, P.jsonMsg({ t: 'resync', snapId: snap.id, snapTick: snap.tick, desyncTick: tick }));
-    }
+    for (const [idx, v] of rec.m) if (v !== win && room.byIndex[idx]) desynced(room, room.byIndex[idx], tick, rec);
+    rec.lateCheck = true;
   }
 }
 
 function onSnapChunk(room, pl, c) {
   const snap = room.snaps.get(c.snapId);
-  if (!snap || snap.donor !== pl.index) return;
+  if (!snap || snap.donor !== pl.index || snap.done) return;
+  // The first chunk fixes the manifest (count, total); later chunks must agree and stay in bounds (finding 11).
+  if (!snap.count) [snap.count, snap.total] = [c.count, c.total];
+  if (c.count !== snap.count || c.total !== snap.total || c.index >= c.count || c.bytes.length > P.SNAP_CHUNK) return;
+  if (snap.chunks[c.index]) return; // duplicate: counted once
   const msg = P.encodeSnapChunk(c.snapId, c.index, c.count, c.total, c.bytes);
   snap.chunks[c.index] = msg;
-  snap.count = c.count;
-  snap.total = c.total;
   snap.received++;
+  snap.bytes += c.bytes.length;
   for (const sub of snap.subs) sendBulk(sub, msg);
-  if (snap.received === snap.count) {
+  if (snap.received === snap.count && snap.bytes === snap.total) {
     snap.done = true;
     snap.uploadMs = performance.now() - snap.startedAt;
     room.lastSnap = snap;
@@ -292,7 +315,7 @@ wss.on('connection', (ws, req) => {
   if (!pl) {
     let index = 0;
     while (room.byIndex[index]) index++;
-    pl = { index, token, name: token, conn: null, bulk: null, bulkQueue: [], live: false, streaming: false, inSim: false, simTick: 0, lastHeard: performance.now(), released: false, stats: { inMsgs: 0, inBytes: 0, outMsgs: 0, outBytes: 0, bulkInBytes: 0, bulkOutBytes: 0, late: 0, acts: 0 } };
+    pl = { index, token, name: token, conn: null, bulk: null, bulkQueue: [], live: false, streaming: false, inSim: false, simTick: 0, epoch: 0, lastHeard: performance.now(), released: false, stats: { inMsgs: 0, inBytes: 0, outMsgs: 0, outBytes: 0, bulkInBytes: 0, bulkOutBytes: 0, late: 0, acts: 0 } };
     room.players.set(token, pl);
     room.byIndex[index] = pl;
   }
@@ -320,6 +343,13 @@ wss.on('connection', (ws, req) => {
     pl.stats.inBytes += u8.length;
     pl.lastHeard = performance.now();
     if (pl.released && pl.live) pl.released = false;
+    try {
+      onCtl(u8);
+    } catch (e) {
+      ws.close(4002, `protocol error: ${String(e.message).slice(0, 80)}`); // malformed input closes the connection
+    }
+  });
+  const onCtl = (u8) => {
     switch (u8[0]) {
       case P.M.JSON: {
         const msg = P.readJson(u8);
@@ -333,6 +363,8 @@ wss.on('connection', (ws, req) => {
         for (const a of P.decodeAct(u8)) {
           const slack = a.target - open;
           let tick = STAMP === 'relay' ? open : Math.min(Math.max(a.target, open), open + 600);
+          tick = Math.max(tick, pl.lastAssigned ?? 0); // never before this player's previous action (finding 2)
+          pl.lastAssigned = tick;
           if (!pl.inSim) tick = Math.max(tick, open); // nothing special: the sim ignores offline players
           if (!room.pending.has(tick)) room.pending.set(tick, []);
           room.pending.get(tick).push({ tick, player: pl.index, seq: a.seq, bytes: a.bytes });
@@ -353,8 +385,12 @@ wss.on('connection', (ws, req) => {
           if (pl.resyncing && s.simTick > pl.resyncing.tick) {
             pl.resyncing = null;
             pl.snapSub = null;
+            pl.liveFrom = room.open();
           }
-          if (!pl.live && !pl.resyncing) pl.live = true;
+          if (!pl.live && !pl.resyncing) {
+            pl.live = true;
+            pl.liveFrom = room.open();
+          }
           if (pl.needsJoin) {
             pl.needsJoin = false;
             room.inject(P.A.JOIN, pl.index);
@@ -372,7 +408,7 @@ wss.on('connection', (ws, req) => {
         break;
       }
     }
-  });
+  };
   ws.on('close', () => {
     if (pl.conn !== ws) return;
     pl.conn = null;

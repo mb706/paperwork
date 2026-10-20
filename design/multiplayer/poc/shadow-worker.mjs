@@ -13,20 +13,22 @@ let horizon = 0;
 let lastProgress = 0;
 let idle = true;
 
+function handOver() {
+  const bytes = sim.serialize();
+  parentPort.postMessage({ t: 'state', tick: sim.tick, bytes }, [bytes.buffer]);
+  sim = null;
+}
+
 function run() {
   idle = false;
   if (!sim) return;
+  if (handoverAt > 0 && sim.tick >= handoverAt) return handOver(); // already past it: hand over at once
   const t0 = performance.now();
   while (sim.tick < horizon && performance.now() - t0 < 50) {
     const t = sim.tick + 1;
     sim.step(closures.get(t) ?? EMPTY);
     closures.delete(t);
-    if (t === handoverAt) {
-      const bytes = sim.serialize();
-      parentPort.postMessage({ t: 'state', tick: t, bytes }, [bytes.buffer]);
-      sim = null;
-      return;
-    }
+    if (t === handoverAt) return handOver();
   }
   if (performance.now() - lastProgress > 100) {
     parentPort.postMessage({ t: 'progress', tick: sim.tick });
@@ -52,6 +54,7 @@ parentPort.on('message', (m) => {
     if (idle) run();
   } else if (m.t === 'handover') {
     handoverAt = m.tick;
-    if (idle) run();
+    if (sim && sim.tick >= handoverAt) handOver(); // the live simulation is behind the shadow: it waits for it
+    else if (idle) run();
   }
 });

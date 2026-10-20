@@ -1,0 +1,379 @@
+{
+ "scenario": "slowlink-paced",
+ "config": {
+  "relay": [
+   "--hz",
+   "60",
+   "--stamp",
+   "client",
+   "--cache-ticks",
+   "0"
+  ],
+  "clients": [
+   {
+    "token": "A",
+    "create": true,
+    "net": {
+     "delay": 12,
+     "jitter": 6,
+     "stallP": 0.003,
+     "stallMs": 150,
+     "upKbps": 2000,
+     "downKbps": 16000
+    },
+    "start": 0
+   },
+   {
+    "token": "B",
+    "net": {
+     "delay": 12,
+     "jitter": 6,
+     "stallP": 0.003,
+     "stallMs": 150,
+     "upKbps": 2000,
+     "downKbps": 16000
+    },
+    "start": 10000
+   }
+  ],
+  "pad": 4194304,
+  "costMs": 1,
+  "bulkPace": "ledbat",
+  "duration": 75000
+ },
+ "agreeAtTicks": [
+  3600,
+  4200
+ ],
+ "agree": true,
+ "fullAgree": true,
+ "inGame": {
+  "A": true,
+  "B": true
+ },
+ "relay": {
+  "closed": 4459,
+  "compared": 64,
+  "staleOpen": 5,
+  "desyncs": [],
+  "snaps": [
+   {
+    "id": 1,
+    "tick": 603,
+    "donor": 0,
+    "reason": "join",
+    "bytes": 4260396,
+    "done": true,
+    "uploadMs": 21319.33125
+   }
+  ],
+  "players": [
+   {
+    "index": 0,
+    "name": "A",
+    "connected": true,
+    "live": true,
+    "lag": 12,
+    "flags": 1,
+    "msPerTick": 1.26,
+    "inMsgs": 1259,
+    "inBytes": 15589,
+    "outMsgs": 4902,
+    "outBytes": 58330,
+    "bulkInBytes": 4264833,
+    "bulkOutBytes": 0,
+    "late": 8,
+    "acts": 123
+   },
+   {
+    "index": 1,
+    "name": "B",
+    "connected": true,
+    "live": true,
+    "lag": 14,
+    "flags": 1,
+    "msPerTick": 1.24,
+    "inMsgs": 908,
+    "inBytes": 11744,
+    "outMsgs": 4060,
+    "outBytes": 47661,
+    "bulkInBytes": 0,
+    "bulkOutBytes": 4264833,
+    "late": 2,
+    "acts": 70
+   }
+  ],
+  "events": [
+   {
+    "at": 1792483489314,
+    "tick": 1,
+    "kind": 100,
+    "idx": 0,
+    "extra": 0
+   },
+   {
+    "at": 1792483499354,
+    "tick": 603,
+    "kind": 103,
+    "idx": 0,
+    "extra": 1
+   },
+   {
+    "at": 1792483522267,
+    "tick": 1978,
+    "kind": 100,
+    "idx": 1,
+    "extra": 0
+   }
+  ]
+ },
+ "clients": [
+  {
+   "client": "A",
+   "index": 0,
+   "mode": "live",
+   "tick": 4482,
+   "horizon": 4490,
+   "rolling": 2037926257,
+   "fullHash": 473636995,
+   "acts": 124,
+   "late": 8,
+   "reconnects": 0,
+   "margin": 1,
+   "marginTrace": [
+    2,
+    2,
+    11,
+    11,
+    19,
+    19,
+    19,
+    19,
+    19,
+    19,
+    6,
+    2,
+    1,
+    1
+   ],
+   "playoutDelayMs": 135.2,
+   "rttMs": 27.4,
+   "confirmMs": {
+    "p50": 203.9,
+    "p95": 350.56,
+    "p99": 377.9
+   },
+   "applyMs": {
+    "p50": 338.26,
+    "p95": 491.1,
+    "p99": 527.48
+   },
+   "inputDelayTicks": {
+    "p50": 11,
+    "p95": 19
+   },
+   "predErrTicks": {
+    "mean": 0.295,
+    "p95": 1,
+    "nonzeroShare": 0.051
+   },
+   "predSigned": {
+    "mean": 0.295,
+    "min": 0,
+    "max": 9
+   },
+   "clockErr": {
+    "mean": -7.026,
+    "nonzero": 61,
+    "n": 78
+   },
+   "relayStale": {
+    "mean": 7.321,
+    "nonzero": 57
+   },
+   "leadTicks": {
+    "p50": 8,
+    "p95": 9
+   },
+   "stalls": {
+    "n": 5,
+    "totalMs": 214,
+    "maxMs": 125
+   },
+   "catchups": [],
+   "joins": [],
+   "lastSnap": null,
+   "donations": 1,
+   "resyncs": [],
+   "msPerTick": 1.174,
+   "checkpoints": {
+    "600": 1543608101,
+    "1200": -725390240,
+    "1800": 735950457,
+    "2400": 1301573153,
+    "3000": -212693368,
+    "3600": -179930924,
+    "4200": -408393350
+   },
+   "fullCheckpoints": {
+    "600": 1557032612,
+    "1200": -964323076,
+    "1800": -1934272272,
+    "2400": -1746960378,
+    "3000": -1408008432,
+    "3600": 417441586,
+    "4200": 417776157
+   },
+   "inGame": true,
+   "epoch": 0,
+   "bytes": {
+    "in": 58724,
+    "out": 15679,
+    "outMsgs": 1266,
+    "ticksMsgs": 4490,
+    "digests": 74
+   },
+   "uploads": [
+    {
+     "bytes": 4260396,
+     "ms": 20893,
+     "paced": true
+    }
+   ],
+   "rttIdle": {
+    "p50": 32.37,
+    "p95": 98.41
+   },
+   "rttDuringTransfer": {
+    "p50": 84.5,
+    "p95": 297.55,
+    "n": 206
+   }
+  },
+  {
+   "client": "B",
+   "index": 1,
+   "mode": "live",
+   "tick": 4482,
+   "horizon": 4490,
+   "rolling": 2037926257,
+   "fullHash": 473636995,
+   "acts": 71,
+   "late": 2,
+   "reconnects": 0,
+   "margin": 1,
+   "marginTrace": [
+    2,
+    1,
+    1,
+    1,
+    1,
+    2,
+    1,
+    1,
+    1
+   ],
+   "playoutDelayMs": 144.2,
+   "rttMs": 27.8,
+   "confirmMs": {
+    "p50": 45.34,
+    "p95": 72.95,
+    "p99": 193.23
+   },
+   "applyMs": {
+    "p50": 141.54,
+    "p95": 194.99,
+    "p99": 283.5
+   },
+   "inputDelayTicks": {
+    "p50": 1,
+    "p95": 2
+   },
+   "predErrTicks": {
+    "mean": 0.238,
+    "p95": 0,
+    "nonzeroShare": 0.048
+   },
+   "predSigned": {
+    "mean": 0.238,
+    "min": 0,
+    "max": 9
+   },
+   "clockErr": {
+    "mean": -0.048,
+    "nonzero": 14,
+    "n": 42
+   },
+   "relayStale": {
+    "mean": 0.286,
+    "nonzero": 12
+   },
+   "leadTicks": {
+    "p50": 6,
+    "p95": 9
+   },
+   "stalls": {
+    "n": 7,
+    "totalMs": 499,
+    "maxMs": 132
+   },
+   "catchups": [
+    {
+     "reason": "join",
+     "ticks": 1371,
+     "ms": 1548,
+     "msPerTick": 1.086
+    }
+   ],
+   "joins": [
+    {
+     "toInGameMs": 22953
+    }
+   ],
+   "lastSnap": {
+    "bytes": 4260396,
+    "downloadMs": 21325,
+    "loadMs": 1.2,
+    "tick": 603
+   },
+   "donations": 0,
+   "resyncs": [],
+   "msPerTick": 1.159,
+   "checkpoints": {
+    "1200": -725390240,
+    "1800": 735950457,
+    "2400": 1301573153,
+    "3000": -212693368,
+    "3600": -179930924,
+    "4200": -408393350
+   },
+   "fullCheckpoints": {
+    "1200": -964323076,
+    "1800": -1934272272,
+    "2400": -1746960378,
+    "3000": -1408008432,
+    "3600": 417441586,
+    "4200": 417776157
+   },
+   "inGame": true,
+   "epoch": 1,
+   "bytes": {
+    "in": 48055,
+    "out": 11851,
+    "outMsgs": 916,
+    "ticksMsgs": 3888,
+    "digests": 64
+   },
+   "uploads": [],
+   "rttIdle": {
+    "p50": 32.45,
+    "p95": 37.11
+   },
+   "rttDuringTransfer": {
+    "p50": null,
+    "p95": null,
+    "n": 0
+   }
+  }
+ ]
+}

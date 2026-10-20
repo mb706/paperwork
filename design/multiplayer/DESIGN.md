@@ -4,7 +4,7 @@
 
 **The user's constraints, restated.** Friends and colleagues build one factory together, two to eight players. Clients are trusted. The server that hosts the website may relay, sequence and store, but it does not run the simulation. Syncing must work well. Peer-to-peer UDP is out, because the firewall at the user's site blocks a whole machine for that kind of traffic. Any fallback must be invisible to players.
 
-**One-paragraph answer.** Every client runs the whole deterministic simulation (Factorio's lockstep). A small relay owns the tick clock: clients stamp their actions with the tick they expect to execute in, and the relay accepts them, moves late ones to the next open tick, and broadcasts each closed tick's action list to everybody. The relay never simulates. One WebSocket over TLS on port 443, same origin as the website, carries the tick stream, and a second carries bulk snapshot transfers. No NAT hole punching is attempted: from a browser it exists only as WebRTC over UDP, which is exactly what the user's firewall punishes, and a relay-sequenced game gains nothing from it. Joiners load a snapshot that a playing client serializes at a sequenced tick and the relay forwards; they then fast-forward the actions buffered since. Desyncs are found by a cheap per-tick digest that clients report twice a second, and are repaired by a background re-sync that the player does not see. The engine prepares all of this from M0: single player is multiplayer with a local sequencer.
+**One-paragraph answer.** Every client runs the whole deterministic simulation (Factorio's lockstep). A small relay owns the tick clock: clients stamp their actions with the tick they expect to execute in, and the relay accepts them, moves late ones to the next open tick, and broadcasts each closed tick's action list to everybody. The relay never simulates. One WebSocket over TLS on port 443, same origin as the website, carries the tick stream, and a second carries bulk snapshot transfers. No NAT hole punching is attempted: from a browser it exists only as WebRTC over UDP, which is exactly what the user's firewall punishes, and a relay-sequenced game gains nothing from it. Joiners load a snapshot that a playing client serializes at a sequenced tick and the relay forwards; they then fast-forward the actions buffered since. Desyncs are found by a cheap per-tick digest that clients report twice a second, and are repaired by a background re-sync that the player does not see, with a checked fallback to a visible one. The relay writes every tick before broadcasting it, so a crash cannot fork the game's history. The engine prepares all of this from M0: single player is multiplayer with a local sequencer.
 
 ---
 
@@ -14,14 +14,15 @@
 |---|---|---|---|---|
 | 1 | Model | **Deterministic lockstep**: every client simulates everything; only input actions travel (§1) | Bandwidth is independent of factory size; the only model in which the server does no simulation at 150k entities | Authoritative server simulation; host-authoritative state streaming; rollback; state synchronisation |
 | 2 | Sequencer | **The relay** owns the tick clock and the order of actions. It never simulates (§1.3) | No host to lose or migrate; the game outlives every player; one clock | A hosting client that sequences while the relay is a dumb pipe |
-| 3 | Tick stamping | **Clients stamp target ticks** (their estimate of the relay's open tick plus an adaptive margin). The relay accepts on-time actions as stamped, moves late ones to the open tick and says by how much (§3.4) | Exact local prediction: 0–5% of walk inputs mispredicted in the PoC (only the late ones), against 15–54% when the relay stamps on arrival. Factorio's own scheme (FFF-302 [4]) | Stamping on arrival at the relay |
-| 4 | Transport | **WebSocket over TLS on 443, same origin as the site**: a control socket for the tick stream and a bulk socket for snapshots (§2.4) | Works in every browser and through every firewall that allows HTTPS; one TCP flow to one host is the least suspicious traffic there is | WebRTC data channels (P2P UDP); ICE-TCP (cannot connect two browsers); TURN over TLS (a relay with extra layers); WebTransport by default (UDP 443) |
+| 3 | Tick stamping | **Clients stamp target ticks** (their estimate of the relay's open tick plus an adaptive margin). The relay accepts on-time actions as stamped, moves late ones to the open tick and says by how much, and never puts a player's action before that player's previous one (§3.4) | Exact local prediction: in the PoC, 0–5% of walk inputs mispredicted on LAN, home and far links (only late or reordered ones), against 2–35% on LAN and home links and 32–54% on a far link when the relay stamps on arrival. Factorio's own scheme (FFF-302 [4]) | Stamping on arrival at the relay |
+| 4 | Transport | **WebSocket over TLS on 443, same origin as the site**: a control socket for the tick stream and a bulk socket for snapshots (§2.4) | Works in every browser, and through nearly every network that allows HTTPS (some proxies refuse WebSocket upgrades: §2.5); one TCP flow to one host is the least suspicious traffic there is | WebRTC data channels (P2P UDP); ICE-TCP (cannot connect two browsers); TURN over TLS (a relay with extra layers); WebTransport by default (UDP 443) |
 | 5 | NAT | **No hole punching, ever.** Everything goes through the relay (§2.3) | Browsers can only punch through WebRTC/UDP, which the user's site penalises; with a relay sequencer, P2P would not shorten the critical path | STUN/ICE, TCP simultaneous open |
-| 6 | Joining | **A snapshot from a playing donor**, serialized after a sequenced marker tick, streamed through the relay (which caches it), then a fast-forward through the buffered ticks. Transfers are paced so the donor's own game does not lag (§4) | Factorio's flow without a simulating server; the relay keeps the latest snapshot for later joins | A relay-side save (it would need the simulation) |
-| 7 | Desyncs | **Per-tick digest + rotating slice hash**, reported every 30 ticks; majority vote with an anchor tie-break; **background re-sync** (a shadow sim catches up and is swapped in), by page delta where possible (§5) | Detection within about a second for most divergence and within a minute for any; repair the player does not see | Disconnect-and-rejoin as the repair (Factorio's); full hashes every tick (100 ms each in the late game) |
-| 8 | Server | **One Node 24 process** with `ws` 8.22.0, behind the site's TLS proxy; rooms, invites, snapshot and log storage, metrics. About 1% of a 2013 Xeon core per four-player room (§6) | Tiny, testable on this host, deployable next to a static site | A game server; a managed realtime SaaS. Cloudflare Durable Objects are a viable alternative (§6.7) |
-| 9 | Engine | **Closures are the only input of the simulation; single player runs through a `LocalSequencer`.** `World.players[]` exists from M0. Determinism rules D1–D20 are enforced from M0 (§5.4, §7) | The multiplayer path is exercised by every test from day one | Adding players and a network layer later |
-| 10 | Hidden tabs | **In multiplayer the game never pauses.** The simulation worker is driven by arriving ticks, not timers, and catches up or re-syncs after the browser freezes it (§3.6) | Measured in Chrome 156: hidden-tab main-thread timers drop to 1 Hz then to once a minute, worker timers stay at 50–60 Hz, frozen tabs stop entirely (§12.5) | Pausing a player's simulation while their tab is hidden |
+| 6 | Joining | **A complete checkpoint from a playing donor**, written after a sequenced marker tick and sent as a verified transaction (an immutable manifest, unique chunks, a hash) through the relay, which caches it; then a fast-forward through the buffered ticks. Transfers are paced so the donor's own game does not lag (§4) | Factorio's flow without a simulating server; the relay keeps the latest snapshot for later joins | A relay-side save (it would need the simulation) |
+| 7 | Desyncs | **Per-tick digest + key-chosen slice hash**, with its lineage saved in checkpoints, reported every 30 ticks with an epoch; verdicts kept for the 60-s maximum lag; majority vote with an anchor tie-break; **background re-sync** (a shadow sim catches up and is swapped in) whose progress is checked, falling back to a foreground repair (§5) | Detection within about a second for most divergence and within a minute for any; repair the player does not see, when the machine can afford it | Disconnect-and-rejoin as the repair (Factorio's); full hashes every tick (100 ms each in the late game) |
+| 8 | Server | **One Node 24 process** with `ws` 8.22.0, behind the site's TLS proxy; rooms, invites, snapshot and log storage, metrics. Under 1% of a 2013 Xeon core per four-player room (§6) | Tiny, testable on this host, deployable next to a static site | A game server; a managed realtime SaaS. Cloudflare Durable Objects are a viable alternative (§6.7) |
+| 9 | Engine | **Closures are the only input of the simulation; single player runs through a `LocalSequencer`.** `World.players[]` exists from M0. Determinism rules D1–D23 and seams S1–S15 are fixed for M0 (§5.4, §7). The simulation is likely Rust → WASM (WP A1, §1.4) | The multiplayer path is exercised by every test from day one | Adding players and a network layer later |
+| 10 | Hidden tabs | **In multiplayer the game never pauses.** The simulation worker is driven by arriving ticks, not timers, and catches up or re-syncs after the browser freezes it (§3.6) | Measured in Chrome 156: hidden-tab main-thread timers drop to 1 Hz then to once a minute, worker timers stay at 50–60 Hz, frozen tabs stop entirely (§12.5). Background execution is best effort in every browser (§2.2) | Pausing a player's simulation while their tab is hidden |
+| 11 | Relay durability | **Every closed tick is written to the room's log before it is broadcast**; every relay start opens a new room generation, and clients resume only within it (§6.9) | A relay crash can never fork the action history: a process crash loses nothing, and a machine crash rewinds at most 1 s for clients that are ahead | Re-adopting closures from the first client to reconnect (unsafe: other clients may hold longer histories) |
 
 ---
 
@@ -75,19 +76,28 @@ Lockstep needs one authority that decides which actions belong to which tick. Th
 
 ### 1.4 Simulation language and multiplayer risk (WP A1)
 
-The design holds for a TypeScript and for a Rust/WASM simulation alike: the protocol, relay, snapshots, digests and UI do not change. What changes is the class of desync that remains possible.
+WP A1 recommends **Rust compiled to WASM for the simulation, as a clean split** (`pm/reports/A1.md`). One crate holds the World, every system, saves and the hash, in the simulation worker. TypeScript keeps the data stage, UI, renderer, audio, **network** and tools, and reads Rust-owned memory through generated read-only views. The design holds for either language: the protocol, relay, checkpoints, digests and UI do not change. What the choice changes for multiplayer:
 
-| Desync source | TypeScript | Rust → WASM |
+| | TypeScript simulation | Rust → WASM simulation (recommended) |
 |---|---|---|
-| Transcendental functions differ between engines (10 §4.1 measured 492 of 16,000 results differing between Firefox and Chrome) | Banned in the sim; `detmath.ts` instead. Needs lint discipline | Gone by construction: libm is compiled into the module, so every browser runs the same instructions |
+| Transcendental functions differ between engines (10 §4.1 measured 492 of 16,000 results differing between Firefox and Chrome) | Banned in the sim; `detmath.ts` instead. Needs lint discipline | Gone by construction: libm is compiled into the module, so every browser runs the same instructions. But only through the `libm` crate: `std`'s `f64::sin` calls the platform libm natively, so native tests would disagree with the game (A1; D19) |
 | `**` and `Math.pow`, even with integer exponents | ECMA-262 makes `Number::exponentiate` *implementation-approximated* for every exponent [26], and V8 constant-folds `**` differently from `Math.pow` [27]. Must be banned outright (D5) | Not applicable |
-| NaN bit patterns | Engines may store any NaN encoding in a typed array [26] (D6) | WASM NaN payloads are nondeterministic too; canonicalise before hashing |
-| FMA contraction, x87 precision | None: JS never fuses, and every supported browser is 64-bit SSE2/NEON | None, *unless* relaxed SIMD is used (`relaxed_madd` may or may not fuse): ban it |
+| NaN bit patterns; −0 | Engines may store any NaN encoding in a typed array [26] (D6) | WASM NaN payloads are nondeterministic too, and native and WASM `min`/`max` differ on −0 and NaN (A1): no NaN in state, comparisons instead of `min`/`max` (D19) |
+| FMA contraction, x87 precision | None: JS never fuses, and every supported browser is 64-bit SSE2/NEON | None, unless `mul_add` or relaxed SIMD is used: both banned (D19) |
+| Integer overflow | `\| 0` and `Math.imul` discipline (D7) | Explicit `wrapping_*`: release wraps silently, debug panics (D7, D19) |
 | Iteration order, unsaved state, stale caches, order of float sums | **Possible** | **Equally possible** |
+| Measured determinism (A1) | One state hash across Node, Chrome and Firefox for every case | The same, and native Rust gives the same hash, so `cargo test` checks browser results |
+| Catch-up speed after a join or a re-sync (§4.4) | Baseline | 1.35–1.75× faster per tick in every engine, and 2–4× faster in the first ticks after a load, with no JIT stalls (A1). Joins and repairs finish sooner, and the slow-machine threshold (§3.6) is reached later |
+| A fatal error | An exception the worker can catch | A trap that kills the module. In multiplayer the client treats it like a desync on itself: a fresh worker, a checkpoint from a donor, and a bug bundle (D19, §5.2) |
 
-The last row is the class that dominates in practice: OpenTTD's desync guide lists incomplete savegames, cache mismatches, undefined ordering (sorting equal keys) and state changed outside commands [16], and Factorio built "heavy mode" (save, load and compare every tick) to find exactly these [6][14]. **Rust/WASM removes the floating-point and engine class by construction; the logic class needs the same rules (D3, D4, D8, D9) and the same tests in either language.** With TypeScript, the engine class is closed by `check-arch` bans plus cross-engine fuzzing (§9). Either choice is safe if those rules hold; TypeScript carries somewhat more risk because it depends on discipline.
+**What it means.** The last-but-two row is the class that dominates in practice. OpenTTD's desync guide lists incomplete savegames, cache mismatches, undefined ordering (sorting equal keys) and state changed outside commands [16], and Factorio built "heavy mode" (save, load and compare every tick) to find exactly these [6][14]. A1 found one in our own spec: the swap-remove active list of 10 §4.6 breaks NO_SLEEP equivalence once inserters compete (D3).
 
----
+**Rust/WASM removes the floating-point and engine class by construction; the logic class needs the same rules (D3, D4, D8, D9, D21–D23) and the same tests in either language.** A1 judges WASM "structurally somewhat safer", and its recommendation fits multiplayer better on both counts: determinism and catch-up speed.
+
+**For this design**, the simulation-side seams (S1, S2, S5, S7, S9, S10, S15) live in the crate behind A1's boundary:
+- actions enter through a ring in linear memory, in A1's batch format (§3.3);
+- checkpoints and digests are produced by the crate;
+- the net worker, the sequencer interface, the relay and the world-replacement protocol stay in TypeScript.
 
 ## 2. Transport and NAT
 
@@ -108,9 +118,21 @@ The user works in the Munich Scientific Network (MWN), run by the Leibniz Superc
 | WebRTC data channel, P2P | SCTP over DTLS over ICE (UDP), with STUN hole punching | Every browser | **Excluded**: P2P UDP, and the ICE fan-out described above |
 | WebRTC ICE-TCP between two browsers | ICE candidates over TCP | Browsers gather only *active* TCP candidates (port 9 placeholders) and never listen; Firefox: this "won't help improve direct connectivity between two WebRTC enabled browsers" [17]. Simultaneous open is not implemented | **Impossible** between two browsers |
 | WebRTC via TURN over TLS on 443, relay-only (`iceTransportPolicy: 'relay'`) | Both peers talk TLS/TCP to a TURN server, which relays between their allocations | Every browser; deployments use it for HTTPS-only firewalls [18] | Allowed, but it *is* a relay: ICE, DTLS and SCTP over TURN over TLS over TCP, with TCP's head-of-line blocking underneath, a coturn to operate, and nothing gained over a WebSocket to our own relay. **Rejected** |
-| **WebTransport** | Client–server HTTP/3 over QUIC (UDP 443): reliable streams without cross-stream head-of-line blocking, plus unreliable datagrams | Chrome, Edge and Firefox; Safari since 26.4 (March 2026). "Baseline 2026" on MDN; available in workers [22][23] | Client–server, not P2P, but UDP. The HTTP/2 (TCP) fallback is still an IETF draft (rev. 14, March 2026) [24] and Chrome's ship excluded it [25], so where UDP 443 is blocked there is no fallback inside WebTransport. **Not in version 1**; possible later as an opt-in (§2.5) |
+| **WebTransport** | Client–server HTTP/3 over QUIC (UDP 443): reliable streams without cross-stream head-of-line blocking, plus unreliable datagrams | Chrome, Edge and Firefox over HTTP/3; Safari since 26.4 (March 2026). "Baseline 2026" on MDN; available in workers [22][23] | Client–server, not P2P, but its first attempt is UDP. **Fallback differs by browser** (review finding 16). Safari 26.4 runs WebTransport "over HTTP/2 and TCP as a fallback with the same API" when QUIC is unavailable [42]. For Chrome and Firefox I could verify only HTTP/3: the HTTP/2 mapping is an IETF draft (rev. 14, March 2026) [24], Chrome's ship excluded it [25], and Mozilla called it "upcoming" in February 2026 [43]. Either way, the automatic QUIC attempt is the risk on the user's network, and an HTTP/2 fallback offers nothing a WebSocket does not. **Not in version 1**; possible later as an opt-in (§2.5) |
 | HTTP streaming (`fetch` with a streamed response, plus POSTs) | Long-lived HTTPS | Streamed responses everywhere; streamed uploads only in Chromium | A last-resort fallback if a proxy strips WebSocket upgrades. **Later, only if seen in the wild** |
 | Direct Sockets API | Raw TCP/UDP | Chromium Isolated Web Apps only | Not applicable to a website |
+
+**Capability matrix** (version-specific; rechecked at every multiplayer release, with release Safari tested beside Chrome and Firefox):
+
+| | Chrome 156 | Firefox 157 (release) | Safari 26.4 |
+|---|---|---|---|
+| WebSocket in a dedicated worker | yes | yes | yes |
+| WebTransport over HTTP/3 / over HTTP/2 | yes / not verified | yes / "upcoming" [43] | yes / yes [42] |
+| Worker timers in a hidden tab | not throttled (measured, §12.5) | not throttled; throttled in Nightly [35][36] | not documented: WebKit throttles timers of inactive pages, suspends tabs on iOS "when possible" and applies App Nap on macOS [44] |
+| Background page freezing | Energy Saver freezes CPU-heavy tabs hidden for 5 minutes; WebSockets do not exempt them [33] | not measured here | iOS suspension [44] |
+| Measured on this host | yes (§12.5) | sim and input only (no WebGL2 headless, 10 §10.5) | no |
+
+Background execution is therefore **best effort in every browser**: the design survives losing it (§3.6), but never depends on it.
 
 ### 2.3 NAT hole punching: the verdict
 
@@ -130,7 +152,7 @@ The user works in the Munich Scientific Network (MWN), run by the Leibniz Superc
   Separate TCP connections mean a 20 MB snapshot never sits in front of the tick stream inside one connection. They still share the player's access link, which is why bulk transfers are paced (§4.3).
 - **Binary frames.** The first byte is the message type (§3.2). TCP_NODELAY is on (`ws` sets it itself [30]), and every message is written as soon as it exists.
 - **The relay emits 60 tick messages per second** (Factorio's `max_heartbeats_per_second` default, adjustable 6–240 [8]). A room setting can lower it to 30, which halves the per-message overhead for 8 ms more latency on average (at most 16.7 ms; PoC: §12.2).
-- **Network code lives in a dedicated net worker** in the client, not in the simulation worker. In the PoC's single-thread client, a simulation cost of 4 ms per tick widened the control round trip's tail (confirmation p95 186 ms, against 77 ms on the same link without it; §12.3). A client that could not keep 60 UPS processed its messages seconds late (§12.4), and a shadow simulation sharing the thread starved it (§12.6). The net worker forwards tick batches to the simulation worker over a `MessagePort`.
+- **Network code lives in a dedicated net worker** in the client, not in the simulation worker. In the PoC's single-thread client, a client that could not keep 60 UPS processed its messages seconds late (control RTT 5.4 s, §12.4), and a shadow simulation sharing the thread starved it (1–4.6 s, §12.6). (Whether a 4 ms tick alone widens the control round trip's tail was inconclusive: p95 186 against 77 ms in one run, 96 against 112 ms in another.) The net worker forwards tick batches to the simulation worker over a `MessagePort`.
 
 ### 2.5 Fallbacks, and keeping them invisible
 
@@ -139,7 +161,7 @@ The user works in the Munich Scientific Network (MWN), run by the Leibniz Superc
 | A connection drops (Wi-Fi roaming, NAT rebinding, server restart) | Automatic reconnect with exponential backoff (100 ms, doubling to 2 s); `HELLO` with `resumeFrom` replays the missed ticks from the relay's log (§2.6) | Nothing, or a brief "waiting for server" icon (§8.3) |
 | The link goes silent without closing (laptop lid, dead NAT entry) | The client's watchdog closes after 3 s without a message (doubled during transfers, as Factorio doubles its drop threshold during map transfer [9]); then the same reconnect. The relay releases the player's held inputs after 1 s of silence (§2.6) | The icon, then nothing |
 | The tab was frozen or slept for minutes | On waking, the client reconnects and resumes if the relay's log still covers the gap; otherwise it re-syncs from a snapshot (§3.6) | "Catching up" with a progress bar (§8.3) |
-| A proxy strips WebSocket upgrades | Version 1: a clear error naming the cause. Later, if ever needed: an HTTPS streaming fallback behind the same API | An error, rather than a silent failure |
+| A proxy or policy strips or refuses WebSocket upgrades. HTTPS working does not imply WebSocket working (review finding 16): some TLS-intercepting proxies refuse `Upgrade` | Version 1: a clear error naming the cause. Later, if seen in the wild: an HTTPS streaming fallback behind the same API (streamed `fetch` down, POSTs up) | An error, rather than a silent failure |
 | UDP is fine and a player wants lower latency on a lossy link | Later, optional: a WebTransport transport behind the same interface, **off by default and never probed automatically**, because an automatic QUIC probe could trip a firewall like the user's | Nothing unless enabled |
 
 **The rule behind the table: there is one transport, so there is nothing to fall back between.** Invisibility comes from resuming, not from switching protocols.
@@ -150,12 +172,23 @@ The user works in the Munich Scientific Network (MWN), run by the Leibniz Superc
 - **Keepalive.** A JavaScript WebSocket cannot send protocol pings, so liveness is application-level:
   - the relay's 60 Hz tick stream is the heartbeat in one direction;
   - the client's `STATUS` (every 100–250 ms) is the heartbeat in the other.
-- **Resume.** The relay keeps every closed tick's actions since the latest stored snapshot, at least 5 minutes of them (empty ticks cost nothing). A reconnecting client sends `HELLO{resumeFrom: horizon + 1}`; if the log covers it, the relay sends the missed range in one `TICKS` message and the client continues. PoC: a drop at 30 s and a 3-s black-hole at 38 s both resumed without a snapshot, and all clients' digests agreed afterwards (§12.2).
+- **Replacing a dead connection** (review finding 3). The watchdog never waits for the old socket's close event. The WebSocket standard's `close()` starts a closing handshake that is queued behind data still waiting to be sent [41], so on a black-holed path `onclose` can take as long as TCP's own timeout. The client therefore:
+  1. detaches the old socket's handlers;
+  2. calls `close()` best-effort;
+  3. opens the replacement at once.
+
+  The relay drops a player's older connection when the new `HELLO` arrives. (The PoC's first client waited for `onclose`; its fixed one replaces the socket at once.)
+- **Resume.** The relay keeps every closed tick's actions since the latest stored checkpoint, at least 5 minutes of them (empty ticks cost nothing).
+  1. A reconnecting client sends `HELLO{resumeFrom: horizon + 1, roomGeneration, epoch}`.
+  2. If the generation matches and the log covers the gap, the relay answers `WELCOME{mode: resume, acceptedThrough, clock}` and sends the missed range, split into bounded messages (§3.2).
+  3. The client re-sends its actions above `acceptedThrough` (§3.3) and continues.
+
+  A mismatched room generation means the relay restarted without the client's history (§6.9): the client re-syncs instead. PoC: a drop at 30 s and a 3-s black-hole at 38 s both resumed without a snapshot, and all clients' digests agreed afterwards (§12.2).
 - **Held inputs.** Walking, mining and shooting are start/stop pairs. A client that vanishes while walking would walk forever in everybody's world. The relay therefore injects `release_inputs(i)`:
   - at once when the socket closes;
   - after 1 s of silence on an open socket.
 
-  This is Factorio's `StopMovementInTheNextTick` (FFF-302 [4]). When the client is heard again and finds its own release in the tick stream while a key is still held, it re-sends the held input.
+  This is Factorio's `StopMovementInTheNextTick` (FFF-302 [4]). The release also raises the player's input generation, so held-input actions stamped before it but scheduled after it cannot undo it (§3.3). When the client is heard again and finds its own release in the tick stream while a key is still held, it re-sends the held input with the new generation.
 - **Leaving.** A graceful exit sends `bye` and the relay sequences `player_left(i)` at once. An abrupt one gets `player_left(i)` after a 15-s grace period, so a reconnect within the grace period is a non-event in the simulation.
 - **Laptop sleep and network changes.** Both end in a reconnect. After a long sleep, the gap may exceed the log, so the player re-syncs (§4.5).
 
@@ -182,44 +215,73 @@ Measured at the payload level in the PoC: 43–47 kB per client per minute down 
 
 ### 3.1 Clocks, ticks and closures
 
-- **The relay's clock defines game time.** Tick *k* closes at `t0 + k·T`, with T = 16.667 ms divided by the game speed. The *open tick* is the lowest tick not yet closed. When the relay closes ticks it sends one `TICKS` message: "ticks *first*..*last* are closed, and these are all their actions, in execution order".
+- **The relay's clock defines game time.** Within one *clock generation* g, tick *k* closes at `t0_g + (k − k0_g)·T_g`, with T_g = 16.667 ms divided by the game speed. The *open tick* is the lowest tick not yet closed. When the relay closes ticks it sends `TICKS`: "ticks *first*..*last* are closed, and these are all their actions, in execution order".
 - **A client simulates tick *k* only after it holds the closure of tick *k*.** Its *horizon* is the highest closed tick it has received. Clients may lag the relay by different amounts; lockstep needs the same inputs in the same order, not the same wall-clock moment.
-- **Closures are the only input to the simulation.** That includes the system actions the relay injects with player index 255: `player_joined`, `player_left`, `release_inputs` and `snapshot_marker` (§3.2).
-- **Pause** means the relay stops closing ticks. **Speed** changes T. Neither touches the world state.
+- **Closures are the only input to the simulation.** That includes the system actions the relay injects with player index 0xFFFF: `player_joined`, `player_left`, `release_inputs`, `snapshot_marker` and `debug_dump` (§3.2).
+- **Clock generations** (review finding 7). Every change of the tick-to-time mapping starts a new generation:
+  - pause and resume;
+  - a speed change;
+  - a rebase after the relay itself stalled. If the relay finds more than 6 ticks overdue (garbage collection, a suspended VM), it closes 6 of them and rebases the clock for the rest instead of releasing a burst. Game time slips, as in Factorio when UPS drops, rather than jumping;
+  - a relay restart (§6.9).
+
+  The relay sends `CLOCK{gen, fromTick, speed, paused}` in the tick stream, ordered with the ticks, and stamps every `TICKS`, `ACTACK` and `PONG` with its generation. On a new generation a client:
+  - drops its clock samples from older generations and re-estimates from the new ones;
+  - rebases its playout schedule at the first arrival under the new generation, so old deadlines are void;
+  - recomputes the margin window from scratch.
+- **Pause.** The relay stops closing ticks and sends an empty `TICKS` (no new tick) every 250 ms as a heartbeat. Clients do not simulate. Actions sent while paused are stamped with the open tick and stay queued in it; they run in the first tick after the resume. Chat and presence keep working, since they are out of band. Pause and speed are never world state (S14).
+- **Pause while a player joins** (a room option, §3.6). The relay first sequences the `snapshot_marker` and closes that tick, so that the donor can serialize at it, and only then pauses. It resumes when the joiner reports *live*.
 
 ### 3.2 Messages
 
 | Message | Direction | Content | When |
 |---|---|---|---|
-| `HELLO` | C→R (JSON) | protocol version, build hash, `prototypes.hash`, room, invite secret or player token, name, colour, `resumeFrom?` | connect |
-| `WELCOME` | R→C (JSON) | player index; mode `new` / `resume` / `snapshot` (with `snapId`, `snapTick`); roster; room settings | reply |
-| `TICKS` | R→C | `u32 first, u32 last, u16 n`, then n × (`u32 tick, u8 player, u16 seq, u16 len, bytes`) | every relay wake (60 or 30 Hz), and a backlog range on resume |
-| `ACT` | C→R | `u8 n`, then n × (`u16 seq, u32 targetTick, u16 len, bytes`) | as soon as the input layer produces actions |
-| `ACTACK` | R→sender | `u16 seq, i16 slack, u32 assignedTick` (slack < 0: it was late) | per action |
-| `STATUS` | C→R | sim tick, horizon, ms per tick, flags (live, hidden, catching up, loading), bulk rate the client accepts | 4–10 Hz |
-| `DIGEST` | C→R | `u32 tick, u32 epoch, u64 rolling digest` | every 30 ticks (§5.1) |
-| `PING` / `PONG` | both | client time; relay fractional tick | 2 Hz; 10 Hz during transfers |
-| `RESYNC` | R→C (JSON) | `snapId`, `snapTick`, reason, new epoch | on a desync verdict |
+| `HELLO` | C→R (JSON) | protocol version, build hash, `prototypes.hash`, room, invite secret or player token, name, colour; on resume also `resumeFrom` (next tick needed), `roomGeneration`, digest `epoch` | connect |
+| `WELCOME` | R→C (JSON) | player index; mode `new` / `resume` / `snapshot` (with the snapshot manifest's id and tick); `roomGeneration`; current `CLOCK`; the player's `acceptedThrough` (highest action seq the relay has sequenced); `epoch`; roster; room settings | reply |
+| `TICKS` | R→C | `u32 first, u32 last, u16 clockGen, u16 n`, then n × (`u32 tick, u16 player, u32 seq, u16 len, bytes`) | every relay wake (60 or 30 Hz); backlog ranges on resume |
+| `CLOCK` | R→C, in the tick stream | `u16 gen, u32 fromTick, f32 speed, u8 paused` | on every clock transition (§3.1) |
+| `ACT` | C→R | `u8 n`, then n × (`u32 seq, u32 targetTick, u16 len, bytes`) | as soon as the input layer produces actions |
+| `ACTACK` | R→sender | `u32 seq, i16 slack, u32 assignedTick, u16 clockGen` (slack < 0: it was late) | per action, and again for a resent duplicate |
+| `STATUS` | C→R | sim tick, horizon, ms per tick, flags (live, hidden, catching up, loading), digest epoch, bulk rate the client accepts | 4–10 Hz |
+| `DIGEST` | C→R | `u32 tick, u16 epoch, u64 rolling digest` | every 30 ticks (§5.1) |
+| `PING` / `PONG` | both | client time; relay clock generation and fractional tick | 2 Hz; 10 Hz during transfers |
+| `RESYNC` | R→C (JSON) | snapshot manifest id and tick, reason, the new `epoch` | on a desync verdict |
+| `MANIFEST` | bulk, both (JSON) | the snapshot's immutable manifest (§4.3): id, room, room generation, tick, build, protocol, `prototypes.hash`, epoch, rolling digest at the tick, bytes, chunk size and count, SHA-256 | before the first chunk |
+| `SNAP` chunk | bulk, both | `u32 snapId, u32 index, u32 count, u32 total`, then at most 64 KiB | joins and re-syncs (§4) |
+| `BLOB` put/get | bulk, both | SHA-256, bytes (≤ 8 MiB) | large action payloads (§3.3) |
 | `CHAT`, `PRESENCE`, `NOTICE` | both (out of band) | chat text; ping markers; cursor and selection (≤ 10 Hz, on change); "X is joining (45%)" | as needed; never in the simulation |
-| `ADMIN` | C→R (JSON) | kick, promote, pause, resume, room settings | admins |
-| `SNAP` chunk | bulk, both | `u32 snapId, u32 index, u32 count, u32 total`, 64 KiB of data | joins and re-syncs (§4) |
-| `BLOB` put/get | bulk, both | content hash, bytes | large action payloads (§3.3) |
+| `ADMIN` | C→R (JSON) | kick, promote, pause, resume, speed (dev), room settings | admins |
 
-The PoC implements `HELLO`, `WELCOME`, `TICKS`, `ACT`, `ACTACK`, `STATUS`, `DIGEST`, `PING`/`PONG`, `RESYNC` and `SNAP` exactly in this shape (`poc/protocol.mjs`). The relay never parses action payloads: it is game-agnostic.
+**Field limits and validation** (review finding 9). Every length field bounds what it can carry, and the protocol never relies on a value that does not fit:
+- an action payload is at most 65,535 bytes (`u16 len`); larger payloads are blobs;
+- a `TICKS` message holds at most 65,535 entries and about 1 MiB. Longer ranges, such as a resume backlog, are split into contiguous sub-ranges, and one tick's entries never straddle two messages;
+- the receiver checks every declared length against the message size, every entry's tick against the message's range, and the range against its horizon (`first` must be `horizon + 1` after resume). A violation is a protocol error: the relay closes that connection (code 4002) and carries on; the client drops the message *before* moving its horizon and reconnects with `resumeFrom`.
+
+The PoC's first codec had `u16` lengths but a 64 KiB cap: a 65,536-byte action decoded as zero bytes, and 65,536 entries as an empty batch that still advanced the horizon. Its fixed codec refuses both, splits resume ranges, and rejects truncated messages (probes, §12.9).
+
+The relay never parses action payloads: it is game-agnostic.
 
 ### 3.3 Actions
 
 - **Types.** `InputAction` mirrors Factorio's `defines.input_action` as I §8.2 lists it, plus 10 Appendix B's additions. The engine adds the system actions of §3.1.
-- **Codec.** One descriptor table per action type drives a binary encoder and decoder in `shared/actions/` (the pattern 10 §2.5 already uses for pools). Rules:
-  - every number has a fixed width;
-  - positions are quantised before encoding (building positions as the integer ×2 centres of 10 §4.2, free positions in 1/256 tile), so no float that the client computed leaves it unrounded;
-  - strings (labels, chat) are UTF-8 with a length.
+- **Encoding** (WP A1's format, adopted). A closure reaches the simulation as a sequence of per-player batches:
+  - header `u8 version, u8 flags, u16 player, u32 tick, u32 firstSeq, u16 count, u16 reserved`;
+  - each action `u16 type, u16 len`, then a fixed little-endian payload.
 
-  A protocol version prefixes the stream; an unknown action type is an error, never skipped.
-- **Header.** Player index and sequence number come from the transport: the relay stamps the sender's index, so a client cannot speak for another.
-- **Entity references survive latency.** An action names its target by handle (`(generation << 22) | slot`, identical on every client because allocation is deterministic) *and* by `(surface, position, prototype)`. The simulation resolves the handle first. If the handle is stale or zero, as for an entity the player built 50 ms ago that is still a local prediction, it resolves by position and prototype. It then validates as for any action, so if another player replaced the entity meanwhile, the action fails with the usual flying text.
-- **Size.** Inline payloads are capped at 64 KiB. A larger blueprint record goes up the bulk socket as a content-addressed blob first; the action carries the hash. The relay pushes the blob to all clients before the action's tick closes, and a client that reaches the tick without it waits for it (a rare, short stall). Most blueprints compress well below the cap.
-- **Validation** runs in the simulation as 10 §3.2 describes. Feedback events carry the player index and the action's sequence number, so the client can tell its own prediction which action failed (§3.5).
+  Positions are `i32` in the ×2 tile units of 10 §4.2 (building centres) or in 1/256 tile, quantised before encoding, so no float the client computed leaves it unrounded. Prototype ids are `u16`, with the session carrying `prototypes.hash`. Strings are a `u16` length plus UTF-8. The net worker regroups `TICKS` entries into these batches in the relay's order. The same bytes serve the local loopback, the network, replays and validation. With the Rust/WASM simulation (§1.4), the TypeScript side copies each tick's batches into a ring in linear memory and calls `apply_actions(ptr, len)`. One descriptor table generates the TypeScript encoder and the Rust decoder. An unknown type or version is an error, never skipped.
+- **Action identity** (review finding 3). An action is `(player, seq)`. Seq is a `u32` that rises by one per action over the player's whole stay in the room, across reconnects and page reloads: the relay returns `acceptedThrough` in `WELCOME`, and the client continues from there.
+  - **Deduplication.** The relay sequences seqs in order. A seq at or below `acceptedThrough` is a duplicate: it is acknowledged again with its original assignment (the relay keeps the recent seq → tick map for the retained log) and never queued twice.
+  - **Retry.** After a reconnect the client re-sends, in order, every action above `acceptedThrough`, stamped afresh. Actions at or below it are already sequenced: they appear in the closure stream the resume delivers, or have appeared.
+- **Held inputs are fenced** (review finding 3). Actions that change a held input carry the player's *input generation* (`u16`) as the client last saw it:
+  - which actions: start and stop walking, begin and stop mining, picking state, and shooting and driving later;
+  - the simulation keeps `players[i].inputGen`, and `release_inputs(i)` increments it;
+  - a held-input action with an older generation is a deterministic no-op (with a feedback event).
+
+  So a `start_walking` stamped for tick 1,010 cannot restart a character that the relay released at tick 1,003 after the player went silent. The client learns the new generation when it applies the release, and re-sends what is still held.
+- **Entity references by identity** (review finding 12). Actions name an existing entity by its **serial** (`u32`, never reused; A1's format does the same). The simulation maps serial to handle and refuses the action when that serial no longer exists, even if another entity of the same prototype now stands in the same place. There is no position fallback.
+  - An entity the player has just built and not yet seen confirmed is named by its **creation action id** `(player, seq)`. The simulation records the serials created by each player's last 256 actions (a ring in `PlayerState`, saved), so "rotate the entity my action 4,711 built" resolves the same way on every client, and fails cleanly if that build failed.
+  - Positions are used only by actions that are defined on positions: build, mine a tile or resource, drop an item, place a blueprint, place a ping or tag.
+- **Size.** Inline payloads are at most 65,535 bytes. A larger blueprint record first goes up the bulk socket as a content-addressed blob; the action carries its SHA-256. The relay sequences the action only after it stores the blob, pushes the blob to every client before that tick closes, and keeps it while any retained closure or stored checkpoint needs it (§6.5). A client that reaches the tick without the blob waits for it.
+- **Validation** runs in the simulation as 10 §3.2 describes. Feedback events carry `(player, seq)`, so the client can tell its own prediction which action failed (§3.5).
 - **Chat is not an action.** Console *commands* that change the world are (`/cheat`, and dev `/c` as in Factorio). Chat travels out of band, keeps working while the game is paused, and does not bloat input logs.
 
 ### 3.4 Stamping and arbitration
@@ -233,19 +295,23 @@ The PoC implements `HELLO`, `WELCOME`, `TICKS`, `ACT`, `ACTACK`, `STATUS`, `DIGE
    - A rare loss stall therefore makes one or two actions late (the relay moves them, and their prediction is off by the delay) instead of inflating every later input's delay. The PoC's first controller did the opposite: "add the lateness on every late action, decay by one tick per 5 s" left a client on a lossy link with 18–20 ticks of input delay for a minute after a single stall (§12.2). Factorio renegotiates each player's latency every 5 s [4].
    - The PoC uses the 95th percentile (1–8% of actions late); the 98th percentile trades about one tick more delay on jittery links for fewer mispredictions.
 
-**Relay side.** On `ACT`: `assigned = clamp(target, open, open + 600)`; `slack = target − open`; queue the action into `assigned`; send `ACTACK`. Within a tick, actions execute in the order the relay queued them, which the closure states explicitly.
+**Relay side.** On `ACT`: `assigned = max(clamp(target, open, open + 600), lastAssigned[player])`; `slack = target − open`; queue the action into `assigned`; `lastAssigned[player] = assigned`; send `ACTACK`. Within a tick, actions execute in the order the relay queued them, which the closure states explicitly.
+
+**Per-player order** (review finding 2). The relay never assigns a player's action to an earlier tick than that player's previous one. Within a tick, a player's actions keep their send order: TCP delivers them in order and the closure states it. Clients stamp nondecreasing targets too (`target = max(estimate + margin, previous target)`).
+- **Why.** Without the rule, a shrinking margin or a clock correction between two inputs can stamp `start_walking` at tick 100 and the following `stop_walking` at tick 99. The relay accepts both, the stop runs first, and the character walks on. The review reproduced this with the first PoC. With the rule the pair runs in send order, at the same or later ticks (probe, §12.9).
+- **Prediction** reconciles against acknowledged assignments: the latency state uses the stamped tick until `ACTACK` arrives, and the assigned tick from then on.
 
 **Why clients stamp.** If the relay stamps on arrival, the tick an action lands in depends on network jitter, so the gap between `start_walking` and `stop_walking` on the receiving side differs from what the player pressed. Every walk then ends a tick or two away from where the local prediction put the character: 0.15 tiles per tick of error, a visible rubber-band at every stop. Measured in the PoC with identical networks:
 
-| Link (PoC profile) | Relay stamps on arrival: walk inputs mispredicted (final run; range over three runs) | Clients stamp: mispredicted (= late) | Extra confirmation latency of client stamping (p50) |
+| Link (PoC profile) | Relay stamps on arrival: walk inputs mispredicted (final run; range over four runs) | Clients stamp: mispredicted (late or reordered) | Extra confirmation latency of client stamping (p50) |
 |---|---|---|---|
-| LAN (RTT 4 ms) | 15.5% (2–24%) | 0% | +13 ms |
-| Home (RTT 30 ms, jitter 6 ms, 0.3% loss stalls) | 20.0% (18–35%) | 1.7% | +15 ms |
-| Far (RTT 106 ms, jitter 20 ms, 1% loss stalls) | 53.7% (39–54%) | 5.0% | +7 ms |
+| LAN (RTT 4 ms) | 3.4% (2–24%) | 0% | +16 ms |
+| Home (RTT 27 ms, jitter 6 ms, 0.3% loss stalls) | 10.0% (10–35%) | 3.3% | +12 ms |
+| Far (RTT 108 ms, jitter 20 ms, 1% loss stalls) | 31.7% (32–54%) | 4.9% | +13 ms |
 
 Factorio does the same. When a player's input for a tick has not arrived, the server does not wait: it tells that client its actions will go into a later tick, and it renegotiates each player's latency every 5 seconds (FFF-302 [4]).
 
-**Resulting input delay** (keypress to the tick of execution) is the margin: 1–2 ticks on LAN and home links in the PoC, 4–5 on the far and mobile links, 19 on a stress link with 3% loss stalls of 400 ms. **Confirmation** (keypress to the closed tick arriving back) took p50 33 ms on LAN, 61–64 ms at home, 80 ms on Wi-Fi, and 137–152 ms on far and mobile links. **Execution in the player's own simulation** adds the playout buffer: p50 80 ms on LAN, 150–207 ms at home, 267 ms on Wi-Fi, 379–444 ms far and mobile (§12.2). Latency hiding covers the gap.
+**Resulting input delay** (keypress to the tick of execution) is the margin. In the PoC it was 1–2 ticks on LAN, home and Wi-Fi links, 4–6 on far links, 5–15 on the mobile profile (varying between runs), and 28 on a stress link with 3% loss stalls of 400 ms. **Confirmation** (keypress to the closed tick arriving back) took p50 30 ms on LAN, 43–55 ms at home, 73 ms on Wi-Fi, and 140–310 ms on far and mobile links. **Execution in the player's own simulation** adds the playout buffer: p50 48 ms on LAN, 143–178 ms at home, 262 ms on Wi-Fi, and 383–599 ms on far and mobile links (§12.2). Latency hiding covers the gap.
 
 ### 3.5 Latency hiding: what is predicted, what must wait
 
@@ -288,11 +354,11 @@ The time to catch up a backlog B at an unthrottled rate R ticks/s is B/(R − 60
 
 | Profile (PoC) | Playout delay D | Underruns per minute (total stalled) |
 |---|---|---|
-| LAN | 35 ms | 0 (apart from the induced 3-s black-hole) |
-| Home (0.3% loss stalls of 150 ms) | 118–147 ms | 3 (0.2 s) |
-| Wi-Fi (jitter 20 ms, 0.5% stalls of 200 ms) | 211 ms | 6 (0.3 s) |
-| Mobile and far (1% stalls of 250–300 ms) | 260–320 ms | 3–8 (0.2–0.8 s) |
-| Stress link (jitter 60 ms, 3% stalls of 400 ms) | 452 ms | 2 (0.1 s) |
+| LAN | 8 ms | 0 (apart from the induced 3-s black-hole) |
+| Home (0.3% loss stalls of 150 ms) | 129–150 ms | 5 (0.2 s) |
+| Wi-Fi (jitter 20 ms, 0.5% stalls of 200 ms) | 211 ms | 5 (0.3 s) |
+| Mobile and far (1% stalls of 250–300 ms) | 259–323 ms | 3–5 (0.3–0.4 s) |
+| Stress link (jitter 60 ms, 3% stalls of 400 ms) | 452 ms | 1 (0.4 s) |
 
 See §12.2 for the other profiles. On a lossy link TCP's head-of-line blocking is the cost of reliability; it is the one case where WebTransport datagrams could do better (§2.5).
 
@@ -314,7 +380,7 @@ See §12.2 for the other profiles. On a lossy link TCP's head-of-line blocking i
 **Pause and speed in multiplayer** follow Factorio:
 - the technology screen, game menu, run report and first-run panel **do not pause** (I §4.0 and 07 §13 pause "single player" only);
 - the game auto-pauses while no player is connected (`auto_pause`, default on);
-- "pause while a player is joining" is an option (`auto_pause_when_players_connect`, default off);
+- "pause while a player is joining" is an option (`auto_pause_when_players_connect`, default off). The relay closes the snapshot marker's tick before it pauses (§3.1);
 - by default only admins can pause (`only_admins_can_pause_the_game`, default on) [8];
 - game speed is a dev and cheat command.
 
@@ -324,7 +390,7 @@ See §12.2 for the other profiles. On a lossy link TCP's head-of-line blocking i
 - all three test clients (paced by timers, by arriving ticks, or both) stayed within 8 ticks of the relay throughout;
 - a page frozen through CDP, as Chrome's Energy Saver freezes CPU-heavy background tabs [33], stopped completely, worker included, but **kept its WebSocket open for 90 s**, and caught up 5,422 ticks in 89 ms after unfreezing (toy simulation).
 
-Firefox release builds do not throttle worker timers, but Nightly does: `dom.workers.throttling.enabled` defaults to `@IS_NIGHTLY_BUILD@` in the current source [35][36]. Safari is known to be aggressive in background tabs, and how is undocumented.
+Firefox release builds do not throttle worker timers, but Nightly does: `dom.workers.throttling.enabled` defaults to `@IS_NIGHTLY_BUILD@` in the current source [35][36]. WebKit documents that it throttles the timers of inactive pages, suspends tabs on iOS "when possible", and lowers the priority of non-updating tabs through App Nap on macOS [44]; it says nothing about workers, so Safari is untested best effort.
 
 **Rules.**
 - The simulation worker is **driven by arriving ticks** (network and port messages are not timers) and uses timers only to smooth playout.
@@ -342,6 +408,7 @@ Firefox release builds do not throttle worker timers, but Nightly does: `dom.wor
 | Crafting queue with reservations (I §3.9) | Charted chunks, map tags (ISO: tags per force) | The latency state (§3.5) |
 | Mining state, walking state, drag-build state (`drag_id`) | Alerts' sources (each client filters and displays them) | Chat history; cursor and selection presence of others |
 | Undo/redo stacks (10 §5.2: sim-side, per player) | World text, heat, the leak, runaways: global as before | Run history and achievements records (07 §19.2: per browser) |
+| Input generation (D22) and creation ring (the serials built by the last 256 actions, S5) | | |
 | Entity-settings clipboard (copy source; Factorio pastes from the source entity, which must still exist [I-data]) | | |
 | Blueprint and planner records in the hand | | |
 | Pins (I §4.11: per player, saved) | | |
@@ -362,10 +429,12 @@ Firefox release builds do not throttle worker timers, but Nightly does: `dom.wor
 This is Factorio's flow since 0.14, except that a donor client, not the server, writes the save. There, the joiner downloads the map in the background while the others keep playing, stores all input meanwhile, and then applies it as fast as it can to catch up (FFF-149 [5]).
 
 1. **Hello.** The joiner opens the control socket and sends `HELLO` (build hash, `prototypes.hash`, protocol version, room, invite secret or player token, name, colour). The relay refuses a different build with a reason the client turns into "update and retry" (§6.3). It assigns a player index: a new one, or the same one as before if the player token is known.
-2. **Snapshot source.** The relay uses its cached snapshot if that is fresh enough (§4.2). Otherwise it picks a donor and sequences `snapshot_marker(id, donor)` into the open tick *T*. It answers `WELCOME{mode: snapshot, snapId, snapTick: T}` and from now on streams every closed tick to the joiner, who buffers the ticks after *T*.
-3. **Serialize.** The donor applies tick *T* and then copies its pools at that tick boundary: a stall of at most 100 ms (10 §8.4), after which it catches up a few ticks. Its IO worker compresses the copy (fflate, as for saves) while its game goes on. The snapshot is an ordinary save container (10 §8.1), whose header adds the state hash at *T*, the room roster and the room settings.
-4. **Transfer.** The donor uploads 64 KiB chunks on its bulk socket, paced (§4.3). The relay stores each chunk and forwards it at once to every joiner waiting for that snapshot, so upload and download overlap. The joiner's screen shows the megabytes received of the total (§8.2).
-5. **Load and verify.** The joiner decompresses and loads (≤ 3 s for a late save, 10 §11), checks the state hash against the header, sets its digest epoch, and starts catching up through the buffered ticks with view extraction off ("Catching up", with a percentage).
+2. **Snapshot source.** The relay uses its cached checkpoint if that is fresh enough (§4.2). Otherwise it picks a donor and sequences `snapshot_marker(id, donor)` into the open tick *T*. It answers `WELCOME{mode: snapshot, …}` and from now on streams every closed tick to the joiner, who buffers the ticks after *T*. If the room pauses while players join, the marker's tick closes before the pause (§3.1).
+3. **Serialize.** The donor applies tick *T* and then copies its state at that tick boundary: a stall of at most 100 ms (10 §8.4), after which it catches up a few ticks. Its IO worker compresses the copy while its game goes on.
+   - The snapshot is a **complete checkpoint**: the ordinary save container (10 §8.1) with every section, including cold data, timers, RNG states, the blueprint store, per-player state (input generations and creation rings, §3.3) and the **pending worldgen requests** (chunk keys and their commit ticks, 10 §5.18) (review finding 11).
+   - It also carries its **lineage**: the rolling digest at *T* and the digest schedule's state, so that the joiner's digests continue the room's sequence (§5.1, review finding 5).
+4. **Transfer** (§4.3). The donor sends the snapshot's immutable manifest, then its chunks, paced, on its bulk socket. The relay validates and stores each chunk and forwards it at once to every joiner waiting for that snapshot, so upload and download overlap. The joiner's screen shows the megabytes received of the total (§8.2).
+5. **Load and verify.** The joiner checks the SHA-256 against the manifest, decompresses and loads (≤ 3 s for a late save, 10 §11), and compares the loaded world's state hash with the one in the checkpoint. It adopts the manifest's digest epoch and rolling digest, and starts catching up through the buffered ticks with view extraction off and historical feedback suppressed ("Catching up", with a percentage; §7 S15).
 6. **Live.** When its backlog reaches the playout target, the joiner's `STATUS` turns *live*. The relay sequences `player_joined(i)` into the open tick, so every client creates or re-activates the character at the same tick and logs "X joined the game". The joiner's input unlocks when it applies its own `player_joined`.
 
 ### 4.2 Where the snapshot comes from
@@ -382,23 +451,30 @@ This is Factorio's flow since 0.14, except that a donor client, not the server, 
 ### 4.3 Sizes, compression, chunking, resume and pacing
 
 - **Sizes** (10 §8.1, §11): at most 5 MB at the slice's end, 10–25 MB late. They are compressed already (deflate in the container), so no second layer.
-- **Chunking.** 64 KiB chunks with `(snapId, index, count, total)`. The relay keeps the chunks.
-- **Resume.** After a reconnect the joiner reports the chunks it holds, and the relay sends the rest. A donor that disconnects mid-upload is replaced: the relay starts a new snapshot from another donor and tells the joiner to discard the partial one.
-- **Integrity.** The state hash in the header covers the loaded world. A corrupt chunk produces a mismatch, and the joiner refetches.
+- **The transfer is a transaction** (review finding 11).
+  1. **Manifest first, and immutable:** snapshot id, room, room generation, tick *T*, build hash, protocol version, `prototypes.hash`, digest epoch, rolling digest at *T*, total bytes, chunk size, chunk count, and the SHA-256 of the whole compressed blob. Every chunk must agree with it.
+  2. **Bounds:** a chunk's index is below the count; its size equals the chunk size, except the last one, which is `total − (count − 1) × size`.
+  3. **Uniqueness:** a duplicate chunk counts once. The PoC's first relay counted messages, so duplicates could complete a snapshot early; its fixed relay counts unique, in-bounds chunks (probe, §12.9).
+  4. **Publication:** the relay verifies the SHA-256, writes the checkpoint under a temporary name, then atomically renames it into the room's checkpoint slot. Only then is it the room's latest checkpoint, with its log starting at *T* + 1.
+  5. **Deadlines:** the donor must deliver a chunk at least every 10 s, and the whole snapshot within the larger of 10 minutes and size ÷ 32 KiB/s. Otherwise the relay aborts, discards the partial snapshot, picks another donor and tells the joiners to discard theirs.
+  6. **The joiner** verifies the SHA-256 and then the state hash before loading; on a mismatch it reports, and the relay repeats the transfer from another donor.
+- **Resume.** After a reconnect the joiner reports the chunks it holds, and the relay sends the rest. A donor that disconnects mid-upload counts as a missed deadline.
 - **Pacing** is the one non-obvious requirement.
   - A home router's uplink is a FIFO queue. An unpaced upload fills it, and every other packet the donor sends waits behind it: its actions, `STATUS` and digests, and the TCP ACKs of its tick stream.
   - In the PoC, with a 10 Mbit/s uplink and a 300 ms router queue, the donor's control RTT rose from 50 ms to 270 ms (p50; p95 359 ms) for the whole 17-s upload of a 21 MB snapshot. Its input delay grew to 16 ticks (§12.3). This is what Factorio's `max_upload_in_kilobytes_per_second` server setting exists for [8].
   - Uploads are therefore paced by a **LEDBAT-style delay-based controller** (RFC 6817 [34]). It keeps the queueing delay that the transfer adds on the donor's own link under 25 ms, measured as control-channel RTT over its minimum, with 10 Hz pings during transfers.
+  - **Progress at any rate** (review finding 10). The token bucket's capacity is at least one fragment; otherwise a bucket holding 100 ms of a slow rate can never afford a 64 KiB chunk, and the transfer stops (below about 640 KiB/s, in the PoC's first pacer). Fragments carry at most about 25 ms of link time at the current rate: 16 KiB below about 5 Mbit/s, 64 KiB above. A floor of 16 KiB/s keeps every transfer moving. One 64 KiB chunk alone holds a 2 Mbit/s uplink for 262 ms, so on slow links chunk size *is* added latency.
   - Downloads to a client that is *playing* (a background re-sync, §5.2) are paced by the relay at the rate that client reports in `STATUS`.
   - A joiner that is not yet playing downloads at full speed.
-  - The PoC's crude controller held the donor's RTT at p50 60 ms (p95 141 ms) and its input delay at 4 ticks, but stretched the transfer from 17 s to 25–38 s (§12.3). A tuned LEDBAT does better, and a room setting may trade the donor's comfort for faster joins.
+  - **Measured.** At 10 Mbit/s the PoC's crude controller held the donor's RTT at p50 43 ms (p95 165 ms) and its input delay at 4 ticks, but stretched the transfer from 17 s to 23 s (up to 38 s in earlier runs; §12.3). At 2 Mbit/s, after the fixes above, a paced 4.3 MB join completed in 21.3 s, but the donor's RTT still rose to p50 85 ms (p95 298 ms) and its input delay to 11 ticks (§12.3, §12.9).
+  - **So the crude pacer does not meet the 25 ms target on slow links.** A properly tuned LEDBAT is an implementation requirement, tested at 2 Mbit/s and 10 Mbit/s with a 300 ms router queue, and a room setting may trade the donor's comfort for faster joins.
 
 **Expected join times** (transfer is bounded by the donor's uplink; catch-up by the joiner's speed, see §4.4):
 
 | Save | Uplink 2 Mbit/s | 10 Mbit/s | 40 Mbit/s |
 |---|---|---|---|
 | Slice end, 5 MB | 20 s | 4 s | 1 s |
-| Late game, 20 MB | 80 s | 17 s (PoC, 21 MB: 17.4 s) | 4 s |
+| Late game, 20 MB | 80 s | 17 s (PoC, 21 MB: 17.2 s) | 4 s |
 
 ### 4.4 Catching up
 
@@ -412,7 +488,7 @@ While the joiner downloads (D seconds) and loads (L seconds), the game advances 
 | Late, on a machine half as fast | 8 | 125 | 18.5 s |
 | Late, a machine that barely holds 60 UPS | 15 | 67 | 171 s: offer "pause while joining" |
 
-The PoC measured the Late row: a 21 MB snapshot at 10 Mbit/s took 17.4 s, and the joiner then caught up 1,811 ticks in 12.9 s at an effective 140 ticks per second (4 ms of emulated tick cost plus the single-thread client's overheads). The formula predicts 13.1 s (§12.3). For machines near the limit, the room option "pause while a player joins" (Factorio's `auto_pause_when_players_connect` [8]) stops the clock until the joiner is live.
+The PoC measured the Late row: a 21 MB snapshot at 10 Mbit/s took 17.2 s, and the joiner then caught up 1,371 ticks in 5.7 s at an effective 239 ticks per second (4 ms of emulated tick cost plus the single-thread client's overheads). The formula predicts 5.8 s. An earlier run on a busier host measured 140 ticks per second and 12.9 s against 13.1 s predicted (§12.3). For machines near the limit, the room option "pause while a player joins" (Factorio's `auto_pause_when_players_connect` [8]) stops the clock until the joiner is live.
 
 ### 4.5 Returning players, long absences and resumed rooms
 
@@ -423,7 +499,8 @@ The PoC measured the Late row: a 21 MB snapshot at 10 Mbit/s took 17.4 s, and th
 
 ### 4.6 A game that outlives everybody
 
-- **On the relay**, a room persists as its newest snapshot, the closed-tick log since then, the roster and the chat tail, until it expires (§6.4).
+- **On the relay**, a room persists as its newest checkpoint, the closed-tick log since then, the roster and the chat tail, until it expires (§6.4).
+- **Sealing.** When the last player leaves gracefully ("Save and quit"), its client first uploads a checkpoint at the final closed tick, and the relay pauses the room there. The room is then *sealed*: a checkpoint with an empty log. Periodic checkpoints keep unsealed logs short.
 - **On every client**, autosaves go to the browser's store as in single player (10 §8.4). The stall is invisible here: the client falls a few ticks behind and catches up. Because every client has the whole state, anyone can **host the saved game again** as a new room if the relay or the room is gone (§8.1). Factorio's `autosave_only_on_server` defaults to true [8]; we default to client autosaves on, because our relay cannot save by itself.
 
 ---
@@ -435,29 +512,46 @@ The PoC measured the Late row: a 21 MB snapshot at 10 Mbit/s took 17.4 s, and th
 Factorio checks a "Heuristic CRC" every tick, "an incomplete but very fast check taken every tick" that "captures only couple of crucial information about the game state like for example state of all the players, number of active entities or snapshot of production statistics", compared for all players "with a communication latency". A full CRC every tick and a save–load–check every tick serve for debugging only (FFF-55 [6]). We do the same, plus a rotating slice of the full state, so that all state is checked within a minute.
 
 1. **Per-tick digest** `d_t`, computed after every tick: the tick number, a checksum of the closure applied, every RNG stream state, the entity count, this tick's production and consumption counters (the nonzero entries of 10 §5.20's per-tick arrays), each online character's position bits and inventory version, the research progress bits, and the global scalars of 10 §4.4. Cost: about a microsecond.
-2. **Slice hash.** Every tick also hashes the next 1/3,600 of the hashable state bytes: the saved fields of every pool in descriptor order, the slot heap, chunk records and cold data in canonical order, with NaN canonicalised (D6). That covers all state once a minute. For 100 MB that is 28 kB per tick, about 20 µs in TypeScript and 0.2% of the budget.
-3. **Rolling digest** `r_t = mix(r_{t−1}, d_t, slice_t)`. A divergence anywhere stays visible in every later `r`.
-4. **Reports.** Every 30th tick a client sends `DIGEST{tick, epoch, r_t}`. The *epoch* counts the client's state lineage. It rises by one at each re-sync swap and each load, so digests from a state that is being replaced are recognisably stale. (The PoC first lacked this, and a single desync triggered four re-syncs from queued stale digests; §12.6.)
-5. **Comparison.** The relay compares once every live player has reported a tick, or after 5 s with whoever has. The PoC's first version expected only players whose last `STATUS` had already passed the tick, and compared the fastest client against nobody (§12.6).
-6. **Detection latency.** Divergence that touches per-tick values is caught at the next report: at most 0.5 s plus the slowest client's lag. In the PoC (which reports every 60 ticks), the verdict came 14–21 ticks after the first report tick that showed the divergence. Divergence confined elsewhere is caught when the slice reaches it, within 60 s.
+2. **Slice hash, chosen by key** (review finding 5). Every tick also hashes about 1/3,600 of the state, chosen by key rather than by a byte cursor:
+   - the saved fields of every entity whose serial ≡ t (mod 3,600);
+   - every modified chunk and every cold-data record whose key ≡ t (mod 3,600);
+   - the global sections when t ≡ 0.
+
+   All in canonical order, with NaN canonicalised (D6). The schedule is a pure function of the tick and the current state, so there is no cursor to save, and everything that exists for a whole cycle is checked once a minute. For 100 MB of state that is about 28 kB per tick: roughly 20 µs in TypeScript, less in WASM. Sampling cannot catch every *transient* divergence, such as an entity that diverges and is destroyed before its slice comes round without touching a per-tick value. That is why D18's tests compare full canonical state, not only digests.
+3. **Rolling digest** `r_t = mix(r_{t−1}, d_t, slice_t)`. A divergence anywhere stays visible in every later `r`. Because `r` depends on history, a world loaded from identical state cannot reconstruct it: **every checkpoint carries its digest lineage**, meaning `r` at its tick and its epoch, so that a joiner's or a re-synced client's digests continue the room's sequence (S7, S9). The PoC saved `rolling` in its snapshots; the production contract now requires it.
+4. **Reports and epochs.** Every 30th tick a client sends `DIGEST{tick, epoch, r_t}`.
+   - The relay owns each player's epoch. It raises it when it orders a join snapshot or a re-sync for that player, and the client adopts the new epoch when it loads or swaps in the new state.
+   - The relay ignores digests whose epoch is not the player's current one, so digests from a state that is being replaced cannot vote. (The PoC first lacked this, and one desync triggered four re-syncs from queued stale digests; its fixed relay implements epochs, §12.9.)
+5. **Comparison and membership** (review finding 4).
+   - **Expected players.** The players expected to report tick T are those in the simulation at T (joined at or before T, not left before T), with a current epoch, and not being re-synced.
+   - **Verdict.** A verdict forms when every expected player has reported T, or after 5 s if at least two have. It is **kept for the maximum supported lag**: 60 s, the slow-client limit of §3.6. A report that arrives later, from a player who runs far behind, is compared against the verdict on arrival. A lone report waits up to the same 60 s for a second.
+   - **Donors** for the repair come only from the winning group.
+   - **PoC.** The first relay dropped tick records after 5 s, so two clients consistently 6 s apart never compared anything, and it took donors from anyone. The fixed relay caught a corrupted client running 6 s behind on the late path, repaired it from a winning-group donor, and ended with full-state agreement (§12.9).
+6. **Detection latency.** Divergence that touches per-tick values is caught at the next report: at most 0.5 s plus the slowest client's lag. In the PoC (which reports every 60 ticks), the verdict came 10–21 ticks after the first report tick that showed the divergence. A player who runs behind or is catching up is judged when its own report arrives. Divergence confined elsewhere is caught when its slice comes round, within 60 s.
 
 ### 5.2 Recovery
 
-- **Verdict.** A majority of the digests reported for a tick wins. A tie, including any two-player disagreement, goes to the *anchor*: the longest-connected live player, normally the owner. Neither side is "right" in a two-player desync, since both ran the same inputs; what matters is that both converge on one state. Every minority client is re-synced.
-- **Background re-sync.** The desynced client is told `RESYNC{snapId, snapTick, epoch}`.
-  1. A majority donor serializes at a marker tick, as for a join.
-  2. The desynced client **keeps playing in its own world**, with its digests ignored, while a **second simulation worker** (the shadow) loads the donor's state and catches up through the ticks buffered since the marker.
-  3. When the shadow reaches the live tick, the client swaps the shadow in, terminates the old worker and raises its epoch.
+- **Verdict.** A majority of the digests reported for a tick wins. A tie, including any two-player disagreement, goes to the *anchor*: the longest-connected live player, normally the owner. Neither side is "right" in a two-player desync, since both ran the same inputs; what matters is that both converge on one state. Every minority client is re-synced from a donor in the winning group.
+- **Background re-sync.** The desynced client is told `RESYNC{snapshot, epoch}`.
+  1. A winning-group donor writes a complete checkpoint at a marker tick, as for a join (§4).
+  2. The desynced client **keeps playing in its own world**, with its digests ignored, while a **second simulation worker** (the shadow) loads the checkpoint and catches up through the ticks buffered since the marker.
+  3. When the shadow reaches the live tick, the client swaps the shadow in through the world-replacement protocol (S15), terminates the old worker and adopts the new epoch. If the shadow is already ahead of the live world (a client that runs far behind), it waits there until the live world arrives. The PoC's first handover missed this case and never swapped (§12.9).
 
-  The player sees at most a few entities snap into place. If memory does not allow a second world (late game, low-memory device), the client re-syncs in the foreground with "Catching up".
-- **Delta re-sync (recommended; later).** A desync is usually local: one inserter, one network. At the marker tick, donor and desynced client each hash their state in fixed pages (64 KiB of each pool field array, each chunk record, each cold-data group). The client sends its page-hash list, about 13 kB for 100 MB of state, and receives only the pages that differ. It patches a copy of its own state at the marker tick, verifies the full hash and fast-forwards. That is kilobytes instead of 20 MB, so seconds instead of the 17–38 s a late-game full snapshot needs on a 10 Mbit/s uplink (§12.3). If more than about 30% of pages differ, fall back to the full snapshot. The paged hash is the slice hash of §5.1 organised by page, so it costs nothing extra to keep possible from M0.
-- **Repeated desyncs.** Factorio quits a player after 3 desyncs [9]. We keep re-syncing, but a third desync within 10 minutes shows a notice offering to send the bug bundle (§5.3), because by then it is a reproducible bug.
-- **Measured** (§12.6). A deliberately corrupted client was found at the first digest report that covered the corruption. It was then re-synced:
-  - from a 166 kB snapshot, swapped in 754 ms after the verdict (500 ms of which is the deliberate 30-tick handover lead);
-  - from 2.2 MB over the 100 ms link, swapped in 939 ms;
-  - in the late game (21 MB at 10 Mbit/s, 4 ms per tick), downloaded in 17.6 s and swapped in by the shadow thread 35.2 s after the verdict, while the player played on with normal latency.
+  The player sees at most a few entities snap into place.
+- **Convergence is checked, not assumed** (review finding 14). A second worker does not guarantee progress: on a machine with few cores both worlds compete for CPU, and the shadow may run at or below game speed indefinitely.
+  - The shadow reports its tick rate. The client requires it to gain on the live world by at least 20% of game speed over 10 s, and to be projected to converge within 60 s.
+  - If either check fails, or memory does not allow a second world (up to about 1 GB late, 10 §11), the client switches to **foreground repair**: it stops the divergent world, gives the shadow all its CPU, and shows "Catching up".
+  - If even foreground catch-up cannot exceed game speed, this is the slow-machine case (§3.6). The client leaves with that message, or, with "match the slowest player" on, the relay slows the game.
+  - **Bounded attempts:** at most 3 repairs per player per 10 minutes. After that the client stops re-syncing, shows the desync notice, and offers the bug bundle (§5.3), because by then it is a reproducible bug. (Factorio quits a player after 3 desyncs [9].)
+- **Delta re-sync: deferred** (review finding 17). A desync is usually local (one inserter, one network), so exchanging page hashes at the marker tick and transferring only differing pages would turn megabytes into kilobytes.
+  - **It is not free.** The rotating slice hashes come from different ticks and cannot serve as a coherent page list at the marker. Both sides must scan their whole state at that tick (on the order of 50–100 ms for 100 MB in TypeScript; less in WASM) and coordinate the exchange.
+  - **No page layout in M0.** M0 commits only to what it would build on: canonical, section-wise serialization and complete checkpoints (S9). The method is designed once full-snapshot recovery works and measurements show the transfer is the bottleneck.
+- **Measured** (§12.6, §12.9). A deliberately corrupted client was found at the first digest report that covered the corruption, and re-synced:
+  - from 2.2 MB over the 100 ms link: swapped in 731 ms after the verdict (500 ms of it is the deliberate 30-tick handover lead);
+  - while running 6 s behind the relay: detected on the late path, and swapped in 6.2 s later, once its live world reached the shadow;
+  - in the late game (21 MB at 10 Mbit/s, 4 ms per tick): downloaded in 17.1 s and swapped in by the shadow thread 23.3 s after the verdict, while the player played on with normal latency (30.1 s when paced).
 
-  Every run agreed afterwards.
+  Every repair completed and ended with full-state agreement. All ran on an idle-cored host with emulated tick costs, so convergence under real CPU contention is still unmeasured (§12.10).
 
 ### 5.3 Debug bundles
 
@@ -479,32 +573,35 @@ The developer, or Claude, fetches it from an admin endpoint, as 10 §3.5's `/__r
 
 ### 5.4 The determinism checklist for M0
 
-These rules make desyncs structurally rare. Each says how it is enforced. They extend 10 §4.1, whose rules stay. **D1–D20 are M0-mandatory**; the engine work packages own their enforcement.
+These rules make desyncs structurally rare. Each says how it is enforced. They extend 10 §4.1, whose rules stay. **D1–D23 are M0-mandatory**, and the engine work packages own their enforcement.
+
+With the simulation in Rust compiled to WASM, as WP A1 recommends (§1.4), D19 is the language rule set and D5 applies only if the simulation stays in TypeScript. Every other rule applies in either language, because it is about logic, not arithmetic.
 
 | # | Rule | Why | Enforced by |
 |---|---|---|---|
-| D1 | **One writer.** Only `World.tick(closure)` mutates world state, and only in the simulation worker. Query and extraction code is read-only | Anything else is an input the other clients never see | `check-arch` import rules; debug builds assert `inTick` in every mutating World API; test D18(c) |
-| D2 | **Closures are the only input.** A tick's result depends only on the previous state and that tick's closure. Main-thread messages other than closures (`view`, `ctl`, queries) never change world state. Sim-affecting settings are world state, changed by actions | Replays, joins and other clients see only the closure stream | The `MainToSim` type has no mutating variant besides `act`, which goes to the sequencer; replay test D18(e) |
-| D3 | **Canonical iteration order** wherever order can matter: ascending pool index, ascending serial, or a saved order. In particular: (a) active lists are iterated in ascending index (bitset or sorted insertion), or their exact order is saved and restored; swap-remove is forbidden in any order-relevant list whose order is not saved; (b) wake-ups only mark entities active and never do work; (c) timer buckets fire in `(dueTick, serial, eventCode)` order, not insertion order; (d) `Map`/`Set` iteration only where the insertion history is restored by load (or iterate sorted keys); (e) network member lists used in reductions are in ascending serial | A world loaded from a snapshot must behave exactly like the world that produced it. Rebuilt active lists and networks come back in a different order than history built them; with two inserters competing for one item, order decides the winner (the PoC's furnaces compete exactly like this) | Join-equivalence and NO_SLEEP equivalence tests D18(a, b); lint ban on `for…in`; review checklist |
+| D1 | **One writer.** Only `World.tick(closure)` mutates world state, and only in the simulation worker. With Rust, the crate owns the World; TypeScript reads it through generated read-only views and never writes it (A1: "two writers are worse than one"). Query and extraction code is read-only | Anything else is an input the other clients never see | Architecture rules (`check-arch`; Rust visibility); debug builds assert `inTick` in every mutating World API; test D18(c) |
+| D2 | **Closures are the only input.** A tick's result depends only on the previous state and that tick's closure. Main-thread messages other than closures (`view`, `ctl`, queries) never change world state. Sim-affecting settings are world state, changed by actions. Pause, speed and clock generations never reach the World (S14) | Replays, joins and other clients see only the closure stream | The `MainToSim` type has no mutating variant besides `act`, which goes to the sequencer; replay test D18(e) |
+| D3 | **Canonical iteration order** wherever order can matter: ascending pool index, ascending serial, or a saved order. In particular: (a) active sets are bitsets iterated in pool order, or their exact order is saved and restored. A1 found that the spec's swap-remove active list breaks NO_SLEEP equivalence within 200 ticks when inserters compete, and that bitsets fix it; (b) wake-ups only mark entities active and never do work; watch-list nodes carry the entity's sleep sequence number, and stale nodes are dropped (A1's wake rules); (c) timer buckets fire in `(dueTick, serial, eventCode)` order, not insertion order; (d) map and set iteration only where the insertion history is restored by load (or iterate sorted keys); (e) network member lists used in reductions are in ascending serial | A world loaded from a checkpoint must behave exactly like the world that produced it. Rebuilt lists come back in a different order than history built them; with two inserters competing for one item, order decides the winner (the PoC's furnaces compete exactly like this) | Join-equivalence and NO_SLEEP equivalence tests D18(a, b); lint ban on `for…in`; review checklist |
 | D4 | **Float reductions in canonical order.** Every float sum or product over a set (network demand and satisfaction, heat, statistics) accumulates in D3's order, or uses integers or fixed point | IEEE addition is not associative: the same members in a different order give different last bits, then different satisfaction, then a desync | D18(a); the "incremental equals rebuilt" property test (10 §10.4 #5) extended to compare the floats a network computes, not only its membership |
-| D5 | **Banned APIs**, in addition to 10 §4.1: `**` and `Math.pow` entirely (ECMA-262: *implementation-approximated* for every exponent [26]; V8 folds constant `**` differently from `Math.pow` [27]; use `ipow(x, n)` with a fixed multiplication order, or `detmath.pow`); `Math.hypot`; `Intl`, `localeCompare`, `toLocaleString`, `String.prototype.normalize` (Unicode versions differ); `WeakRef`, `FinalizationRegistry`; timers, `queueMicrotask` and promises inside tick code; sort comparators that can return `NaN` | Engine-dependent results | `check-arch` (oxc) rules, with a fixture file of banned calls that must fail |
-| D6 | **No NaN in saved state.** Engines may store any NaN bit pattern into a typed array [26]; also, NaN breaks comparisons | Raw-byte hashing and saving would differ between engines | Debug builds scan the F64/F32 fields of active pools after each phase; the hash canonicalises NaN anyway |
-| D7 | **Integer discipline.** int32 arithmetic via `\| 0` and `Math.imul`; counters that can pass 2³¹ are integer-valued doubles below 2⁵³ or wrap explicitly | Implicit `ToInt32` of out-of-range values is a classic divergence between "it wrapped" and "it didn't" | Review; property tests at the boundaries |
-| D8 | **Saved state is complete, including everything that orders future work:** free lists (or allocation is canonical lowest-free-slot), handle generations, the serial counter, RNG stream states, timer order, the order of every order-relevant list, cold-data map order, and per-player state. Derived state is rebuilt on load *in canonical order* | A joiner, a re-synced client and a resumed room must continue bit-identically. OpenTTD's first-listed desync cause is an incomplete savegame [16] | Join-equivalence D18(a); heavy mode D18(c); the 10 §8.1 save/load hash test, extended to compare every tick for 10,000 ticks after load, not just the end |
-| D9 | **Caches are pure.** A cache gives identical values whenever it is (re)computed, and is never filled as a side effect of a query or of view extraction in a way that changes later results | Clients extract different views and run different queries | Tests compare the state hash before and after extraction and a burst of every query type |
+| D5 | **TypeScript simulation only: banned APIs**, in addition to 10 §4.1: `**` and `Math.pow` entirely (ECMA-262: *implementation-approximated* for every exponent [26]; V8 folds constant `**` differently from `Math.pow` [27]; use `ipow(x, n)` with a fixed multiplication order, or `detmath.pow`); `Math.hypot`; `Intl`, `localeCompare`, `toLocaleString`, `String.prototype.normalize`; `WeakRef`, `FinalizationRegistry`; timers, `queueMicrotask` and promises inside tick code; sort comparators that can return `NaN`. Debug assertions on pool bounds, since out-of-range typed-array reads silently return `undefined` (A1) | Engine-dependent results | `check-arch` (oxc) rules, with a fixture file of banned calls that must fail |
+| D6 | **No NaN in saved state**, in either language. Engines may store any NaN bit pattern into a typed array [26], WASM NaN payloads are nondeterministic too, and NaN breaks comparisons | Raw-byte hashing and saving would differ between engines | Debug builds scan the float fields of active pools after each phase; the hash canonicalises NaN anyway |
+| D7 | **Integer discipline.** TypeScript: int32 via `\| 0` and `Math.imul`. Rust: explicit `wrapping_*` or `checked_*` arithmetic, since release builds wrap silently and debug builds panic (A1). Counters that can pass 2³¹ say how they wrap | "It wrapped" against "it didn't" is a classic divergence, and here also native-debug against WASM-release | Review; property tests at the boundaries; overflow checks enabled in native test builds, so a silent wrap in release shows up as a panic in tests |
+| D8 | **Checkpoints are complete, including everything that orders future work:** free lists (or allocation is canonical lowest-free-slot), handle generations, the serial counter, RNG stream states, timer order, the order of every order-relevant list, map order, per-player state (input generations, creation rings, crafting queues, undo stacks), the blueprint store, and **pending worldgen requests** with their commit ticks. Derived state is rebuilt on load *in canonical order*. The digest lineage (`r` and epoch) is saved beside the state but not hashed (S9) | A joiner, a re-synced client and a resumed room must continue bit-identically. OpenTTD's first-listed desync cause is an incomplete savegame [16] | Join-equivalence D18(a); heavy mode D18(c); the 10 §8.1 save/load test extended to compare full state for 10,000 ticks after load |
+| D9 | **Caches are pure.** A cache gives identical values whenever it is (re)computed, and is never filled as a side effect of a query or of view extraction in a way that changes later results | Clients extract different views and run different queries | Tests compare the full state hash before and after extraction and a burst of every query type |
 | D10 | **No local player in the simulation.** The simulation never branches on which player is "us"; events carry player indices and the client filters them | Each client has a different local player | The sim API has no such input (type-level) |
-| D11 | **Rule-affecting personal settings are world state** (per player, set by actions): auto-sort inventory, pick-ghost-if-no-items, the smart-belt flag (carried in the build action), and every other setting the M0 audit of I §4.20 finds. Client-only settings may change *which actions are sent*, never how actions execute | Otherwise one setting yields two results | Audit table in 10 (Phase B); review |
+| D11 | **Rule-affecting personal settings are world state** (per player, set by actions): auto-sort inventory, "Pick ghost item if no items are available", the smart-belt flag (carried in the build action), and every other setting the M0 audit of I §4.20 finds. Client-only settings may change *which actions are sent*, never how actions execute | Otherwise one setting yields two results | Audit table in 10 (Phase B); review |
 | D12 | **Worldgen stays pure and committed at sim-determined ticks** (10 §5.18: commit at t + 30, the sim waits for late workers). The worker-pool size never influences results | Clients have different core counts | Test: 1 worker against 4 workers, same chunk hashes and same world hash |
-| D13 | **Game time is ticks.** No wall clock in world state; play time, save timestamps and the like go to save metadata outside the hash | Clients' clocks differ | `check-arch` bans `Date` and `performance` in `sim/` (already, 10 §4.1) |
-| D14 | **One build per room.** Every client in a room runs the same build hash, protocol version and `prototypes.hash`; the data stage's output is byte-identical for identical inputs | Data differences are desyncs by definition | The relay compares them in `HELLO`; a CI check runs the data stage twice and compares the bytes |
-| D15 | **Outputs are outputs.** Feedback events (flying text, sounds, alerts) and packets never feed back into the simulation | The UI differs per client | Architecture (10 §3.2: "the sim never calls UI code") |
-| D16 | **No ordering by identity.** Nothing is ordered by object identity, allocation address or `Map` insertion of objects whose history is not saved | Allocation history differs after load | Review; D18(a) |
-| D17 | **Strings never decide rules**, except as equality on data ids. Sorting, if ever needed, is by UTF-16 code unit, never by locale | Locales differ between players | D5's bans |
-| D18 | **The tests that enforce the rest**, from M0, on every scenario and on fuzzed action sequences: (a) **join equivalence**: save at random ticks, load, and compare *per-tick* digests for N ticks against the uninterrupted run; (b) NO_SLEEP equivalence on per-tick digests (10 §4.6); (c) heavy mode on long runs (nightly); (d) cross-engine traces: the same input log in Node, Chrome and Firefox gives the same per-tick digest trace (nightly; Firefox headless with `?render=none`, which launches on this host, 10 §10.5); (e) replay of every recorded session, single player included; (f) a multi-client harness of N in-process worlds fed one closure stream through a simulated relay | Rules without tests rot | `npm test` (a, b, e, f) and `npm run test:slow` (c, d) |
-| D19 | **Rust/WASM addendum** (if WP A1 recommends it): no `HashMap`/`HashSet` with `RandomState` (use `BTreeMap` or a fixed-seed hasher); no relaxed SIMD (fused multiply-add may or may not happen); no threads in the simulation; canonicalise NaNs before hashing and saving; libm compiled in, never JavaScript `Math` imports; no `std::time`. D1–D4 and D8–D18 apply unchanged | WASM is deterministic except where it explicitly is not (NaN payloads, relaxed SIMD) | `clippy` lints (`disallowed_types`, `disallowed_methods`), `wasm-tools` feature checks, D18 |
-| D20 | **Every new piece of state declares** whether it is saved or derived, whether its order matters, and its canonical order | The cheapest place to prevent D3 and D8 bugs is the line that adds the state | The pool descriptor table (10 §2.5) gains `saved/derived` and `ordered` columns, and `check-arch` requires them |
-
----
+| D13 | **Game time is ticks.** No wall clock in world state (no `Date`, `performance` or `std::time`); play time, save timestamps and the like go to save metadata outside the hash | Clients' clocks differ | `check-arch` and clippy bans |
+| D14 | **One build per room.** Every client in a room runs the same build hash, which includes the WASM binary, the protocol version and `prototypes.hash`. The data stage's output is byte-identical for identical inputs | Data or code differences are desyncs by definition | The relay compares them in `HELLO`; CI runs the data stage twice and compares the bytes |
+| D15 | **Outputs are outputs.** Feedback events (flying text, sounds, alerts) and packets never feed back into the simulation. Events produced while catching up or replaying are marked historical and suppressed at the boundary (S15) | The UI differs per client | Architecture (10 §3.2: "the sim never calls UI code") |
+| D16 | **No ordering by identity.** Nothing is ordered by object identity, pointer or address, or by the insertion order of objects whose history is not saved (A1: "no pointer-dependent logic") | Allocation history differs after load and between native and WASM | Review; D18(a) |
+| D17 | **Strings never decide rules**, except as equality on data ids. Sorting, if ever needed, is by code unit, never by locale | Locales differ between players | D5's bans; Rust has no locale collation in `std` |
+| D18 | **The tests that enforce the rest**, from M0, on every scenario and on fuzzed action sequences. **Full canonical state is compared, not only digests** (review finding 5): sampled digests cannot catch every transient divergence. (a) **Join equivalence:** save at random ticks, load, and compare per-tick digests *and* the full state hash every 600 ticks and at the end against the uninterrupted run. (b) NO_SLEEP equivalence on per-tick digests and full state (10 §4.6). (c) Heavy mode: serialize, load and compare full canonical state on long runs (nightly). (d) Cross-engine: the same input log in native Rust (`cargo test`), Node, Chrome and Firefox gives identical per-tick digest traces and full hashes (nightly; Firefox headless with `?render=none`, 10 §10.5). (e) Replay of every recorded session, single player included. (f) A multi-client harness of N in-process worlds fed one closure stream through a simulated relay, with full-state agreement required after every injected fault. (g) Wire probes for the relay and codecs: ordering, limits, malformed input, duplicate chunks (§12.9) | Rules without tests rot | `npm test` and `cargo test` (a, b, e, f, g); `npm run test:slow` (c, d) |
+| D19 | **The Rust/WASM rule set** (A1 §5, adopted with the recommendation): transcendentals only through the `libm` crate, since `std`'s `f64::sin` calls the platform libm natively but musl's code in WASM, so native tests would disagree with the game; no `mul_add`; no `HashMap`/`HashSet` with random state (use `BTreeMap` or a fixed-seed hasher); no NaN in state (D6); never relaxed SIMD (fused multiply-add may or may not happen); `min` and `max` written as comparisons, since native and WASM differ on −0 and NaN; explicit wrapping arithmetic (D7); no pointer-dependent logic (D16); no deep recursion, since stack limits differ between native and WASM; one thread; no `std::time` (D13). A panic aborts the module: in multiplayer the client re-syncs from a donor and files a bug bundle with the closure log (§5.2) | WASM is deterministic except where it explicitly is not (NaN payloads, relaxed SIMD), and native tests are only worth something if native and WASM agree | `clippy.toml` bans (A1 verified they fire); `wasm-tools` feature checks; D18(d) native against browser |
+| D20 | **Every new piece of state declares** whether it is saved or derived, whether its order matters, and its canonical order | The cheapest place to prevent D3 and D8 bugs is the line that adds the state | The descriptor table that generates the Rust pools, the TypeScript views and the save sections (A1, change 7) gains `saved/derived` and `ordered` columns, and the build requires them |
+| D21 | **Per-player action order.** The relay assigns each player's actions nondecreasing ticks and keeps their send order within a tick (§3.4). The simulation asserts in debug builds that each player's `(tick, seq)` rises | Otherwise a stop can run before the start it answers (review finding 2) | Relay unit tests; the PoC probe (§12.9); debug assertion |
+| D22 | **Held inputs are fenced** by a per-player input generation: `release_inputs` raises it, and a held-input action carrying an older generation is a no-op (§3.3) | An action stamped before a release but scheduled after it must not undo the release (review finding 3) | Scenario tests: disconnect while walking, with a future-stamped start in flight |
+| D23 | **Targets by identity.** Actions name existing entities by serial and just-predicted ones by creation action id; the simulation never falls back to "whatever stands there". Positions only for actions defined on positions (§3.3) | A position fallback acts on another player's replacement entity (review finding 12) | Scenario tests: mine-and-replace races between two players |
 
 ## 6. The server
 
@@ -521,7 +618,7 @@ It never runs the simulation and never parses action payloads.
 ### 6.2 Code layout
 
 - **`RoomCore`**, in `game/src/relay/core/`: pure TypeScript with no I/O. A state machine fed with `(now, event)` that returns messages to send. It holds the clock and ticks, the acceptance rule, the log, snapshot coordination, digest voting, held-input release and the grace timers. It is unit-tested with a simulated clock (§9), and it also runs inside the in-process multi-client test harness.
-- **Adapters**: `relay/node/` (`ws`, filesystem storage, HTTP endpoints) and optionally `relay/cloudflare/` (a Durable Object, §6.7). About 1,500 lines in total. The PoC's relay is 330 lines of JavaScript and implements most of it (§12).
+- **Adapters**: `relay/node/` (`ws`, filesystem storage, HTTP endpoints) and, deferred until full-snapshot recovery works (review finding 17), `relay/cloudflare/` (a Durable Object, §6.7). About 1,500 lines in total. The PoC's relay is about 450 lines of JavaScript and implements much of it (§12).
 - **Shared code**: `shared/net/` holds the wire codec used by relay and clients. Action payloads are opaque bytes to the relay.
 
 ### 6.3 Rooms, invites, players and versions
@@ -537,13 +634,20 @@ It never runs the simulation and never parses action payloads.
   - **public**: anyone can create rooms, within per-IP rate limits.
 - **Versions.** `HELLO` carries the build hash, protocol version and `prototypes.hash`. A room is pinned to its current build while anyone is in it:
   - a client with a different build is refused with a reason. A newer client sees "This game runs build X", and an older one is told to reload: its service worker fetches the new build;
-  - an empty room is upgraded by the first player who resumes it with a newer build. The save migrates on load (10 §8.3), and the room adopts the new build.
+  - **an empty room is upgraded only from a sealed checkpoint** (review finding 6). Migrating an old checkpoint and then replaying its log under the new build would apply old actions under new rules, which may change the factory or meet actions the new build reads differently. So:
+    1. if the room is not sealed, the first player to resume it with a newer build loads the room's *own* build from the site's build archive (`/builds/<buildHash>/`, kept while any stored room references it);
+    2. that client replays the log to the persisted horizon under the old build, and uploads a sealing checkpoint;
+    3. it reloads the new build, migrates the sealed checkpoint on load (10 §8.3), and publishes the migrated checkpoint atomically together with the new build pin (one transaction, §4.3).
+
+    Players see "Updating the saved game" (§8.4). The build archive is pruned only of builds that no stored room references.
 
 ### 6.4 Persistence
 
 **Yes, the relay stores games.** Storing is within the constraint, and it is what makes rooms outlive their players. For each room it keeps:
-- the newest complete snapshot (the save container as uploaded);
-- the append-only closed-tick log since that snapshot, flushed every second;
+- the newest complete checkpoint (the save container as uploaded, published atomically, §4.3);
+- the append-only closed-tick log since that checkpoint. **Each batch of closed ticks is written to the log before it is broadcast** (write-ahead), and the log is flushed to disk (`fdatasync`) every second (§6.9);
+- the room generation (§6.9) and each player's acceptance watermark (§3.3);
+- the blobs that retained closures or stored checkpoints reference (§6.5);
 - the roster;
 - the last 200 chat lines;
 - open desync bundles.
@@ -561,26 +665,34 @@ The owner can delete a room at once. A snapshot holds only game state and names:
 
 | Limit | Value | Why |
 |---|---|---|
-| Players per room | 8 by default, at most 32 | The design target is 2–8. Nothing structural limits it: the player index is a `u8` |
+| Players per room | 8 by default, at most 32 | The design target is 2–8. Nothing structural limits it: the player index is a `u16` in A1's format |
 | Action rate per player | 120 actions/s sustained, bursts of 600 | Drag-building and fast transfer burst; anything beyond is a bug |
-| Inline action payload | 64 KiB; blobs up to 8 MiB | Head-of-line protection on the control socket (§3.3) |
+| Inline action payload | 65,535 bytes (`u16` length); blobs up to 8 MiB | Field widths (§3.2) and head-of-line protection on the control socket |
+| Entries and bytes per `TICKS` message | 65,535 entries, about 1 MiB; longer ranges split | Field widths (§3.2) |
 | Control-socket inbound | 64 KiB/s per player | Ten times normal use |
+| **Relay → client control queue** (review finding 8) | High-water mark 2 MiB of unsent data (about 6 minutes of the tick stream); above it the relay closes that connection | A client that stops reading (frozen tab, dead path) must not grow the relay's memory. On its return it resumes from the log or re-syncs |
+| **Relay → client bulk queue** | References to stored chunks, never copies; at most 4 MiB in flight per socket | Snapshots exist once per room, however many joiners fetch them |
+| **Net worker → simulation queue** (client) | 64 MiB or 10 minutes of ticks; above it the client drops the queue and plans a re-sync | A frozen or overloaded simulation must not take the page's memory with it |
+| **Retained log per room** | 64 MiB or 2 hours since the newest checkpoint; on reaching it the relay asks for a new checkpoint, then truncates | Bounds resume and cached-join replay; a client needing older ticks re-syncs |
+| **Transfer deadlines** | A chunk at least every 10 s; a whole snapshot within the larger of 10 minutes and size ÷ 32 KiB/s (§4.3) | A stalled donor must not hold a join or a repair forever |
 | Snapshot size | 128 MiB | Five times the Late estimate |
+| **Room storage budget** | 512 MiB per room (checkpoints, log, blobs, bundles); a server-wide budget refuses new rooms when full | Storage abuse and runaway logs |
+| **Blob retention** | A blob is kept while any retained closure or stored checkpoint references it, and deleted when the log truncation that drops its last reference runs | Replays, resumes and cached joins need every blob their closures name |
 | Rooms per creator IP | 10 per day (public mode) | Abuse |
 | Connections per IP | 32 | Abuse |
 
 ### 6.6 Cost per room
 
-**Measured** on this host, a 2013 Xeon E5-2650 v2 core at about 0.55× a 2020 laptop core (10 §11). Four simulated players per room, each with a 60 Hz tick stream, `STATUS` at 10 Hz, 2 actions/s and pings (`poc/loadgen.mjs`, §12.7):
+**Measured** on this host, a 2013 Xeon E5-2650 v2 core at about 0.42–0.55× a 2020 laptop core (10 §11; A1 measured 0.42× at base clock). Four simulated players per room, each with a 60 Hz tick stream, `STATUS` at 10 Hz, 2 actions/s and pings (`poc/loadgen.mjs`, §12.7):
 
 | Rooms × 4 players | Relay CPU (one core) | CPU per room | Relay memory |
 |---|---|---|---|
-| 1 | 3.5% | 35 ms/s (mostly fixed timer overhead) | 70 MB |
-| 10 | 15.5% | 15 ms/s | 77 MB |
-| 50 | 46.5% | 9.3 ms/s | 89 MB |
-| 100 | 57% (the load generator saturated first) | — | 107 MB |
+| 1 | 3.0% | 30 ms/s (mostly fixed timer overhead) | 69 MB |
+| 10 | 12.4% | 12 ms/s | 77 MB |
+| 50 | 41.9% | 8.4 ms/s | 89 MB |
+| 100 | 64.7% | 6.5 ms/s | 107 MB |
 
-- **CPU.** A four-player room costs about 1% of one old core. One VPS core serves 50–100 rooms. An eight-player room roughly doubles the sends.
+- **CPU.** A four-player room costs under 1% of one old core; 100 rooms fit in two-thirds of it. One current VPS core serves well over 100 rooms. An eight-player room roughly doubles the sends.
 - **Bandwidth.** About 6 kB/s of egress per player during play (§2.7): 0.4 Mbit/s for a full eight-player room. A four-hour session with 8 players is about 0.7 GB of egress. Joins add their snapshot once on the way in and once per joiner on the way out.
 - **Storage.** About 25 MB per late-game room, plus its log (a few MB per hour).
 
@@ -601,7 +713,7 @@ The owner can delete a room at once. A snapshot holds only game state and names:
      - `Date.now()` and `performance.now()` advance only after I/O in deployed Workers, as a Spectre mitigation [37]. The tick loop must therefore derive ticks from timer callbacks and message arrivals; verify the timer precision before relying on it;
      - snapshots move through R2 or SQLite in chunks.
 
-   `RoomCore` is written so that this adapter is about 300 lines.
+   `RoomCore` is written so that this adapter is about 300 lines. **Deferred** (review finding 17): it is built only after full-snapshot recovery works on the Node relay, and after its write-before-broadcast durability (§6.9) has been mapped onto Durable Object storage.
 3. **This host (cpuserver10), for development.** The relay runs next to the Vite dev server and players use the SSH tunnel (CLAUDE.md). Outside players need a public endpoint, so it is not a deployment.
 
 A claude.ai Artifact cannot host multiplayer: it serves the static page only, and its content security policy does not allow arbitrary WebSocket endpoints.
@@ -615,56 +727,68 @@ A claude.ai Artifact cannot host multiplayer: it serves the static page only, an
 
 ### 6.9 Restarts and failures
 
-- **Graceful restart (deploys).** The relay stops accepting, flushes every room's log through its last closed tick, sends `NOTICE{restarting}` and exits. Clients keep simulating up to their horizon, reconnect with backoff, and resume from the restored log: a pause of a few seconds.
-- **Crash.**
-  - The log on disk may miss up to 1 s of closed ticks. On restart the relay restores each room at its last persisted tick and asks the first reconnecting client for its closures after that tick. Every client holds them, and they are identical, so the relay re-adopts them and continues.
-  - If no client is left, the room rolls back at most 1 s to the persisted state.
-  - Clients that had simulated beyond the restored horizon re-sync.
-- **Relay lost for good.** Any player hosts their last local autosave as a new room (§4.6).
+The action history must never fork (review finding 1, critical). No client may ever simulate a tick whose actions the relay could later assign differently. The first version of this section "re-adopted" closures from the first reconnecting client after a crash. That is unsafe: another client may hold a longer suffix and have simulated ticks the relay would then refill with different actions.
 
----
+**Durability rule: write before broadcast.** The relay appends each batch of closed ticks to the room's log with `write(2)` *before* sending it to any client, and flushes with `fdatasync` once a second (or after every batch, in a "durable" mode for hosts with fast disks).
+- A **process crash** (a bug, an out-of-memory kill, a bad deploy) loses nothing: the written data is in the operating system's page cache and reaches the disk anyway. The persisted log then covers every tick any client has seen.
+- Only a **machine crash** (host failure, power loss) can lose up to 1 s of written-but-unflushed ticks, which some clients may already hold.
+- The cost is one small write per batch: at 60 Hz and 100 rooms, about 6,000 writes per second, a few percent of one core.
+
+**Room generations.** Every relay start gives each restored room a new generation `g + 1`, with a restored horizon P: the last tick in its log.
+- A client resumes only with `HELLO{roomGeneration: g, resumeFrom ≤ P + 1}`. Its ticks up to P are the persisted ones, because the persisted log is a prefix of what was broadcast, and every client received the same stream in the same order. The relay then sends the new generation in `WELCOME` and continues from P + 1.
+- A client whose horizon is beyond P saw ticks the relay has lost. That can only happen after a machine crash. It must **rewind**: it discards its world and re-syncs from the room's stored checkpoint plus the log through P, under the new generation. Up to 1 s of play is lost.
+- The relay never adopts closures from clients.
+
+**Graceful restart (deploys).** The relay stops accepting, closes and flushes every room's log through its last closed tick, sends `NOTICE{restarting}` and exits. Clients keep their state, reconnect with backoff, and resume under the new generation from P + 1, which is exactly their horizon: a pause of a few seconds and no rewind.
+
+**Relay lost for good.** Any player hosts their last local autosave as a new room (§4.6).
 
 ## 7. Engine seams for M0
 
-Networking itself arrives late (a dedicated multiplayer milestone after M3, or wherever the plan puts it), but these seams must exist from the first line, because retrofitting them means touching every system.
+Networking itself arrives late (a dedicated multiplayer milestone after M3, or wherever the plan puts it), but these seams must exist from the first line, because retrofitting them means touching every system. This list is final for Phase B: **S1–S10, S12, S14 and S15 are M0-mandatory**; S11 is M0-mandatory in part; S13 is later. With the Rust/WASM simulation (§1.4), the simulation-side parts of S1, S2, S5, S7, S9 and S10 live in the crate behind A1's boundary.
 
 | # | Seam | Specification | When |
 |---|---|---|---|
-| S1 | **Players everywhere** | `World.players: PlayerState[]`, indexed by a `u8` player index; 10 §4.4's single `player` goes. Every action carries the acting player. `builtBy` (10 §4.5) encodes 0 = unknown, 1 = agent, 2 = Constructor, 16 + i = player i. The save's `PLAYER` section becomes `PLAYERS`. Per-player state as in §3.7, including undo stacks, crafting queue and hand | **M0-mandatory** |
-| S2 | **The action pipeline** | `InputAction` types in `shared/actions/`, a descriptor-driven binary codec (§3.3), and `TickClosure { tick, entries: { player, seq, bytes }[] }`. The simulation applies *only* closures. In single player every action is encoded and decoded too, so the codec is exercised constantly | **M0-mandatory** |
-| S3 | **The sequencer interface** | `interface Sequencer { submit(a: StampedAction): void; onClosures(cb: (batch: ClosureBatch) => void): void; clock(): RelayClock; control(op: Pause \| Resume \| Speed \| Step) }`. Version 1 is a `LocalSequencer` for single player, tests and replays: it stamps `nextTick`, closes ticks from its own clock (or on `step(n)` in test mode), and handles pause, speed and the hidden-tab pause. The simulation loop advances to the horizon of the closure stream, paced as in §3.6. `RelaySequencer` comes later behind the same interface | **M0-mandatory** (`LocalSequencer`); later (`RelaySequencer`) |
+| S1 | **Players everywhere** | `World.players: PlayerState[]`, indexed by a `u16` player index (a room allows at most 32); 10 §4.4's single `player` goes. Every action carries the acting player. `PlayerState` holds the per-player state of §3.7, plus the **input generation** (`u16`, D22) and the **creation ring**: the serials created by the player's last 256 actions, keyed by seq (S5). `builtBy` (10 §4.5) encodes 0 = unknown, 1 = agent, 2 = Constructor, 16 + i = player i. The save's `PLAYER` section becomes `PLAYERS` | **M0-mandatory** |
+| S2 | **The action pipeline** | Action types and one descriptor table that generates the TypeScript encoder and the Rust decoder. Closures in A1's per-player batch format (§3.3): batch header `u8 version, u8 flags, u16 player, u32 tick, u32 firstSeq, u16 count, u16 reserved`; per action `u16 type, u16 len` (≤ 65,535) and a fixed payload. **Action identity** is `(player, u32 seq)`, rising by one per action over the player's stay. The simulation applies *only* closures, in the order they state, and asserts each player's rising `(tick, seq)` in debug builds (D21). In single player every action is encoded and decoded too, so the codec is exercised constantly | **M0-mandatory** |
+| S3 | **The sequencer interface, with clock generations** | `interface Sequencer { submit(a: StampedAction): void; onClosures(cb: (b: ClosureBatch) => void): void; clock(): { gen: number; tick: number; speed: number; paused: boolean }; control(op: Pause \| Resume \| Speed \| Step) }`. Version 1 is a `LocalSequencer` for single player, tests and replays: it stamps the next tick, closes ticks from its own clock (or on `step(n)` in test mode), and raises the clock generation on pause, resume and speed changes (§3.1). The simulation loop advances to the horizon of the closure stream, paced as in §3.6. `RelaySequencer` comes later behind the same interface | **M0-mandatory** (`LocalSequencer`); later (`RelaySequencer`) |
 | S4 | **Simulation state apart from UI state** | No camera, open window, hover, selection, alt-mode, overlay, chat or interface setting in the World. Rule-affecting personal settings are per-player world state set by actions (D11). The M0 audit lists every setting of I §4.20 and 07 §20 as client-only or world state | **M0-mandatory** |
-| S5 | **Entity references that survive latency** | Handle plus `(surface, position, prototype)` fallback, resolved and validated at execution (§3.3) | **M0-mandatory** |
-| S6 | **Determinism rules D1–D20** and their tests | §5.4, including join equivalence on per-tick digests and heavy mode | **M0-mandatory** |
-| S7 | **Digests** | Per-tick digest `d_t`, the slice hash and the rolling digest (§5.1) in `sim/core/hash`; per-phase digests in debug builds. Single player uses them in replays and bug bundles | **M0-mandatory** (cheap, and catches single-player bugs) |
-| S8 | **Input log = closure log** | 10 §8.5's input log stores closure batches verbatim. `__game.replay` feeds them through a `LocalSequencer` in replay mode. Bug bundles add the per-tick digest ring | **M0-mandatory** |
-| S9 | **Snapshot at a tick boundary, and fast-forward** | "Serialize after tick T" while the simulation runs: the pool copy as in 10 §8.4, compression in the IO worker. "Load and run ticks up to H as fast as possible with extraction off, in time slices that yield to messages" | **M0-mandatory** (both are small extensions of save/load and `step(n)`) |
-| S10 | **Feedback tagged by action** | Every `SimEvent` that answers an action carries `(player, seq)`, so a future latency state knows which prediction failed. The movement and placement-check functions can run on a scratch character without touching the World | **M0-mandatory** (tagging); later (the latency state, §3.5) |
-| S11 | **Worker topology** | The simulation worker takes closure batches from a `MessagePort`; in single player the `LocalSequencer` sits behind it. In multiplayer a net worker owns the sockets and feeds the same port (§2.4) | M0: the port; later: the net worker |
-| S12 | **Identity and versions** | Build hash, protocol version and `prototypes.hash` in saves (10 §8.1 has the first and last) and later in `HELLO`. The room roster (names, colours, token hashes) lives in the save header, outside the hash | **M0-mandatory** (fields); later (roster) |
+| S5 | **Entity references by identity** | Actions name existing entities by **serial** (`u32`) and entities created by the player's own unconfirmed actions by **creation action id** `(player, seq)`, resolved through the creation ring. A missing serial fails the action; there is no position fallback. Positions only for actions defined on positions (§3.3, D23) | **M0-mandatory** |
+| S6 | **Determinism rules D1–D23** and their tests | §5.4, with D18's tests comparing full canonical state, not only digests | **M0-mandatory** |
+| S7 | **Digests with lineage** | Per-tick digest `d_t`, the key-chosen slice hash and the rolling digest `r_t` (§5.1), computed by the simulation; per-phase digests in debug builds. **Every checkpoint carries `r` at its tick and its digest epoch**, saved beside the state but not part of the state hash, so a loaded world continues the room's digest sequence (review finding 5). Single player uses digests in replays and bug bundles | **M0-mandatory** (cheap, and catches single-player bugs) |
+| S8 | **Input log = closure log** | 10 §8.5's input log stores closure batches verbatim, together with the blobs they reference. `__game.replay` feeds them through a `LocalSequencer` in replay mode. Bug bundles add the per-tick digest ring | **M0-mandatory** |
+| S9 | **Complete checkpoints at a tick boundary, and fast-forward** | "Write a checkpoint after tick T" while the simulation runs: the state copy as in 10 §8.4 and compression in the IO worker. The checkpoint holds every section of 10 §8.1, including cold data, timers, RNG states, the blueprint store, per-player state and **pending worldgen requests**, plus a manifest: tick, build, protocol, `prototypes.hash`, digest lineage, size, SHA-256 (§4.3, D8; review finding 11). Serialization is canonical and section-wise; no page layout is committed (§5.2). "Load and run ticks up to H as fast as possible with extraction off, in time slices that yield to messages" | **M0-mandatory** (both extend save/load and `step(n)`) |
+| S10 | **Feedback tagged by action, and historical events marked** | Every `SimEvent` that answers an action carries `(player, seq)`, so a future latency state knows which prediction failed. Events produced while catching up or replaying are marked historical (D15). The movement and placement-check functions can run on a scratch character without touching the World | **M0-mandatory** (tagging, marking); later (the latency state, §3.5) |
+| S11 | **Worker topology** | The simulation worker takes closure batches from a `MessagePort`; in single player the `LocalSequencer` sits behind it. A second simulation worker can be created, loaded and swapped in through S15 (the shadow of §5.2). In multiplayer a net worker owns the sockets and feeds the same port (§2.4) | M0: the port and the swap; later: the net worker |
+| S12 | **Identity and versions** | Build hash (including the WASM binary), protocol version and `prototypes.hash` in saves and checkpoints (10 §8.1 has the first and last), and later in `HELLO`. The room roster (names, colours, token hashes) lives in the save header, outside the hash | **M0-mandatory** (fields); later (roster) |
 | S13 | **Chat and presence channel** | Out of band. In single player, chat stays the notes line of I §4.19 | Later |
-| S14 | **No pause semantics in the World** | Pause, speed, the hidden-tab pause and the pause of the technology screen are sequencer states, never world state, so multiplayer can simply not send them | **M0-mandatory** |
+| S14 | **No pause semantics in the World** | Pause, speed, the hidden-tab pause and the pause of the technology screen are sequencer and clock states, never world state, so multiplayer can simply not send them | **M0-mandatory** |
+| S15 | **World replacement protocol** (review finding 13) | The main thread keeps a **state generation** (`u32`), raised whenever the world it shows is replaced: a new game, a load, a join, a re-sync swap, a rewind. Every packet, query response and event carries the generation it came from. On a new generation the main thread: (1) drops the whole view model, so chunk versions are never compared across generations, even when the counters coincide; (2) re-sends its view request and every subscription; open entity windows rebind by serial and close if the entity is gone; (3) rejects responses and events from older generations; (4) discards the latency state and rebuilds it from the new world plus the actions still pending; (5) resets audio state (working sounds) from the new view. Sounds, flying text and toasts are not played for historical events (S10) | **M0-mandatory** (single-player load needs it already) |
 
 **Single player is multiplayer with a local transport.**
 - The main thread's input layer produces actions. They go to the `LocalSequencer`, which stamps them for the next tick (margin 0) and closes ticks from its clock. Closure batches go to the simulation worker through the same port and the same codec a network would use, and the simulation applies closures exactly as it would in a room of eight.
 - Test mode's `step(n)` closes n ticks.
 - Replays feed recorded batches.
+- Loading a save goes through S15, exactly like a join.
 - What single player skips: the relay, stamping estimates, playout buffering, digests reported to anyone, and the latency state (with a margin of 0, prediction equals confirmation).
 
 **Changes for the Phase B revision of 10** (the manager commissions them):
 1. §0 gains rows for the multiplayer model and the sequencer.
-2. §3.1 gains the net worker and the closure port.
-3. §3.2 gains `TickClosure` and system actions; `act` goes to the sequencer.
-4. §3.3: pacing by horizon, multiplayer rules for hidden tabs and pause.
-5. §4.1 gains D1–D20.
-6. §4.4: `players[]`.
+2. §3.1 gains the net worker, the closure port, the shadow worker and the world-replacement protocol (S11, S15).
+3. §3.2 gains closures in A1's batch format, the system actions, and state generations on packets; `act` goes to the sequencer.
+4. §3.3: pacing by horizon, clock generations, and the multiplayer rules for hidden tabs and pause.
+5. §4.1 gains D1–D23.
+6. §4.4: `players[]` with input generations and creation rings (S1).
 7. §4.5: the `builtBy` encoding and the descriptor columns of D20.
-8. §5.1 states the per-player state and the rules for offline characters.
-9. §5.20: per-player accumulators.
-10. §8.1: a `PLAYERS` section, the roster in the header, and the page layout for delta re-sync.
-11. §10.4 gains D18's tests.
-12. §12 gains a multiplayer milestone; M0 gains S1–S10, S12 and S14.
-13. Appendix B gains the system actions.
+8. §4.6: active sets are bitsets iterated in pool order (A1's finding, D3).
+9. §5.1: per-player state, the rules for offline characters, and entity targets by serial or creation id (S5).
+10. §5.18: pending worldgen requests are checkpoint state (D8).
+11. §5.20: per-player accumulators.
+12. §8.1: a `PLAYERS` section, the roster in the header, the digest lineage beside the state, and the checkpoint manifest (S7, S9). No page layout for delta re-sync.
+13. §8.5: closure logs with their blobs as the input log (S8).
+14. §10.4 gains D18's tests: full-state comparison, native-against-browser traces, and wire probes.
+15. §12 gains a multiplayer milestone; **M0 gains S1–S10, S12, S14 and S15 (S11's port and swap), D1–D23 and D18's tests**.
+16. Appendix B gains the system actions and the action format.
 
 ---
 
@@ -722,7 +846,7 @@ Each step happens only once per join, and errors name their cause:
   - *Catching up* with a bar whenever the backlog exceeds 1 s;
   - a slow-computer warning (§3.6);
   - the F5 network section (§6.8).
-- **Re-sync.** Silent in the background (§5.2). In the foreground, the same *Catching up* bar. The third desync in 10 minutes shows a notice with *Send report*.
+- **Re-sync.** Silent in the background (§5.2). In the foreground (when the background repair would not converge), the same *Catching up* bar. After the third repair in 10 minutes the client stops repairing and shows a notice with *Send report*.
 - **Pause.** When an admin pauses: "Game paused by X" over the view, as Factorio shows it.
 - **Single-player pauses do not apply** (§3.6): the technology screen, Esc menu, run report and first-run panel open without pausing.
 - **Per-player text** that 07 and 08 write for one player:
@@ -736,7 +860,7 @@ Each step happens only once per join, and errors name their cause:
 
 None of these strings may be invented in code (`pm/README.md`). They are proposals for 08's owner, worded after Factorio's own where it has them:
 - **Menu:** *Multiplayer*, *Host new game*, *Host saved game*, *Join game*, *Invite*, *Recent games*.
-- **Join stages:** *Connecting*, *Downloading map*, *Loading map*, *Catching up*.
+- **Join stages:** *Connecting*, *Downloading map*, *Loading map*, *Catching up*; and *Updating the saved game* for an upgrade (§6.3).
 - **System lines:** "{name} joined the game.", "{name} left the game.", "Game paused by {name}.", "Server is not responding", "Your computer cannot keep up with this game.", "This game runs build {build}."
 - **Players window columns.**
 - **Room settings labels** (§8.1).
@@ -752,37 +876,45 @@ None of these strings may be invented in code (`pm/README.md`). They are proposa
 
 ## 9. The test plan
 
-1. **Unit** (Vitest, Node):
-   - the wire and action codecs (round trips with fast-check, including every action type at its field limits);
-   - `RoomCore` on a simulated clock: acceptance and late handling, closing, system-action injection, grace timers, digest voting with stale epochs, donor choice, resume ranges;
+1. **Unit** (Vitest, Node; `cargo test` for the crate):
+   - the wire and action codecs: round trips with fast-check at every field limit, and refusal of 65,536-byte payloads, 65,536-entry batches, truncated messages and non-contiguous ranges (§3.2);
+   - `RoomCore` on a simulated clock: acceptance, late handling and per-player order (D21); deduplication and the acceptance watermark; system-action injection and grace timers; clock generations on pause, resume, speed changes and relay stalls; closing the snapshot marker before a join pause; digest verdicts with epochs, expected membership, late reporters and winning-group donors; the snapshot transaction (manifest, bounds, duplicates, deadlines, atomic publication); write-before-broadcast with crash points injected, and rewinds under a new room generation; queue high-water marks; blob retention;
+   - the simulation's input fencing (D22) and identity-based targets (D23), including mine-and-replace races;
    - the margin and playout controllers fed recorded traces;
-   - the LEDBAT pacer against a simulated FIFO queue.
+   - the LEDBAT pacer against a simulated FIFO queue at 2 and 10 Mbit/s: progress at every rate, and the added delay against its 25 ms target.
 2. **The in-process multi-client harness** (Vitest; it runs in seconds), based on the M0 sequencer interface:
    - N worlds driven by a simulated relay over a **deterministic discrete-event network**: per-link latency and jitter distributions, loss modelled as TCP head-of-line stalls, a shared FIFO bottleneck with a bounded queue, disconnects, black-holes and reordering *between* a player's control and bulk sockets;
-   - scripted bots act;
-   - asserted: equal per-tick digests across worlds; the join, resume and re-sync paths; and bounds on stall time, late actions and catch-up time per profile.
+   - scripted bots act; faults are injected: relay restarts (process and machine crashes), clock transitions, desyncs, upgrades of sealed and unsealed rooms;
+   - asserted: **full-state agreement after every fault**, not only digest agreement (review finding 15); every join and every swap *completes*; bounds on stall time, late actions and catch-up time per profile.
 
    This is the PoC's experiment made deterministic and fast.
 3. **Real network, real browsers** (Playwright; nightly and before the multiplayer milestone's exit):
    - the Node relay, an impairment proxy (the PoC's `netem.mjs`), and 2–4 pages. Chrome with SwiftShader runs with `?render=on-demand`, Firefox headless with `?render=none`, one page per engine;
    - scripted play plus joins, drops, black-holes, a forced desync, a hidden page (only through a directly launched Chrome over CDP, since Playwright's own launch disables background throttling, §12.5), and a frozen page;
    - every page fails on any console error (10 §10.5).
-4. **Determinism fuzzing** (nightly): random action sequences from up to 8 simulated players on generated factories, run through D18(a–e), with Node, Chrome and Firefox traces compared. Failures shrink with fast-check and turn into scenario tests.
-5. **Soak**: 8 bot players for 2 hours, random joins, leaves and drops every few minutes. Zero desyncs; memory flat on clients and relay.
-6. **Load**: 100 rooms of 4 on one relay process, without the load generator as the bottleneck. CPU per room and p99 tick-emission jitter within budget.
-7. **On the user's machine** (once per multiplayer release; extends 10 §10.6's `bench.html`): a hidden-tab check (switch away for 6 minutes, then report the worker's tick rate) in Chrome and Firefox. This closes the gap this host cannot test (§12.5).
+4. **Real-engine resource tests** (review findings 14 and 15). The PoC emulates tick cost with a blocking wait, which uses no CPU, so it says nothing about two worlds competing for cores. With the real simulation, measure on 2-, 4- and 8-core machines at Mid and Late scale:
+   - the shadow's catch-up rate while the live world runs;
+   - the joiner's catch-up rate;
+   - the switch to foreground repair when convergence fails.
+5. **Determinism fuzzing** (nightly): random action sequences from up to 8 simulated players on generated factories, run through D18(a–f), with native Rust, Node, Chrome and Firefox traces and full hashes compared. Failures shrink with fast-check and turn into scenario tests.
+6. **Soak**: 8 bot players for 2 hours, random joins, leaves and drops every few minutes. Zero desyncs; memory flat on clients and relay, within the limits of §6.5.
+7. **Load**: 100 rooms of 4 on one relay process, without the load generator as the bottleneck. CPU per room and p99 tick-emission jitter within budget.
+8. **Browsers this host cannot test** (review finding 16). Once per multiplayer release, the capability matrix of §2.2 is rechecked, and release Safari is tested beside Chrome and Firefox on real machines. The extended 10 §10.6 `bench.html` gains a hidden-tab check (switch away for 6 minutes, then report the worker's tick rate), which the user runs.
 
 **Green before multiplayer ships:**
-- every D18 test passes on every golden save and scenario;
+- every D18 test passes on every golden save and scenario, with full-state comparison;
 - 100 hours of cross-engine fuzzing without a divergence;
-- the harness matrix within budget;
+- the harness matrix within budget, with **every join and swap completed** and full-state agreement after every fault;
+- the real-engine resource tests pass: repairs converge, or switch to foreground repair in time, on a 4-core reference machine at Late scale;
 - a two-hour soak with zero desyncs;
 - a scripted three-player session across two browsers;
 - join of a Late-scale save in under 30 s at 10 Mbit/s;
+- a paced join at 2 Mbit/s that completes, with the donor's added delay within target;
 - resume after a 3-s black-hole without a snapshot;
+- a relay process crash with no rewind, and a simulated machine crash with a correct rewind;
 - a forced desync repaired in the background;
 - load test passed;
-- the user's hidden-tab check passed.
+- the capability matrix rechecked, and the user's hidden-tab check passed in Chrome, Firefox and Safari.
 
 ---
 
@@ -790,16 +922,17 @@ None of these strings may be invented in code (`pm/README.md`). They are proposa
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
-| 1 | **Logic-level desyncs**: order, unsaved state, impure caches (D3, D4, D8, D9). The class that dominates in Factorio and OpenTTD, in any language | High during development | High | D1–D20 from M0; join equivalence and heavy mode on every scenario; background re-sync and debug bundles turn the remaining ones into fixable reports |
-| 2 | **Engine-level float divergence** if the simulation stays TypeScript | Medium | High | D5/D6 bans in `check-arch`; `detmath`; nightly cross-engine traces. Rust/WASM removes this class (§1.4) |
-| 3 | **Late-game joins and re-syncs on slow uplinks**: a 20 MB save at 2 Mbit/s takes 80 s, and pacing stretches it further | Medium | Medium | Relay-cached snapshots from periodic paced uploads; best-uplink donor; delta re-sync; "pause while joining" |
-| 4 | **Browsers suspending background tabs**: Chrome's Energy Saver freezing [33], Firefox's Nightly worker throttling [36], Safari's undocumented policies | Medium | Medium | The tick-driven worker loop; the catch-up/re-sync choice on wake-up; the bench check on the user's machine; Chrome's planned Progress Notification API, should it ship |
-| 5 | **A player's machine cannot hold 60 UPS late in the game** | Medium | Medium | Factorio's policy by default; "match the slowest player" as an option (§3.6) |
-| 6 | **TCP head-of-line stalls on lossy links** (Wi-Fi, mobile) make the world hitch or lag 200–500 ms | Medium | Low–medium | Adaptive playout; predicted own character. Later, optional WebTransport where UDP is allowed |
-| 7 | **Operating a relay**: hosting choice, uptime, privacy of stored games, abuse in public mode | Medium | Medium | Private mode by default; small codebase; graceful restarts; client-side autosaves; the Cloudflare option |
-| 8 | **Spec gaps for multiplayer**: per-player achievements and run-report lines, starting items for new players, offline-character rules, chat strings | Certain | Low | Listed in §8.3, §8.4 and §11 for the owners of 04, 07, 08 and 10 |
-| 9 | **Version skew** between a service-worker-cached build and a room | Medium | Low | The build check in `HELLO` (D14); forced update; room upgrade on resume (§6.3) |
-| 10 | **Bufferbloat during transfers** degrading the donor's game | Medium | Low | LEDBAT pacing (§4.3), measured |
+| 1 | **Logic-level desyncs**: order, unsaved state, impure caches (D3, D4, D8, D9). The class that dominates in Factorio and OpenTTD, in any language | High during development | High | D1–D23 from M0; join equivalence, heavy mode and full-state comparison on every scenario; background re-sync and debug bundles turn the remaining ones into fixable reports |
+| 2 | **Repairs that do not converge** on machines with few cores, where two worlds compete for CPU | Medium | Medium | The convergence check and the switch to foreground repair (§5.2); bounded attempts; real-engine resource tests (§9 item 4) |
+| 3 | **Late-game joins and re-syncs on slow uplinks**: a 20 MB save at 2 Mbit/s takes 80 s, and pacing stretches it further; the PoC's crude pacer did not hold the donor's delay down at 2 Mbit/s | Medium | Medium | Relay-cached checkpoints from periodic paced uploads; best-uplink donor; a tuned LEDBAT tested at 2 Mbit/s; "pause while joining"; delta re-sync if measurements justify it |
+| 4 | **Browsers suspending background tabs**: Chrome's Energy Saver freezing [33], Firefox's Nightly worker throttling [36], Safari's documented timer throttling, iOS suspension and App Nap [44] | Medium | Medium | The tick-driven worker loop; the catch-up/re-sync choice on wake-up; background execution treated as best effort; the capability matrix and the user's hidden-tab check |
+| 5 | **A player's machine cannot hold 60 UPS late in the game** | Medium | Medium | Factorio's policy by default; "match the slowest player" as an option (§3.6). Rust/WASM raises the threshold (§1.4) |
+| 6 | **Engine-level float divergence** | Low with Rust/WASM; medium with TypeScript | High | Rust/WASM and D19; for TypeScript, D5/D6 bans and `detmath`; nightly cross-engine traces either way |
+| 7 | **TCP head-of-line stalls on lossy links** (Wi-Fi, mobile) make the world hitch or lag 200–500 ms | Medium | Low–medium | Adaptive playout; predicted own character. Later, optional WebTransport where UDP is allowed |
+| 8 | **Operating a relay**: hosting choice, uptime, privacy of stored games, abuse in public mode | Medium | Medium | Private mode by default; write-before-broadcast and room generations (§6.9); graceful restarts; client-side autosaves |
+| 9 | **WASM traps** take a client's world down at once | Low | Medium | A trap is treated as a self-desync: fresh worker, checkpoint from a donor, bug bundle (§1.4, D19) |
+| 10 | **Spec gaps for multiplayer**: per-player achievements and run-report lines, starting items for new players, offline-character rules, chat strings | Certain | Low | Listed in §8.3, §8.4 and §11 for the owners of 04, 07, 08 and 10 |
+| 11 | **Version skew** between a service-worker-cached build and a room | Medium | Low | The build check in `HELLO` (D14); forced update; upgrades only from sealed checkpoints, with a build archive (§6.3) |
 
 ---
 
@@ -818,18 +951,19 @@ None of these strings may be invented in code (`pm/README.md`). They are proposa
 
 ### 12.1 What it is and how to run it
 
-The proof of concept is in `design/multiplayer/poc/`: about 2,200 lines of JavaScript, Node 24, and `ws` 8.22.0 as the one dependency. It lints clean under the project's Biome 2.5.15.
+The proof of concept is in `design/multiplayer/poc/`: about 2,550 lines of JavaScript, Node 24, and `ws` 8.22.0 as the one dependency. It lints clean under the project's Biome 2.5.15. It was patched after the codex review where that was cheap and could confirm a fix (§12.9).
 
 | File | What it is |
 |---|---|
 | `protocol.mjs` | The wire format of §3.2 (binary `TICKS`, `ACT`, `ACTACK`, `STATUS`, `DIGEST`, `PING`/`PONG`, snapshot chunks) |
 | `sim.mjs` | A toy deterministic simulation: integer state; per-player characters and inventories; drills and furnaces that compete in slot order; a saved LIFO free list; counter-based RNG; per-tick digest, rolling digest and rotating slice hash; serialize/deserialize with optional incompressible padding to emulate save sizes |
-| `relay.mjs` | The relay and sequencer of §6 (410 lines, with its stats and static-file endpoints) |
+| `relay.mjs` | The relay and sequencer of §6 (about 450 lines, with its stats and static-file endpoints) |
 | `client-core.mjs` | The client of §3–§5: stamping with margin control, adaptive playout, catch-up, donor uploads with optional LEDBAT pacing, background re-sync with a shadow simulation, resume, and held-input re-send. Runs in Node and in a browser worker |
 | `client.mjs` | A headless Node client with a scripted bot player |
 | `shadow-worker.mjs` | The background re-sync's shadow simulation in its own thread (§5.2) |
 | `netem.mjs` | A userspace TCP impairment proxy (there is no root, so no `tc`): delay, jitter, loss as head-of-line stalls, a shared FIFO bottleneck with a bounded queue and TCP back-pressure, drops, black-holes |
-| `run-scenarios.mjs` | The scenario matrix (§12.2–§12.4) |
+| `run-scenarios.mjs` | The scenario matrix (§12.2–§12.4, §12.6, §12.9). It requires full canonical-state agreement and reports whether every player got into the game |
+| `probes.mjs` | Wire-level probes for ordering, field limits, malformed input and duplicate chunks (§12.9) |
 | `loadgen.mjs` | The relay load test (§12.7) |
 | `summarize.mjs` | Turns the result files into the tables of this section (`results/summary.md`) |
 | `browser/` | The page, the worker and the hidden-tab experiment over raw CDP (§12.5) |
@@ -838,6 +972,7 @@ Run (here pinned to CPUs 8–15, away from another agent's benchmarks):
 - `cd design/multiplayer/poc && npm ci`
 - `taskset -c 8-15 node run-scenarios.mjs [name …] > results/matrix.txt` writes one `results/<name>.json` per scenario, about 70–90 s each;
 - `node summarize.mjs > results/summary.md` turns them into the tables below;
+- `taskset -c 8-15 node probes.mjs`, about 5 s;
 - `taskset -c 8-15 node loadgen.mjs --rooms 50`;
 - `xvfb-run -a taskset -c 8-15 node browser/hidden-tab-cdp.mjs 390`, about 8 minutes.
 
@@ -847,56 +982,62 @@ All numbers below are from the final run of every scenario (`results/matrix.txt`
 
 ### 12.2 Latency, stamping and playout
 
-Scenarios: `base` (three players: LAN, home and far; the home player's link drops at 30 s; the LAN host's link black-holes for 3 s at 38 s; the far player joins at 20 s and corrupts its state at tick 2700), `relaystamp` (the same with stamping on arrival at the relay), `hz30` (the same at 30 tick messages per second), `mixed` (four players on home, Wi-Fi, mobile and far links, no faults) and `harsh` (a stress link).
+Scenarios:
+- `base`: three players on LAN, home and far links. The home player's link drops at 30 s; the LAN host's link black-holes for 3 s at 38 s; the far player joins at 20 s and corrupts its state at tick 2700.
+- `relaystamp`: the same, with stamping on arrival at the relay.
+- `hz30`: the same, at 30 tick messages per second.
+- `mixed`: four players on home, Wi-Fi, mobile and far links, without faults.
+- `harsh`: a stress link.
 
 | Scenario: player (one-way delay ± jitter, loss stalls) | RTT ms | Input delay p50 (ticks) | Walk inputs mispredicted | Confirmed p50 / p95 ms | Applied locally p50 / p95 ms | Playout delay ms | Underruns (total) |
 |---|---|---|---|---|---|---|---|
-| base: A, LAN (1 ± 1 ms) | 4 | 1 | 0.0% | 33 / 51 | 80 / 110 | 35 | 2 (3.1 s: the black-hole) |
-| base: B, home (12 ± 6 ms, 0.3% × 150 ms) | 30 | 2 | 1.7% | 61 / 80 | 150 / 174 | 118 | 8 (0.6 s, with the drop) |
-| base: C, far (45 ± 20 ms, 1% × 250 ms) | 106 | 4 | 5.0% | 137 / 226 | 379 / 400 | 260 | 5 (0.5 s) |
-| relaystamp: A, LAN | 5 | 0 | **15.5%** | 20 / 48 | 74 / 100 | 52 | 4 (3.3 s) |
-| relaystamp: B, home | 29 | 1 | **20.0%** | 46 / 64 | 99 / 166 | 126 | 8 (0.6 s) |
-| relaystamp: C, far | 112 | 4 | **53.7%** | 130 / 271 | 367 / 396 | 274 | 4 (0.3 s) |
-| hz30: A, LAN | 5 | 1 | 0.0% | 46 / 75 | 144 / 170 | 98 | 2 (3.1 s) |
-| hz30: B, home | 29 | 1 | 3.3% | 60 / 87 | 103 / 164 | 123 | 6 (0.6 s) |
-| hz30: C, far | 107 | 4 | 7.5% | 156 / 404 | 368 / 551 | 247 | 5 (0.5 s) |
-| mixed: A, home | 28 | 2 | 0.0% | 64 / 77 | 207 / 228 | 147 | 3 (0.2 s) |
-| mixed: B, Wi-Fi (15 ± 20 ms, 0.5% × 200 ms) | 45 | 2 | 5.1% | 80 / 107 | 267 / 285 | 211 | 6 (0.3 s) |
-| mixed: C, mobile (30 ± 40 ms, 1% × 300 ms) | 93 | 5 | 6.7% | 152 / 416 | 444 / 576 | 320 | 3 (0.4 s) |
-| mixed: D, far | 102 | 4 | 5.5% | 149 / 375 | 389 / 404 | 265 | 3 (0.2 s) |
-| harsh: B (40 ± 60 ms, 3% × 400 ms) | 141 | 19 | 12.3% | 540 / 849 | 813 / 977 | 452 | 2 (0.1 s) |
+| base: A, LAN (1 ± 1 ms) | 4 | 1 | 0.0% | 30 / 47 | 48 / 77 | 8 | 2 (3.0 s: the black-hole) |
+| base: B, home (12 ± 6 ms, 0.3% × 150 ms) | 27 | 2 | 3.3% | 54 / 65 | 143 / 174 | 129 | 8 (0.7 s, with the drop) |
+| base: C, far (45 ± 20 ms, 1% × 250 ms) | 110 | 4 | 4.9% | 142 / 356 | 383 / 415 | 259 | 3 (0.3 s) |
+| relaystamp: A, LAN | 4 | 0 | **3.4%** | 14 / 21 | 32 / 48 | 8 | 1 (3.0 s) |
+| relaystamp: B, home | 27 | 1 | **10.0%** | 42 / 50 | 123 / 156 | 114 | 7 (0.7 s) |
+| relaystamp: C, far | 108 | 3 | **31.7%** | 129 / 365 | 366 / 382 | 259 | 3 (0.3 s) |
+| hz30: A, LAN | 4 | 1 | 0.0% | 37 / 53 | 53 / 73 | 22 | 1 (3.0 s) |
+| hz30: B, home | 28 | 1 | 0.0% | 55 / 80 | 88 / 101 | 46 | 3 (0.4 s) |
+| hz30: C, far | 99 | 4 | 7.3% | 140 / 172 | 374 / 389 | 258 | 4 (0.4 s) |
+| mixed: A, home | 30 | 1 | 0.0% | 43 / 112 | 178 / 195 | 150 | 5 (0.2 s) |
+| mixed: B, Wi-Fi (15 ± 20 ms, 0.5% × 200 ms) | 45 | 2 | 3.3% | 73 / 205 | 262 / 279 | 211 | 5 (0.3 s) |
+| mixed: C, mobile (30 ± 40 ms, 1% × 300 ms) | 89 | 15 | 8.3% | 310 / 471 | 599 / 626 | 323 | 5 (0.4 s) |
+| mixed: D, far | 95 | 6 | 10.5% | 253 / 470 | 417 / 589 | 259 | 3 (0.3 s) |
+| harsh: B (40 ± 60 ms, 3% × 400 ms) | 135 | 28 | 5.1% | 616 / 905 | 960 / 995 | 452 | 1 (0.4 s) |
 
-*Confirmed*: from sending an action to receiving the closed tick that contains it. *Applied locally*: until the player's own confirmed simulation executes it, which adds the playout buffer. Predicted movement is shown at once regardless (§3.5).
+*Confirmed*: from sending an action to receiving the closed tick that contains it. *Applied locally*: until the player's own confirmed simulation executes it, which adds the playout buffer. *Mispredicted*: the relay assigned a tick other than the one the client stamped, the prerequisite for exact prediction (§12.10).
 
 **Findings.**
-- **Stamping.** Client stamping mispredicts only the actions that arrive late (0–5% here, 12% on the stress link). Relay stamping mispredicts 15–54% of walk inputs, each by a tick or more (0.15 tiles). Across three runs, relay stamping measured 2–24% on the LAN link, 18–35% at home and 39–54% on the far link. Client stamping costs 7–15 ms of confirmation latency (the margin).
-- **The margin and playout controllers changed during the PoC, and the change shows.** With the first controllers (§3.4, §3.6), `mixed` measured 10, 18, 21 and 22 underruns per minute on the home, Wi-Fi, mobile and far links, and input delays of 2, 3, 20 and 18 ticks. With the final ones it measured 3, 6, 3 and 3 underruns, and 2, 2, 5 and 4 ticks, for about the same playout delay.
-- **The cost of TCP on lossy links** is the playout buffer. With a stall of 150–400 ms for every 100–300 messages, the buffer settles near the stall length (120–320 ms), so the world runs that far behind the player's predicted character. Real wired connections lose far less than these profiles, so their buffers are smaller.
-- **30 Hz** halves the tick messages (37–40 per second including acknowledgements, against 56–60) for about 10 ms more confirmation latency.
-- **Resumes.** The 30-s drop and the 3-s black-hole both resumed from the relay's log, without a snapshot. Every scenario ended with all clients' digests equal.
+- **Stamping.** Client stamping mispredicts only actions that arrive late, or that per-player order moves (0–5% on these links; 8–11% on mobile and far in `mixed`). Relay stamping mispredicted 3%, 10% and 32% of walk inputs on LAN, home and far links in this run. Across four runs it ranged 2–24% on LAN, 10–35% at home and 32–54% on the far link, each misprediction a tick or more (0.15 tiles). Client stamping costs about 10–15 ms of confirmation latency (the margin).
+- **The controllers changed during the PoC, and it shows.** With the first margin and playout controllers (§3.4, §3.6), `mixed` measured 10, 18, 21 and 22 underruns per minute on home, Wi-Fi, mobile and far links, with input delays of 2, 3, 20 and 18 ticks. With the final ones it measured 3–5 underruns per minute, with input delays of 1–2 ticks at home and on Wi-Fi, 4–6 on far links, and 5–15 on the mobile profile, varying between runs.
+- **The cost of TCP on lossy links** is the playout buffer. With a stall of 150–400 ms for every 100–300 messages, the buffer settles near the stall length (130–450 ms), so the world runs that far behind the player's predicted character. Real wired connections lose far less than these profiles, so their buffers are smaller.
+- **30 Hz** cuts the tick messages from 57–60 to 31–33 per second, and the payload from 44–46 to 27–28 kB per minute, for a few milliseconds more confirmation latency (8 ms on average in theory). The PoC's first relay woke a fraction of a millisecond before each tick boundary and split most 30 Hz batches; waking 1 ms after the boundary fixed it (§12.9).
+- **Resumes.** The 30-s drop and the 3-s black-hole both resumed from the relay's log, without a snapshot.
+- **Every scenario ended with all players in the game** (except `slow`, §12.4), and with both rolling digests and **full canonical state** equal at the last two common checkpoints (`results/matrix.txt`).
 
 ### 12.3 Late-game joins and the donor's uplink
 
-`bigjoin`: a 21 MB snapshot, every client spending 4 ms per tick (the Late row of 10 §4.7), and both players on home links capped at 10 Mbit/s up and 50 Mbit/s down. Each link is a single FIFO with a 300 ms queue, shared by the player's control and bulk sockets. `bigjoin-paced`: the same with the LEDBAT-style pacer (§4.3).
+`bigjoin`: a 21 MB snapshot, every client spending 4 ms per tick (the Late row of 10 §4.7), and both players on home links capped at 10 Mbit/s up and 50 Mbit/s down. Each link is a single FIFO with a 300 ms queue, shared by the player's control and bulk sockets. `bigjoin-paced`: the same with the LEDBAT-style pacer (§4.3). `slowlink-paced`: a 4.3 MB paced join over a 2 Mbit/s uplink (§12.9).
 
-| | Unpaced | Paced |
-|---|---|---|
-| Snapshot transfer (donor → relay → joiner) | 17.4 s (10 Mbit/s would take 16.8 s) | 37.8 s (24.9 s in an earlier run) |
-| Joiner's catch-up | 1,811 ticks in 12.9 s | not finished within the 75-s run |
-| Donor's control RTT, idle → during upload, p50 / p95 | 50 → **270 / 359 ms** | 52 → **60 / 141 ms** |
-| Donor's input delay p50 / confirmation p50 | 16 ticks / 309 ms | 4 ticks / 102 ms |
+| | Unpaced, 10 Mbit/s | Paced, 10 Mbit/s | Paced, 2 Mbit/s |
+|---|---|---|---|
+| Snapshot transfer (donor → relay → joiner) | 17.2 s (10 Mbit/s would take 16.8 s) | 22.9 s (25–38 s in earlier runs) | 21.3 s for 4.3 MB (1.6 Mbit/s) |
+| Joiner's catch-up | 1,371 ticks in 5.7 s | 1,821 ticks in 7.6 s | 1,371 ticks in 1.5 s (1 ms per tick) |
+| Join completed | yes | yes | yes |
+| Donor's control RTT, idle → during upload, p50 / p95 | 33 → **269 / 332 ms** | 32 → **43 / 165 ms** | 32 → **85 / 298 ms** |
+| Donor's input delay p50 / confirmation p50 | 17 ticks / 304 ms | 4 ticks / 99 ms | 11 ticks / 204 ms |
 
 **Findings.**
-- **The catch-up formula holds.** The joiner's effective rate was 140 ticks per second: the 4 ms emulated tick plus the single-threaded client's overheads, and 240 ticks per second in an earlier run. With it, §4.4's formula predicts 1,050/(140 − 60) = 13.1 s against 12.9 s measured.
-- **Pacing.** The unpaced donor's own game suffered for the whole transfer. The crude pacer protected it but doubled the transfer time. A tuned LEDBAT, a donor with a better uplink, or the relay's cached snapshot (§4.2) are the remedies. The time to join is dominated by the donor's uplink, not by anything on the relay.
-- **The thread.** A 4 ms tick on the thread that also handles the network widened the control round trip's tail: the joiner's confirmation p95 was 186 ms, against 77 ms on the same link without tick cost (`mixed` A). This is one reason the design moves networking into its own worker (§2.4).
+- **The catch-up formula holds.** The joiner's effective rate was 239 ticks per second (140 in an earlier run on a busier host), and §4.4's formula predicts 5.8 s against 5.7 s measured (13.1 s against 12.9 s in the earlier run).
+- **Pacing.** The unpaced donor's own game suffered for the whole transfer. The crude pacer protected it at 10 Mbit/s for a 33% longer transfer (up to twice as long in earlier runs). At 2 Mbit/s it kept the transfer moving but not the donor's latency, so a tuned LEDBAT is an implementation requirement (§4.3). The time to join is dominated by the donor's uplink, not by anything on the relay.
 
 ### 12.4 A machine that cannot hold 60 UPS
 
 `slow`: three players on home links. B needs 20 ms per tick.
-- **B** received its 1.1 MB snapshot in 0.5 s but never finished catching up, since it falls a further 10 ticks behind every second. So it never became live, never got a character, and never sent an action.
-- **A and C were unaffected:** input delay 2 ticks, confirmation p50 64 ms, 3–4 underruns, the same as any home link in the other scenarios. The relay does not wait (§3.6).
-- In the first matrix, which ran B's networking on its saturated thread, B's control RTT reached 5.4 s.
+- **B** received its 1.1 MB snapshot in 0.4 s but **never finished joining**: it falls a further 10 ticks behind every second, so it never became live, never got a character and never sent an action. The runner reports it as not in the game.
+- **A and C were unaffected:** input delay 1 tick, confirmation p50 43 ms, 3–4 underruns, the same as any home link in the other scenarios. The relay does not wait (§3.6).
+- In the first matrix, which ran B's networking on its saturated thread, B's control RTT reached 5.4 s. That is one reason the design gives networking its own worker (§2.4).
 
 ### 12.5 Hidden tabs and frozen pages (Chrome 156)
 
@@ -923,34 +1064,34 @@ Hence the rule of §3.6: a tick-driven simulation worker, and a check on the use
 
 ### 12.6 Desyncs and re-syncs
 
-| Scenario | Corrupted | Detected | Re-sync | Swapped in after the verdict | Afterwards |
+| Scenario | Corrupted | Detected | Re-sync download | Swapped in after the verdict | Afterwards |
 |---|---|---|---|---|---|
-| Two players, small state (smoke test of the final code) | tick 900 | at the tick-960 report | 166 kB snapshot, downloaded in 37 ms | 754 ms (including the deliberate 30-tick handover lead) | digests equal at ticks 600 and 1200 |
-| `base`: far player C | tick 2700 | at the tick-2760 report, relay tick 2781 | 2.2 MB, downloaded in 362 ms over the 100 ms link | 939 ms | digests equal at ticks 2400 and 3000 |
-| `bigresync`: late game, 4 ms per tick, 21 MB, donor uplink 10 Mbit/s | during the join's catch-up | at the first report after going live (tick 1980) | 21 MB, downloaded in 17.6 s | **35.2 s**, by the shadow thread | digests equal at ticks 4200 and 4800 |
-| `bigresync-paced` | as above | tick 2760 | 21 MB paced, 31.7 s | not within the 90-s run | B still on its divergent state at the end |
+| `base`: far player C | tick 2700 | at the tick-2760 report, relay tick 2781 | 2.2 MB in 133 ms over the 100 ms link | 731 ms (including the deliberate 30-tick handover lead) | full state equal at ticks 2400 and 3000 |
+| `lagreport`: B runs 6 s behind on purpose | tick 1500 | on the late path: its tick-1560 report arrived at relay tick 1923 | 1.1 MB in 172 ms | 6.2 s: the shadow waited for B's lagging live world | full state equal at ticks 2400 and 3000 |
+| `bigresync`: late game, 4 ms per tick, 21 MB, donor uplink 10 Mbit/s | tick 1500, during the join's catch-up | at the tick-1560 report, relay tick 1570 | 21 MB in 17.1 s | **23.3 s**, by the shadow thread | full state equal at ticks 4200 and 4800 |
+| `bigresync-paced`: the same, paced | tick 1500 | tick 1560, reported during catch-up (relay tick 1827) | 21 MB paced, 22.3 s | **30.1 s** | full state equal at ticks 4200 and 4800 |
 
-**The re-sync went unnoticed in play.** During the late-game re-sync, the desynced player kept playing: confirmation p50 68 ms, 3 underruns (0.14 s), normal input delay. Only its digests were excluded from votes.
+**The repair went unnoticed in play.** During both late-game re-syncs the desynced player kept playing, with confirmation p50 49–50 ms and 5–6 underruns (0.1–0.4 s). Only its digests were excluded from votes.
 
-**The PoC found five problems in its own first versions.** Each is now a rule in the design:
-1. **Digest comparison.** The relay compared a tick once every player whose last `STATUS` had passed that tick had reported. Since `STATUS` lags the digest, the fastest client was compared against nobody, and a desync between two players went unnoticed. Rule: expect every live player, and time out after 5 s (§5.1).
-2. **Stale digests.** One desync caused four re-syncs, because digests the client had sent from its divergent state were still queued at the relay. Rule: digest epochs, and purging on re-sync (§5.1).
+**The PoC found five problems in its own first versions, before the review.** Each is now a rule in the design:
+1. **Digest comparison.** The relay compared a tick once every player whose last `STATUS` had passed that tick had reported. Since `STATUS` lags the digest, the fastest client was compared against nobody, and a desync between two players went unnoticed. The interim fix expected every live player; the final rule defines membership at the checkpoint tick (§5.1).
+2. **Stale digests.** One desync caused four re-syncs, because digests the client had sent from its divergent state were still queued at the relay. Rule: digest epochs (§5.1).
 3. **Margin control.** The first controller added each action's lateness to the margin and took a tick off every 5 s. A single loss stall then left 18–20 ticks of input delay for a minute (§12.2). Rule: the margin is a high percentile of recent need (§3.4).
 4. **Playout control.** The first controller recomputed the buffer from a percentile every second, undoing each underrun's widening (§12.2). Rule: grow at once, shrink slowly (§3.6).
 5. **The shadow's thread.** Time-slicing the shadow simulation on the live thread saturated it at 4 ms per tick: the control RTT reached 1–4.6 s, and the late-game re-sync never finished. Rule: the shadow gets its own worker (§5.2). With one, it finished (above).
 
 ### 12.7 Relay load
 
-`loadgen.mjs` runs R rooms × 4 players that behave like players on the wire (60 Hz tick stream in, `STATUS` at 10 Hz, an action every 0.5 s, pings and digests out) against one relay process, and reads the relay's CPU time from `/proc` (`results/loadgen.jsonl`):
+`loadgen.mjs` runs R rooms × 4 players that behave like players on the wire against one relay process: a 60 Hz tick stream in; `STATUS` at 10 Hz, an action every 0.5 s, and pings and digests out. It reads the relay's CPU time from `/proc` (`results/loadgen.jsonl`, final relay code):
 
 | Rooms × 4 | Relay CPU | Per room | Memory | Tick messages per client per s |
 |---|---|---|---|---|
-| 1 | 3.5% | 35 ms/s | 70 MB | 60 |
-| 10 | 15.5% | 15 ms/s | 77 MB | 60 |
-| 50 | 46.5% | 9.3 ms/s | 89 MB | 57.5 |
-| 100 | 57% | 5.7 ms/s | 107 MB | 41 (the single-process load generator saturated) |
+| 1 | 3.0% | 30 ms/s | 69 MB | 60 |
+| 10 | 12.4% | 12 ms/s | 77 MB | 60 |
+| 50 | 41.9% | 8.4 ms/s | 89 MB | 60 |
+| 100 | 64.7% | 6.5 ms/s | 107 MB | 60 |
 
-On this 2013 Xeon a four-player room costs about 1% of a core. A current VPS core is about twice as fast.
+On this 2013 Xeon a four-player room costs under 1% of a core; 100 rooms fit in two-thirds of one core. A current VPS core is about twice as fast.
 
 ### 12.8 Bandwidth
 
@@ -958,13 +1099,49 @@ Payload bytes as the clients counted them:
 
 | | Down (relay → client) | Up | Tick messages per second |
 |---|---|---|---|
-| 60 Hz (`base`, `mixed`) | 43–47 kB per minute (0.75 kB/s) | 11 kB per minute (0.18 kB/s) | 56–60 |
-| 30 Hz (`hz30`) | 31–33 kB per minute (0.53 kB/s) | 11 kB per minute | 37–40 |
+| 60 Hz (`base`, `mixed`) | 44–47 kB per minute (0.75 kB/s) | 11 kB per minute (0.19 kB/s) | 57–60 |
+| 30 Hz (`hz30`) | 27–28 kB per minute (0.46 kB/s) | 11 kB per minute | 31–33 |
 | Load generator (`STATUS` at 10 Hz, no bot) | 0.81 kB/s | — | 60 |
 
 On the wire, each message adds about 76 bytes of WebSocket, TLS and TCP/IP overhead (§2.7). That turns 60 messages per second into about 5 kB/s down: the per-message overhead, not the payload, is the cost, which is why 30 Hz is the useful lever.
 
----
+### 12.9 Review fixes confirmed by tests
+
+After the codex review (`pm/reviews/A2-r1.md`), the PoC was patched where that was cheap and could confirm a fix:
+- **`probes.mjs`**, 10 wire-level checks, all passing:
+  - a later action stamped earlier than its predecessor (start requested at tick 48, stop at 38) is assigned tick 48, and the closure runs them in send order (finding 2);
+  - a 65,536-byte payload and a 65,536-entry batch are refused rather than wrapped to zero;
+  - a 70,000-entry resume range splits into contiguous bounded messages;
+  - a truncated `TICKS` message is rejected before the horizon moves;
+  - a malformed `ACT` closes that connection with code 4002 while the relay survives (finding 9);
+  - a duplicate chunk does not complete a two-chunk snapshot, an out-of-range chunk is ignored, and the snapshot completes when every chunk has arrived once (finding 11).
+- **`lagreport`** (finding 4): a player running 6 s behind corrupts its state. Its report arrives long after the other two players' verdict, is compared on arrival, and triggers a repair from a winning-group donor. The repair swapped in 6.2 s later and ended with full-state agreement. The same run exposed a handover bug (a shadow already ahead of the lagging live world never handed over), now fixed: the shadow hands over at once and the live world catches up to it.
+- **`slowlink-paced`** (finding 10): with a bucket that always holds one chunk and 16 KiB chunks when paced, a 4.3 MB paced join over a 2 Mbit/s uplink completed (21.3 s, §12.3). The first pacer could not send a 64 KiB chunk below about 640 KiB/s. The donor's latency at 2 Mbit/s was still too high (§4.3).
+- **The watchdog** (finding 3) now replaces a silent socket at once instead of waiting for `onclose`; the drop and black-hole resumes of `base` ran with it.
+- **The runner** (finding 15) now requires full canonical-state agreement as well as rolling-digest agreement, and reports whether every player got into the game.
+- **The relay's tick timer** wakes 1 ms after each boundary (§12.2).
+
+Design-only, not in the PoC:
+- relay durability and room generations (finding 1);
+- acceptance watermarks, deduplication and input fencing (finding 3);
+- the snapshot manifest and its SHA-256 (finding 11);
+- sealed upgrades (finding 6);
+- clock generations (finding 7);
+- queue limits (finding 8);
+- identity-based targets (finding 12);
+- the world-replacement protocol (finding 13);
+- the convergence check (finding 14).
+
+### 12.10 What the PoC does not establish
+
+Stated plainly, so that nothing above is read as more (review finding 15):
+- **Prediction exactness.** The PoC measures whether the relay assigned the tick the client stamped. That is the prerequisite for exact prediction, not prediction itself: there is no latency state to compare against the confirmed world.
+- **Real CPU contention.** Tick cost is emulated with a blocking wait that uses no CPU. The PoC therefore says nothing about a shadow simulation and a live one competing for cores, or about catch-up rates on a busy machine. Those need the real engine (§9 item 4).
+- **Repairs on weak machines.** Every repair in §12.6 converged, but on a host with idle cores and emulated costs. The convergence check of §5.2 is unimplemented.
+- **Slow players.** A player who cannot hold 60 UPS never finished joining (§12.4). The design's policy for them (§3.6) is untested.
+- **The real engine's determinism.** Agreement here is agreement of a toy simulation; the engine's own is D18's job.
+- **Durability, upgrades, clock transitions, queue limits and the world-replacement protocol** are specified but not exercised (§12.9).
+- **Browsers.** Only Chrome was measured with hidden tabs (§12.5); Firefox only from its source, Safari not at all.
 
 ## Appendix A: Sources
 
@@ -1010,6 +1187,10 @@ Fetched 2026-10-20 unless stated.
 38. blink-dev, "Intent to Implement and Ship: Intensive throttling of JavaScript timer wake ups" (2020): in a window hidden for 5 minutes, timer wake-ups are aligned to one-minute intervals. https://groups.google.com/a/chromium.org/g/blink-dev/c/8En_5DqV_fU/m/P23eNeUWAgAJ
 39. Factorio wiki, "Console": multiplayer commands (`/players`, `/w`, `/r`, `/kick`, `/ban`, `/promote`, `/demote`, `/color`); script commands disable achievements. https://wiki.factorio.com/Console
 40. NetplayJS: browser rollback and lockstep wrappers over WebRTC (peer-to-peer, so not usable here). https://www.npmjs.com/package/netplayjs
+41. WHATWG, WebSockets Standard, `close()`: "The close() method does not discard previously sent messages before starting the WebSocket closing handshake", which starts only after they are sent. https://websockets.spec.whatwg.org/#dom-websocket-close
+42. WebKit, "WebKit Features for Safari 26.4" (March 2026): WebTransport "runs over HTTP/3 and QUIC", and when "the underlying network environment doesn't support QUIC", it "can run over HTTP/2 and TCP as a fallback with the same API". https://webkit.org/blog/17862/webkit-features-for-safari-26-4/
+43. M. Inden (Mozilla), "Intro to WebTransport: the next WebSocket?", FOSDEM 2026 slides: HTTP/3, with HTTP/2 described as upcoming. https://archive.fosdem.org/2026/events/attachments/9DEU7E-intro_to_webtransport_-_the_next_websocket/slides/266785/fosdem_20_79q8n8e.pdf
+44. WebKit, "How Web Content Can Affect Power Usage" (2019): inactive pages have their timers throttled; "on iOS, tabs are completely suspended when possible"; on macOS, App Nap gives a tab that is not visually updating lower priority and throttled timers. https://webkit.org/blog/8970/how-web-content-can-affect-power-usage/
 
 **[I-data]** The design phase's local Factorio dumps in `design/round1/I-data/` (raw material, gitignored): the 2.x changelog (2.0.7 latency hiding for cars; 2.0.33 "Multiplayer selection rectangles will only show the player name if the player's character is not visible on-screen"; 2.1.18 chat colouring) and `controls.wiki` (map ping; "for pasting to work, the source entity must still exist").
 

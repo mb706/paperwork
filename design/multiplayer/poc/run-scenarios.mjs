@@ -61,6 +61,30 @@ const S = {
     duration: 90000,
   },
   'bigresync-paced': { from: 'bigresync', bulkPace: 'ledbat' },
+  // Review finding 4: B runs 6 s behind the relay on purpose and corrupts its state; A and C reach a verdict
+  // first, so B's digests arrive late and must still be compared.
+  lagreport: {
+    relay: ['--hz', '60', '--stamp', 'client'],
+    clients: [
+      { token: 'A', create: true, net: NET.home, start: 0 },
+      { token: 'B', net: NET.home, start: 1500, extraDelayMs: 6000, corruptAt: 1500 },
+      { token: 'C', net: NET.home, start: 1500 },
+    ],
+    pad: 1 << 20,
+    duration: 60000,
+  },
+  // Review finding 10: a paced 4 MB join over a 2 Mbit/s donor uplink must keep making progress.
+  'slowlink-paced': {
+    relay: ['--hz', '60', '--stamp', 'client', '--cache-ticks', '0'],
+    clients: [
+      { token: 'A', create: true, net: { ...NET.home, upKbps: 2000, downKbps: 16000 }, start: 0 },
+      { token: 'B', net: { ...NET.home, upKbps: 2000, downKbps: 16000 }, start: 10000 },
+    ],
+    pad: 4 << 20,
+    costMs: 1,
+    bulkPace: 'ledbat',
+    duration: 75000,
+  },
   // A client whose machine needs 20 ms per tick cannot hold 60 UPS: it falls behind, the others do not wait.
   slow: {
     relay: ['--hz', '60', '--stamp', 'client'],
@@ -125,6 +149,7 @@ async function run(name, portBase) {
     const si = sc.relay.indexOf('--stamp');
     if (si >= 0) ca.push('--stamp', sc.relay[si + 1]); // clients must predict with the relay's stamping mode
     if (c.corruptAt) ca.push('--corrupt-at', String(c.corruptAt));
+    if (c.extraDelayMs) ca.push('--extra-delay-ms', String(c.extraDelayMs));
     const p = spawn(node, ca, { cwd: here, stdio: ['ignore', 'pipe', 'pipe'] });
     procs.push(p);
     let buf = '';
@@ -140,7 +165,11 @@ async function run(name, portBase) {
   const common = Object.keys(clients[0].checkpoints ?? {}).filter((t) => clients.every((c) => c.checkpoints?.[t] !== undefined));
   const lastCommon = common.map(Number).sort((a, b) => a - b).slice(-2);
   const agree = lastCommon.length > 0 && lastCommon.every((t) => new Set(clients.map((c) => c.checkpoints[t])).size === 1);
-  const result = { scenario: name, config: sc, agreeAtTicks: lastCommon, agree, relay: relayStats[name], clients };
+  // Evidence must not overstate (review finding 15): also require the canonical full-state hash to agree, and
+  // report whether every player actually got into the game.
+  const fullAgree = lastCommon.length > 0 && lastCommon.every((t) => new Set(clients.map((c) => c.fullCheckpoints?.[t])).size === 1);
+  const inGame = Object.fromEntries(clients.map((c) => [c.client, !!c.inGame]));
+  const result = { scenario: name, config: sc, agreeAtTicks: lastCommon, agree, fullAgree, inGame, relay: relayStats[name], clients };
   fs.mkdirSync(path.join(here, 'results'), { recursive: true });
   fs.writeFileSync(path.join(here, 'results', `${name}.json`), JSON.stringify(result, null, 1));
   return result;
@@ -151,7 +180,7 @@ let port = 47200;
 for (const name of names) {
   const r = await run(name, port);
   port += 10;
-  console.log(`\n=== ${name}: final digests agree at ticks ${r.agreeAtTicks}: ${r.agree}; relay desyncs detected: ${r.relay?.desyncs?.length ?? 0}`);
+  console.log(`\n=== ${name}: at ticks ${r.agreeAtTicks} rolling digests agree: ${r.agree}, full state agrees: ${r.fullAgree}; in game: ${JSON.stringify(r.inGame)}; desyncs detected: ${r.relay?.desyncs?.length ?? 0}`);
   for (const c of r.clients) {
     console.log(
       `${c.client} idx=${c.index} rtt=${c.rttMs}ms margin=${c.margin} playout=${c.playoutDelayMs}ms confirm p50/p95=${c.confirmMs?.p50}/${c.confirmMs?.p95}ms apply p50/p95=${c.applyMs?.p50}/${c.applyMs?.p95}ms ` +

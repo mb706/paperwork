@@ -229,7 +229,8 @@ export class Sim {
   }
 
   fullHash() {
-    let h = mix(this.tick, this.rolling);
+    // canonical state only: independent of the digest's history, so a re-synced client must match exactly
+    let h = mix(this.tick, 0);
     h = hashWords(this.p, 0, this.p.length, h);
     h = hashWords(this.grid, 0, this.grid.length, h);
     h = hashWords(this.e, 0, this.top * EF, h);

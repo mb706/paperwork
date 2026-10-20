@@ -44,6 +44,7 @@ export class Client {
     this.mode = 'connecting';
     this.index = -1;
     this.inGame = false;
+    this.epoch = 0;
     this.seq = 0;
     this.margin = 2;
     this.needWin = []; // [time, ticks of margin each recent action needed]
@@ -63,7 +64,7 @@ export class Client {
     this.st = {
       confirmMs: [], applyMs: [], inputDelayTicks: [], predErrTicks: [], lead: [], stalls: [], late: 0, acts: 0,
       ticksMsgs: 0, inBytes: 0, outBytes: 0, outMsgs: 0, catchups: [], resyncs: [], joins: [], margins: [], digests: 0,
-      predSigned: [], clockErr: [], relayStale: [], transferRtt: [], idleRtt: [], checkpoints: {},
+      predSigned: [], clockErr: [], relayStale: [], transferRtt: [], idleRtt: [], checkpoints: {}, fullCheckpoints: {},
     };
   }
 
@@ -77,7 +78,7 @@ export class Client {
     this.pingN = 0;
     this.botTimer = setInterval(() => this.botStep(), 100);
     this.watchdog = setInterval(() => {
-      if (this.ws?.readyState === 1 && this.now() - this.lastHeard > 1500) this.ws.close(); // silent link: reconnect
+      if (this.ws?.readyState === 1 && this.now() - this.lastHeard > 1500) this.replaceSocket(); // silent link
     }, 250);
   }
   stop() {
@@ -87,6 +88,21 @@ export class Client {
     this.stopShadow();
     this.ws?.close();
     this.bulk?.close();
+  }
+  // A silent or broken link is replaced at once: close() would first drain queued sends and can take minutes
+  // to report onclose on a black-holed path (review finding 3).
+  replaceSocket() {
+    const old = this.ws;
+    this.ws = null;
+    if (old) {
+      old.onclose = null;
+      old.onmessage = null;
+      try {
+        old.close();
+      } catch {}
+    }
+    this.reconnects++;
+    this.connect();
   }
   url(extra = '') {
     return `${this.o.url}?room=${encodeURIComponent(this.o.room)}&token=${encodeURIComponent(this.o.token)}${extra}`;
@@ -139,8 +155,17 @@ export class Client {
     switch (u8[0]) {
       case P.M.JSON:
         return this.onJson(P.readJson(u8));
-      case P.M.TICKS:
-        return this.onTicks(P.decodeTicks(u8));
+      case P.M.TICKS: {
+        let msg;
+        try {
+          msg = P.decodeTicks(u8);
+        } catch (e) {
+          this.log?.({ malformed: String(e.message) });
+          this.replaceSocket();
+          return;
+        }
+        return this.onTicks(msg);
+      }
       case P.M.ACTACK:
         return this.onActAck(P.decodeActAck(u8));
       case P.M.PONG:
@@ -150,6 +175,8 @@ export class Client {
   onJson(m) {
     if (m.t === 'welcome') {
       this.index = m.index;
+      if (m.epoch !== undefined && m.mode !== 'snapshot') this.epoch = m.epoch;
+      if (m.mode === 'snapshot') this.pendingEpoch = m.epoch;
       if (m.mode === 'new') {
         this.sim = this.makeSim(new Sim(1));
         this.mode = 'live';
@@ -165,6 +192,7 @@ export class Client {
     } else if (m.t === 'resync') {
       // Background re-sync: keep playing the divergent sim, load the donor's state beside it, then swap.
       this.st.resyncs.push({ desyncTick: m.desyncTick, snapTick: m.snapTick, startedAt: this.now() });
+      this.pendingEpoch = m.epoch; // adopted when the re-synced state is swapped in
       this.snapWait = { id: m.snapId, tick: m.snapTick, chunks: [], got: 0, bytes: 0, shadow: true, t0: this.now() };
       this.retainFrom = Math.min(this.retainFrom, m.snapTick + 1);
       this.openBulk();
@@ -175,7 +203,11 @@ export class Client {
   onTicks(msg) {
     const now = this.now();
     this.st.ticksMsgs++;
-    if (msg.first > this.horizon + 1 && this.sim && this.mode !== 'loading') this.log?.({ gap: [this.horizon, msg.first] });
+    if (msg.first > this.horizon + 1 && this.horizon > 0) {
+      this.log?.({ gap: [this.horizon, msg.first] }); // never advance the horizon over a gap (review finding 9)
+      this.replaceSocket();
+      return;
+    }
     for (const en of msg.entries) {
       if (en.tick <= this.horizon) continue; // duplicate after a resume
       let list = this.closures.get(en.tick);
@@ -263,7 +295,9 @@ export class Client {
     this.seq = (this.seq + 1) & 0xffff;
     const seq = this.seq;
     const estOpen = Math.floor(this.relayTickNow()) + 1;
-    const target = this.o.stamp === 'client' ? estOpen + this.margin : estOpen;
+    // Targets never decrease, even when the margin shrinks or the clock estimate moves back (finding 2).
+    const target = Math.max(this.o.stamp === 'client' ? estOpen + this.margin : estOpen, this.lastTarget ?? 0);
+    this.lastTarget = target;
     // What the client would predict: its own stamp, or (relay stamping) the tick it expects on arrival.
     const predicted = this.o.stamp === 'client' ? target : Math.floor(this.relayTickNow() + (this.clock.best?.rtt ?? 0) / 2 / TICK) + 1;
     this.sent.set(seq, { at: this.now(), target, predicted, estOpenAtSend: estOpen, kind: bytes[0], margin: this.margin });
@@ -324,7 +358,7 @@ export class Client {
     return s;
   }
   due(t) {
-    return this.play.base + t * TICK + this.play.delay;
+    return this.play.base + t * TICK + this.play.delay + (this.o.extraDelayMs ?? 0);
   }
   adaptPlayout(now) {
     if (now - this.play.lastAdapt < 1000) return;
@@ -368,7 +402,7 @@ export class Client {
     this.adaptPlayout(now);
     if (this.mode === 'catchup') return;
     const lead = this.horizon - this.sim.tick;
-    if (lead > Math.ceil(this.play.delay / TICK) + 30) {
+    if (lead > Math.ceil((this.play.delay + (this.o.extraDelayMs ?? 0)) / TICK) + 30) {
       this.beginCatchup('behind');
       return;
     }
@@ -399,7 +433,7 @@ export class Client {
     if (this.mode !== 'catchup' || this.stopped) return;
     const t0 = this.now();
     while (this.sim.tick < this.horizon && this.now() - t0 < 12) this.applyNext();
-    if (this.horizon - this.sim.tick <= Math.ceil(this.play.delay / TICK) + 2) {
+    if (this.horizon - this.sim.tick <= Math.ceil((this.play.delay + (this.o.extraDelayMs ?? 0)) / TICK) + 2) {
       const ms = this.now() - this.catchStart;
       this.st.catchups.push({ reason: this.catchReason, ticks: this.sim.tick - this.catchFrom, ms: +ms.toFixed(0), msPerTick: +this.msPerTick.toFixed(3) });
       this.mode = 'live';
@@ -419,10 +453,13 @@ export class Client {
     for (const en of entries) this.afterEntry(en, t);
     if (this.o.corruptAt === t) this.sim.corrupt();
     if (t % 60 === 0 && this.mode !== 'loading') {
-      this.sendCtl(P.encodeDigest(t, this.sim.rolling));
+      this.sendCtl(P.encodeDigest(t, this.sim.rolling, this.epoch));
       this.st.digests++;
     }
-    if (t % 600 === 0) this.st.checkpoints[t] = this.sim.rolling;
+    if (t % 600 === 0) {
+      this.st.checkpoints[t] = this.sim.rolling;
+      this.st.fullCheckpoints[t] = this.sim.fullHash(); // canonical state, independent of digest history (finding 15)
+    }
     if (t < this.retainFrom) this.closures.delete(t);
     if (this.pendingSwap) this.swapIfReady();
   }
@@ -451,10 +488,12 @@ export class Client {
   donate(snapId) {
     const t0 = this.now();
     const bytes = this.sim.serialize(); // the real engine copies pools here and compresses in the IO worker
-    const count = Math.max(1, Math.ceil(bytes.length / CHUNK));
+    const paced = this.o.bulkPace === 'ledbat';
+    // Paced uploads use 16 KiB chunks: one 64 KiB chunk alone holds a 2 Mbit/s uplink for 262 ms (finding 10).
+    const size = paced ? 16 << 10 : CHUNK;
+    const count = Math.max(1, Math.ceil(bytes.length / size));
     this.openBulk();
     let i = 0;
-    const paced = this.o.bulkPace === 'ledbat';
     let tokens = 0;
     let last = this.now();
     this.uploading = { snapId, t0, bytes: bytes.length };
@@ -462,12 +501,12 @@ export class Client {
       if (this.stopped) return;
       if (this.bulk?.readyState !== 1) return setTimeout(pumpUp, 20);
       const now = this.now();
-      tokens = Math.min(this.pacer.rate * 0.1, tokens + ((now - last) / 1000) * this.pacer.rate);
+      tokens = Math.min(Math.max(this.pacer.rate * 0.1, size), tokens + ((now - last) / 1000) * this.pacer.rate); // >= one chunk (finding 10)
       last = now;
-      while (i < count && this.bulk.bufferedAmount < (paced ? 64 << 10 : 2 << 20)) {
-        if (paced && tokens < CHUNK) break;
-        tokens -= CHUNK;
-        this.bulk.send(P.encodeSnapChunk(snapId, i, count, bytes.length, bytes.subarray(i * CHUNK, (i + 1) * CHUNK)));
+      while (i < count && this.bulk.bufferedAmount < (paced ? size : 2 << 20)) {
+        if (paced && tokens < size) break;
+        tokens -= size;
+        this.bulk.send(P.encodeSnapChunk(snapId, i, count, bytes.length, bytes.subarray(i * size, (i + 1) * size)));
         i++;
       }
       if (i < count || this.bulk.bufferedAmount > 0) return setTimeout(pumpUp, 10);
@@ -480,11 +519,15 @@ export class Client {
   }
   onSnapChunk(c) {
     const w = this.snapWait;
-    if (!w || c.snapId !== w.id || w.chunks[c.index]) return;
+    if (!w || c.snapId !== w.id || w.chunks[c.index]) return; // duplicates count once
+    w.count ??= c.count;
+    w.total ??= c.total;
+    if (c.count !== w.count || c.total !== w.total || c.index >= c.count || c.bytes.length > CHUNK) return; // bounds (finding 11)
     w.chunks[c.index] = c.bytes.slice();
     w.got++;
     w.bytes += c.bytes.length;
     if (w.got < c.count) return;
+    if (w.bytes !== c.total) return; // the manifest's size must match exactly
     const all = new Uint8Array(c.total);
     let o = 0;
     for (const ch of w.chunks) {
@@ -514,6 +557,7 @@ export class Client {
       }
     } else {
       this.sim = s;
+      this.epoch = this.pendingEpoch ?? this.epoch;
       this.st.lastSnap = { bytes: c.total, downloadMs: +downloadMs.toFixed(0), loadMs: +loadMs.toFixed(1), tick: w.tick };
       this.beginCatchup('join');
     }
@@ -537,6 +581,7 @@ export class Client {
     r.divergedBeforeSwap = p.sim.rolling !== this.sim.rolling;
     r.viaWorker = true;
     this.sim = p.sim;
+    this.epoch = this.pendingEpoch ?? this.epoch;
     this.pendingSwap = null;
     this.swHandover = 0;
     this.retainFrom = Infinity;
@@ -558,6 +603,7 @@ export class Client {
       r.divergedBeforeSwap = this.shadow.rolling !== this.sim.rolling;
       this.sim = this.shadow;
       this.shadow = null;
+      this.epoch = this.pendingEpoch ?? this.epoch;
       this.retainFrom = Infinity;
       for (const t of this.closures.keys()) if (t <= this.sim.tick) this.closures.delete(t);
     }
@@ -603,6 +649,9 @@ export class Client {
       resyncs: st.resyncs,
       msPerTick: +this.msPerTick.toFixed(3),
       checkpoints: st.checkpoints,
+      fullCheckpoints: st.fullCheckpoints,
+      inGame: this.inGame,
+      epoch: this.epoch,
       bytes: { in: st.inBytes, out: st.outBytes, outMsgs: st.outMsgs, ticksMsgs: st.ticksMsgs, digests: st.digests },
       uploads: st.uploads ?? [],
       rttIdle: { p50: pct(st.idleRtt, 0.5), p95: pct(st.idleRtt, 0.95) },
