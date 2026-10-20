@@ -7,7 +7,14 @@
   conda-forge via `micromamba`, npm/PyPI packages, then a rootless `podman` container
   (Podman 5.8.4 works; its cgroup-v1 caveats are documented in `~/qwenxcl/CONTAINERS.md`).
 - Layout: tools in `~/.local/opt/<tool>-<version>` with `<tool>-current` symlinks, commands in `~/.local/bin`.
-- Verify everything with `tools/check-toolchain.sh` (~20 s).
+- **Benchmarking here:** socket 0 = CPUs 0–7 (+ HT 16–23), socket 1 = 8–15 (+ 24–31); pin benchmarks with
+  `taskset -c 0-7` and heavy jobs to socket 1. The clock is not stable: under load the CPUs mostly run at the
+  2.6 GHz base clock and get turbo (≈3.3 GHz) only in windows of minutes, so single runs can differ by ~25%.
+  Interleave the variants you compare, repeat, and log the clock (`design/engine-study/harness/freqlog.sh`).
+  Node 0 is usually short of free memory (page cache), so big allocations spill to node 1 and automatic NUMA
+  balancing then migrates them under the running job (rare 10–20 ms stalls in any language);
+  `numactl --membind` fails here (EINVAL).
+- Verify everything with `tools/check-toolchain.sh` (~45 s; Blender EEVEE and the browser launches dominate).
 
 ## Toolchain
 - **Node 24 LTS** + npm (global prefix `~/.local`). `/usr/bin/node` is v10 — never use it.
@@ -30,7 +37,16 @@
 - **Audio**: `fluidsynth` with SoundFonts in `~/.local/share/soundfonts` (GeneralUser-GS.sf2 — free for any use;
   FluidR3_GM.sf2 — MIT), `sox`, static `ffmpeg` 9 (opus, vorbis, mp3, aac), pedalboard (effects/mastering), `lame`, `opusenc`.
 - **Misc**: `jq`, `fd`, `rg`, `gh`, `zstd`, `micromamba` (root `~/.local/share/mamba`; env `media` = conda CLI tools,
-  env `mesa` = GL stack for Blender).
+  env `mesa` = GL stack for Blender), `numactl`/`numastat` (conda-forge, `~/.local/opt/numactl-2.0.18`).
+- **Rust / WebAssembly** (WP A1): rustup 1.29 with Rust **1.99.1** (default toolchain; targets x86_64 and
+  `wasm32-unknown-unknown`; clippy, rustfmt). `RUSTUP_HOME=~/.local/opt/rustup`, `CARGO_HOME=~/.local/opt/cargo`,
+  exported in `~/.zshenv` (non-interactive shells too); `cargo`, `rustc`, `rustup`, `rustfmt`, `cargo-clippy` in
+  `~/.local/bin` are wrappers that also set them. Crates pin the toolchain in `rust-toolchain.toml`.
+  `wasm-opt` / `wasm-dis` / `wasm2js`: binaryen **133** (static build, `~/.local/opt/binaryen-133`).
+  Build: `cargo build --release --target wasm32-unknown-unknown`, then `wasm-opt -O3`. Example and timings:
+  `design/engine-study/` (`rust/build-wasm.sh`).
+- **Firefox 157** for Playwright: `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu22.04-x64 playwright install firefox`
+  (in `~/.cache/ms-playwright`). It launches headless here with Workers, WebAssembly and SIMD, but without WebGL2.
 
 ## Recipes
 - MIDI → audio: `fluidsynth -ni -q -g 0.7 -r 44100 -F out.wav ~/.local/share/soundfonts/GeneralUser-GS.sf2 song.mid`

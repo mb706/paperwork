@@ -1,0 +1,97 @@
+{
+ "sizes": [
+  {
+   "file": "target/sizes/kernel.js",
+   "raw": 34709,
+   "gzip": 9511,
+   "brotli": 8350
+  },
+  {
+   "file": "target/wasm/sim.raw.wasm",
+   "raw": 88104,
+   "gzip": 30557,
+   "brotli": 24475
+  },
+  {
+   "file": "target/wasm/sim.wasm",
+   "raw": 70651,
+   "gzip": 27141,
+   "brotli": 21771
+  },
+  {
+   "file": "target/wasm/sim-simd.raw.wasm",
+   "raw": 88988,
+   "gzip": 30980,
+   "brotli": 25059
+  },
+  {
+   "file": "target/wasm/sim-simd.wasm",
+   "raw": 71618,
+   "gzip": 27532,
+   "brotli": 22175
+  }
+ ],
+ "startup": {
+  "wasm": [
+   {
+    "compile": 1.0627299999999877,
+    "instantiate": 0.18382600000001048
+   },
+   {
+    "compile": 1.1090360000000032,
+    "instantiate": 0.19157899999999017
+   },
+   {
+    "compile": 1.0574220000000025,
+    "instantiate": 0.1804740000000038
+   },
+   {
+    "compile": 1.074464000000006,
+    "instantiate": 0.18347800000000802
+   },
+   {
+    "compile": 1.066012999999998,
+    "instantiate": 0.20142699999999536
+   }
+  ],
+  "wasmSimd": [
+   {
+    "compile": 0.9706070000000011,
+    "instantiate": 0.1917190000000062
+   },
+   {
+    "compile": 1.0997470000000078,
+    "instantiate": 0.18096299999999133
+   },
+   {
+    "compile": 4.334942000000012,
+    "instantiate": 0.1816609999999912
+   },
+   {
+    "compile": 1.0556059999999832,
+    "instantiate": 0.18291899999999828
+   },
+   {
+    "compile": 1.0566539999999804,
+    "instantiate": 0.17949600000000032
+   }
+  ],
+  "tsImport": [
+   {
+    "import": 2.636361000000022
+   },
+   {
+    "import": 2.6237199999999916
+   },
+   {
+    "import": 2.5865630000000124
+   },
+   {
+    "import": 2.638666999999998
+   },
+   {
+    "import": 2.6473270000000184
+   }
+  ]
+ }
+}

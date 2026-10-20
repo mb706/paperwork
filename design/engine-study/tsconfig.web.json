@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "target": "es2024", "module": "esnext", "moduleResolution": "bundler", "strict": true, "noEmit": true,
+    "lib": ["es2024", "webworker"], "types": ["vite/client"], "allowImportingTsExtensions": true, "skipLibCheck": true
+  },
+  "include": ["ts/wasm-world.ts", "harness/bench-core.ts", "harness/web/src/worker.ts", "harness/web/src/threads-worker.ts", "harness/web/src/threads-helper.ts"]
+}

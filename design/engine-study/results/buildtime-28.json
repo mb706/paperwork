@@ -1,0 +1,61 @@
+{
+ "copies": 28,
+ "rustLines": 49791,
+ "tsLines": 44610,
+ "rust": [
+  {
+   "step": "cargo check (clean)",
+   "seconds": 5.32
+  },
+  {
+   "step": "cargo check (incremental, one module edited)",
+   "seconds": 1.02
+  },
+  {
+   "step": "cargo build wasm release, fat LTO (clean)",
+   "seconds": 38.48
+  },
+  {
+   "step": "cargo build wasm release, fat LTO (incremental)",
+   "seconds": 37.68
+  },
+  {
+   "step": "cargo build wasm wasmdev: O2, no LTO, 16 CGUs (clean)",
+   "seconds": 12.91
+  },
+  {
+   "step": "cargo build wasm wasmdev (incremental)",
+   "seconds": 2.88
+  },
+  {
+   "step": "cargo test --no-run, native debug (clean)",
+   "seconds": 6.41
+  },
+  {
+   "step": "cargo test --no-run, native debug (incremental)",
+   "seconds": 1.17
+  }
+ ],
+ "rustWasmBytes": 1617893,
+ "wasmOptSeconds": 28.52,
+ "rustWasmOptBytes": 1394878,
+ "ts": [
+  {
+   "step": "tsc --noEmit (TS 7, clean)",
+   "seconds": 0.6
+  },
+  {
+   "step": "tsc --noEmit (one file edited)",
+   "seconds": 0.54
+  },
+  {
+   "step": "vite build (bundle + minify)",
+   "seconds": 0.75
+  },
+  {
+   "step": "vite build (one file edited)",
+   "seconds": 0.8
+  }
+ ],
+ "tsBundleBytes": 915837
+}

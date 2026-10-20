@@ -32,6 +32,11 @@ check resvg          resvg --version
 check gltf-transform gltf-transform --version
 check gltfpack       sh -c "gltfpack -v 2>&1 | head -1"
 check podman         sh -c "podman --version"
+check rustc          rustc --version
+check cargo          cargo --version
+check wasm32-target  sh -c "rustup target list --installed | grep -x wasm32-unknown-unknown"
+check wasm-opt       wasm-opt --version
+check numactl        sh -c "numactl --show | head -1"
 
 echo "functional:"
 sf=$HOME/.local/share/soundfonts/GeneralUser-GS.sf2
@@ -55,6 +60,21 @@ check chrome-webgl2  node --input-type=module -e "
     await b.close();
     if (!r) throw new Error('no WebGL2');
     console.log(r);"
+check rust-wasm      sh -c "
+    mkdir -p '$work/rs/src' && cd '$work/rs' &&
+    printf '[package]\nname = \"t\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[lib]\ncrate-type = [\"cdylib\"]\n' > Cargo.toml &&
+    printf '#[unsafe(no_mangle)]\npub extern \"C\" fn add(a: i32, b: i32) -> i32 { a + b }\n' > src/lib.rs &&
+    cargo build -q --release --target wasm32-unknown-unknown &&
+    wasm-opt -O3 target/wasm32-unknown-unknown/release/t.wasm -o t.wasm &&
+    node -e \"WebAssembly.instantiate(require('fs').readFileSync('t.wasm')).then(r => { if (r.instance.exports.add(2, 3) !== 5) process.exit(1); console.log('cargo -> wasm32 -> wasm-opt -> Node') })\""
+check firefox        node --input-type=module -e "
+    import { firefox } from '$HOME/.local/lib/node_modules/playwright/index.mjs';
+    const b = await firefox.launch();
+    const p = await b.newPage();
+    const ok = await p.evaluate(() => typeof Worker === 'function' && typeof WebAssembly === 'object');
+    console.log('Firefox ' + b.version() + (ok ? ' (Worker, WebAssembly)' : ' MISSING FEATURES'));
+    await b.close();
+    if (!ok) process.exit(1);"
 check blender-eevee  sh -c "
     blender -b --factory-startup -noaudio --python-expr \"
 import bpy

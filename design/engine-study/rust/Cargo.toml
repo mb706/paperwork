@@ -1,0 +1,27 @@
+[package]
+name = "paperwork-sim-study"
+version = "0.1.0"
+edition = "2024"
+description = "WP A1 engine study: the Rust port of ts/kernel.ts (bit-identical)"
+publish = false
+
+[lib]
+name = "sim"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+debug = false
+
+# development profile for the wasm build loop (fast incremental, still optimised)
+[profile.wasmdev]
+inherits = "release"
+lto = false
+codegen-units = 16
+incremental = true
+opt-level = 2

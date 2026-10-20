@@ -1,0 +1,9 @@
+{"mode":"own","scale":"late","regime":"busy","arenaBytes":0,"mean":2.124942564722248,"p99":2.293013999998948,"max":8.648095000000467,"hash":"e8978596","rep":1}
+{"mode":"buffer","scale":"late","regime":"busy","arenaBytes":14716368,"mean":2.1830517186111185,"p99":2.603117000002385,"max":7.689849000000322,"hash":"e8978596","rep":1}
+{"mode":"wasm-memory","scale":"late","regime":"busy","arenaBytes":14716368,"mean":2.131790003888885,"p99":2.440872000001036,"max":7.726376999999047,"hash":"e8978596","rep":1}
+{"mode":"own","scale":"late","regime":"busy","arenaBytes":0,"mean":2.1259305244444673,"p99":2.326398999999583,"max":8.89100800000233,"hash":"e8978596","rep":2}
+{"mode":"buffer","scale":"late","regime":"busy","arenaBytes":14716368,"mean":2.143015668333308,"p99":2.313967000000048,"max":7.805577999999514,"hash":"e8978596","rep":2}
+{"mode":"wasm-memory","scale":"late","regime":"busy","arenaBytes":14716368,"mean":2.1101644230555303,"p99":2.3350590000009106,"max":6.686764999998559,"hash":"e8978596","rep":2}
+{"mode":"own","scale":"late","regime":"busy","arenaBytes":0,"mean":2.13656143277778,"p99":2.3514029999987542,"max":8.74545500000022,"hash":"e8978596","rep":3}
+{"mode":"buffer","scale":"late","regime":"busy","arenaBytes":14716368,"mean":2.132350504444429,"p99":2.2952490000006947,"max":9.370828000002803,"hash":"e8978596","rep":3}
+{"mode":"wasm-memory","scale":"late","regime":"busy","arenaBytes":14716368,"mean":2.147767287222249,"p99":2.3237449999978708,"max":8.076149000000441,"hash":"e8978596","rep":3}

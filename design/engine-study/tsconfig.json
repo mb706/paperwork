@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "target": "es2024", "module": "esnext", "moduleResolution": "bundler", "strict": true, "noEmit": true,
+    "lib": ["es2024"], "types": [], "allowImportingTsExtensions": true, "exactOptionalPropertyTypes": true
+  },
+  "include": ["ts/kernel.ts", "ts/format.ts", "ts/sim-like.ts", "gen/generate.ts"]
+}

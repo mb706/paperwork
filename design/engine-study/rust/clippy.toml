@@ -1,0 +1,17 @@
+# Determinism bans for the sim (spec 10 §4.1, the Rust equivalent of check-arch):
+# host-dependent maths and randomly seeded hashing.
+disallowed-methods = [
+  { path = "f64::sin", reason = "not bit-identical across targets; use libm" },
+  { path = "f64::cos", reason = "use libm" },
+  { path = "f64::tan", reason = "use libm" },
+  { path = "f64::exp", reason = "use libm" },
+  { path = "f64::ln", reason = "use libm" },
+  { path = "f64::log2", reason = "use libm" },
+  { path = "f64::powf", reason = "use libm" },
+  { path = "f64::atan2", reason = "use libm" },
+  { path = "f64::mul_add", reason = "fused multiply-add differs from mul + add" },
+]
+disallowed-types = [
+  { path = "std::collections::HashMap", reason = "random seed per process: iteration order differs between peers" },
+  { path = "std::collections::HashSet", reason = "random seed per process" },
+]
