@@ -1,0 +1,38 @@
+1. **Major — UTF-8 strings decode differently.** [codec.ts:101](/home/mewse/browsergame/game/src/shared/gen/codec.ts:101), [codec.rs:260](/home/mewse/browsergame/game/crates/schema/src/codec.rs:260).  
+   A `ConsoleCommandAction` payload `04 00 EF BB BF 78` decodes to `"x"` in TypeScript and `"\uFEFFx"` in Rust. TypeScript re-encodes it as `01 00 78`, losing bytes. Its `TextDecoder` strips the leading BOM. This also affects saved strings and prototype names. **Fix:** set `ignoreBOM: true` in the decoder template and audit other string decoders. Add BOM-only and BOM-prefixed fixtures.
+
+2. **Major — TypeScript accepts noncanonical free pool rows that Rust refuses.** [pools.ts:129](/home/mewse/browsergame/game/src/shared/gen/pools.ts:129), [pools.rs:211](/home/mewse/browsergame/game/crates/sim/src/gen/pools.rs:211).  
+   `encodeContainerPool([{entity: 0, inv: 0}])` produces bytes that TypeScript successfully decodes. Rust rejects them as `not_canonical`: a free container row must have `inv = 0xFFFFFFFF`. The entity-table decoder likewise omits Rust’s free-row checks. Generated sample dispatch excludes tables, so the round trips miss this. **Fix:** generate equivalent canonical-row checks for TypeScript readers and writers, with fixtures covering both tables and the retained generation column.
+
+3. **Major — Default closure-log readers disagree about missing blobs.** [container.ts:626](/home/mewse/browsergame/game/src/shared/gen/container.ts:626), [container.rs:926](/home/mewse/browsergame/game/crates/schema/src/container.rs:926).  
+   A valid log containing a `place_blueprint` action with a blob reference, but an empty blob table, succeeds through `parseClosureLog(bytes)`; Rust returns `bad_ref`. TypeScript only validates references when the caller supplies an optional callback. A shell using the default reader discovers the corruption during replay. **Fix:** make blob-reference extraction and validation intrinsic to both parsers; add a shared missing-blob log fixture.
+
+4. **Major — Tiny inputs can trigger enormous allocations or Wasm traps.** [container.rs:883](/home/mewse/browsergame/game/crates/schema/src/container.rs:883), [pools.rs:198](/home/mewse/browsergame/game/crates/sim/src/gen/pools.rs:198), [pools.ts:118](/home/mewse/browsergame/game/src/shared/gen/pools.ts:118).  
+   A 116-byte log header with `record_count = 0xFFFFFFFF` and `record_bytes = 0` reaches `Vec::with_capacity` before discovering the missing records. The analogous `blob_count` path does too. On wasm32 these capacities overflow and panic. Separately, the eight-byte pool header `FF FF FF FF 00 00 00 00` causes both pool readers to attempt billions of default rows despite containing no columns. **Fix:** validate counts against available bytes before allocation; declare table row/memory limits, require the applicable live column, and use checked sizing and fallible allocation.
+
+5. **Major — Closure-log parsing invokes an iterator whose precondition it has not established.** [container.rs:927](/home/mewse/browsergame/game/crates/schema/src/container.rs:927), [actions.rs:3822](/home/mewse/browsergame/game/crates/schema/src/actions.rs:3822).  
+   Put this 20-byte closure in an otherwise valid one-record log:
+
+   `01000000 01000000 01000000 00000000 29000000`
+
+   It contains a batch with `count = 0`, followed by a framed `clear_cursor`. `ClosureLog::parse` calls `ClosureIter` without preflight; the iterator reads the action and decrements zero. Checked builds panic; release builds wrap and accept malformed framing. **Fix:** use a fallible framing iterator in log parsing, or validate framing first. Add malformed inner-closure cases to log tests; the existing closure-preflight fixtures do not exercise this caller.
+
+6. **Major — The save-header contract leaves essential nested formats unspecified.** [sections.yaml:164](/home/mewse/browsergame/game/schema/sections.yaml:164), [container.ts:500](/home/mewse/browsergame/game/src/shared/gen/container.ts:500).  
+   Settings and name tables are opaque `object`s; the roster is an opaque `array`. Consequently, a header with `name_tables: {item: 42}` and `roster: [null]` passes validation. There is no executable contract for roster colour representation, required prototype-kind tables, or their element types. Parallel shell, IO and UI implementations must invent these details. Changes inside these objects also escape the layout hash. **Fix:** declare named nested JSON schemas, reuse the settings definitions, specify roster colours and limits, and include those resolved shapes in `SCHEMA_HASH`.
+
+7. **Major — Distinct floating-point defaults can share `SCHEMA_HASH`.** [listing.ts:71](/home/mewse/browsergame/game/scripts/schema-gen/listing.ts:71), [ts.ts:732](/home/mewse/browsergame/game/scripts/schema-gen/ts.ts:732).  
+   In-memory schema variants changing `map_settings.starting_area` to `default: 0` and `default: -0` produce identical hashes. Rust emission differs: the latter preserves `0x8000000000000000`. TypeScript emission turns both defaults into positive zero. Thus one hash can identify different Rust default bytes, and the negative-zero schema produces differing language defaults. **Fix:** represent floating defaults by their resolved IEEE bits in the listing and preserve those defaults in TypeScript, or explicitly reject negative-zero defaults. Test lenient reads with absent fields.
+
+8. **Major — Version bumps and historical ID reuse are not enforced.** [model.ts:1107](/home/mewse/browsergame/game/scripts/schema-gen/model.ts:1107), [schema-gen.ts:186](/home/mewse/browsergame/game/scripts/schema-gen.ts:186).  
+   Validation compares IDs only within the current schema; freshness compares generated outputs with current inputs. There is no compatibility baseline. Changing `rotate_entity.reverse` from `bool` to `u16` is accepted by the model with every version still `1`; regeneration makes freshness and content hashes agree. Reassigning a removed ID is similarly undetectable. This falls short of §15.1’s explicit refusal requirement. **Fix:** retain a compatibility manifest recording historical IDs, layouts and owning versions, and compare schema changes against it before generation.
+
+9. **Minor — Zero-column prototype tables lose their row count in Rust.** [protos.rs:2922](/home/mewse/browsergame/game/crates/schema/src/protos.rs:2922).  
+   A valid `PROTO_SIGNAL` table with one row and one matching name loads, but Rust’s `SignalProtos::len()` returns `0` and `is_empty()` returns `true`. TypeScript returns a one-element array. I reproduced the TypeScript case using the generated writer. M0’s empty signal table conceals it. **Fix:** retain an explicit row count for zero-column tables and test a nonempty instance.
+
+10. **Minor — The README’s advertised struct API does not exist.** [README.md:185](/home/mewse/browsergame/game/schema/README.md:185), [packet.ts:798](/home/mewse/browsergame/game/src/shared/gen/packet.ts:798).  
+    The documented `EntityViewCodec.decode(slice)` example fails: generated fixed-struct codecs expose `read`/`write`, but lack `encode`/`decode`. **Fix:** generate exact-buffer convenience methods consistently, or correct the guide and its examples.
+
+Verification: the existing Rust codec/prototype/golden test binaries passed. Read-only TypeScript checks passed 454 round trips, 1,733 probes and 192 hand-written cases. Fresh `npm run ci` was blocked by the read-only sandbox.
+
+**Gate items 1–2: remain open pending contract and generator fixes.**  
+**Gate item 3: remain open pending shared regression fixtures for these failures.**
