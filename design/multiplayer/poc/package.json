@@ -1,0 +1,9 @@
+{
+  "name": "paperwork-mp-poc",
+  "private": true,
+  "type": "module",
+  "description": "Proof of concept for design/multiplayer/DESIGN.md: relay sequencer, lockstep clients, impairment proxy",
+  "dependencies": {
+    "ws": "8.22.0"
+  }
+}

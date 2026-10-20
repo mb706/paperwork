@@ -33,3 +33,4 @@ design/art/out/
 design/audio/out/
 design/engine-study/**/target/
 design/engine-study/**/node_modules/
+pm/reviews/*.log

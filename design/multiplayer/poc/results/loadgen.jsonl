@@ -1,0 +1,4 @@
+{"rooms":1,"clientsPerRoom":4,"sockets":4,"relayCpuPercentOfOneCore":3.5,"relayCpuMsPerRoomSecond":34.67,"relayRssMB":70,"tickMsgsPerClientPerSec":60}
+{"rooms":10,"clientsPerRoom":4,"sockets":40,"relayCpuPercentOfOneCore":15.5,"relayCpuMsPerRoomSecond":15.47,"relayRssMB":77,"tickMsgsPerClientPerSec":60}
+{"rooms":50,"clientsPerRoom":4,"sockets":200,"relayCpuPercentOfOneCore":46.5,"relayCpuMsPerRoomSecond":9.3,"relayRssMB":89,"tickMsgsPerClientPerSec":57.5}
+{"rooms":100,"clientsPerRoom":4,"sockets":400,"relayCpuPercentOfOneCore":56.9,"relayCpuMsPerRoomSecond":5.69,"relayRssMB":107,"tickMsgsPerClientPerSec":41.3}

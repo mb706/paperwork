@@ -4,7 +4,7 @@
 | WP | Topic | Agent | Status |
 |---|---|---|---|
 | A1 | Engine study: TS vs Rust/WASM, render boundary, scale | Opus | running |
-| A2 | Multiplayer architecture (lockstep, relay, no P2P UDP) | Opus | running |
+| A2 | Multiplayer architecture (lockstep, relay, no P2P UDP) | Opus | done. `design/multiplayer/DESIGN.md`; codex review r1 running |
 | A3 | Art direction (3 directions → 1, style guide) | Opus | running |
 | A4 | Audio direction (music + SFX, engine choice, demos) | Opus | running |
 
@@ -26,3 +26,7 @@ Next: codex reviews of A1/A2, then Phase B (an architecture revision that folds 
 5. **Phase E: M1.5, M2, M3, M4** (the full base game with *Contained*).
 6. **Phase F: multiplayer.** The relay and sequencer, join and catch-up, desync recovery, and the UI.
 7. **Phase G: M6 scale and polish.** Final QA passes. M5 (*Wild*) and M7 (the expansion) only if time and the user want them.
+
+## Questions for the user (collect; ask at a natural checkpoint)
+- Multiplayer (A2 DESIGN §11): where to host the relay (VPS or Cloudflare); whether to store games on the server; the policy for a machine too slow for 60 UPS (drop it, or slow everyone down); remote cursors (a deviation from Factorio, off by default); starting items for new players; the player cap.
+- Older ones (DECISIONS §43): the runaway preset default (Contained or Wild); whether Terminal-linked universities may substitute for Researchers; the default r (1.71 or 1.2).

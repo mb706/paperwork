@@ -1,0 +1,838 @@
+{
+ "scenario": "base",
+ "config": {
+  "relay": [
+   "--hz",
+   "60",
+   "--stamp",
+   "client"
+  ],
+  "clients": [
+   {
+    "token": "A",
+    "create": true,
+    "net": {
+     "delay": 1,
+     "jitter": 1,
+     "holeAt": 38000,
+     "holeMs": 3000
+    },
+    "start": 0
+   },
+   {
+    "token": "B",
+    "net": {
+     "delay": 12,
+     "jitter": 6,
+     "stallP": 0.003,
+     "stallMs": 150,
+     "drops": [
+      30000
+     ]
+    },
+    "start": 1500
+   },
+   {
+    "token": "C",
+    "net": {
+     "delay": 45,
+     "jitter": 20,
+     "stallP": 0.01,
+     "stallMs": 250
+    },
+    "start": 20000,
+    "corruptAt": 2700
+   }
+  ],
+  "pad": 2097152,
+  "duration": 60000
+ },
+ "agreeAtTicks": [
+  2400,
+  3000
+ ],
+ "agree": true,
+ "relay": {
+  "closed": 3534,
+  "compared": 57,
+  "staleOpen": 30,
+  "desyncs": [
+   {
+    "tick": 2760,
+    "player": 2,
+    "detectedAtTick": 2781,
+    "donor": 0
+   }
+  ],
+  "snaps": [
+   {
+    "id": 1,
+    "tick": 79,
+    "donor": 0,
+    "reason": "join",
+    "bytes": 2163244,
+    "done": true,
+    "uploadMs": 251.74816199999987
+   },
+   {
+    "id": 2,
+    "tick": 1216,
+    "donor": 1,
+    "reason": "join",
+    "bytes": 2163244,
+    "done": true,
+    "uploadMs": 307.2097729999987
+   },
+   {
+    "id": 3,
+    "tick": 2782,
+    "donor": 0,
+    "reason": "resync",
+    "bytes": 2163244,
+    "done": true,
+    "uploadMs": 95.14053599999897
+   }
+  ],
+  "players": [
+   {
+    "index": 0,
+    "name": "A",
+    "connected": true,
+    "live": true,
+    "lag": 8,
+    "flags": 1,
+    "msPerTick": 0.01,
+    "inMsgs": 848,
+    "inBytes": 10829,
+    "outMsgs": 3740,
+    "outBytes": 45109,
+    "bulkInBytes": 4327644,
+    "bulkOutBytes": 0,
+    "late": 1,
+    "acts": 94
+   },
+   {
+    "index": 1,
+    "name": "B",
+    "connected": true,
+    "live": true,
+    "lag": 9,
+    "flags": 1,
+    "msPerTick": 0.01,
+    "inMsgs": 839,
+    "inBytes": 10722,
+    "outMsgs": 3653,
+    "outBytes": 43999,
+    "bulkInBytes": 2163822,
+    "bulkOutBytes": 2163822,
+    "late": 1,
+    "acts": 89
+   },
+   {
+    "index": 2,
+    "name": "C",
+    "connected": true,
+    "live": true,
+    "lag": 23,
+    "flags": 1,
+    "msPerTick": 0.02,
+    "inMsgs": 565,
+    "inBytes": 7202,
+    "outMsgs": 2461,
+    "outBytes": 29899,
+    "bulkInBytes": 0,
+    "bulkOutBytes": 4327644,
+    "late": 3,
+    "acts": 60
+   }
+  ],
+  "events": [
+   {
+    "at": 1792480349519,
+    "tick": 1,
+    "kind": 100,
+    "idx": 0,
+    "extra": 0
+   },
+   {
+    "at": 1792480350828,
+    "tick": 79,
+    "kind": 103,
+    "idx": 0,
+    "extra": 1
+   },
+   {
+    "at": 1792480351284,
+    "tick": 106,
+    "kind": 100,
+    "idx": 1,
+    "extra": 0
+   },
+   {
+    "at": 1792480369781,
+    "tick": 1216,
+    "kind": 103,
+    "idx": 1,
+    "extra": 2
+   },
+   {
+    "at": 1792480370468,
+    "tick": 1257,
+    "kind": 100,
+    "idx": 2,
+    "extra": 0
+   },
+   {
+    "at": 1792480379150,
+    "tick": 1778,
+    "kind": 102,
+    "idx": 1,
+    "extra": 0
+   },
+   {
+    "at": 1792480388230,
+    "tick": 2323,
+    "kind": 102,
+    "idx": 0,
+    "extra": 0
+   },
+   {
+    "at": 1792480390220,
+    "tick": 2442,
+    "kind": 102,
+    "idx": 0,
+    "extra": 0
+   },
+   {
+    "at": 1792480395881,
+    "tick": 2782,
+    "kind": 103,
+    "idx": 0,
+    "extra": 3
+   }
+  ]
+ },
+ "clients": [
+  {
+   "client": "A",
+   "index": 0,
+   "mode": "live",
+   "tick": 3569,
+   "horizon": 3571,
+   "rolling": -1655376619,
+   "fullHash": -256375829,
+   "acts": 95,
+   "late": 0,
+   "reconnects": 1,
+   "margin": 1,
+   "marginTrace": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "playoutDelayMs": 34.8,
+   "rttMs": 3.9,
+   "confirmMs": {
+    "p50": 32.98,
+    "p95": 51.14,
+    "p99": 2124.5
+   },
+   "applyMs": {
+    "p50": 79.57,
+    "p95": 110.33,
+    "p99": 2126.52
+   },
+   "inputDelayTicks": {
+    "p50": 1,
+    "p95": 2
+   },
+   "predErrTicks": {
+    "mean": 0,
+    "p95": 0,
+    "nonzeroShare": 0
+   },
+   "predSigned": {
+    "mean": 0,
+    "min": 0,
+    "max": 0
+   },
+   "clockErr": {
+    "mean": -0.754,
+    "nonzero": 42,
+    "n": 57
+   },
+   "clockTrace": [
+    [
+     973,
+     6.38,
+     7.03,
+     6.4,
+     975
+    ],
+    [
+     1376,
+     30.54,
+     31,
+     5.5,
+     1279
+    ],
+    [
+     2181,
+     78.88,
+     79.36,
+     5.5,
+     1279
+    ],
+    [
+     2824,
+     117.46,
+     117.99,
+     5.5,
+     1279
+    ],
+    [
+     4738,
+     232.26,
+     232.52,
+     5.5,
+     1279
+    ],
+    [
+     5548,
+     280.9,
+     281.37,
+     5.5,
+     1279
+    ],
+    [
+     55444,
+     3274.59,
+     3274.9,
+     3.9,
+     52510
+    ],
+    [
+     56054,
+     3311.17,
+     3311.39,
+     3.9,
+     55548
+    ],
+    [
+     56564,
+     3341.8,
+     3342.15,
+     3.9,
+     55548
+    ],
+    [
+     57667,
+     3408,
+     3408.21,
+     3.9,
+     55548
+    ],
+    [
+     58269,
+     3444.08,
+     3444.32,
+     3.9,
+     55548
+    ],
+    [
+     58877,
+     3480.57,
+     3480.75,
+     3.9,
+     55548
+    ]
+   ],
+   "relayStale": {
+    "mean": 0.754,
+    "nonzero": 42
+   },
+   "leadTicks": {
+    "p50": 3,
+    "p95": 4
+   },
+   "stalls": {
+    "n": 2,
+    "totalMs": 3109,
+    "maxMs": 3086
+   },
+   "catchups": [
+    {
+     "reason": "behind",
+     "ticks": 188,
+     "ms": 2,
+     "msPerTick": 0.004
+    }
+   ],
+   "joins": [],
+   "lastSnap": null,
+   "donations": 2,
+   "resyncs": [],
+   "msPerTick": 0.014,
+   "checkpoints": {
+    "600": 863309580,
+    "1200": -931718758,
+    "1800": -2011315878,
+    "2400": 1886614782,
+    "3000": 1732252945
+   },
+   "bytes": {
+    "in": 43407,
+    "out": 10957,
+    "outMsgs": 858,
+    "ticksMsgs": 3377,
+    "digests": 59
+   },
+   "uploads": [
+    {
+     "bytes": 2163244,
+     "ms": 199,
+     "paced": false
+    },
+    {
+     "bytes": 2163244,
+     "ms": 41,
+     "paced": false
+    }
+   ],
+   "rttIdle": {
+    "p50": 7.47,
+    "p95": 20.12
+   },
+   "rttDuringTransfer": {
+    "p50": 20.96,
+    "p95": 20.96,
+    "n": 1
+   }
+  },
+  {
+   "client": "B",
+   "index": 1,
+   "mode": "live",
+   "tick": 3563,
+   "horizon": 3570,
+   "rolling": 1701818199,
+   "fullHash": 1032918595,
+   "acts": 90,
+   "late": 1,
+   "reconnects": 1,
+   "margin": 1,
+   "marginTrace": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    1,
+    1,
+    1
+   ],
+   "playoutDelayMs": 118.2,
+   "rttMs": 29.7,
+   "confirmMs": {
+    "p50": 61.36,
+    "p95": 80.02,
+    "p99": 187.56
+   },
+   "applyMs": {
+    "p50": 150.28,
+    "p95": 174.36,
+    "p99": 187.62
+   },
+   "inputDelayTicks": {
+    "p50": 2,
+    "p95": 2
+   },
+   "predErrTicks": {
+    "mean": 0.017,
+    "p95": 0,
+    "nonzeroShare": 0.017
+   },
+   "predSigned": {
+    "mean": 0.017,
+    "min": 0,
+    "max": 1
+   },
+   "clockErr": {
+    "mean": -0.533,
+    "nonzero": 36,
+    "n": 60
+   },
+   "clockTrace": [
+    [
+     2689,
+     109.12,
+     110.72,
+     32,
+     2254
+    ],
+    [
+     4206,
+     200.14,
+     201.25,
+     30.8,
+     4136
+    ],
+    [
+     5621,
+     285.08,
+     286.16,
+     30.8,
+     4136
+    ],
+    [
+     7123,
+     375.2,
+     376.48,
+     30.8,
+     4136
+    ],
+    [
+     7925,
+     423.27,
+     424.4,
+     30.8,
+     4136
+    ],
+    [
+     9450,
+     514.82,
+     515.98,
+     30.8,
+     4136
+    ],
+    [
+     55524,
+     3279.33,
+     3280.15,
+     28.6,
+     47289
+    ],
+    [
+     57044,
+     3370.49,
+     3371.53,
+     28.6,
+     47289
+    ],
+    [
+     57749,
+     3412.67,
+     3413.77,
+     29.7,
+     50794
+    ],
+    [
+     58961,
+     3485.43,
+     3486.52,
+     29.7,
+     50794
+    ],
+    [
+     59265,
+     3503.67,
+     3505.04,
+     29.7,
+     50794
+    ],
+    [
+     59875,
+     3540.25,
+     3541.51,
+     29.7,
+     50794
+    ]
+   ],
+   "relayStale": {
+    "mean": 0.55,
+    "nonzero": 35
+   },
+   "leadTicks": {
+    "p50": 5,
+    "p95": 8
+   },
+   "stalls": {
+    "n": 8,
+    "totalMs": 636,
+    "maxMs": 138
+   },
+   "catchups": [
+    {
+     "reason": "join",
+     "ticks": 23,
+     "ms": 4,
+     "msPerTick": 1.544
+    }
+   ],
+   "joins": [
+    {
+     "toInGameMs": 484
+    }
+   ],
+   "lastSnap": {
+    "bytes": 2163244,
+    "downloadMs": 396,
+    "loadMs": 0.6,
+    "tick": 79
+   },
+   "donations": 1,
+   "resyncs": [],
+   "msPerTick": 0.014,
+   "checkpoints": {
+    "600": 863309580,
+    "1200": -931718758,
+    "1800": -2011315878,
+    "2400": 1886614782,
+    "3000": 1732252945
+   },
+   "bytes": {
+    "in": 44445,
+    "out": 10844,
+    "outMsgs": 849,
+    "ticksMsgs": 3475,
+    "digests": 58
+   },
+   "uploads": [
+    {
+     "bytes": 2163244,
+     "ms": 232,
+     "paced": false
+    }
+   ],
+   "rttIdle": {
+    "p50": 36.27,
+    "p95": 55.91
+   },
+   "rttDuringTransfer": {
+    "p50": 120.84,
+    "p95": 120.84,
+    "n": 1
+   }
+  },
+  {
+   "client": "C",
+   "index": 2,
+   "mode": "live",
+   "tick": 3561,
+   "horizon": 3575,
+   "rolling": -1768839710,
+   "fullHash": -2056493160,
+   "acts": 61,
+   "late": 3,
+   "reconnects": 0,
+   "margin": 4,
+   "marginTrace": [
+    2,
+    5,
+    5,
+    4,
+    4,
+    5,
+    4,
+    4
+   ],
+   "playoutDelayMs": 260,
+   "rttMs": 106.1,
+   "confirmMs": {
+    "p50": 136.97,
+    "p95": 225.88,
+    "p99": 320.09
+   },
+   "applyMs": {
+    "p50": 379.16,
+    "p95": 399.79,
+    "p99": 423.39
+   },
+   "inputDelayTicks": {
+    "p50": 4,
+    "p95": 5
+   },
+   "predErrTicks": {
+    "mean": 0.075,
+    "p95": 1,
+    "nonzeroShare": 0.05
+   },
+   "predSigned": {
+    "mean": 0.075,
+    "min": 0,
+    "max": 2
+   },
+   "clockErr": {
+    "mean": -0.55,
+    "nonzero": 24,
+    "n": 40
+   },
+   "clockTrace": [
+    [
+     21890,
+     1263.69,
+     1267.71,
+     112.4,
+     21272
+    ],
+    [
+     22704,
+     1312.69,
+     1316.95,
+     108.9,
+     22508
+    ],
+    [
+     23216,
+     1343.39,
+     1346.95,
+     108.9,
+     22508
+    ],
+    [
+     23731,
+     1374.28,
+     1378.41,
+     108.9,
+     22508
+    ],
+    [
+     25156,
+     1459.93,
+     1463.9,
+     107.9,
+     24044
+    ],
+    [
+     26389,
+     1533.92,
+     1538.24,
+     107.9,
+     24044
+    ],
+    [
+     55844,
+     3301.11,
+     3304.87,
+     97,
+     47584
+    ],
+    [
+     56856,
+     3361.81,
+     3364.83,
+     97,
+     47584
+    ],
+    [
+     57358,
+     3391.94,
+     3395.47,
+     97,
+     47584
+    ],
+    [
+     57859,
+     3422.09,
+     3425.62,
+     99.6,
+     50188
+    ],
+    [
+     59280,
+     3507.32,
+     3511.28,
+     99.6,
+     50188
+    ],
+    [
+     60005,
+     3550.81,
+     3554.75,
+     99.6,
+     50188
+    ]
+   ],
+   "relayStale": {
+    "mean": 0.625,
+    "nonzero": 22
+   },
+   "leadTicks": {
+    "p50": 14,
+    "p95": 16
+   },
+   "stalls": {
+    "n": 5,
+    "totalMs": 511,
+    "maxMs": 217
+   },
+   "catchups": [
+    {
+     "reason": "join",
+     "ticks": 30,
+     "ms": 16,
+     "msPerTick": 3.074
+    }
+   ],
+   "joins": [
+    {
+     "toInGameMs": 715
+    }
+   ],
+   "lastSnap": {
+    "bytes": 2163244,
+    "downloadMs": 512,
+    "loadMs": 0.7,
+    "tick": 1216
+   },
+   "donations": 0,
+   "resyncs": [
+    {
+     "desyncTick": 2760,
+     "snapTick": 2782,
+     "startedAt": 47235.837484,
+     "downloadMs": 362,
+     "bytes": 2163244,
+     "swappedAfterMs": 939,
+     "divergedBeforeSwap": true,
+     "viaWorker": true
+    }
+   ],
+   "msPerTick": 0.018,
+   "checkpoints": {
+    "1800": -2011315878,
+    "2400": 1886614782,
+    "3000": 1732252945
+   },
+   "bytes": {
+    "in": 30458,
+    "out": 7352,
+    "outMsgs": 577,
+    "ticksMsgs": 2357,
+    "digests": 39
+   },
+   "uploads": [],
+   "rttIdle": {
+    "p50": 119.51,
+    "p95": 352.28
+   },
+   "rttDuringTransfer": {
+    "p50": 107.29,
+    "p95": 112.39,
+    "n": 4
+   }
+  }
+ ]
+}

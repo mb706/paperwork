@@ -1,0 +1,2172 @@
+[
+ {
+  "t": 5,
+  "chrome": "Chrome/156.0.8078.4"
+ },
+ {
+  "t": 24,
+  "label": "hidden-start",
+  "relay": {
+   "host": {
+    "lag": 1,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 6,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 6,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 3,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 6,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 1342,
+    "lag": 0,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 1342,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 1291,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 1306,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  }
+ },
+ {
+  "t": 24,
+  "froze": "freeze"
+ },
+ {
+  "t": 54,
+  "label": "hidden+30s",
+  "relay": {
+   "host": {
+    "lag": 7,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 7,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 6,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 1807,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 3142,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 3142,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 3091,
+    "lag": 0,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 1306,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  }
+ },
+ {
+  "t": 84,
+  "label": "hidden+60s",
+  "relay": {
+   "host": {
+    "lag": 5,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 2,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 7,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 5,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 3608,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 4942,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 4942,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 4891,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 1306,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  }
+ },
+ {
+  "t": 114,
+  "label": "hidden+90s",
+  "relay": {
+   "host": {
+    "lag": 2,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 8,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 8,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 5,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 5413,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 6741,
+    "lag": 2,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 6742,
+    "lag": 2,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 6750,
+    "lag": 0,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 1306,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  }
+ },
+ {
+  "t": 114,
+  "unfroze": "freeze",
+  "afterS": 90
+ },
+ {
+  "t": 144,
+  "label": "hidden+120s",
+  "relay": {
+   "host": {
+    "lag": 6,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 5,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 5,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 3,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 5,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 8542,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 8541,
+    "lag": 2,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 8550,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 8506,
+    "lag": 0,
+    "mode": "live",
+    "reconnects": 1,
+    "stalls": 1
+   }
+  }
+ },
+ {
+  "t": 175,
+  "label": "hidden+150s",
+  "relay": {
+   "host": {
+    "lag": 7,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 3,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 7,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 10342,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 10342,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 10351,
+    "lag": 0,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 10366,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 1,
+    "stalls": 1
+   }
+  }
+ },
+ {
+  "t": 205,
+  "label": "hidden+180s",
+  "relay": {
+   "host": {
+    "lag": 6,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 3,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 2,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 7,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 12142,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 12141,
+    "lag": 2,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 12150,
+    "lag": 2,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 12165,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 1,
+    "stalls": 1
+   }
+  }
+ },
+ {
+  "t": 235,
+  "label": "hidden+210s",
+  "relay": {
+   "host": {
+    "lag": 3,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 2,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 13942,
+    "lag": 0,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 13942,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 13951,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 13966,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 1,
+    "stalls": 1
+   }
+  }
+ },
+ {
+  "t": 265,
+  "label": "hidden+240s",
+  "relay": {
+   "host": {
+    "lag": 2,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 5,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 2,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 5,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 15742,
+    "lag": 0,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 15742,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 15750,
+    "lag": 2,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 15766,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 1,
+    "stalls": 1
+   }
+  }
+ },
+ {
+  "t": 295,
+  "label": "hidden+270s",
+  "relay": {
+   "host": {
+    "lag": 1,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 1,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 7,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 1,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 17542,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 17542,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 17550,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 17566,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 1,
+    "stalls": 1
+   }
+  }
+ },
+ {
+  "t": 325,
+  "label": "hidden+300s",
+  "relay": {
+   "host": {
+    "lag": 1,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 6,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 6,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 7,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 19341,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 19342,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 19351,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 19365,
+    "lag": 2,
+    "mode": "live",
+    "reconnects": 1,
+    "stalls": 1
+   }
+  }
+ },
+ {
+  "t": 355,
+  "label": "hidden+330s",
+  "relay": {
+   "host": {
+    "lag": 2,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 5,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 2,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 5,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 21141,
+    "lag": 2,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 21142,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 21150,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 21166,
+    "lag": 0,
+    "mode": "live",
+    "reconnects": 1,
+    "stalls": 1
+   }
+  }
+ },
+ {
+  "t": 385,
+  "label": "hidden+360s",
+  "relay": {
+   "host": {
+    "lag": 3,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 3,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 7,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 23002,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 23002,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 23010,
+    "lag": 2,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 22966,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 1,
+    "stalls": 1
+   }
+  }
+ },
+ {
+  "t": 415,
+  "label": "hidden+390s",
+  "relay": {
+   "host": {
+    "lag": 5,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 6,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 5,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 4,
+    "connected": true,
+    "flags": 3
+   },
+   "freeze": {
+    "lag": 6,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 24802,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 24801,
+    "lag": 2,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "hidden",
+   "w": {
+    "tick": 24810,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 24766,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 1,
+    "stalls": 1
+   }
+  }
+ },
+ {
+  "t": 436,
+  "label": "visible-again",
+  "relay": {
+   "host": {
+    "lag": 4,
+    "connected": true,
+    "flags": 1
+   },
+   "timer": {
+    "lag": 1,
+    "connected": true,
+    "flags": 3
+   },
+   "net": {
+    "lag": 7,
+    "connected": true,
+    "flags": 3
+   },
+   "both": {
+    "lag": 4,
+    "connected": true,
+    "flags": 1
+   },
+   "freeze": {
+    "lag": 1,
+    "connected": true,
+    "flags": 3
+   }
+  },
+  "timer": {
+   "vis": "hidden",
+   "w": {
+    "tick": 26062,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "net": {
+   "vis": "hidden",
+   "w": {
+    "tick": 26062,
+    "lag": 1,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "both": {
+   "vis": "visible",
+   "w": {
+    "tick": 26010,
+    "lag": 2,
+    "mode": "live",
+    "reconnects": 0,
+    "stalls": 0
+   }
+  },
+  "freeze": {
+   "vis": "hidden",
+   "w": {
+    "tick": 26025,
+    "lag": 2,
+    "mode": "live",
+    "reconnects": 1,
+    "stalls": 1
+   }
+  }
+ },
+ {
+  "t": 436,
+  "probes": {
+   "timer": {
+    "main": [
+     {
+      "at": 11,
+      "hidden": true,
+      "wakesPerSec": 6.5
+     },
+     {
+      "at": 21,
+      "hidden": true,
+      "wakesPerSec": 1
+     },
+     {
+      "at": 31,
+      "hidden": true,
+      "wakesPerSec": 1
+     },
+     {
+      "at": 42,
+      "hidden": true,
+      "wakesPerSec": 1
+     },
+     {
+      "at": 52,
+      "hidden": true,
+      "wakesPerSec": 1
+     },
+     {
+      "at": 63,
+      "hidden": true,
+      "wakesPerSec": 0.9
+     },
+     {
+      "at": 123,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 183,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 243,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 303,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 363,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 410,
+      "hidden": false,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 421,
+      "hidden": true,
+      "wakesPerSec": 26.5
+     }
+    ],
+    "worker": [
+     {
+      "at": 10,
+      "hidden": true,
+      "wakesPerSec": 54
+     },
+     {
+      "at": 20,
+      "hidden": true,
+      "wakesPerSec": 58
+     },
+     {
+      "at": 30,
+      "hidden": true,
+      "wakesPerSec": 58
+     },
+     {
+      "at": 40,
+      "hidden": true,
+      "wakesPerSec": 58.6
+     },
+     {
+      "at": 50,
+      "hidden": true,
+      "wakesPerSec": 58.3
+     },
+     {
+      "at": 60,
+      "hidden": true,
+      "wakesPerSec": 59
+     },
+     {
+      "at": 70,
+      "hidden": true,
+      "wakesPerSec": 58.2
+     },
+     {
+      "at": 80,
+      "hidden": true,
+      "wakesPerSec": 59.5
+     },
+     {
+      "at": 90,
+      "hidden": true,
+      "wakesPerSec": 57
+     },
+     {
+      "at": 100,
+      "hidden": true,
+      "wakesPerSec": 53.9
+     },
+     {
+      "at": 110,
+      "hidden": true,
+      "wakesPerSec": 53.9
+     },
+     {
+      "at": 120,
+      "hidden": true,
+      "wakesPerSec": 54
+     },
+     {
+      "at": 130,
+      "hidden": true,
+      "wakesPerSec": 55.3
+     },
+     {
+      "at": 140,
+      "hidden": true,
+      "wakesPerSec": 54.4
+     },
+     {
+      "at": 150,
+      "hidden": true,
+      "wakesPerSec": 56.3
+     },
+     {
+      "at": 160,
+      "hidden": true,
+      "wakesPerSec": 57.4
+     },
+     {
+      "at": 170,
+      "hidden": true,
+      "wakesPerSec": 57.5
+     },
+     {
+      "at": 180,
+      "hidden": true,
+      "wakesPerSec": 57.3
+     },
+     {
+      "at": 190,
+      "hidden": true,
+      "wakesPerSec": 57.1
+     },
+     {
+      "at": 200,
+      "hidden": true,
+      "wakesPerSec": 56
+     },
+     {
+      "at": 210,
+      "hidden": true,
+      "wakesPerSec": 55.2
+     },
+     {
+      "at": 220,
+      "hidden": true,
+      "wakesPerSec": 57.7
+     },
+     {
+      "at": 230,
+      "hidden": true,
+      "wakesPerSec": 59.4
+     },
+     {
+      "at": 240,
+      "hidden": true,
+      "wakesPerSec": 58.3
+     },
+     {
+      "at": 250,
+      "hidden": true,
+      "wakesPerSec": 55.9
+     },
+     {
+      "at": 260,
+      "hidden": true,
+      "wakesPerSec": 56.2
+     },
+     {
+      "at": 270,
+      "hidden": true,
+      "wakesPerSec": 56.1
+     },
+     {
+      "at": 280,
+      "hidden": true,
+      "wakesPerSec": 54.8
+     },
+     {
+      "at": 290,
+      "hidden": true,
+      "wakesPerSec": 56.7
+     },
+     {
+      "at": 300,
+      "hidden": true,
+      "wakesPerSec": 57.4
+     },
+     {
+      "at": 310,
+      "hidden": true,
+      "wakesPerSec": 55.9
+     },
+     {
+      "at": 320,
+      "hidden": true,
+      "wakesPerSec": 55.5
+     },
+     {
+      "at": 330,
+      "hidden": true,
+      "wakesPerSec": 58
+     },
+     {
+      "at": 340,
+      "hidden": true,
+      "wakesPerSec": 54.1
+     },
+     {
+      "at": 350,
+      "hidden": true,
+      "wakesPerSec": 51.1
+     },
+     {
+      "at": 360,
+      "hidden": true,
+      "wakesPerSec": 52.3
+     },
+     {
+      "at": 370,
+      "hidden": true,
+      "wakesPerSec": 54.4
+     },
+     {
+      "at": 380,
+      "hidden": true,
+      "wakesPerSec": 55.8
+     },
+     {
+      "at": 390,
+      "hidden": true,
+      "wakesPerSec": 55.6
+     },
+     {
+      "at": 400,
+      "hidden": true,
+      "wakesPerSec": 55.8
+     },
+     {
+      "at": 410,
+      "hidden": false,
+      "wakesPerSec": 55.9
+     },
+     {
+      "at": 420,
+      "hidden": true,
+      "wakesPerSec": 55.3
+     }
+    ],
+    "catchups": [
+     {
+      "reason": "join",
+      "ticks": 4,
+      "ms": 12,
+      "msPerTick": 10.73
+     }
+    ]
+   },
+   "net": {
+    "main": [
+     {
+      "at": 11,
+      "hidden": true,
+      "wakesPerSec": 6.7
+     },
+     {
+      "at": 21,
+      "hidden": true,
+      "wakesPerSec": 1
+     },
+     {
+      "at": 32,
+      "hidden": true,
+      "wakesPerSec": 1
+     },
+     {
+      "at": 42,
+      "hidden": true,
+      "wakesPerSec": 1
+     },
+     {
+      "at": 53,
+      "hidden": true,
+      "wakesPerSec": 1
+     },
+     {
+      "at": 122,
+      "hidden": true,
+      "wakesPerSec": 0.1
+     },
+     {
+      "at": 182,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 242,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 302,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 362,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 414,
+      "hidden": false,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 425,
+      "hidden": true,
+      "wakesPerSec": 28.1
+     }
+    ],
+    "worker": [
+     {
+      "at": 10,
+      "hidden": true,
+      "wakesPerSec": 56.1
+     },
+     {
+      "at": 20,
+      "hidden": true,
+      "wakesPerSec": 59.2
+     },
+     {
+      "at": 30,
+      "hidden": true,
+      "wakesPerSec": 59.6
+     },
+     {
+      "at": 40,
+      "hidden": true,
+      "wakesPerSec": 59.2
+     },
+     {
+      "at": 50,
+      "hidden": true,
+      "wakesPerSec": 59.4
+     },
+     {
+      "at": 60,
+      "hidden": true,
+      "wakesPerSec": 59.4
+     },
+     {
+      "at": 70,
+      "hidden": true,
+      "wakesPerSec": 59.3
+     },
+     {
+      "at": 80,
+      "hidden": true,
+      "wakesPerSec": 59.1
+     },
+     {
+      "at": 90,
+      "hidden": true,
+      "wakesPerSec": 57.1
+     },
+     {
+      "at": 100,
+      "hidden": true,
+      "wakesPerSec": 54.8
+     },
+     {
+      "at": 110,
+      "hidden": true,
+      "wakesPerSec": 53.7
+     },
+     {
+      "at": 120,
+      "hidden": true,
+      "wakesPerSec": 54.3
+     },
+     {
+      "at": 130,
+      "hidden": true,
+      "wakesPerSec": 55.1
+     },
+     {
+      "at": 140,
+      "hidden": true,
+      "wakesPerSec": 54.6
+     },
+     {
+      "at": 150,
+      "hidden": true,
+      "wakesPerSec": 57.3
+     },
+     {
+      "at": 160,
+      "hidden": true,
+      "wakesPerSec": 58.8
+     },
+     {
+      "at": 170,
+      "hidden": true,
+      "wakesPerSec": 58.6
+     },
+     {
+      "at": 180,
+      "hidden": true,
+      "wakesPerSec": 58.1
+     },
+     {
+      "at": 190,
+      "hidden": true,
+      "wakesPerSec": 57.8
+     },
+     {
+      "at": 200,
+      "hidden": true,
+      "wakesPerSec": 58.4
+     },
+     {
+      "at": 210,
+      "hidden": true,
+      "wakesPerSec": 56.6
+     },
+     {
+      "at": 220,
+      "hidden": true,
+      "wakesPerSec": 59.1
+     },
+     {
+      "at": 230,
+      "hidden": true,
+      "wakesPerSec": 60
+     },
+     {
+      "at": 240,
+      "hidden": true,
+      "wakesPerSec": 56.6
+     },
+     {
+      "at": 250,
+      "hidden": true,
+      "wakesPerSec": 56.3
+     },
+     {
+      "at": 260,
+      "hidden": true,
+      "wakesPerSec": 56.8
+     },
+     {
+      "at": 270,
+      "hidden": true,
+      "wakesPerSec": 56.2
+     },
+     {
+      "at": 280,
+      "hidden": true,
+      "wakesPerSec": 57.9
+     },
+     {
+      "at": 290,
+      "hidden": true,
+      "wakesPerSec": 58.1
+     },
+     {
+      "at": 300,
+      "hidden": true,
+      "wakesPerSec": 58.3
+     },
+     {
+      "at": 310,
+      "hidden": true,
+      "wakesPerSec": 55.6
+     },
+     {
+      "at": 320,
+      "hidden": true,
+      "wakesPerSec": 57.7
+     },
+     {
+      "at": 330,
+      "hidden": true,
+      "wakesPerSec": 58.9
+     },
+     {
+      "at": 340,
+      "hidden": true,
+      "wakesPerSec": 55.4
+     },
+     {
+      "at": 350,
+      "hidden": true,
+      "wakesPerSec": 54
+     },
+     {
+      "at": 360,
+      "hidden": true,
+      "wakesPerSec": 54.5
+     },
+     {
+      "at": 370,
+      "hidden": true,
+      "wakesPerSec": 56
+     },
+     {
+      "at": 380,
+      "hidden": true,
+      "wakesPerSec": 58.5
+     },
+     {
+      "at": 390,
+      "hidden": true,
+      "wakesPerSec": 58
+     },
+     {
+      "at": 400,
+      "hidden": true,
+      "wakesPerSec": 57.5
+     },
+     {
+      "at": 410,
+      "hidden": true,
+      "wakesPerSec": 56
+     },
+     {
+      "at": 420,
+      "hidden": true,
+      "wakesPerSec": 58.3
+     }
+    ],
+    "catchups": [
+     {
+      "reason": "join",
+      "ticks": 63,
+      "ms": 5,
+      "msPerTick": 0.256
+     }
+    ]
+   },
+   "both": {
+    "main": [
+     {
+      "at": 10,
+      "hidden": true,
+      "wakesPerSec": 6.3
+     },
+     {
+      "at": 21,
+      "hidden": true,
+      "wakesPerSec": 1
+     },
+     {
+      "at": 31,
+      "hidden": true,
+      "wakesPerSec": 1
+     },
+     {
+      "at": 42,
+      "hidden": true,
+      "wakesPerSec": 1
+     },
+     {
+      "at": 53,
+      "hidden": true,
+      "wakesPerSec": 1
+     },
+     {
+      "at": 120,
+      "hidden": true,
+      "wakesPerSec": 0.1
+     },
+     {
+      "at": 180,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 240,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 300,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 360,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 418,
+      "hidden": false,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 428,
+      "hidden": false,
+      "wakesPerSec": 53
+     }
+    ],
+    "worker": [
+     {
+      "at": 10,
+      "hidden": true,
+      "wakesPerSec": 53.6
+     },
+     {
+      "at": 20,
+      "hidden": true,
+      "wakesPerSec": 58.6
+     },
+     {
+      "at": 30,
+      "hidden": true,
+      "wakesPerSec": 56.4
+     },
+     {
+      "at": 40,
+      "hidden": true,
+      "wakesPerSec": 58.7
+     },
+     {
+      "at": 50,
+      "hidden": true,
+      "wakesPerSec": 57.8
+     },
+     {
+      "at": 60,
+      "hidden": true,
+      "wakesPerSec": 58
+     },
+     {
+      "at": 70,
+      "hidden": true,
+      "wakesPerSec": 59.3
+     },
+     {
+      "at": 80,
+      "hidden": true,
+      "wakesPerSec": 59.2
+     },
+     {
+      "at": 90,
+      "hidden": true,
+      "wakesPerSec": 56.2
+     },
+     {
+      "at": 100,
+      "hidden": true,
+      "wakesPerSec": 53.8
+     },
+     {
+      "at": 110,
+      "hidden": true,
+      "wakesPerSec": 54.3
+     },
+     {
+      "at": 120,
+      "hidden": true,
+      "wakesPerSec": 54.6
+     },
+     {
+      "at": 130,
+      "hidden": true,
+      "wakesPerSec": 54.3
+     },
+     {
+      "at": 140,
+      "hidden": true,
+      "wakesPerSec": 54.2
+     },
+     {
+      "at": 150,
+      "hidden": true,
+      "wakesPerSec": 58.5
+     },
+     {
+      "at": 160,
+      "hidden": true,
+      "wakesPerSec": 58.6
+     },
+     {
+      "at": 170,
+      "hidden": true,
+      "wakesPerSec": 56.9
+     },
+     {
+      "at": 180,
+      "hidden": true,
+      "wakesPerSec": 56.7
+     },
+     {
+      "at": 190,
+      "hidden": true,
+      "wakesPerSec": 55.7
+     },
+     {
+      "at": 200,
+      "hidden": true,
+      "wakesPerSec": 57.1
+     },
+     {
+      "at": 210,
+      "hidden": true,
+      "wakesPerSec": 55.6
+     },
+     {
+      "at": 220,
+      "hidden": true,
+      "wakesPerSec": 57.3
+     },
+     {
+      "at": 230,
+      "hidden": true,
+      "wakesPerSec": 59.4
+     },
+     {
+      "at": 240,
+      "hidden": true,
+      "wakesPerSec": 56.2
+     },
+     {
+      "at": 250,
+      "hidden": true,
+      "wakesPerSec": 54.9
+     },
+     {
+      "at": 260,
+      "hidden": true,
+      "wakesPerSec": 54.7
+     },
+     {
+      "at": 270,
+      "hidden": true,
+      "wakesPerSec": 54.4
+     },
+     {
+      "at": 280,
+      "hidden": true,
+      "wakesPerSec": 56.3
+     },
+     {
+      "at": 290,
+      "hidden": true,
+      "wakesPerSec": 56.5
+     },
+     {
+      "at": 300,
+      "hidden": true,
+      "wakesPerSec": 57.3
+     },
+     {
+      "at": 310,
+      "hidden": true,
+      "wakesPerSec": 56.6
+     },
+     {
+      "at": 320,
+      "hidden": true,
+      "wakesPerSec": 57
+     },
+     {
+      "at": 330,
+      "hidden": true,
+      "wakesPerSec": 56.5
+     },
+     {
+      "at": 340,
+      "hidden": true,
+      "wakesPerSec": 51.6
+     },
+     {
+      "at": 350,
+      "hidden": true,
+      "wakesPerSec": 50.3
+     },
+     {
+      "at": 360,
+      "hidden": true,
+      "wakesPerSec": 53.6
+     },
+     {
+      "at": 370,
+      "hidden": true,
+      "wakesPerSec": 54.7
+     },
+     {
+      "at": 380,
+      "hidden": true,
+      "wakesPerSec": 57.7
+     },
+     {
+      "at": 390,
+      "hidden": true,
+      "wakesPerSec": 55.9
+     },
+     {
+      "at": 400,
+      "hidden": true,
+      "wakesPerSec": 55.6
+     },
+     {
+      "at": 410,
+      "hidden": true,
+      "wakesPerSec": 56
+     },
+     {
+      "at": 421,
+      "hidden": false,
+      "wakesPerSec": 57.5
+     }
+    ],
+    "catchups": [
+     {
+      "reason": "join",
+      "ticks": 131,
+      "ms": 20,
+      "msPerTick": 0.07
+     }
+    ]
+   },
+   "freeze": {
+    "main": [
+     {
+      "at": 11,
+      "hidden": true,
+      "wakesPerSec": 6.3
+     },
+     {
+      "at": 106,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 119,
+      "hidden": true,
+      "wakesPerSec": 0.1
+     },
+     {
+      "at": 179,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 239,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 299,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 359,
+      "hidden": true,
+      "wakesPerSec": 0
+     },
+     {
+      "at": 419,
+      "hidden": true,
+      "wakesPerSec": 0
+     }
+    ],
+    "worker": [
+     {
+      "at": 10,
+      "hidden": true,
+      "wakesPerSec": 53.6
+     },
+     {
+      "at": 105,
+      "hidden": true,
+      "wakesPerSec": 2.9
+     },
+     {
+      "at": 115,
+      "hidden": true,
+      "wakesPerSec": 54.4
+     },
+     {
+      "at": 125,
+      "hidden": true,
+      "wakesPerSec": 55.4
+     },
+     {
+      "at": 135,
+      "hidden": true,
+      "wakesPerSec": 55.3
+     },
+     {
+      "at": 145,
+      "hidden": true,
+      "wakesPerSec": 55.3
+     },
+     {
+      "at": 155,
+      "hidden": true,
+      "wakesPerSec": 57.7
+     },
+     {
+      "at": 165,
+      "hidden": true,
+      "wakesPerSec": 57.5
+     },
+     {
+      "at": 175,
+      "hidden": true,
+      "wakesPerSec": 58.1
+     },
+     {
+      "at": 185,
+      "hidden": true,
+      "wakesPerSec": 56.2
+     },
+     {
+      "at": 195,
+      "hidden": true,
+      "wakesPerSec": 56.1
+     },
+     {
+      "at": 205,
+      "hidden": true,
+      "wakesPerSec": 56.6
+     },
+     {
+      "at": 215,
+      "hidden": true,
+      "wakesPerSec": 57.1
+     },
+     {
+      "at": 225,
+      "hidden": true,
+      "wakesPerSec": 59.2
+     },
+     {
+      "at": 235,
+      "hidden": true,
+      "wakesPerSec": 59.3
+     },
+     {
+      "at": 245,
+      "hidden": true,
+      "wakesPerSec": 55.6
+     },
+     {
+      "at": 255,
+      "hidden": true,
+      "wakesPerSec": 56.7
+     },
+     {
+      "at": 265,
+      "hidden": true,
+      "wakesPerSec": 54.1
+     },
+     {
+      "at": 275,
+      "hidden": true,
+      "wakesPerSec": 55.2
+     },
+     {
+      "at": 285,
+      "hidden": true,
+      "wakesPerSec": 58.2
+     },
+     {
+      "at": 295,
+      "hidden": true,
+      "wakesPerSec": 56.5
+     },
+     {
+      "at": 305,
+      "hidden": true,
+      "wakesPerSec": 56.4
+     },
+     {
+      "at": 315,
+      "hidden": true,
+      "wakesPerSec": 54.9
+     },
+     {
+      "at": 325,
+      "hidden": true,
+      "wakesPerSec": 58.2
+     },
+     {
+      "at": 335,
+      "hidden": true,
+      "wakesPerSec": 54.3
+     },
+     {
+      "at": 345,
+      "hidden": true,
+      "wakesPerSec": 50.4
+     },
+     {
+      "at": 355,
+      "hidden": true,
+      "wakesPerSec": 52.5
+     },
+     {
+      "at": 365,
+      "hidden": true,
+      "wakesPerSec": 52.3
+     },
+     {
+      "at": 375,
+      "hidden": true,
+      "wakesPerSec": 55.8
+     },
+     {
+      "at": 385,
+      "hidden": true,
+      "wakesPerSec": 55.2
+     },
+     {
+      "at": 395,
+      "hidden": true,
+      "wakesPerSec": 54.8
+     },
+     {
+      "at": 405,
+      "hidden": true,
+      "wakesPerSec": 56
+     },
+     {
+      "at": 415,
+      "hidden": true,
+      "wakesPerSec": 56.2
+     },
+     {
+      "at": 425,
+      "hidden": true,
+      "wakesPerSec": 57.2
+     }
+    ],
+    "catchups": [
+     {
+      "reason": "join",
+      "ticks": 205,
+      "ms": 25,
+      "msPerTick": 0.058
+     },
+     {
+      "reason": "behind",
+      "ticks": 5422,
+      "ms": 89,
+      "msPerTick": 0.009
+     }
+    ]
+   }
+  }
+ }
+]

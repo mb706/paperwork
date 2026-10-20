@@ -1,0 +1,573 @@
+{
+ "scenario": "bigresync",
+ "config": {
+  "relay": [
+   "--hz",
+   "60",
+   "--stamp",
+   "client"
+  ],
+  "clients": [
+   {
+    "token": "A",
+    "create": true,
+    "net": {
+     "delay": 12,
+     "jitter": 6,
+     "stallP": 0.003,
+     "stallMs": 150,
+     "upKbps": 10000,
+     "downKbps": 50000
+    },
+    "start": 0
+   },
+   {
+    "token": "B",
+    "net": {
+     "delay": 12,
+     "jitter": 6,
+     "stallP": 0.003,
+     "stallMs": 150,
+     "downKbps": 50000,
+     "upKbps": 10000
+    },
+    "start": 1500,
+    "corruptAt": 1500
+   }
+  ],
+  "pad": 20971520,
+  "costMs": 4,
+  "duration": 90000
+ },
+ "agreeAtTicks": [
+  4200,
+  4800
+ ],
+ "agree": true,
+ "relay": {
+  "closed": 5329,
+  "compared": 21,
+  "staleOpen": 53,
+  "desyncs": [
+   {
+    "tick": 1980,
+    "player": 1,
+    "detectedAtTick": 2000,
+    "donor": 0
+   }
+  ],
+  "snaps": [
+   {
+    "id": 1,
+    "tick": 87,
+    "donor": 0,
+    "reason": "join",
+    "bytes": 21037612,
+    "done": true,
+    "uploadMs": 17664.749077999997
+   },
+   {
+    "id": 2,
+    "tick": 2001,
+    "donor": 0,
+    "reason": "resync",
+    "bytes": 21037612,
+    "done": true,
+    "uploadMs": 17469.80951
+   }
+  ],
+  "players": [
+   {
+    "index": 0,
+    "name": "A",
+    "connected": true,
+    "live": true,
+    "lag": 22,
+    "flags": 1,
+    "msPerTick": 4.55,
+    "inMsgs": 1362,
+    "inBytes": 16864,
+    "outMsgs": 5767,
+    "outBytes": 68213,
+    "bulkInBytes": 42086172,
+    "bulkOutBytes": 0,
+    "late": 10,
+    "acts": 144
+   },
+   {
+    "index": 1,
+    "name": "B",
+    "connected": true,
+    "live": true,
+    "lag": 13,
+    "flags": 1,
+    "msPerTick": 4.9,
+    "inMsgs": 1297,
+    "inBytes": 16078,
+    "outMsgs": 5623,
+    "outBytes": 66532,
+    "bulkInBytes": 0,
+    "bulkOutBytes": 42086172,
+    "late": 1,
+    "acts": 88
+   }
+  ],
+  "events": [
+   {
+    "at": 1792480851946,
+    "tick": 1,
+    "kind": 100,
+    "idx": 0,
+    "extra": 0
+   },
+   {
+    "at": 1792480853396,
+    "tick": 87,
+    "kind": 103,
+    "idx": 0,
+    "extra": 1
+   },
+   {
+    "at": 1792480884451,
+    "tick": 1951,
+    "kind": 100,
+    "idx": 1,
+    "extra": 0
+   },
+   {
+    "at": 1792480885292,
+    "tick": 2001,
+    "kind": 103,
+    "idx": 0,
+    "extra": 2
+   }
+  ]
+ },
+ "clients": [
+  {
+   "client": "A",
+   "index": 0,
+   "mode": "live",
+   "tick": 5364,
+   "horizon": 5380,
+   "rolling": -1605860912,
+   "fullHash": 516475156,
+   "acts": 145,
+   "late": 10,
+   "reconnects": 0,
+   "margin": 2,
+   "marginTrace": [
+    19,
+    23,
+    21,
+    21,
+    21,
+    20,
+    20,
+    17,
+    20,
+    20,
+    20,
+    20,
+    20,
+    16,
+    13,
+    2,
+    2
+   ],
+   "playoutDelayMs": 264.8,
+   "rttMs": 31.7,
+   "confirmMs": {
+    "p50": 367.94,
+    "p95": 477.77,
+    "p99": 523.86
+   },
+   "applyMs": {
+    "p50": 667.8,
+    "p95": 777.66,
+    "p99": 795.75
+   },
+   "inputDelayTicks": {
+    "p50": 20,
+    "p95": 23
+   },
+   "predErrTicks": {
+    "mean": 0.226,
+    "p95": 0,
+    "nonzeroShare": 0.032
+   },
+   "predSigned": {
+    "mean": 0.226,
+    "min": 0,
+    "max": 18
+   },
+   "clockErr": {
+    "mean": -10.903,
+    "nonzero": 85,
+    "n": 93
+   },
+   "clockTrace": [
+    [
+     921,
+     5.52,
+     7.57,
+     60.6,
+     957
+    ],
+    [
+     1364,
+     31.93,
+     33.52,
+     60.6,
+     957
+    ],
+    [
+     2193,
+     81.92,
+     82.91,
+     37.3,
+     1818
+    ],
+    [
+     2942,
+     126.98,
+     128.33,
+     34.7,
+     2327
+    ],
+    [
+     4888,
+     243.72,
+     263.43,
+     34.7,
+     2327
+    ],
+    [
+     5672,
+     290.76,
+     310.45,
+     34.7,
+     2327
+    ],
+    [
+     85575,
+     5084.82,
+     5086.1,
+     31.7,
+     81790
+    ],
+    [
+     85994,
+     5109.92,
+     5111,
+     31.7,
+     81790
+    ],
+    [
+     86504,
+     5140.55,
+     5141.65,
+     31.7,
+     81790
+    ],
+    [
+     87523,
+     5201.66,
+     5202.97,
+     31.7,
+     81790
+    ],
+    [
+     88336,
+     5250.47,
+     5251.76,
+     31.7,
+     81790
+    ],
+    [
+     89661,
+     5329.97,
+     5331.47,
+     31.7,
+     81790
+    ]
+   ],
+   "relayStale": {
+    "mean": 11.129,
+    "nonzero": 82
+   },
+   "leadTicks": {
+    "p50": 18,
+    "p95": 19
+   },
+   "stalls": {
+    "n": 3,
+    "totalMs": 571,
+    "maxMs": 338
+   },
+   "catchups": [],
+   "joins": [],
+   "lastSnap": null,
+   "donations": 2,
+   "resyncs": [],
+   "msPerTick": 4.574,
+   "checkpoints": {
+    "600": 1885477864,
+    "1200": -451307873,
+    "1800": 1102064576,
+    "2400": -592913059,
+    "3000": -1886475937,
+    "3600": -2094598014,
+    "4200": 266427272,
+    "4800": 1066172661
+   },
+   "bytes": {
+    "in": 68836,
+    "out": 17020,
+    "outMsgs": 1374,
+    "ticksMsgs": 5372,
+    "digests": 89
+   },
+   "uploads": [
+    {
+     "bytes": 21037612,
+     "ms": 9949,
+     "paced": false
+    },
+    {
+     "bytes": 21037612,
+     "ms": 9322,
+     "paced": false
+    }
+   ],
+   "rttIdle": {
+    "p50": 44.86,
+    "p95": 327.98
+   },
+   "rttDuringTransfer": {
+    "p50": 291.37,
+    "p95": 387.93,
+    "n": 158
+   }
+  },
+  {
+   "client": "B",
+   "index": 1,
+   "mode": "live",
+   "tick": 5370,
+   "horizon": 5379,
+   "rolling": 312850236,
+   "fullHash": -237140755,
+   "acts": 90,
+   "late": 1,
+   "reconnects": 0,
+   "margin": 2,
+   "marginTrace": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "playoutDelayMs": 168.2,
+   "rttMs": 29,
+   "confirmMs": {
+    "p50": 68.29,
+    "p95": 95.8,
+    "p99": 223.73
+   },
+   "applyMs": {
+    "p50": 233.01,
+    "p95": 259.51,
+    "p99": 275.76
+   },
+   "inputDelayTicks": {
+    "p50": 2,
+    "p95": 2
+   },
+   "predErrTicks": {
+    "mean": 0.034,
+    "p95": 0,
+    "nonzeroShare": 0.017
+   },
+   "predSigned": {
+    "mean": 0.034,
+    "min": 0,
+    "max": 2
+   },
+   "clockErr": {
+    "mean": -0.661,
+    "nonzero": 43,
+    "n": 59
+   },
+   "clockTrace": [
+    [
+     33479,
+     1960.79,
+     1962.4,
+     39.3,
+     32328
+    ],
+    [
+     34930,
+     2048.21,
+     2049.26,
+     28.3,
+     34356
+    ],
+    [
+     36386,
+     2135.57,
+     2136.87,
+     28.3,
+     34356
+    ],
+    [
+     37950,
+     2229.41,
+     2231.23,
+     28.3,
+     34356
+    ],
+    [
+     38854,
+     2283.64,
+     2285.14,
+     28.3,
+     34356
+    ],
+    [
+     40411,
+     2377.07,
+     2378.82,
+     28.3,
+     34356
+    ],
+    [
+     85986,
+     5111.47,
+     5112.84,
+     32.3,
+     80110
+    ],
+    [
+     86298,
+     5130.17,
+     5131.83,
+     32.3,
+     80110
+    ],
+    [
+     87767,
+     5218.48,
+     5219.4,
+     29,
+     87487
+    ],
+    [
+     88482,
+     5261.35,
+     5262.41,
+     29,
+     87487
+    ],
+    [
+     89703,
+     5334.64,
+     5335.73,
+     29,
+     87487
+    ],
+    [
+     90010,
+     5353.04,
+     5354.57,
+     29,
+     87487
+    ]
+   ],
+   "relayStale": {
+    "mean": 0.695,
+    "nonzero": 42
+   },
+   "leadTicks": {
+    "p50": 10,
+    "p95": 11
+   },
+   "stalls": {
+    "n": 3,
+    "totalMs": 143,
+    "maxMs": 97
+   },
+   "catchups": [
+    {
+     "reason": "join",
+     "ticks": 1850,
+     "ms": 13255,
+     "msPerTick": 4.994
+    }
+   ],
+   "joins": [
+    {
+     "toInGameMs": 31185
+    }
+   ],
+   "lastSnap": {
+    "bytes": 21037612,
+    "downloadMs": 17729,
+    "loadMs": 20.7,
+    "tick": 87
+   },
+   "donations": 0,
+   "resyncs": [
+    {
+     "desyncTick": 1980,
+     "snapTick": 2001,
+     "startedAt": 34157.672042,
+     "downloadMs": 17560,
+     "bytes": 21037612,
+     "swappedAfterMs": 35248,
+     "divergedBeforeSwap": true,
+     "viaWorker": true
+    }
+   ],
+   "msPerTick": 7.341,
+   "checkpoints": {
+    "600": 1885477864,
+    "1200": -451307873,
+    "1800": 2032102558,
+    "2400": 2027301948,
+    "3000": 571103004,
+    "3600": 1937438268,
+    "4200": 266427272,
+    "4800": 1066172661
+   },
+   "bytes": {
+    "in": 67157,
+    "out": 16231,
+    "outMsgs": 1309,
+    "ticksMsgs": 5285,
+    "digests": 88
+   },
+   "uploads": [],
+   "rttIdle": {
+    "p50": 44.97,
+    "p95": 72.18
+   },
+   "rttDuringTransfer": {
+    "p50": 51.91,
+    "p95": 99.9,
+    "n": 161
+   }
+  }
+ ]
+}
