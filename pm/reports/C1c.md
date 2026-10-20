@@ -660,3 +660,16 @@ This closes open issues 2 and 3 above.
   (`RemapTable.removed`, abi_version 2), and the text says why.
 - Checks: `r3_checks.py` 30 passed, 0 failed; `r3_xref.py` all placeholders resolve, 942 section references, 0
   dangling. `npm run ci` is green in 38.0 s.
+
+## Integration: C6-r1's fixture atlas
+
+C6-r1 (merge 78b9e87) regenerated `test/fixtures/sprites/`, and the merge took its `manifest.json` with an old
+`prototypesHash`.
+- I ran `npm run data`, then C6-r1's `scripts/assets/fixture.py`. It is procedural and needs no renders. It
+  reproduced C6-r1's pages and `cases.json` byte for byte; only `prototypesHash` changed, to the current build's.
+  `npm run assets -- --check` reports 0 failures.
+- **The golden set, version 5: a mechanical bump** (decision 14). Only the atlas's `external` hashes changed; every
+  `m0/` file is unchanged.
+- **The Biome error** that C7 and C6-r1 reported (`golden.test.ts:206`, `useIterableCallbackReturn`) came from
+  commit 5584174. It was fixed in acdd497, before either merge; `dev` is clean.
+- `npm run ci`: green in 40.9 s.

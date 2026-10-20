@@ -1185,7 +1185,7 @@
     [{ "bytes": [16648], "files": ["light-core-0.ktx2"], "group": "core" }],
     [{ "bytes": [20768], "files": ["icon-core-0.ktx2"], "group": "core" }]
   ],
-  "prototypesHash": "9479d0bc398a888375b6f7e94d7565e2e3763ea28e888521e5bec9acdc8961e9",
+  "prototypesHash": "db6d64a69842c21d8afb28993937d391d87e825a645d70eaa7d6d5310397be49",
   "sets": {
     "entity/inserter": {
       "group": "core",

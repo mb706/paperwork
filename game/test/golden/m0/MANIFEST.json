@@ -16,12 +16,12 @@
     "test/golden/model/xxh64.ts": "b730c26f0a8ae5606aef3de1299829fda42083bf4c1ed5207818537550d59f14"
   },
   "external": {
-    "test/fixtures/sprites/cases.json": "2278e0e0a36e3e5633b238b85ecad0f5dd02691811d0457e1ad38ede4efe4afd",
-    "test/fixtures/sprites/colour-core-0.h.ktx2": "94ab98d5424e261317066702cc15564f1eb6fdefe8b1154dce7bdd8a34a9dacc",
-    "test/fixtures/sprites/colour-core-0.n.ktx2": "dc756fd3cc936541a6923b2f52f1cb8afbd7b8bdb7ed6eedcbc5c12d355b8284",
-    "test/fixtures/sprites/icon-core-0.ktx2": "2b79fcf9213e5a321804b9c4386f22a12e1d8f5b0d4e96f7b068803552f4fec0",
-    "test/fixtures/sprites/light-core-0.ktx2": "490c22d9462440efd83332e8d469ce2479f675c20d5fd695b834d05b19ec3b4e",
-    "test/fixtures/sprites/manifest.json": "0ffe85dd42eb15fa87dd65281c73926110a38a824639db0416dc472821ebb6c5",
+    "test/fixtures/sprites/cases.json": "d8e64d00b8fe2443f9364f7c6f9d6423c0006c71efdc90d1b8967501105f6d85",
+    "test/fixtures/sprites/colour-core-0.h.ktx2": "755d57ab4e5b68d31e4820273a219840a21e85d472d8959445c89a9e7d81fb7e",
+    "test/fixtures/sprites/colour-core-0.n.ktx2": "325b75b5e7de4f9e02a4e759a62250350c59b4280acba9fd9469d2c9bcda96e0",
+    "test/fixtures/sprites/icon-core-0.ktx2": "07235cb3b2d67d56f46d3c523110bd94b880dc4120bd57e40de866c34ca71b69",
+    "test/fixtures/sprites/light-core-0.ktx2": "a2c84bfd1d051e30ab17bb8e553666d163833dd6fa8946a5aac569bf78388585",
+    "test/fixtures/sprites/manifest.json": "1f7ed3b2446dc13c44c3280459a395484d3e504d9ed5f0317e2180a8eb17e5d7",
     "test/fixtures/sprites/shadow-core-0.ktx2": "91f7434b375926861c4ac3745fe2afb7c6612087ec7cf8ac40cfec100f0cd0e3"
   },
   "files": {
@@ -490,5 +490,5 @@
     "view.bin": "daa6576b55def4e169b3472f0f3370edb84a9182004aa9a63ebc52994a641517"
   },
   "schemaHash": "bed0caa0b5b03465cddfbab410209d9611f1f8416ba834d7ac0b33304e240444",
-  "version": 4
+  "version": 5
 }
