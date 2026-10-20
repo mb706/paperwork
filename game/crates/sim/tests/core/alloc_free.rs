@@ -58,3 +58,25 @@ fn idle_ticks_allocate_nothing() {
     COUNTING.with(|x| x.set(false));
     assert_eq!(COUNT.with(Cell::get), 0, "allocations in 3,600 steady-state ticks");
 }
+
+/// C2a-r1 finding 9: a factory that sleeps and wakes all the time (watch lists, wheel and heap timers,
+/// compactions and sweeps) allocates nothing once its buffers have grown.
+#[test]
+fn sleeping_and_waking_allocate_nothing_once_warm() {
+    use crate::sched_equivalence::Toy;
+    let mut toy = Toy::new(Toy::random(5), false);
+    let mut ops = sim::rng::Xoshiro128::seeded(5, 2);
+    for _ in 0..20_000 {
+        toy.step(&mut ops);
+    }
+    let before = toy.sched.stats();
+    COUNT.with(|x| x.set(0));
+    COUNTING.with(|x| x.set(true));
+    for _ in 0..20_000 {
+        toy.step(&mut ops);
+    }
+    COUNTING.with(|x| x.set(false));
+    let after = toy.sched.stats();
+    assert!(after.sweeps > before.sweeps && after.compactions > before.compactions, "{before:?} {after:?}");
+    assert_eq!(COUNT.with(Cell::get), 0, "allocations in 20,000 ticks of sleeps and wakes");
+}

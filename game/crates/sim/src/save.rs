@@ -20,13 +20,14 @@ use crate::digest::lineage_of;
 use crate::r#gen::{
     ContainerPool, EntityTable, decode_chunks, decode_generated, decode_globals, decode_players, decode_rng,
     decode_slot_heap, decode_stats, decode_timers, decode_worldgen_pending, encode_generated, encode_globals,
-    encode_rng, encode_slot_heap, encode_stats, encode_worldgen_pending,
+    encode_rng, encode_slot_heap, encode_stats,
 };
 use crate::hash::{Xxh64, xxh64};
 use crate::heap::SlotHeap;
 use crate::players::Players;
 use crate::remap::{self, Remap, RemovedProto};
 use crate::rng::RngStreams;
+use crate::validate;
 use crate::world::World;
 use crate::{SimError, SimResult};
 use schema::codec::{DecodeError, EResult, EncodeError, Packed, Reader, Writer};
@@ -110,8 +111,8 @@ pub fn encode_section(w: &World, s: SaveSection, out: &mut Vec<u8>) -> EResult {
             Ok(())
         }
         SaveSection::Timers => {
-            wr.u32(w.timers.len() as u32);
-            for k in &w.timers {
+            wr.u32(w.timers().len() as u32);
+            for k in w.timers().iter() {
                 World::timer_record(k).encode(&mut wr)?;
             }
             Ok(())
@@ -124,8 +125,14 @@ pub fn encode_section(w: &World, s: SaveSection, out: &mut Vec<u8>) -> EResult {
             }
             Ok(())
         }
-        SaveSection::Stats => encode_stats(&mut wr, &w.stats),
-        SaveSection::WorldgenPending => encode_worldgen_pending(&mut wr, &w.worldgen_pending),
+        SaveSection::Stats => encode_stats(&mut wr, w.stats()),
+        SaveSection::WorldgenPending => {
+            wr.u32(w.pending().len() as u32);
+            for k in w.pending().iter() {
+                World::pending_record(k).encode(&mut wr)?;
+            }
+            Ok(())
+        }
         SaveSection::Generated => encode_generated(&mut wr, w.chunks.generated()),
         SaveSection::PoolContainer => w.containers.save(&mut wr, &|h| w.serial_of(h)),
         SaveSection::Cold
@@ -361,6 +368,8 @@ pub fn load(protos: &Arc<Protos>, build: &WorldgenId, req: &LoadRequest<'_>) -> 
         .map_err(|e| schema_err(SaveSection::WorldgenPending, e))?;
     let mut chunks = chunks;
 
+    // References first, before a remap follows them (C2a-r1 finding 1).
+    validate::check_references(&entities, &containers, &heap, &players).map_err(corrupt)?;
     // §8.3: remap every prototype id and item key of the state to this build's ids.
     let mut removed = Vec::new();
     if !req.remaps.is_empty() {
@@ -374,6 +383,9 @@ pub fn load(protos: &Arc<Protos>, build: &WorldgenId, req: &LoadRequest<'_>) -> 
         };
         removed = remap::apply(&mut raw, &req.remaps)?;
     }
+    // Prototypes, coordinates and positions before any derived index uses them (C2a-r1 finding 2).
+    validate::check_entities(&entities, protos, &globals).map_err(corrupt)?;
+    validate::check_players(&players, &globals).map_err(corrupt)?;
 
     let mut owners: Vec<InvRef> = Vec::new();
     for slot in 0..containers.rows() {
@@ -394,12 +406,15 @@ pub fn load(protos: &Arc<Protos>, build: &WorldgenId, req: &LoadRequest<'_>) -> 
     world.heap = heap;
     world.chunks = chunk_store;
     world.players = Players::from_records(players);
-    world.stats = stats;
-    world.timers = timers.iter().map(|t| (t.due, t.serial, t.event, t.owner)).collect();
+    world.set_stats(stats);
+    let timer_keys: Vec<_> = timers.iter().map(|t| (t.due, t.serial, t.event, t.owner)).collect();
+    let pending_keys: Vec<_> = pending.iter().map(|q| (q.commit_tick, q.surface, q.cy, q.cx)).collect();
+    world.set_timers_and_pending(&timer_keys, &pending_keys).map_err(corrupt)?;
     world.rng = RngStreams::from_records(rng);
-    world.worldgen_pending = pending;
     world.rebuild_derived();
+    validate::check_schedules(&world).map_err(corrupt)?;
     world.check_invariants().map_err(corrupt)?;
+    validate::check_inventories(&world).map_err(corrupt)?;
     check_records(&world).map_err(corrupt)?;
 
     // A baked save from other worldgen rules continues under this build's (§4.4): its pair becomes this build's,
@@ -438,7 +453,7 @@ fn check_records(w: &World) -> Result<(), String> {
             return Err(format!("player {}'s character has no inventory", p.index.0));
         }
     }
-    for s in &w.stats {
+    for s in w.stats() {
         let ok =
             s.rings.len() == 9 && s.rings.iter().enumerate().all(|(i, r)| r.precision.value() as usize == i);
         if !ok {

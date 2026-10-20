@@ -13,6 +13,7 @@ mod alloc_free;
 mod common;
 mod golden_core;
 mod harness;
+mod review_c2a;
 mod scale;
 mod sched_equivalence;
 mod world_core;

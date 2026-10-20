@@ -25,6 +25,13 @@ use std::sync::Arc;
 /// `sim_meta`'s record (§15.8).
 pub type SimMetaOut = SimMeta;
 
+/// The largest blob (11 §3.2: "a blob is at most 8 MiB"; sections.yaml `LogBlob.length`).
+pub const BLOB_MAX_BYTES: usize = 8 << 20;
+/// The most blobs held for one tick.
+pub const BLOBS_MAX: usize = 64;
+/// The most bytes of blobs held for one tick.
+pub const BLOBS_MAX_BYTES: usize = 32 << 20;
+
 /// The last world call (§15.8: `sim_load_report` answers only after `sim_load`, until the next world call).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum WorldCall {
@@ -51,8 +58,10 @@ pub struct SimContext {
     d: u64,
     slice: u64,
     flags: SimFlags,
-    /// Blobs supplied for the next tick (§15.3), by SHA-256.
+    /// Blobs supplied for the next tick (§15.3), ascending by SHA-256, within the limits below.
     blobs: Vec<([u8; 32], Vec<u8>)>,
+    /// Their total size in bytes.
+    blob_bytes: usize,
     last_world_call: Option<WorldCall>,
     report: Option<LoadReport>,
     scratch: TickScratch,
@@ -170,10 +179,11 @@ impl SimContext {
         self.pres.events.historical = self.flags.contains(SimFlags::HISTORICAL);
         self.last_world_call = Some(call);
         self.blobs.clear();
+        self.blob_bytes = 0;
         self.issued = self.world.as_ref().map_or_else(Vec::new, |w| {
-            w.worldgen_pending
+            w.pending()
                 .iter()
-                .map(|q| ChunkRequest { surface: q.surface, cx: q.cx, cy: q.cy, commit_tick: q.commit_tick })
+                .map(|&(commit_tick, surface, cy, cx)| ChunkRequest { surface, cx, cy, commit_tick })
                 .collect()
         });
     }
@@ -217,7 +227,8 @@ impl SimContext {
         let Some(world) = self.world.as_mut() else {
             return Err(order("no world: call sim_new_world or sim_load first"));
         };
-        let has_blob = |h: &[u8; 32]| blobs.iter().any(|b| &b.0 == h);
+        self.blob_bytes = 0;
+        let has_blob = |h: &[u8; 32]| blobs.binary_search_by(|b| b.0.cmp(h)).is_ok();
         let mut phases = [0u64; PHASES];
         let profile = self.want_phase_digests;
         let mut io = TickIo {
@@ -252,20 +263,39 @@ impl SimContext {
 
     /// `sim_blob_put` (§15.3): `u8 sha256[32]`, then the bytes; held for the next tick only. The shell has
     /// checked the hash; a module built with `simcheck` checks it again.
+    ///
+    /// Bounded before anything is copied (C2a-r1 finding 5): a blob is at most [`BLOB_MAX_BYTES`] (11 §3.2's
+    /// 8 MiB; `ERR_INPUT` above), and the blobs held for one tick at most [`BLOBS_MAX`] and
+    /// [`BLOBS_MAX_BYTES`] together (`ERR_LIMIT` past either). A blob already held is not copied again.
     pub fn blob_put(&mut self, input_bytes: &[u8]) -> SimResult<()> {
         let v = schema::BlobPut::decode_exact(input_bytes).map_err(|e| input(format!("BlobPut: {e}")))?;
+        if v.bytes.len() > BLOB_MAX_BYTES {
+            return Err(input(format!("a blob of {} bytes: at most {BLOB_MAX_BYTES}", v.bytes.len())));
+        }
+        let Err(at) = self.blobs.binary_search_by(|b| b.0.cmp(&v.sha256.bytes)) else {
+            return Ok(());
+        };
+        if self.blobs.len() >= BLOBS_MAX || self.blob_bytes + v.bytes.len() > BLOBS_MAX_BYTES {
+            return Err(SimError::new(
+                SimStatus::ErrLimit,
+                format!(
+                    "{} blobs of {} bytes are held for the next tick: at most {BLOBS_MAX} and {BLOBS_MAX_BYTES} bytes",
+                    self.blobs.len(),
+                    self.blob_bytes
+                ),
+            ));
+        }
         if cfg!(feature = "simcheck") && sha256(v.bytes) != v.sha256.bytes {
             return Err(input("the blob's bytes do not hash to its SHA-256"));
         }
-        if !self.blobs.iter().any(|b| b.0 == v.sha256.bytes) {
-            self.blobs.push((v.sha256.bytes, v.bytes.to_vec()));
-        }
+        self.blobs.insert(at, (v.sha256.bytes, v.bytes.to_vec()));
+        self.blob_bytes += v.bytes.len();
         Ok(())
     }
 
     /// The bytes of a blob supplied for this tick.
     pub fn blob(&self, h: &[u8; 32]) -> Option<&[u8]> {
-        self.blobs.iter().find(|b| &b.0 == h).map(|b| b.1.as_slice())
+        self.blobs.binary_search_by(|b| b.0.cmp(h)).ok().map(|i| self.blobs[i].1.as_slice())
     }
 
     /// `sim_pending_chunks` (§15.8, §15.9): the requests issued since the last call; after `sim_load`, every

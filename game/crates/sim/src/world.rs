@@ -6,21 +6,37 @@
 //! buckets of the digest slices (§4.8), each chunk's entity list and occupancy, and the scheduler.
 
 use crate::chunks::{ChunkStore, map_bounds, tile_chunk, tile_chunk_key, tile_index};
-use crate::r#gen::{ContainerPool, EntityTable, Globals, Stat, Timer, WorldgenRequest};
+use crate::r#gen::{ContainerPool, EntityTable, Globals, Stat, Timer, WorldgenRequest, shard_of_timer};
 use crate::handle::{self, SerialIndex};
 use crate::heap::SlotHeap;
+use crate::index::{BlockList, ShardBuckets};
 use crate::players::Players;
 use crate::rng::RngStreams;
 use crate::sched::Scheduler;
 use schema::{
     ChunkKey, Direction, EntityFlags, EntityHandle, EntityId, EntityType, PoolKind, Protos, SHARDS, Serial,
-    SurfaceIndex, Tick, TileId, TimerEvent,
+    StatKey, SurfaceIndex, Tick, TileId, TimerEvent, chunk_key,
 };
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
 /// A work timer's key (§4.6, §8.1): its saved fields in their canonical order `(due, serial, event, owner)`.
 pub type TimerKey = (Tick, Serial, TimerEvent, u32);
+
+/// A worldgen request's key (§5.18, §8.1): `(commit_tick, surface, cy, cx)`, the order a tick commits in.
+pub type PendingKey = (Tick, SurfaceIndex, i32, i32);
+
+/// The digest shard of a work timer (sections.yaml `timer`).
+pub const fn timer_shard(k: &TimerKey) -> u32 {
+    shard_of_timer(k.1, k.3)
+}
+
+/// The digest shard of a worldgen request: its chunk's key (sections.yaml `chunk`).
+pub const fn pending_shard(k: &PendingKey) -> u32 {
+    chunk_key(k.3, k.2).0 % SHARDS
+}
+
+/// The tiles an entity may occupy: the chunk-key range (§4.4: ±1,048,576 tiles, Factorio's map size).
+pub const TILE_LIMIT: i64 = 1 << 20;
 
 /// What a new entity is made of (the entity-table row's columns that its creator chooses).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -47,47 +63,21 @@ pub struct Footprint {
     pub ty1: i32,
 }
 
-/// The digest's per-shard index of live entities (§4.8 item 2: "a derived index of 3,600 buckets kept in
-/// ascending serial"). Serials only grow, so a new entity's serial goes at its bucket's end.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct EntityShards {
-    buckets: Vec<Vec<Serial>>,
-}
-
-impl Default for EntityShards {
-    fn default() -> Self {
-        Self { buckets: vec![Vec::new(); SHARDS as usize] }
+/// [`World::footprint`] without a World. The arithmetic is in `i64`, so no coordinate a save or an action can
+/// hold overflows it.
+pub fn footprint_of(protos: &Protos, proto: EntityId, x2: i32, y2: i32) -> Option<Footprint> {
+    let p = usize::from(proto.0);
+    let (w, h) = (i64::from(*protos.entity.size_w.get(p)?), i64::from(*protos.entity.size_h.get(p)?));
+    let (x2, y2) = (i64::from(x2), i64::from(y2));
+    if (x2 - w).rem_euclid(2) != 0 || (y2 - h).rem_euclid(2) != 0 {
+        return None;
     }
-}
-
-impl EntityShards {
-    pub fn insert(&mut self, s: Serial) {
-        let b = &mut self.buckets[(s.0 % SHARDS) as usize];
-        match b.last() {
-            Some(&last) if last >= s => {
-                if let Err(i) = b.binary_search(&s) {
-                    b.insert(i, s);
-                }
-            }
-            _ => b.push(s),
-        }
+    let (tx0, ty0, tx1, ty1) = ((x2 - w) / 2, (y2 - h) / 2, (x2 + w) / 2, (y2 + h) / 2);
+    // The centre's tile (x2 >> 1) lies inside [tx0, tx1] for every size, so this bounds it too.
+    if tx0 < -TILE_LIMIT || ty0 < -TILE_LIMIT || tx1 > TILE_LIMIT || ty1 > TILE_LIMIT {
+        return None;
     }
-
-    pub fn remove(&mut self, s: Serial) {
-        let b = &mut self.buckets[(s.0 % SHARDS) as usize];
-        if let Ok(i) = b.binary_search(&s) {
-            b.remove(i);
-        }
-    }
-
-    /// The live serials of shard `shard`, ascending.
-    pub fn bucket(&self, shard: u32) -> &[Serial] {
-        &self.buckets[shard as usize]
-    }
-
-    pub fn clear(&mut self) {
-        self.buckets.iter_mut().for_each(Vec::clear);
-    }
+    Some(Footprint { tx0: tx0 as i32, ty0: ty0 as i32, tx1: tx1 as i32, ty1: ty1 as i32 })
 }
 
 /// The pool of an entity type (state.yaml `PoolKind`; M0 has chests only).
@@ -112,18 +102,22 @@ pub struct World {
     pub chunks: ChunkStore,
     /// `PLAYERS`.
     pub players: Players,
-    /// `STATS`, ascending by key.
-    pub stats: Vec<Stat>,
+    /// `STATS`, ascending by key (private: its shard index follows every insertion).
+    stats: Vec<Stat>,
     /// `TIMERS`: the work timers in fire order (§4.6).
-    pub timers: BTreeSet<TimerKey>,
+    timers: BlockList<TimerKey>,
     /// `RNG`.
     pub rng: RngStreams,
-    /// `WORLDGEN_PENDING`, ascending by `(commit_tick, surface, cy, cx)` (§5.18).
-    pub worldgen_pending: Vec<WorldgenRequest>,
+    /// `WORLDGEN_PENDING`, in commit order (§5.18).
+    pending: BlockList<PendingKey>,
     /// Derived: live serial → handle (§4.3).
     pub(crate) serials: SerialIndex,
-    /// Derived: live serials per digest shard (§4.8).
-    pub(crate) shards: EntityShards,
+    /// Derived: per digest shard, the live serials, the statistics keys, the work timers and the worldgen
+    /// requests that fall in it (§4.8; C2a-r1 finding 10).
+    pub(crate) shards: ShardBuckets<Serial>,
+    pub(crate) stat_shards: ShardBuckets<StatKey>,
+    pub(crate) timer_shards: ShardBuckets<TimerKey>,
+    pub(crate) pending_shards: ShardBuckets<PendingKey>,
     /// Derived: active sets, wake sequence numbers, registrations and wake timers (§4.6).
     pub sched: Scheduler,
     /// Derived from the prototypes: how far any collision box reaches from its entity's centre (spatial.rs).
@@ -145,14 +139,147 @@ impl World {
             chunks: ChunkStore::new(),
             players: Players::new(),
             stats: Vec::new(),
-            timers: BTreeSet::new(),
+            timers: BlockList::new(),
             rng: RngStreams::default(),
-            worldgen_pending: Vec::new(),
+            pending: BlockList::new(),
             serials: SerialIndex::new(),
-            shards: EntityShards::default(),
+            shards: ShardBuckets::new(),
+            stat_shards: ShardBuckets::new(),
+            timer_shards: ShardBuckets::new(),
+            pending_shards: ShardBuckets::new(),
             sched,
             entity_reach,
         }
+    }
+
+    // ------------------------------------------------------------------------------------------- records
+
+    /// `STATS` in key order.
+    pub fn stats(&self) -> &[Stat] {
+        &self.stats
+    }
+
+    /// The statistics record of `key`, made by `make` when the key is new (its shard index follows).
+    pub fn stat_mut(&mut self, key: StatKey, make: impl FnOnce() -> Stat) -> &mut Stat {
+        let i = match self.stats.binary_search_by(|x| x.key.cmp(&key)) {
+            Ok(i) => i,
+            Err(i) => {
+                self.stats.insert(i, make());
+                self.stat_shards.insert(key.0 % SHARDS, key);
+                i
+            }
+        };
+        &mut self.stats[i]
+    }
+
+    /// Every statistics record, in key order, for changes that keep the keys (phase 15's flush).
+    pub fn stats_mut(&mut self) -> &mut [Stat] {
+        &mut self.stats
+    }
+
+    /// Replaces `STATS` (a load): sorted by key, each key once.
+    pub(crate) fn set_stats(&mut self, stats: Vec<Stat>) {
+        self.stat_shards.clear();
+        for s in &stats {
+            self.stat_shards.insert(s.key.0 % SHARDS, s.key);
+        }
+        self.stats = stats;
+    }
+
+    /// The position of a statistics record in `STATS` (its slice key − 1, rule 38).
+    pub(crate) fn stat_position(&self, key: StatKey) -> Option<usize> {
+        self.stats.binary_search_by(|x| x.key.cmp(&key)).ok()
+    }
+
+    /// The work timers in fire order.
+    pub fn timers(&self) -> &BlockList<TimerKey> {
+        &self.timers
+    }
+
+    /// Schedules a work timer (§4.6: due no earlier than the next tick); `false` when it was there already.
+    pub fn add_timer(&mut self, k: TimerKey) -> bool {
+        let fresh = self.timers.insert(k);
+        if fresh {
+            self.timer_shards.insert(timer_shard(&k), k);
+        }
+        fresh
+    }
+
+    pub fn remove_timer(&mut self, k: &TimerKey) -> bool {
+        let had = self.timers.remove(k);
+        if had {
+            self.timer_shards.remove(timer_shard(k), k);
+        }
+        had
+    }
+
+    /// The first work timer if it is due at `tick` or before, removed.
+    pub fn pop_due_timer(&mut self, tick: u32) -> Option<TimerKey> {
+        let k = *self.timers.first()?;
+        if k.0.0 > tick {
+            return None;
+        }
+        self.remove_timer(&k);
+        Some(k)
+    }
+
+    /// The worldgen requests in commit order.
+    pub fn pending(&self) -> &BlockList<PendingKey> {
+        &self.pending
+    }
+
+    /// A worldgen request (§5.18); `false` when it was there already.
+    pub fn add_pending(&mut self, k: PendingKey) -> bool {
+        let fresh = self.pending.insert(k);
+        if fresh {
+            self.pending_shards.insert(pending_shard(&k), k);
+        }
+        fresh
+    }
+
+    pub fn remove_pending(&mut self, k: &PendingKey) -> bool {
+        let had = self.pending.remove(k);
+        if had {
+            self.pending_shards.remove(pending_shard(k), k);
+        }
+        had
+    }
+
+    /// Replaces the work timers and the worldgen requests (a load); the decoders checked their order.
+    pub(crate) fn set_timers_and_pending(
+        &mut self,
+        timers: &[TimerKey],
+        pending: &[PendingKey],
+    ) -> Result<(), String> {
+        self.timers = BlockList::from_sorted(timers).ok_or("TIMERS out of order")?;
+        self.pending = BlockList::from_sorted(pending).ok_or("WORLDGEN_PENDING out of order")?;
+        self.timer_shards.clear();
+        for k in timers {
+            self.timer_shards.insert(timer_shard(k), *k);
+        }
+        self.pending_shards.clear();
+        for k in pending {
+            self.pending_shards.insert(pending_shard(k), *k);
+        }
+        Ok(())
+    }
+
+    /// How many work timers, statistics records and worldgen requests fall in digest shard `shard`.
+    pub fn timer_shards_len(&self, shard: u32) -> usize {
+        self.timer_shards.bucket(shard).len()
+    }
+
+    pub fn stat_shards_len(&self, shard: u32) -> usize {
+        self.stat_shards.bucket(shard).len()
+    }
+
+    pub fn pending_shards_len(&self, shard: u32) -> usize {
+        self.pending_shards.bucket(shard).len()
+    }
+
+    /// The `WORLDGEN_PENDING` record of a request's key.
+    pub fn pending_record(k: &PendingKey) -> WorldgenRequest {
+        WorldgenRequest { commit_tick: k.0, surface: k.1, cy: k.2, cx: k.3 }
     }
 
     /// The tick the world is at (the last tick run; 0 for a new world).
@@ -173,12 +300,13 @@ impl World {
         self.entities.is_live(row) && self.entities.r#gen[row as usize] == handle::generation(h)
     }
 
-    /// The serial of the entity `h` names (0 for none).
+    /// The serial of the live entity `h` names; none (0) for a handle whose row was freed or handed out again
+    /// (its generation differs), so a stale handle never turns into another entity's serial (C2a-r1 finding 6).
     pub fn serial_of(&self, h: EntityHandle) -> Serial {
-        if h.0 == 0 {
+        if !self.is_live(h) {
             return Serial::NONE;
         }
-        self.entities.serial.get(handle::slot(h) as usize).copied().unwrap_or(Serial::NONE)
+        self.entities.serial[handle::slot(h) as usize]
     }
 
     /// The number of live entities (the digest's `entity_count`, golden rule 27: entity-table rows, not
@@ -197,16 +325,11 @@ impl World {
         v.into_iter().map(|x| x.1).collect()
     }
 
-    /// The tiles an entity of `proto` centred at `(x2, y2)` covers; `None` when the centre's parity does not
-    /// fit the size (§4.2: odd sizes centre on tile centres, even ones on tile corners).
+    /// The tiles an entity of `proto` centred at `(x2, y2)` covers; `None` for an unknown prototype, a centre
+    /// whose parity does not fit the size (§4.2: odd sizes centre on tile centres, even ones on tile corners),
+    /// or a footprint outside the chunk-key range (§4.4), so no chunk key ever aliases (C2a-r1 finding 2).
     pub fn footprint(&self, proto: EntityId, x2: i32, y2: i32) -> Option<Footprint> {
-        let p = usize::from(proto.0);
-        let (w, h) =
-            (i32::from(*self.protos.entity.size_w.get(p)?), i32::from(*self.protos.entity.size_h.get(p)?));
-        if (x2 - w).rem_euclid(2) != 0 || (y2 - h).rem_euclid(2) != 0 {
-            return None;
-        }
-        Some(Footprint { tx0: (x2 - w) / 2, ty0: (y2 - h) / 2, tx1: (x2 + w) / 2, ty1: (y2 + h) / 2 })
+        footprint_of(&self.protos, proto, x2, y2)
     }
 
     /// The chunk keys a footprint touches, ascending by (cy, cx) walk order and deduplicated.
@@ -225,8 +348,15 @@ impl World {
         let t =
             *self.protos.entity.r#type.get(p).ok_or_else(|| format!("no entity prototype {}", e.proto.0))?;
         let kind = pool_kind(t).ok_or_else(|| format!("entity type {t:?} has no pool in this milestone"))?;
-        let f =
-            self.footprint(e.proto, e.x2, e.y2).ok_or("the centre's parity does not fit the footprint")?;
+        let f = self
+            .footprint(e.proto, e.x2, e.y2)
+            .ok_or("the centre's parity does not fit the footprint, or it lies outside the chunk range")?;
+        if !(self.in_map(f.tx0, f.ty0) && self.in_map(f.tx1 - 1, f.ty1 - 1)) {
+            return Err("the footprint leaves the map".to_owned());
+        }
+        if usize::from(e.surface) >= self.globals.surfaces.len() {
+            return Err(format!("no surface {}", e.surface));
+        }
         let surface = SurfaceIndex(u16::from(e.surface));
         for k in Self::footprint_chunks(&f) {
             if !self.chunks.is_modified(surface, k) {
@@ -273,7 +403,7 @@ impl World {
             }
         }
         self.serials.insert(serial, h);
-        self.shards.insert(serial);
+        self.shards.insert(serial.0 % SHARDS, serial);
         self.place(row, &f, surface, center, true);
         Ok((serial, h))
     }
@@ -326,7 +456,7 @@ impl World {
         }
         self.entities.free(row);
         self.serials.remove(serial);
-        self.shards.remove(serial);
+        self.shards.remove(serial.0 % SHARDS, &serial);
         self.place(row, &f, surface, center, false);
     }
 
@@ -372,7 +502,7 @@ impl World {
             let r = row as usize;
             let h = handle::make(row, self.entities.r#gen[r]);
             self.serials.insert(serial, h);
-            self.shards.insert(serial);
+            self.shards.insert(serial.0 % SHARDS, serial);
             let (x2, y2) = (self.entities.x2[r], self.entities.y2[r]);
             let center = tile_chunk_key(x2 >> 1, y2 >> 1);
             self.entities.chunk[r] = center;
@@ -443,7 +573,7 @@ impl World {
                 PoolKind::Container => {
                     let slot = self.entities.pool_slot[r];
                     let back = self.containers.entity.get(slot as usize).copied();
-                    if !self.containers.is_live(slot) || back.map(handle::slot) != Some(row) {
+                    if !self.containers.is_live(slot) || back != Some(handle::make(row, g)) {
                         return Err(format!("entity {serial}: its container row {slot} does not name it"));
                     }
                 }
@@ -453,8 +583,9 @@ impl World {
             if !self.containers.is_live(slot) {
                 continue;
             }
-            let row = handle::slot(self.containers.entity[slot as usize]);
-            if !self.entities.is_live(row)
+            let h = self.containers.entity[slot as usize];
+            let row = handle::slot(h);
+            if !self.is_live(h)
                 || self.entities.kind[row as usize] != PoolKind::Container
                 || self.entities.pool_slot[row as usize] != slot
             {
@@ -509,6 +640,7 @@ impl World {
     }
 
     /// The `TIMERS` record of a work timer's key.
+    #[inline]
     pub fn timer_record(k: &TimerKey) -> Timer {
         Timer { due: k.0, serial: k.1, event: k.2, owner: k.3 }
     }

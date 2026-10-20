@@ -179,7 +179,7 @@ pub fn apply(s: &mut RawState<'_>, remaps: &[Remap]) -> SimResult<Vec<RemovedPro
                 t.lose(ProtoKind::Entity, old, 1);
                 let slot = s.entities.pool_slot[r];
                 if s.containers.is_live(slot) {
-                    clear_block(s.heap, s.containers.inv[slot as usize]);
+                    clear_block(s.heap, s.containers.inv[slot as usize])?;
                     s.containers.free(slot);
                 }
                 s.entities.free(row);
@@ -339,16 +339,26 @@ pub fn apply(s: &mut RawState<'_>, remaps: &[Remap]) -> SimResult<Vec<RemovedPro
     Ok(lost)
 }
 
-/// Empties a block of the raw heap record and drops its bar and filters (an entity removed by the remap).
-fn clear_block(h: &mut SlotHeapRecord, r: schema::InvRef) {
+/// Empties a block of the raw heap record and drops its bar and filters (an entity removed by the remap). The
+/// load checked that the block exists (`validate::check_references`); the offsets are computed in `u64` and
+/// bounds-checked anyway, so native code and wasm32 (a 32-bit `usize`) can never reach different slots
+/// (C2a-r1 finding 1).
+fn clear_block(h: &mut SlotHeapRecord, r: schema::InvRef) -> SimResult<()> {
     let class = inv_class(r);
-    if let Some(a) = h.arenas.iter_mut().find(|a| a.class == class) {
-        let n = class_slots(class) as usize;
-        let base = inv_block(r) as usize * n;
-        if let Some(s) = a.slots.get_mut(base..base + n) {
-            s.fill(EMPTY_SLOT);
+    let n = u64::from(class_slots(class));
+    let base = u64::from(inv_block(r)) * n;
+    let a = h.arenas.iter_mut().find(|a| a.class == class);
+    let range = usize::try_from(base).ok().zip(usize::try_from(base + n).ok());
+    match (a, range) {
+        (Some(a), Some((lo, hi))) if hi <= a.slots.len() => a.slots[lo..hi].fill(EMPTY_SLOT),
+        _ => {
+            return Err(SimError::new(
+                SimStatus::ErrLoadFormat,
+                format!("corrupt save: a removed entity's inventory {:#x} is not a block of the heap", r.0),
+            ));
         }
     }
     h.bars.retain(|b| b.inv != r);
     h.filters.retain(|f| f.inv != r);
+    Ok(())
 }

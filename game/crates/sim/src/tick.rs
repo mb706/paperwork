@@ -117,13 +117,9 @@ impl World {
 
         // Phase 2: wake timers (they only mark, wake rule 1), then the work timers due now, in their order.
         self.sched.fire_timers(t);
-        while let Some(&k) = self.timers.first() {
-            if k.0.0 != t {
-                debug_assert!(k.0.0 > t, "a work timer was due before this tick");
-                break;
-            }
-            self.timers.pop_first();
-            // M0 declares no work timer (state.yaml TimerEvent: "the values arrive with their systems").
+        while let Some(_k) = self.pop_due_timer(t) {
+            // M0 declares no work timer (state.yaml TimerEvent: "the values arrive with their systems"); a load
+            // refuses timers due before the next tick, so every timer popped here is due now.
         }
         phase.after(2, self);
         // Phase 3: chunk commits (C2b). Phases 4–14: no system in M0. Phase 15: statistics (C2b).

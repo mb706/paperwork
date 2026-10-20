@@ -25,9 +25,7 @@ use crate::heap::{inv_block, inv_class, inv_ref};
 use crate::save::{SAVED_SECTIONS, encode_section};
 use crate::world::World;
 use schema::codec::{EResult, Fixed, Writer};
-use schema::{
-    InvRef, PoolKind, RngWords, SHARDS, SaveSection, StatCounter, StatKey, TechId, Tick, chunk_key,
-};
+use schema::{InvRef, PoolKind, RngWords, SHARDS, SaveSection, StatCounter, StatKey, TechId, Tick};
 
 /// A table's free rows key above every serial (rule 37).
 const FREE_ROW_KEY: u64 = 1 << 32;
@@ -181,6 +179,9 @@ pub struct Slicer {
     buf: Vec<u8>,
     blocks: Vec<(u64, InvRef)>,
     free: Vec<u32>,
+    /// Records of the keyed sections (`TIMERS`, `STATS`, `WORLDGEN_PENDING`) the last slice looked at: only
+    /// its shard's (C2a-r1 finding 10).
+    visited: usize,
 }
 
 impl Slicer {
@@ -188,9 +189,15 @@ impl Slicer {
         Self::default()
     }
 
+    /// How many `TIMERS`, `STATS` and `WORLDGEN_PENDING` records the last slice looked at.
+    pub fn last_visited(&self) -> usize {
+        self.visited
+    }
+
     /// The slice hash of shard `shard` of `w` (rule 41).
     pub fn slice_hash(&mut self, w: &World, shard: u32) -> Result<u64, schema::codec::EncodeError> {
         let mut h = Xxh64::new();
+        self.visited = 0;
         let bucket = w.shards.bucket(shard);
         // 1 ENTITY_TABLE: header, live rows by serial, free rows by index.
         let rows = w.entities.rows();
@@ -268,16 +275,17 @@ impl Slicer {
                 frame(&mut h, SaveSection::Chunks, pos as u64 + 1, &self.buf);
             }
         }
-        // 9 TIMERS: by serial, or owner when the serial is 0.
+        // 9 TIMERS: by serial, or owner when the serial is 0; this shard's timers from its bucket, each at its
+        // position in fire order (C2a-r1 finding 10: no scan of every timer).
         if shard == count_shard(SaveSection::Timers.value()) {
-            frame(&mut h, SaveSection::Timers, 0, &(w.timers.len() as u32).to_le_bytes());
+            frame(&mut h, SaveSection::Timers, 0, &(w.timers().len() as u32).to_le_bytes());
         }
-        for (j, k) in w.timers.iter().enumerate() {
-            if crate::r#gen::shard_of_timer(k.1, k.3) == shard {
-                self.buf.clear();
-                World::timer_record(k).encode(&mut Writer::new(&mut self.buf))?;
-                frame(&mut h, SaveSection::Timers, j as u64 + 1, &self.buf);
-            }
+        for k in w.timer_shards.bucket(shard) {
+            self.visited += 1;
+            let j = w.timers().rank(k).expect("a bucketed timer is scheduled");
+            self.buf.clear();
+            World::timer_record(k).encode(&mut Writer::new(&mut self.buf))?;
+            frame(&mut h, SaveSection::Timers, j as u64 + 1, &self.buf);
         }
         // 10 RNG: pieces from shard 1,801.
         self.buf.clear();
@@ -294,27 +302,27 @@ impl Slicer {
                 frame(&mut h, SaveSection::Players, j as u64 + 1, &self.buf);
             }
         }
-        // 13 STATS: by stat key.
+        // 13 STATS: by stat key, from this shard's bucket.
         if shard == count_shard(SaveSection::Stats.value()) {
-            frame(&mut h, SaveSection::Stats, 0, &(w.stats.len() as u32).to_le_bytes());
+            frame(&mut h, SaveSection::Stats, 0, &(w.stats().len() as u32).to_le_bytes());
         }
-        for (j, s) in w.stats.iter().enumerate() {
-            if s.key.0 % SHARDS == shard {
-                self.buf.clear();
-                s.encode(&mut Writer::new(&mut self.buf))?;
-                frame(&mut h, SaveSection::Stats, j as u64 + 1, &self.buf);
-            }
+        for key in w.stat_shards.bucket(shard) {
+            self.visited += 1;
+            let j = w.stat_position(*key).expect("a bucketed key has a record");
+            self.buf.clear();
+            w.stats()[j].encode(&mut Writer::new(&mut self.buf))?;
+            frame(&mut h, SaveSection::Stats, j as u64 + 1, &self.buf);
         }
-        // 16 WORLDGEN_PENDING: by the chunk key of (cx, cy).
+        // 16 WORLDGEN_PENDING: by the chunk key of (cx, cy), from this shard's bucket.
         if shard == count_shard(SaveSection::WorldgenPending.value()) {
-            frame(&mut h, SaveSection::WorldgenPending, 0, &(w.worldgen_pending.len() as u32).to_le_bytes());
+            frame(&mut h, SaveSection::WorldgenPending, 0, &(w.pending().len() as u32).to_le_bytes());
         }
-        for (j, r) in w.worldgen_pending.iter().enumerate() {
-            if chunk_key(r.cx, r.cy).0 % SHARDS == shard {
-                self.buf.clear();
-                r.encode(&mut Writer::new(&mut self.buf))?;
-                frame(&mut h, SaveSection::WorldgenPending, j as u64 + 1, &self.buf);
-            }
+        for k in w.pending_shards.bucket(shard) {
+            self.visited += 1;
+            let j = w.pending().rank(k).expect("a bucketed request is pending");
+            self.buf.clear();
+            World::pending_record(k).encode(&mut Writer::new(&mut self.buf))?;
+            frame(&mut h, SaveSection::WorldgenPending, j as u64 + 1, &self.buf);
         }
         // 17 GENERATED.
         if shard == count_shard(SaveSection::Generated.value()) {
@@ -461,15 +469,11 @@ pub fn members(w: &World) -> Vec<Member> {
 fn record_shard(w: &World, s: SaveSection, j: usize) -> u32 {
     match s {
         SaveSection::Chunks => w.chunks.modified_at(j).key().0 % SHARDS,
-        SaveSection::Timers => {
-            let k = w.timers.iter().nth(j).expect("a timer");
-            crate::r#gen::shard_of_timer(k.1, k.3)
-        }
+        SaveSection::Timers => crate::world::timer_shard(w.timers().iter().nth(j).expect("a timer")),
         SaveSection::Players => player_shard(w.players.iter().nth(j).expect("a player").index.0),
-        SaveSection::Stats => w.stats[j].key.0 % SHARDS,
+        SaveSection::Stats => w.stats()[j].key.0 % SHARDS,
         SaveSection::WorldgenPending => {
-            let r = &w.worldgen_pending[j];
-            chunk_key(r.cx, r.cy).0 % SHARDS
+            crate::world::pending_shard(w.pending().iter().nth(j).expect("a request"))
         }
         SaveSection::Generated => w.chunks.generated()[j].key.0 % SHARDS,
         SaveSection::EntityTable

@@ -21,6 +21,7 @@ pub mod r#gen;
 pub mod handle;
 pub mod hash;
 pub mod heap;
+pub mod index;
 pub mod players;
 pub mod presentation;
 pub mod remap;
@@ -31,6 +32,7 @@ pub mod sha256;
 pub mod spatial;
 pub mod testkit;
 pub mod tick;
+pub mod validate;
 pub mod world;
 
 pub use context::{SimContext, SimMetaOut};

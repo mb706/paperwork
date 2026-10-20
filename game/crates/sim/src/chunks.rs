@@ -13,6 +13,7 @@
 //!   change of their part).
 
 use crate::r#gen::{Chunk, GeneratedChunk};
+use crate::index::ShardBuckets;
 use schema::{ChunkKey, SHARDS, SurfaceIndex, TileId, chunk_key, chunk_xy};
 
 /// Tiles per chunk side (§4.4).
@@ -133,8 +134,8 @@ pub struct ChunkStore {
     /// `GENERATED`: every generated chunk, ascending by `(surface, key)`.
     generated: Vec<GeneratedChunk>,
     /// Derived: the generated chunks of each digest shard (chunk key mod 3,600, §4.8), ascending by
-    /// `(surface, key)`; empty until the first chunk.
-    shards: Vec<Vec<(SurfaceIndex, ChunkKey)>>,
+    /// `(surface, key)`.
+    shards: ShardBuckets<(SurfaceIndex, ChunkKey)>,
 }
 
 impl ChunkStore {
@@ -148,11 +149,11 @@ impl ChunkStore {
         let mut s = Self {
             modified: chunks.into_iter().map(|c| Box::new(ChunkState::new(c))).collect(),
             generated,
-            shards: Vec::new(),
+            shards: ShardBuckets::new(),
         };
         for i in 0..s.generated.len() {
             let (surface, key) = (s.generated[i].surface, s.generated[i].key);
-            s.shard_bucket(key).push((surface, key));
+            s.shards.insert(key.0 % SHARDS, (surface, key));
         }
         for c in &s.modified {
             if s.generated_index(c.surface(), c.key()).is_err() {
@@ -201,16 +202,9 @@ impl ChunkStore {
         self.modified_index(surface, key).is_ok()
     }
 
-    fn shard_bucket(&mut self, key: ChunkKey) -> &mut Vec<(SurfaceIndex, ChunkKey)> {
-        if self.shards.is_empty() {
-            self.shards = vec![Vec::new(); SHARDS as usize];
-        }
-        &mut self.shards[(key.0 % SHARDS) as usize]
-    }
-
     /// The generated chunks whose key falls in digest shard `shard`, ascending by `(surface, key)`.
     pub fn generated_in_shard(&self, shard: u32) -> &[(SurfaceIndex, ChunkKey)] {
-        self.shards.get(shard as usize).map_or(&[], Vec::as_slice)
+        self.shards.bucket(shard)
     }
 
     /// Records a newly generated chunk (§5.18's commit); refuses one already generated.
@@ -220,9 +214,7 @@ impl ChunkStore {
             Err(i) => {
                 let (surface, key) = (rec.surface, rec.key);
                 self.generated.insert(i, rec);
-                let b = self.shard_bucket(key);
-                let at = b.partition_point(|x| *x < (surface, key));
-                b.insert(at, (surface, key));
+                self.shards.insert(key.0 % SHARDS, (surface, key));
                 Ok(())
             }
         }

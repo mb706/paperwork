@@ -15,6 +15,10 @@ sim.workspace = true
 
 [features]
 simcheck = ["sim/simcheck", "schema/simcheck"]
+# Exports §15.8's whole table (sim_abi_version = schema::ABI_VERSION, the host imports). Off by default until
+# the Shell package's loader replaces the M0 scaffold (src/simworker/scaffold.ts instantiates with no imports
+# and the e2e smoke test expects ABI 0); the WebAssembly tests build with it (C2; pm/reports/C2.md).
+full-abi = []
 
 [lints]
 workspace = true

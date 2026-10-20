@@ -9,13 +9,18 @@
 //! - **Registrations carry the sequence number** (wake rule 2): a sleeper registers with at most
 //!   [`MAX_REGISTRATIONS`] wake sources (watch lists and one timer); the first to fire wakes it, which makes
 //!   the others stale. Stale nodes are dropped when their list fires, a list is compacted when its stale
-//!   nodes outnumber its live ones, and the whole pool is swept when it holds more than twice the live
-//!   registrations, so retained nodes stay bounded (B1-r1 17). Forgetting an entity (destroyed) drops its
-//!   registrations at once.
+//!   nodes outnumber its live ones, and the lists with stale nodes (and the timer heap) are swept whenever the
+//!   pool holds more than twice the live registrations: after every call, nodes in use ≤ 2 × live
+//!   registrations (B1-r1 17). A sweep visits only the lists with stale nodes and keeps every buffer's
+//!   capacity, so a steady state of sleeps and wakes allocates nothing. Forgetting an entity (destroyed) drops
+//!   its registrations at once.
 //! - **Wake timers** wait in a 4,096-bucket wheel (one bucket per tick) or, for longer delays, a binary heap;
-//!   a delay of 0 means 1 (a timer is due no earlier than the next tick). Wake timers only wake, so their fire
-//!   order is free. **Work timers** (ghost expiry …) are saved world state in `TIMERS` and fire in
-//!   `(due, serial, event, owner)` order; the World keeps them ordered (`World::timers`), not here.
+//!   a delay of 0 means 1 (a timer is due no earlier than the next tick). A deadline past the last tick a world
+//!   can reach (`u32::MAX`, where `World::tick` stops) is never due, so it is not registered. Wake timers only
+//!   wake, so their fire order is free. **Work timers** (ghost expiry …) are saved world state in `TIMERS` and
+//!   fire in `(due, serial, event, owner)` order; the World keeps them ordered (`World::timers`), not here.
+//! - **Watch-list ids** belong to the systems that allocated them and stay valid until they free them; turning
+//!   NO_SLEEP on or off empties the lists but keeps every id (C2a-r1 finding 3).
 //!
 //! Everything here is derived and unsaved (§8.1): after a load every entity starts awake and goes back to
 //! sleep within a tick. NO_SLEEP (`sim_set_flags` bit 0) keeps every live slot active and bypasses all of it.
@@ -151,11 +156,13 @@ struct List {
     head: u32,
     len: u32,
     stale: u32,
+    /// Listed in `Scheduler::dirty` (it may hold stale nodes).
+    dirty: bool,
 }
 
 impl Default for List {
     fn default() -> Self {
-        Self { head: NONE, len: 0, stale: 0 }
+        Self { head: NONE, len: 0, stale: 0, dirty: false }
     }
 }
 
@@ -183,7 +190,11 @@ pub struct Scheduler {
     free_lists: Vec<u32>,
     /// Wheel buckets are the lists `0 … WHEEL_BUCKETS − 1`.
     heap: BinaryHeap<Reverse<(u32, u32)>>,
-    /// The tick whose timers fired last (timers are scheduled relative to it).
+    /// Stale registrations still in the heap.
+    heap_stale: u32,
+    /// The lists that may hold stale nodes (each once, `List::dirty`): what a sweep visits.
+    dirty: Vec<u32>,
+    /// The current tick (timers are scheduled relative to it).
     now: u32,
     stats: SchedStats,
 }
@@ -205,6 +216,8 @@ impl Scheduler {
             lists: vec![List::default(); WHEEL_BUCKETS as usize],
             free_lists: Vec::new(),
             heap: BinaryHeap::new(),
+            heap_stale: 0,
+            dirty: Vec::new(),
             now: 0,
             stats: SchedStats::default(),
         }
@@ -222,23 +235,27 @@ impl Scheduler {
         self.no_sleep
     }
 
-    /// Sets NO_SLEEP. Turning it on drops every registration; the caller then activates every live slot.
+    /// Sets NO_SLEEP. Turning it on drops every registration (every list and the heap empty, every sleeper's
+    /// sequence raised) but keeps every watch-list id valid; the caller then activates every live slot.
+    /// Turning it off changes nothing: entities go back to sleep through their own updates.
     pub fn set_no_sleep(&mut self, on: bool) {
         if on && !self.no_sleep {
-            let now = self.now;
-            let active = std::mem::take(&mut self.active);
-            let sleepers = std::mem::take(&mut self.sleepers);
-            self.reset(now);
-            self.active = active;
-            // Sequence numbers survive; registrations are gone.
-            self.sleepers = sleepers
-                .into_iter()
-                .map(|v| {
-                    v.into_iter()
-                        .map(|s| SleeperState { seq: s.seq.wrapping_add(1), regs: [NONE; 4] })
-                        .collect()
-                })
-                .collect();
+            for l in &mut self.lists {
+                *l = List::default();
+            }
+            self.dirty.clear();
+            self.nodes.clear();
+            self.free = NONE;
+            self.heap.clear();
+            self.heap_stale = 0;
+            for v in &mut self.sleepers {
+                for st in v.iter_mut() {
+                    st.seq = st.seq.wrapping_add(1);
+                    st.regs = [NONE; MAX_REGISTRATIONS];
+                }
+            }
+            self.stats.nodes_in_use = 0;
+            self.stats.live_registrations = 0;
         }
         self.no_sleep = on;
     }
@@ -310,12 +327,16 @@ impl Scheduler {
             }
             self.stats.live_registrations -= 1;
             if l == TIMER_HEAP {
+                self.heap_stale += 1;
                 continue;
             }
             let list = &mut self.lists[l as usize];
             list.stale += 1;
             if list.stale * 2 > list.len {
                 self.compact(l);
+            } else if !list.dirty {
+                list.dirty = true;
+                self.dirty.push(l);
             }
         }
         self.maybe_sweep();
@@ -410,7 +431,9 @@ impl Scheduler {
     }
 
     fn fire_list(&mut self, l: u32) {
-        let list = std::mem::take(&mut self.lists[l as usize]);
+        let list = self.lists[l as usize];
+        // The list empties but keeps its `dirty` mark while `dirty` still names it, so it is never listed twice.
+        self.lists[l as usize] = List { dirty: list.dirty, ..List::default() };
         let mut n = list.head;
         while n != NONE {
             let node = self.nodes[n as usize];
@@ -427,6 +450,8 @@ impl Scheduler {
             self.free_node(n);
             n = next;
         }
+        // Consumed registrations lowered the live count: restore the bound.
+        self.maybe_sweep();
     }
 
     /// Unlinks the stale nodes of a list.
@@ -452,36 +477,54 @@ impl Scheduler {
         self.lists[l as usize].stale = 0;
     }
 
-    /// The full sweep (B1-r1 17): when nodes in use exceed twice the live registrations (plus a small
-    /// allowance), every list with stale nodes is compacted and the heap rebuilt without stale entries.
+    /// The full sweep (B1-r1 17, §4.6: "retained nodes stay within twice the live ones"): when nodes in use
+    /// exceed twice the live registrations, the lists that may hold stale nodes are compacted and the heap
+    /// drops its stale entries in place. Buffers keep their capacity, so a sweep allocates nothing.
     fn maybe_sweep(&mut self) {
-        if self.stats.nodes_in_use <= 2 * self.stats.live_registrations + 64 {
+        if self.stats.nodes_in_use <= 2 * self.stats.live_registrations {
             return;
         }
         self.stats.sweeps += 1;
-        for l in 0..self.lists.len() as u32 {
-            if self.lists[l as usize].stale > 0 {
+        let mut dirty = std::mem::take(&mut self.dirty);
+        for &l in &dirty {
+            let list = &mut self.lists[l as usize];
+            list.dirty = false;
+            if list.stale > 0 {
                 self.compact(l);
             }
         }
-        let entries = std::mem::take(&mut self.heap).into_vec();
-        for Reverse((due, n)) in entries {
-            if self.is_live(&self.nodes[n as usize]) {
-                self.heap.push(Reverse((due, n)));
-            } else {
-                self.free_node(n);
-            }
+        dirty.clear();
+        self.dirty = dirty;
+        if self.heap_stale > 0 {
+            let Self { heap, nodes, sleepers, free, stats, .. } = self;
+            heap.retain(|&Reverse((_, n))| {
+                let node = nodes[n as usize];
+                let seq = sleepers
+                    .get(usize::from(node.owner.kind()))
+                    .and_then(|v| v.get(node.owner.slot() as usize));
+                if seq.is_some_and(|x| x.seq == node.seq) {
+                    return true;
+                }
+                nodes[n as usize].next = *free;
+                *free = n;
+                stats.nodes_in_use -= 1;
+                false
+            });
+            self.heap_stale = 0;
         }
     }
 
     /// Wakes sleeping `s` at tick `now + delay`, `now` being the current tick (a delay of 0 means 1, §4.6):
-    /// an arrival estimate, a wait condition. One of its at most four registrations.
+    /// an arrival estimate, a wait condition. One of its at most four registrations. A deadline past `u32::MAX`
+    /// can never come (the tick counter stops there), so it registers nothing (C2a-r1 finding 8).
     pub fn wake_after(&mut self, s: Sleeper, delay: u32) {
         if self.no_sleep {
             return;
         }
         let delay = delay.max(1);
-        let due = self.now.wrapping_add(delay);
+        let Some(due) = self.now.checked_add(delay) else {
+            return;
+        };
         if delay < WHEEL_BUCKETS {
             let bucket = due % WHEEL_BUCKETS;
             let seq = self.add_reg(s, bucket);
@@ -505,7 +548,9 @@ impl Scheduler {
         self.now = tick;
         self.fire_list(tick % WHEEL_BUCKETS);
         while let Some(&Reverse((due, n))) = self.heap.peek() {
-            if due != tick {
+            // Every deadline in the heap was in the future when it was set and fire_timers runs every tick, so
+            // `due < tick` cannot happen; were it to, the late wake is harmless (waking only marks).
+            if due > tick {
                 break;
             }
             self.heap.pop();
@@ -517,9 +562,12 @@ impl Scheduler {
                     self.stats.live_registrations -= 1;
                 }
                 self.wake(node.owner);
+            } else {
+                self.heap_stale = self.heap_stale.saturating_sub(1);
             }
             self.free_node(n);
         }
+        self.maybe_sweep();
     }
 
     pub fn stats(&self) -> SchedStats {
@@ -623,6 +671,51 @@ mod tests {
     }
 
     #[test]
+    fn no_sleep_keeps_the_watch_list_ids() {
+        // C2a-r1 finding 3: lists allocated before NO_SLEEP stay valid through it, on and off.
+        let mut s = Scheduler::new();
+        let ids: Vec<ListId> = (0..3).map(|_| s.alloc_list()).collect();
+        let e = Sleeper::new(1, 0);
+        s.activate(e);
+        s.sleep(e);
+        s.watch(e, ids[2]);
+        s.wake_after(e, 9000);
+        s.set_no_sleep(true);
+        s.notify(ids[2]);
+        s.notify(ids[0]);
+        let st = s.stats();
+        assert_eq!((st.nodes_in_use, st.live_registrations), (0, 0), "NO_SLEEP dropped every registration");
+        s.set_no_sleep(false);
+        s.activate(e);
+        s.sleep(e);
+        s.watch(e, ids[2]);
+        s.notify(ids[2]);
+        assert!(s.is_active(e), "the old id still wakes its waiters");
+        assert_eq!(s.alloc_list().0, ids[2].0 + 1, "no id was handed out twice");
+    }
+
+    #[test]
+    fn a_deadline_past_the_last_tick_is_never_due_and_blocks_nothing() {
+        // C2a-r1 finding 8: at tick 10 a delay of u32::MAX would wrap to tick 9 and block the heap.
+        let mut s = Scheduler::new();
+        s.begin_tick(10);
+        let (a, b) = (Sleeper::new(1, 0), Sleeper::new(1, 1));
+        for e in [a, b] {
+            s.activate(e);
+            s.sleep(e);
+        }
+        s.wake_after(a, u32::MAX);
+        s.wake_after(b, 5000);
+        for t in 11..=5010 {
+            s.begin_tick(t);
+            s.fire_timers(t);
+        }
+        assert!(s.is_active(b), "b is due at 5,010");
+        assert!(!s.is_active(a));
+        assert_eq!(s.stats().live_registrations, 0, "the unreachable deadline registered nothing");
+    }
+
+    #[test]
     fn more_than_four_registrations_is_a_bug() {
         let mut s = Scheduler::new();
         let lists: Vec<ListId> = (0..5).map(|_| s.alloc_list()).collect();
@@ -657,10 +750,34 @@ mod tests {
             s.fire_timers(t);
             let st = s.stats();
             // Without reclamation `never` alone would hold about 285,000 nodes by the end.
-            assert!(st.nodes_in_use <= 2 * st.live_registrations + 64 + 8, "tick {t}: {st:?}");
+            assert!(st.nodes_in_use <= 2 * st.live_registrations, "tick {t}: {st:?}");
         }
         let st = s.stats();
         assert!(st.compactions > 0, "{st:?}");
+    }
+
+    #[test]
+    fn stale_heap_timers_are_reclaimed_at_once() {
+        // C2a-r1 finding 9: §4.6's bound is strict. Fifty sleepers wait on a list and on a long timer; the list
+        // wakes them all, which leaves fifty stale timers and no live registration: nothing may be retained.
+        let mut s = Scheduler::new();
+        let l = s.alloc_list();
+        for i in 0..50 {
+            let e = Sleeper::new(1, i);
+            s.activate(e);
+            s.sleep(e);
+            s.watch(e, l);
+            s.wake_after(e, 10_000);
+        }
+        s.notify(l);
+        let st = s.stats();
+        assert_eq!((st.live_registrations, st.nodes_in_use), (0, 0), "{st:?}");
+        // The next deadline fires nothing and leaves nothing behind either.
+        for t in 1..=10_000 {
+            s.begin_tick(t);
+            s.fire_timers(t);
+        }
+        assert_eq!(s.stats().nodes_in_use, 0);
     }
 
     #[test]

@@ -4,9 +4,10 @@
 //! Evaluation uses `+ − × ÷` and comparisons only, in one fixed order, so every engine computes the same
 //! bits (§4.1 rule 1). Between breakpoints `(x₀, y₀)` and `(x₁, y₁)` the value is
 //! `y₀ + (y₁ − y₀) × ((x − x₀) / (x₁ − x₀))`, evaluated exactly in that order; at a breakpoint it is the
-//! breakpoint's own `y`, bit for bit; before the first breakpoint it is the first `y` and after the last the
-//! last `y` ("constant after the last", meta.world.j); a NaN argument gives the first `y` (a defined value,
-//! never NaN, D6).
+//! breakpoint's own `y`, bit for bit (−0 included); before the first breakpoint it is the first `y` and after
+//! the last the last `y` ("constant after the last", meta.world.j); a NaN argument gives the first `y`. A table
+//! whose segments would overflow (`x₁ − x₀` or `y₁ − y₀` not finite) is refused, so no value is ever NaN or
+//! infinite (D6; C2a-r1 finding 7).
 
 /// Why a table was refused.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -17,9 +18,12 @@ pub enum PiecewiseError {
     NotFinite,
     /// Breakpoints whose `x` does not rise strictly.
     NotAscending,
+    /// A segment whose `x₁ − x₀` or `y₁ − y₀` overflows to infinity, so interpolating it could give NaN.
+    Overflow,
 }
 
-/// A checked piecewise-linear table: at least one breakpoint, finite coordinates, `x` strictly ascending.
+/// A checked piecewise-linear table: at least one breakpoint, finite coordinates, `x` strictly ascending, and
+/// every segment's differences finite.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Piecewise {
     points: Vec<(f64, f64)>,
@@ -54,6 +58,9 @@ pub fn check(points: &[(f64, f64)]) -> Result<(), PiecewiseError> {
     if points.windows(2).any(|w| w[1].0 <= w[0].0) {
         return Err(PiecewiseError::NotAscending);
     }
+    if points.windows(2).any(|w| !(w[1].0 - w[0].0).is_finite() || !(w[1].1 - w[0].1).is_finite()) {
+        return Err(PiecewiseError::Overflow);
+    }
     Ok(())
 }
 
@@ -87,7 +94,13 @@ fn eval_checked(points: &[(f64, f64)], x: f64) -> f64 {
         }
     }
     let (xa, ya) = points[lo];
+    if x == xa {
+        // An interior breakpoint: its own value, bit for bit (−0 stays −0).
+        return ya;
+    }
     let (xb, yb) = points[lo + 1];
+    // xa < x < xb and both differences are finite (`check`), so t ∈ (0, 1) and the result lies between ya and
+    // yb: finite, never NaN.
     ya + (yb - ya) * ((x - xa) / (xb - xa))
 }
 
@@ -141,6 +154,32 @@ mod tests {
             sum += day.eval((f64::from(i) + 0.5) / f64::from(n));
         }
         assert!((sum / f64::from(n) - 0.7).abs() < 1e-9);
+    }
+
+    #[test]
+    fn extreme_values_and_signed_zero() {
+        // C2a-r1 finding 7: a jump from MAX to −MAX overflows its difference; such a table is refused.
+        assert_eq!(
+            Piecewise::new(vec![(0.0, 0.0), (1.0, f64::MAX), (2.0, -f64::MAX)]),
+            Err(PiecewiseError::Overflow)
+        );
+        assert_eq!(Piecewise::new(vec![(-f64::MAX, 0.0), (f64::MAX, 1.0)]), Err(PiecewiseError::Overflow));
+        // The largest finite differences are allowed, and every value stays finite.
+        let p =
+            Piecewise::new(vec![(0.0, 0.0), (1.0, f64::MAX), (2.0, 0.0), (3.0, -f64::MAX)]).expect("finite");
+        for i in 0..=300 {
+            let x = f64::from(i) / 100.0;
+            assert!(p.eval(x).is_finite(), "{x}");
+        }
+        assert_eq!(p.eval(1.0), f64::MAX);
+        assert_eq!(p.eval(2.0).to_bits(), 0.0f64.to_bits());
+        // Breakpoints keep their sign of zero, also at an interior breakpoint, and −0 meets +0.
+        let z = Piecewise::new(vec![(-1.0, 5.0), (0.0, -0.0), (1.0, 3.0)]).expect("valid");
+        assert_eq!(z.eval(0.0).to_bits(), (-0.0f64).to_bits());
+        assert_eq!(z.eval(-0.0).to_bits(), (-0.0f64).to_bits());
+        let first = Piecewise::new(vec![(0.0, -0.0), (1.0, 1.0)]).expect("valid");
+        assert_eq!(first.eval(-0.0).to_bits(), (-0.0f64).to_bits());
+        assert_eq!(first.eval(f64::NAN).to_bits(), (-0.0f64).to_bits());
     }
 
     #[test]

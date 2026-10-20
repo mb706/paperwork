@@ -1,9 +1,10 @@
 //! The scheduler's equivalences on a toy factory (10 §4.6; A1 findings 1–2; D18 a and b). Producers fill
 //! buffers on a cooldown, consumers drain them, and an operator empties and fills buffers at random, so
 //! sleepers wake through watch lists (*added*, *space*), wheel timers and heap timers. The world updated
-//! every tick (NO_SLEEP), the sleeping world and a world reloaded mid-run (every entity awake, no
-//! registration, as after a load) must agree on the full state after every tick; retained registrations stay
-//! bounded.
+//! every tick (NO_SLEEP), the sleeping world, a world reloaded mid-run (every entity awake, no registration,
+//! as after a load) and a world whose NO_SLEEP flag is toggled on its established watch lists must agree on
+//! the full state after every tick; retained nodes stay within twice the live registrations after every tick.
+//! `alloc_free` runs the same factory to show that sleeping and waking allocate nothing once warm.
 
 use sim::rng::Xoshiro128;
 use sim::sched::{ListId, Scheduler, Sleeper};
@@ -13,7 +14,7 @@ const CONSUMER: u8 = 2;
 
 /// The toy's saved state: what a save would hold.
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct State {
+pub(crate) struct State {
     tick: u32,
     count: Vec<u32>,
     cap: Vec<u32>,
@@ -26,15 +27,15 @@ struct State {
 }
 
 /// The toy: its state plus the derived scheduler and list ids.
-struct Toy {
-    s: State,
-    sched: Scheduler,
+pub(crate) struct Toy {
+    pub(crate) s: State,
+    pub(crate) sched: Scheduler,
     added: Vec<ListId>,
     space: Vec<ListId>,
 }
 
 impl Toy {
-    fn new(s: State, no_sleep: bool) -> Self {
+    pub(crate) fn new(s: State, no_sleep: bool) -> Self {
         let mut sched = Scheduler::new();
         sched.reset(s.tick);
         sched.set_no_sleep(no_sleep);
@@ -50,7 +51,21 @@ impl Toy {
         Self { s, sched, added, space }
     }
 
-    fn random(seed: u32) -> State {
+    /// NO_SLEEP on a running factory (`sim_set_flags`): the scheduler keeps the list ids, the caller activates
+    /// every entity.
+    fn set_no_sleep(&mut self, on: bool) {
+        self.sched.set_no_sleep(on);
+        if on {
+            for i in 0..self.s.p_buf.len() {
+                self.sched.activate(Sleeper::new(PRODUCER, i as u32));
+            }
+            for j in 0..self.s.c_buf.len() {
+                self.sched.activate(Sleeper::new(CONSUMER, j as u32));
+            }
+        }
+    }
+
+    pub(crate) fn random(seed: u32) -> State {
         let mut r = Xoshiro128::seeded(seed, 1);
         let buffers = 12;
         let (np, nc) = (40, 50);
@@ -79,9 +94,10 @@ impl Toy {
     }
 
     /// One tick: timers, the operator, producers in slot order, consumers in slot order (§4.6's loop).
-    fn step(&mut self, ops: &mut Xoshiro128) {
+    pub(crate) fn step(&mut self, ops: &mut Xoshiro128) {
         let t = self.s.tick + 1;
         self.s.tick = t;
+        self.sched.begin_tick(t);
         self.sched.fire_timers(t);
         // The operator (an inserter or a hand): every few ticks it empties or fills a buffer.
         let op = ops.next_u32();
@@ -146,24 +162,37 @@ fn sleeping_no_sleep_and_reloaded_worlds_agree_every_tick() {
         let start = Toy::random(seed);
         let mut sleeping = Toy::new(start.clone(), false);
         let mut awake = Toy::new(start.clone(), true);
-        let mut reloaded = Toy::new(start, false);
-        let (mut o1, mut o2, mut o3) =
-            (Xoshiro128::seeded(seed, 2), Xoshiro128::seeded(seed, 2), Xoshiro128::seeded(seed, 2));
+        let mut reloaded = Toy::new(start.clone(), false);
+        let mut toggled = Toy::new(start, false);
+        let (mut o1, mut o2, mut o3, mut o4) = (
+            Xoshiro128::seeded(seed, 2),
+            Xoshiro128::seeded(seed, 2),
+            Xoshiro128::seeded(seed, 2),
+            Xoshiro128::seeded(seed, 2),
+        );
         let mut max_nodes = 0;
         let mut slept = 0u64;
         for t in 1..=12_000u32 {
             sleeping.step(&mut o1);
             awake.step(&mut o2);
             reloaded.step(&mut o3);
+            toggled.step(&mut o4);
             if t % 1_777 == 0 {
                 // A reload: the saved state alone, a fresh scheduler, every entity awake.
                 reloaded = Toy::new(reloaded.s.clone(), false);
             }
+            if t % 1_000 == 0 {
+                // NO_SLEEP flipped on the established lists (C2a-r1 finding 3), on for odd thousands.
+                toggled.set_no_sleep((t / 1_000) % 2 == 1);
+            }
             assert_eq!(sleeping.s, awake.s, "seed {seed}: NO_SLEEP differs after tick {t}");
             assert_eq!(sleeping.s, reloaded.s, "seed {seed}: the reloaded world differs after tick {t}");
-            let st = sleeping.sched.stats();
-            assert!(st.nodes_in_use <= 2 * st.live_registrations + 64 + 8, "tick {t}: {st:?}");
-            max_nodes = max_nodes.max(st.nodes_in_use);
+            assert_eq!(sleeping.s, toggled.s, "seed {seed}: the toggled world differs after tick {t}");
+            for w in [&sleeping, &reloaded, &toggled] {
+                let st = w.sched.stats();
+                assert!(st.nodes_in_use <= 2 * st.live_registrations, "tick {t}: {st:?}");
+            }
+            max_nodes = max_nodes.max(sleeping.sched.stats().nodes_in_use);
             slept += (0..40).filter(|&i| !sleeping.sched.is_active(Sleeper::new(PRODUCER, i))).count() as u64;
         }
         // The sleeping world did sleep (the test is not vacuous) and things happened.

@@ -286,3 +286,84 @@ pub const STATE_TICKS: [u32; 6] = [0, 1, 2, 300, 600, 3600];
 pub fn state_file(t: u32) -> Vec<u8> {
     golden(&format!("states/tick-{t:04}.sections"))
 }
+
+/// `SaveOutput` bytes with one section's bytes replaced by `f(old bytes)`.
+pub fn patch_section(save: &[u8], id: schema::SaveSection, f: impl FnOnce(&[u8]) -> Vec<u8>) -> Vec<u8> {
+    let (frames, r) = sim::save::parse_save_output(save).expect("SaveOutput");
+    let mut f = Some(f);
+    let owned: Vec<(u32, Vec<u8>)> = frames
+        .iter()
+        .map(|x| {
+            if x.id == id.value() {
+                (x.id, (f.take().expect("one section"))(x.data))
+            } else {
+                (x.id, x.data.to_vec())
+            }
+        })
+        .collect();
+    let sections: Vec<(schema::SaveSection, Vec<u8>)> = owned
+        .into_iter()
+        .map(|(i, b)| (schema::SaveSection::from_value(i).expect("a known section"), b))
+        .collect();
+    let mut out = Vec::new();
+    sim::save::write_save_output(&sections, r, &mut out).expect("writes");
+    out
+}
+
+/// A column table's column `name`: its byte offset and width (§8.1's directory).
+pub fn column(table: &[u8], name: &str) -> (usize, usize) {
+    let u32_at = |at: usize| u32::from_le_bytes(table[at..at + 4].try_into().unwrap()) as usize;
+    let rows = u32_at(0);
+    let n = usize::from(u16::from_le_bytes([table[4], table[5]]));
+    let mut at = 8;
+    for _ in 0..n {
+        let len = usize::from(table[at]);
+        let cname = &table[at + 1..at + 1 + len];
+        at += 1 + len + 2;
+        let (off, bytes) = (u32_at(at), u32_at(at + 4));
+        at += 8;
+        if cname == name.as_bytes() {
+            return (off, bytes / rows.max(1));
+        }
+    }
+    panic!("no column {name}")
+}
+
+/// A table with row `row` of `u32`/`i32` column `name` set to `v` (raw little-endian bits).
+pub fn set_column_u32(table: &[u8], name: &str, row: usize, v: u32) -> Vec<u8> {
+    let (off, w) = column(table, name);
+    assert_eq!(w, 4, "{name} is not a 4-byte column");
+    let mut t = table.to_vec();
+    t[off + 4 * row..off + 4 * row + 4].copy_from_slice(&v.to_le_bytes());
+    t
+}
+
+/// A table's `u32` column value at `row`.
+pub fn get_column_u32(table: &[u8], name: &str, row: usize) -> u32 {
+    let (off, w) = column(table, name);
+    assert_eq!(w, 4);
+    u32::from_le_bytes(table[off + 4 * row..off + 4 * row + 4].try_into().unwrap())
+}
+
+/// `sim_load`'s input with remap tables (abi.yaml `LoadInput`, `RemapTable`): `(kind, ids, removed names)`.
+pub fn load_input_with_remaps(save: &[u8], remaps: &[(u16, &[u16], &[&str])]) -> Vec<u8> {
+    let (frames, r) = sim::save::parse_save_output(save).expect("SaveOutput");
+    let plain = sim::save::load_input(&frames, r);
+    // The plain input ends with u16 kind_count = 0 and u64 r: rewrite that tail.
+    let mut out = plain[..plain.len() - 10].to_vec();
+    out.extend_from_slice(&(remaps.len() as u16).to_le_bytes());
+    for (kind, ids, removed) in remaps {
+        out.extend_from_slice(&kind.to_le_bytes());
+        out.extend_from_slice(&(ids.len() as u32).to_le_bytes());
+        for id in *ids {
+            out.extend_from_slice(&id.to_le_bytes());
+        }
+        out.extend_from_slice(&(removed.len() as u16).to_le_bytes());
+        for name in *removed {
+            out.push(name.len() as u8);
+            out.extend_from_slice(name.as_bytes());
+        }
+    }
+    out.extend_from_slice(&r.to_le_bytes());
+    out
+}

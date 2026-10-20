@@ -15,7 +15,9 @@ fn ten_thousand_chests() {
     let mut c = crate::common::ctx();
     c.load(&crate::common::container_input(&crate::common::golden("start.save"))).expect("start.save");
     let w = c.world_mut().expect("a world");
-    // 25 × 25 chunks east of the golden map (chunks 2 … 26), generated and modified, tile 0 everywhere.
+    // An unbounded map, and 25 × 25 chunks east of the golden ones (chunks 2 … 26), generated and modified.
+    w.globals.map.width = 0;
+    w.globals.map.height = 0;
     for cx in 2..27 {
         for cy in -12..13 {
             let key: ChunkKey = chunk_key(cx, cy);
@@ -72,6 +74,57 @@ fn ten_thousand_chests() {
         ticks.push(t.elapsed().as_secs_f64() * 1e3);
     }
     ticks.sort_by(f64::total_cmp);
+    // C2a-r1 finding 10: populated keyed sections (100,000 work timers, 4,000 statistics keys, 5,000 worldgen
+    // requests) cost a slice only its shard's records.
+    let w = back.world_mut().expect("a world");
+    let mut r = sim::rng::Xoshiro128::seeded(4, 1);
+    let ring = |p: u8| sim::r#gen::StatRing {
+        precision: schema::StatPrecision::from_value(p).expect("a precision"),
+        points: 0,
+        acc_count: 0,
+        acc_produced: 0.0,
+        acc_consumed: 0.0,
+        produced: [0.0; 300],
+        consumed: [0.0; 300],
+    };
+    let now = w.current_tick();
+    for _ in 0..100_000 {
+        let due = schema::Tick(now + 1 + r.next_u32() % 1_000_000);
+        w.add_timer((due, schema::Serial(r.next_u32()), schema::TimerEvent::GhostExpiry, 0));
+    }
+    for k in 0..4_000u32 {
+        let key = schema::StatKey((1 << 24) | k);
+        w.stat_mut(key, || sim::r#gen::Stat {
+            key,
+            produced_total: 0.0,
+            consumed_total: 0.0,
+            handcrafted_total: 0.0,
+            rings: (0..9).map(ring).collect(),
+        });
+    }
+    for _ in 0..5_000 {
+        let k = (
+            schema::Tick(now + 1 + r.next_u32() % 600),
+            SurfaceIndex(0),
+            (r.next_u32() % 2_000) as i32 - 1_000,
+            (r.next_u32() % 2_000) as i32 - 1_000,
+        );
+        w.add_pending(k);
+    }
+    let mut slicer = sim::digest::Slicer::new();
+    let mut slices = Vec::with_capacity(3600);
+    for shard in 0..3600 {
+        let t = Instant::now();
+        slicer.slice_hash(w, shard).expect("encodes");
+        slices.push(t.elapsed().as_secs_f64() * 1e3);
+    }
+    slices.sort_by(f64::total_cmp);
+    eprintln!(
+        "populated slices (100,000 timers, 4,000 statistics keys, 5,000 requests): mean {:.4} ms, p99 {:.4} ms, max {:.4} ms",
+        slices.iter().sum::<f64>() / 3600.0,
+        slices[3600 * 99 / 100],
+        slices[3599]
+    );
     let mean = ticks.iter().sum::<f64>() / ticks.len() as f64;
     eprintln!(
         "10,000 chests: {} KiB saved; build {build_ms:.1} ms, save {save_ms:.1} ms, load {load_ms:.1} ms, full \
