@@ -89,3 +89,9 @@ Binding decisions: `pm/DECISIONS-IMPL.md`, especially:
 - **Test-first** wherever the spec gives a rule. Cite spec sections in comments, as `// §5.1`.
 - Keep the crate graph and `#![forbid(unsafe_code)]` as §2.2 says.
 - Pin CPU-heavy jobs (cargo builds, benches) with `taskset -c 0-15`, and report build times.
+
+## Notes added by the manager after the gate
+- **The golden set** is at version 5. Its README lists 44+ decided rules; Factorio 2.0.77's behaviour was verified in-game for the M0 rules.
+- **Query cost model:** open. The golden traces pin `sim_query_step` at both 0 units and all units (rule 44), so cost queries however you like between those (C1c open issue 7).
+- **Spilling cancelled-craft refunds** onto the ground is M1, not M0 (C1c open issue 5).
+- **Golden-set changes** follow `pm/DECISIONS-IMPL.md` decision 14. Never edit golden values yourself; propose them in your report.

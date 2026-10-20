@@ -57,3 +57,8 @@ The UI is **Factorio's UI, faithfully**: its layout, menus and keybindings. The 
 ## Report
 
 `pm/reports/C5.md`. Your final message is at most 200 words, and includes your worktree path and branch.
+
+## Notes added by the manager after the gate
+- **Corrected design text:** `design/round1/I-ui-controls.md` §3.2 and §3.7–§3.9 were corrected on 2026-10-20 to match Factorio 2.0.77, as C1c tested it in the game. Follow the corrected text.
+- **Two vanilla strings** for the new flying texts belong in your locale: `flying-text.inventory-full` ("Cannot insert __1__. Inventory is full.") and `flying-text.cannot-put-away` ("Cannot put away the __1__. Player inventory is full."). C1c report, open issue 4.
+- **Asset cache:** copy the warm asset cache from the main tree for the UI skin and fonts (`cp -a /home/mewse/browsergame/game/.cache/assets <worktree>/game/.cache/`, then `npm run assets`).

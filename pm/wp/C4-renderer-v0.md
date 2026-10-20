@@ -69,3 +69,8 @@ Each of these must happen in exactly one pass, as §6.2 and §9.8 now assign the
 ## Report
 
 `pm/reports/C4.md`. Your final message is at most 200 words, and includes your worktree path and branch.
+
+## Notes added by the manager after the gate
+- **Fake mode builds:** the fake sim uses the **M1** prototype build (it needs belts, inserters and machines), while the M0 art and atlases come from the M0 build. The spec makes a prototype-hash mismatch an error in dev builds. In `?sim=fake` mode, match by name instead, and document the exception (C1c open issue 4).
+- **Asset cache:** copy the warm asset cache from the main tree (`cp -a /home/mewse/browsergame/game/.cache/assets <worktree>/game/.cache/`). A cold `npm run assets` takes 12 minutes.
+- **Atlas format:** the fixture atlas (`game/test/fixtures/sprites/`) declares a linear transfer function and premultiplied alpha (C6-r1). Follow the KTX2 metadata.
