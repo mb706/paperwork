@@ -3,8 +3,8 @@
 ## Phase A: pre-implementation studies (started 2026-10-20)
 | WP | Topic | Agent | Status |
 |---|---|---|---|
-| A1 | Engine study: TS vs Rust/WASM, render boundary, scale | Opus | running |
-| A2 | Multiplayer architecture (lockstep, relay, no P2P UDP) | Opus | done. `design/multiplayer/DESIGN.md`; codex review r1 running |
+| A1 | Engine study: TS vs Rust/WASM, render boundary, scale | Opus | done: recommends Rust→WASM as a clean split (1.35–1.75× faster, no JIT stalls). Codex second opinion r1 running |
+| A2 | Multiplayer architecture (lockstep, relay, no P2P UDP) | Opus | done. `design/multiplayer/DESIGN.md`. Codex r1 found 1 critical and 14 major issues; the agent is fixing them |
 | A3 | Art direction (3 directions → 1, style guide) | Opus | running |
 | A4 | Audio direction (music + SFX, engine choice, demos) | Opus | running |
 
