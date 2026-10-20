@@ -4,10 +4,15 @@
 //! functions are not fixed, so they come from the `libm` crate (0.2.16), which is plain Rust compiled
 //! into the module: native tests and every WebAssembly engine run the same instructions (B1 measured
 //! ten functions over 10⁶ arguments bit-identical natively, in Node, Chrome 156 and Firefox 157).
-//! `std`'s `f64::sin` and friends are banned by `clippy.toml`; call these instead.
+//! `std`'s `f64::sin` and friends are banned by `clippy.toml`; call these instead. Besides the libm wrappers
+//! the crate holds the fixed-order integer power [`powi`], [`fmax`]/[`fmin`] as comparisons, half-up unit
+//! rounding, piecewise-linear tables ([`piecewise`]) and the expression bytecode interpreter ([`expr`]).
 #![forbid(unsafe_code)]
 
 pub mod expr;
+pub mod piecewise;
+
+pub use piecewise::{Piecewise, PiecewiseError, piecewise_linear};
 
 /// The largest exponent magnitude `powi` accepts (10 §4.1 rule 2); larger ones are clamped.
 pub const POWI_LIMIT: i32 = 1024;
@@ -77,6 +82,26 @@ pub fn atan2(y: f64, x: f64) -> f64 {
     libm::atan2(y, x)
 }
 
+/// e^x (libm).
+pub fn exp(x: f64) -> f64 {
+    libm::exp(x)
+}
+
+/// The natural logarithm (libm).
+pub fn ln(x: f64) -> f64 {
+    libm::log(x)
+}
+
+/// atan x (libm).
+pub fn atan(x: f64) -> f64 {
+    libm::atan(x)
+}
+
+/// √(x² + y²) without undue overflow (libm).
+pub fn hypot(x: f64, y: f64) -> f64 {
+    libm::hypot(x, y)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,5 +142,11 @@ mod tests {
         assert_eq!(sin(0.0), 0.0);
         assert_eq!(cos(0.0), 1.0);
         assert_eq!(atan2(0.0, 1.0), 0.0);
+        assert_eq!(exp(0.0), 1.0);
+        assert_eq!(exp(1.5).to_bits(), libm::exp(1.5).to_bits());
+        assert_eq!(ln(1.0), 0.0);
+        assert_eq!(ln(10.0).to_bits(), libm::log(10.0).to_bits());
+        assert_eq!(atan(1.0).to_bits(), libm::atan(1.0).to_bits());
+        assert_eq!(hypot(3.0, 4.0), 5.0);
     }
 }

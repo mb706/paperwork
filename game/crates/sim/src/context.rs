@@ -1,0 +1,395 @@
+//! The module's state behind the ABI (10 §3.6, §15.8): `SimContext { world, pres }` and what the exports
+//! remember between calls (the prototypes, the lineage, the last digests, the flags, the blobs, the last world
+//! call and its load report). `simabi` wraps it in the generated C exports (C2c); native tests and `simtool`
+//! call it directly. Every method returns the export's status as a [`SimError`] on failure, and a refused
+//! call changes nothing.
+//!
+//! Outputs are the envelopes' payloads (the bytes after §15.8's `u32 len`), so they compare byte for byte
+//! with the golden ABI traces' `out` files (test/golden/README.md "ABI traces").
+
+use crate::digest::lineage0;
+use crate::r#gen::{Globals, Surface};
+use crate::presentation::PresentationState;
+use crate::save::{self, StateHashes, WORLDGEN_VERSION, WorldgenId};
+use crate::sha256::sha256;
+use crate::tick::{PHASES, TickIo, TickScratch};
+use crate::world::World;
+use crate::{SimError, SimResult, digest};
+use schema::codec::{Fixed, Packed, Writer};
+use schema::{
+    ChunkRequest, DigestResult, Hash256, InitInput, LoadReport, NewWorld, PlayerMeta, Protos, RemovedProto,
+    SaveFlags, SaveInput, SectionHash, Serial, SimFlags, SimMeta, SimStatus, SurfaceIndex, Tick,
+};
+use std::sync::Arc;
+
+/// `sim_meta`'s record (§15.8).
+pub type SimMetaOut = SimMeta;
+
+/// The last world call (§15.8: `sim_load_report` answers only after `sim_load`, until the next world call).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WorldCall {
+    NewWorld,
+    Load,
+}
+
+/// The loaded prototypes and what the module derives from them once.
+#[derive(Debug)]
+struct Loaded {
+    protos: Arc<Protos>,
+    worldgen: WorldgenId,
+}
+
+/// The module.
+#[derive(Debug, Default)]
+pub struct SimContext {
+    protos: Option<Loaded>,
+    world: Option<World>,
+    pub pres: PresentationState,
+    /// The digest lineage r (§4.8): the load's or r₀, then rolled by every tick.
+    r: u64,
+    /// The last tick's d_t and slice_t (0 before any tick of this world in this module).
+    d: u64,
+    slice: u64,
+    flags: SimFlags,
+    /// Blobs supplied for the next tick (§15.3), by SHA-256.
+    blobs: Vec<([u8; 32], Vec<u8>)>,
+    last_world_call: Option<WorldCall>,
+    report: Option<LoadReport>,
+    scratch: TickScratch,
+    /// Whether ticks record the full state hash after each phase (§4.8 item 5; `simtool bisect`, tests). Not an
+    /// ABI flag: 16 full hashes per tick would distort a profile.
+    want_phase_digests: bool,
+    /// The last tick's per-phase digests, when wanted.
+    phase_digests: Option<[u64; PHASES]>,
+    /// Worldgen requests issued since the last `sim_pending_chunks` (after a load: every pending request of
+    /// the save, §15.8).
+    issued: Vec<ChunkRequest>,
+}
+
+fn order(m: &str) -> SimError {
+    SimError::new(SimStatus::ErrOrder, m)
+}
+
+fn input(m: impl Into<String>) -> SimError {
+    SimError::new(SimStatus::ErrInput, m)
+}
+
+impl SimContext {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// `sim_init` (§15.8): `InitInput` = `u32 protos_len`, `prototypes.bin`, `u32 flags`, `u32 reserved`.
+    /// Loads the prototypes (`ERR_PROTOS` when `Protos::load` refuses them); drops any world.
+    pub fn init(&mut self, input_bytes: &[u8]) -> SimResult<()> {
+        let v = InitInput::decode_exact(input_bytes).map_err(|e| input(format!("InitInput: {e}")))?;
+        self.init_protos(v.protos, v.flags)
+    }
+
+    /// `sim_init` from its parts.
+    pub fn init_protos(&mut self, protos_bin: &[u8], flags: SimFlags) -> SimResult<()> {
+        let protos = Protos::load(protos_bin)
+            .map_err(|e| SimError::new(SimStatus::ErrProtos, format!("prototypes.bin: {e}")))?;
+        let data_hash = save::worldgen_data_hash(protos_bin)
+            .ok_or_else(|| SimError::new(SimStatus::ErrProtos, "prototypes.bin lacks a worldgen table"))?;
+        *self = Self::default();
+        self.protos = Some(Loaded {
+            protos: Arc::new(protos),
+            worldgen: WorldgenId { version: WORLDGEN_VERSION, data_hash },
+        });
+        self.flags = flags;
+        Ok(())
+    }
+
+    fn loaded(&self) -> SimResult<&Loaded> {
+        self.protos.as_ref().ok_or_else(|| order("sim_init has not run"))
+    }
+
+    /// The prototypes `sim_init` loaded.
+    pub fn protos(&self) -> Option<&Arc<Protos>> {
+        self.protos.as_ref().map(|l| &l.protos)
+    }
+
+    /// This build's worldgen identity (§4.4).
+    pub fn worldgen(&self) -> Option<WorldgenId> {
+        self.protos.as_ref().map(|l| l.worldgen)
+    }
+
+    pub fn world(&self) -> Option<&World> {
+        self.world.as_ref()
+    }
+
+    /// The World, for tests and tools that build scenarios directly (never the ABI).
+    pub fn world_mut(&mut self) -> Option<&mut World> {
+        self.world.as_mut()
+    }
+
+    fn world_or_order(&self) -> SimResult<&World> {
+        self.world.as_ref().ok_or_else(|| order("no world: call sim_new_world or sim_load first"))
+    }
+
+    /// The digest lineage r (§4.8).
+    pub fn lineage(&self) -> u64 {
+        self.r
+    }
+
+    /// The last tick's slice hash (0 before any tick).
+    pub fn last_slice(&self) -> u64 {
+        self.slice
+    }
+
+    /// The last tick's d_t (0 before any tick).
+    pub fn last_digest(&self) -> u64 {
+        self.d
+    }
+
+    /// The last tick's d_t preimage (§4.8 item 1), for tests and the golden comparison.
+    pub fn last_preimage(&self) -> &[u8] {
+        &self.scratch.preimage
+    }
+
+    /// The full state hash after each phase of the last tick, when [`Self::set_phase_digests`] asked for them.
+    pub fn last_phase_digests(&self) -> Option<&[u64; PHASES]> {
+        self.phase_digests.as_ref()
+    }
+
+    /// Per-phase digests (§4.8 item 5): every later tick records the full state hash after each of its phases,
+    /// to name the system in which two runs first differ. Native tools only.
+    pub fn set_phase_digests(&mut self, on: bool) {
+        self.want_phase_digests = on;
+    }
+
+    /// Replaces the world (a new game or a load): fresh presentation and digests, the module's flags applied.
+    fn install(&mut self, mut world: World, r: u64, call: WorldCall) {
+        world.set_no_sleep(self.flags.contains(SimFlags::NO_SLEEP));
+        self.world = Some(world);
+        self.r = r;
+        self.d = 0;
+        self.slice = 0;
+        self.pres = PresentationState::default();
+        self.pres.events.historical = self.flags.contains(SimFlags::HISTORICAL);
+        self.last_world_call = Some(call);
+        self.blobs.clear();
+        self.issued = self.world.as_ref().map_or_else(Vec::new, |w| {
+            w.worldgen_pending
+                .iter()
+                .map(|q| ChunkRequest { surface: q.surface, cx: q.cx, cy: q.cy, commit_tick: q.commit_tick })
+                .collect()
+        });
+    }
+
+    /// `sim_new_world` (§15.8): one `new_world` record, read strictly; the world at tick 0 with lineage r₀.
+    /// C2a: the settings and the empty surface; worldgen's pre-generation arrives with C2b.
+    pub fn new_world(&mut self, record: &[u8]) -> SimResult<()> {
+        let l = self.loaded()?;
+        let nw = NewWorld::decode_exact(record, true).map_err(|e| input(format!("new_world: {e}")))?;
+        let globals = Globals {
+            tick: Tick(0),
+            seed: nw.seed,
+            map: nw.map,
+            world: nw.world,
+            game: nw.game,
+            surfaces: vec![Surface { index: SurfaceIndex(0) }],
+            worldgen_version: l.worldgen.version,
+            worldgen_data_hash: Hash256 { bytes: l.worldgen.data_hash },
+            next_serial: Serial(1),
+            last_system_seq: schema::Seq(0),
+        };
+        let world = World::new(l.protos.clone(), globals);
+        self.report = None;
+        self.install(world, lineage0(nw.seed), WorldCall::NewWorld);
+        Ok(())
+    }
+
+    /// `sim_load` (§15.8, §8.1–§8.3): `LoadInput`.
+    pub fn load(&mut self, input_bytes: &[u8]) -> SimResult<()> {
+        let l = self.loaded()?;
+        let req = save::parse_load_input(input_bytes, &l.protos)?;
+        let out = save::load(&l.protos, &l.worldgen, &req)?;
+        self.report = Some(LoadReport { new_lineage: out.new_lineage, r: out.r, removed: out.removed });
+        self.install(out.world, out.r, WorldCall::Load);
+        Ok(())
+    }
+
+    /// `sim_tick` (§15.8): the closure of tick `world.tick + 1`. Blobs are held for this tick only.
+    pub fn tick(&mut self, closure: &[u8]) -> SimResult<()> {
+        let blobs = std::mem::take(&mut self.blobs);
+        let Some(world) = self.world.as_mut() else {
+            return Err(order("no world: call sim_new_world or sim_load first"));
+        };
+        let has_blob = |h: &[u8; 32]| blobs.iter().any(|b| &b.0 == h);
+        let mut phases = [0u64; PHASES];
+        let profile = self.want_phase_digests;
+        let mut io = TickIo {
+            has_blob: &has_blob,
+            events: &mut self.pres.events,
+            scratch: &mut self.scratch,
+            phase_digests: if profile { Some(&mut phases) } else { None },
+        };
+        let dg = world.tick(closure, &mut io)?;
+        self.d = dg.d;
+        self.slice = dg.slice;
+        self.r = digest::roll(self.r, dg.d, dg.slice);
+        self.phase_digests = profile.then_some(phases);
+        Ok(())
+    }
+
+    /// `sim_set_flags` (§15.8): bit 0 NO_SLEEP, bit 1 HISTORICAL, bit 2 PROFILE; others `ERR_INPUT`.
+    pub fn set_flags(&mut self, flags: u32) -> SimResult<()> {
+        let f = SimFlags::from_bits(flags)
+            .ok_or_else(|| input(format!("undeclared SimFlags bits {flags:#x}")))?;
+        self.flags = f;
+        self.pres.events.historical = f.contains(SimFlags::HISTORICAL);
+        if let Some(w) = self.world.as_mut() {
+            w.set_no_sleep(f.contains(SimFlags::NO_SLEEP));
+        }
+        Ok(())
+    }
+
+    pub fn flags(&self) -> SimFlags {
+        self.flags
+    }
+
+    /// `sim_blob_put` (§15.3): `u8 sha256[32]`, then the bytes; held for the next tick only. The shell has
+    /// checked the hash; a module built with `simcheck` checks it again.
+    pub fn blob_put(&mut self, input_bytes: &[u8]) -> SimResult<()> {
+        let v = schema::BlobPut::decode_exact(input_bytes).map_err(|e| input(format!("BlobPut: {e}")))?;
+        if cfg!(feature = "simcheck") && sha256(v.bytes) != v.sha256.bytes {
+            return Err(input("the blob's bytes do not hash to its SHA-256"));
+        }
+        if !self.blobs.iter().any(|b| b.0 == v.sha256.bytes) {
+            self.blobs.push((v.sha256.bytes, v.bytes.to_vec()));
+        }
+        Ok(())
+    }
+
+    /// The bytes of a blob supplied for this tick.
+    pub fn blob(&self, h: &[u8; 32]) -> Option<&[u8]> {
+        self.blobs.iter().find(|b| &b.0 == h).map(|b| b.1.as_slice())
+    }
+
+    /// `sim_pending_chunks` (§15.8, §15.9): the requests issued since the last call; after `sim_load`, every
+    /// pending request of the save.
+    pub fn pending_chunks(&mut self) -> SimResult<Vec<u8>> {
+        self.world_or_order()?;
+        let mut out = Vec::new();
+        schema::PendingChunks { requests: schema::codec::List::from_slice(&self.issued) }
+            .encode(&mut Writer::new(&mut out))
+            .map_err(enc)?;
+        self.issued.clear();
+        Ok(out)
+    }
+
+    /// `sim_supply_chunk` (§15.8, §15.9): one `chunk_data` record, read strictly. An answer to no pending
+    /// request, or for another world, is ignored (rule 45); C2b's commits take the answers they asked for.
+    pub fn supply_chunk(&mut self, record: &[u8]) -> SimResult<()> {
+        self.world_or_order()?;
+        schema::ChunkData::decode_exact(record, true).map_err(|e| input(format!("chunk_data: {e}")))?;
+        Ok(())
+    }
+
+    /// `sim_digest` (§15.8): `DigestResult` = the tick, then d and r.
+    pub fn digest(&self) -> SimResult<Vec<u8>> {
+        let w = self.world_or_order()?;
+        let mut out = Vec::with_capacity(DigestResult::SIZE);
+        DigestResult { tick: Tick(w.current_tick()), d: self.d, r: self.r }
+            .write(&mut Writer::new(&mut out), "DigestResult")
+            .map_err(enc)?;
+        Ok(out)
+    }
+
+    /// The full state hash and each section's (§4.8).
+    pub fn state_hashes(&self) -> SimResult<StateHashes> {
+        save::state_hash(self.world_or_order()?)
+    }
+
+    /// `sim_state_hash` (§15.8): `StateHash` = the full hash, `u32` count, then (section, hash).
+    pub fn state_hash(&self) -> SimResult<Vec<u8>> {
+        let h = self.state_hashes()?;
+        let list: Vec<SectionHash> =
+            h.sections.iter().map(|&(section, hash)| SectionHash { section, hash }).collect();
+        let mut out = Vec::new();
+        schema::StateHash { hash: h.full, sections: schema::codec::List::from_slice(&list) }
+            .encode(&mut Writer::new(&mut out))
+            .map_err(enc)?;
+        Ok(out)
+    }
+
+    /// `sim_save` (§15.8): `SaveInput` (`u32` flags, bit 0 BAKE) → `SaveOutput`. A baked save carries a new
+    /// lineage over its own state (§4.4, §4.8 item 4); the running world keeps its r.
+    pub fn save(&self, input_bytes: &[u8]) -> SimResult<Vec<u8>> {
+        let w = self.world_or_order()?;
+        let v = SaveInput::decode_exact(input_bytes).map_err(|e| input(format!("SaveInput: {e}")))?;
+        let bake = v.flags.contains(SaveFlags::BAKE);
+        if bake && w.chunks.has_pristine() {
+            return Err(order("baking pristine chunks needs worldgen (C2b)"));
+        }
+        let sections = save::encode_sections(w)?;
+        let r =
+            if bake { digest::lineage_of(save::state_hash_of(&sections), w.current_tick()) } else { self.r };
+        let mut out = Vec::new();
+        save::write_save_output(&sections, r, &mut out)?;
+        Ok(out)
+    }
+
+    /// `sim_save` without flags (a checkpoint, §8.6).
+    pub fn checkpoint(&self) -> SimResult<Vec<u8>> {
+        self.save(&0u32.to_le_bytes())
+    }
+
+    /// The `sim_meta` record (§15.8): tick, seed, `last_system_seq`, the worldgen version, r and every player's
+    /// index, online flag, `last_seq` and input generation.
+    pub fn meta_record(&self) -> SimResult<SimMeta> {
+        let w = self.world_or_order()?;
+        Ok(SimMeta {
+            tick: Tick(w.current_tick()),
+            seed: w.globals.seed,
+            last_system_seq: w.globals.last_system_seq,
+            worldgen_version: w.globals.worldgen_version,
+            r: self.r,
+            players: w
+                .players
+                .iter()
+                .map(|p| PlayerMeta {
+                    index: p.index,
+                    online: p.online,
+                    last_seq: p.last_seq,
+                    input_gen: p.input_gen,
+                })
+                .collect(),
+        })
+    }
+
+    /// `sim_meta` (§15.8): the record's bytes.
+    pub fn meta(&self) -> SimResult<Vec<u8>> {
+        let m = self.meta_record()?;
+        let mut out = Vec::new();
+        m.encode(&mut Writer::new(&mut out)).map_err(enc)?;
+        Ok(out)
+    }
+
+    /// The load report (rule 43): after `sim_load`, until the next world call.
+    pub fn load_report_record(&self) -> SimResult<&LoadReport> {
+        match (self.last_world_call, &self.report) {
+            (Some(WorldCall::Load), Some(r)) => Ok(r),
+            _ => Err(order("sim_load_report answers only after sim_load")),
+        }
+    }
+
+    /// `sim_load_report` (§15.8): the record's bytes.
+    pub fn load_report(&self) -> SimResult<Vec<u8>> {
+        let r = self.load_report_record()?;
+        let mut out = Vec::new();
+        r.encode(&mut Writer::new(&mut out)).map_err(enc)?;
+        Ok(out)
+    }
+
+    /// The removed prototypes of the last load.
+    pub fn removed(&self) -> &[RemovedProto] {
+        self.report.as_ref().map_or(&[], |r| r.removed.as_slice())
+    }
+}
+
+fn enc(e: schema::codec::EncodeError) -> SimError {
+    SimError::new(SimStatus::ErrOrder, format!("cannot encode: {e}"))
+}

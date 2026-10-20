@@ -116,6 +116,22 @@
   shortens the day; `?test=1` pauses it, and `window.__fake.step(n)`, `.act(action)` and `.status()` drive it. Tests
   run it in-process (`test/fake/harness.ts`); `node test/fake/snapshot.ts out.png [ticks]` draws its packet stream.
 
+## The simulation (`game/crates/`; C2)
+- **Crates:** `det` (libm wrappers, `powi`, `fmax`/`fmin`, piecewise tables, the expression interpreter), `sim` (the
+  World, saves, digests, the scheduler, the D18 harness), `simtool` (the native host). `sim::SimContext` is the
+  module behind the ABI (`init`, `new_world`, `load`, `tick`, `save`, `state_hash`, `digest`, `meta`,
+  `load_report`, …; outputs are the envelopes' payloads); `simabi` will wrap it.
+- **Tests:** `cargo test -p sim --features simcheck` (units, and `tests/core/`: the golden set's no-system parts,
+  entity churn, the harness, the scheduler's toy factory, the allocation-free tick). The harness:
+  `sim::testkit::{record, compare, check_equivalence}` with `Variant::{NoSleep, Reload, Heavy}` compares full
+  canonical state per tick and names the first differing section and field. RNG vectors: `test/rng/vectors.py`
+  (an independent implementation) → `vectors.txt`.
+- **simtool:** `cargo run --release -p simtool -- hash <save|sections> --protos <prototypes.bin>`; `trace <save>
+  <log.pwlog> --protos … [--ticks N] [--full] [--no-sleep] [--check]` prints `tick d slice r` like the golden
+  `digests.txt`. It reads raw containers only.
+- **Build times** (pinned `taskset -c 0-15`): a sim edit rebuilds the dev tests in ≈ 3.5 s, the `wasmdev` modules
+  in ≈ 3.5 s, clippy in ≈ 2 s; the `ntest` profile (fat LTO) takes ≈ 35 s.
+
 ## Assets (`npm run assets`; C6, 10 §9, the *Survey* look of `design/art/DIRECTION.md`)
 - **Sources** (committed): `game/assets/blender/` (`lib/` style, materials, parts, rig, contract; `entities/`,
   `world/`, `movers/`, `items/` model scripts; `greybox.py` + `greybox_table.py`; the Blender entry points
