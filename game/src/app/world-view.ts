@@ -223,8 +223,8 @@ export async function createWorldView(o: WorldViewOptions): Promise<WorldView> {
     await loader?.ready('core');
     // delivered; now wait until the renderer has uploaded them
     for (;;) {
-      if ((renderer.textures?.pending ?? 0) === 0) return;
       if (renderer.mode === 'on-demand') renderer.frame();
+      if (renderer.pending() === 0) return;
       await new Promise((r) => setTimeout(r, 16));
     }
   };

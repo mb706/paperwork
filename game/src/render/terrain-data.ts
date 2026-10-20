@@ -59,6 +59,8 @@ export function buildIds(src: TileSource, cx: number, cy: number, out: Uint8Arra
 
 /** Scratch for `buildShore` (one per renderer; nothing allocates per chunk). */
 export class ShoreScratch {
+  /** The water mask blurred over the tile lattice (38²). */
+  readonly blur = new Float32Array(ID_SIZE * ID_SIZE);
   readonly mask = new Float32Array(SHORE_SIZE * SHORE_SIZE);
   readonly sx = new Float32Array(SHORE_SIZE * SHORE_SIZE);
   readonly sy = new Float32Array(SHORE_SIZE * SHORE_SIZE);
@@ -73,16 +75,11 @@ export function needsShore(ids: Uint8Array, isWater: Uint8Array, trees: number):
   return false;
 }
 
-function w4(a: number, f: number): number {
-  if (a === -1) return (1 - f) * G1;
-  if (a === 0) return (1 - f) * G0 + f * G1;
-  if (a === 1) return (1 - f) * G1 + f * G0;
-  return f * G1;
-}
-
 /**
  * Builds the 152² RG8 shore texture into `out` (2 bytes per texel) from the 38² ids. `isWater[id]` is 1 for water
  * types; `trees` holds tree positions in tiles relative to the chunk's origin (x, y pairs, `treeCount` of them).
+ * About 1–2 ms here: the water mask is blurred once per tile (the 0.55-tile Gaussian over the lattice) and read
+ * bilinearly per texel, which is the shader's blend; the distance carries the nearest boundary point.
  */
 export function buildShore(
   ids: Uint8Array,
@@ -93,108 +90,114 @@ export function buildShore(
   out: Uint8Array,
 ): void {
   const N = SHORE_SIZE;
-  const idAt = (x: number, y: number) => {
-    const cx = x < 0 ? 0 : x >= ID_SIZE ? ID_SIZE - 1 : x;
-    const cy = y < 0 ? 0 : y >= ID_SIZE ? ID_SIZE - 1 : y;
-    return ids[cy * ID_SIZE + cx] as number;
-  };
-  // the blended water mask at texel centres (tile coordinates −3 + (i + 0.5) / 4), as the shader blends masks
+  const M = ID_SIZE;
+  // the blurred water mask at tile centres (edges clamped)
+  const blur = s.blur;
+  for (let y = 0; y < M; y++)
+    for (let x = 0; x < M; x++) {
+      let m = 0;
+      for (let b = -1; b <= 1; b++) {
+        const yy = y + b < 0 ? 0 : y + b >= M ? M - 1 : y + b;
+        const wy = b === 0 ? G0 : G1;
+        for (let a = -1; a <= 1; a++) {
+          const xx = x + a < 0 ? 0 : x + a >= M ? M - 1 : x + a;
+          if (isWater[ids[yy * M + xx] as number] === 1) m += (a === 0 ? G0 : G1) * wy;
+        }
+      }
+      blur[y * M + x] = m;
+    }
+  // per texel: bilinear between tile centres (tile coordinates −3 + (i + 0.5) / 4, centres at t + 0.5)
   let anyWater = false;
   let anyLand = false;
+  const mask = s.mask;
   for (let j = 0; j < N; j++) {
-    const y = (j + 0.5) / SHORE_TEXELS - SHORE_BORDER;
-    const qy = y - 0.5;
+    const qy = (j + 0.5) / SHORE_TEXELS - SHORE_BORDER - 0.5 + ID_BORDER;
     const j0 = Math.floor(qy);
     const fy = qy - j0;
+    const r0 = (j0 < 0 ? 0 : j0 >= M ? M - 1 : j0) * M;
+    const r1 = (j0 + 1 < 0 ? 0 : j0 + 1 >= M ? M - 1 : j0 + 1) * M;
     for (let i = 0; i < N; i++) {
-      const x = (i + 0.5) / SHORE_TEXELS - SHORE_BORDER;
-      const qx = x - 0.5;
+      const qx = (i + 0.5) / SHORE_TEXELS - SHORE_BORDER - 0.5 + ID_BORDER;
       const i0 = Math.floor(qx);
       const fx = qx - i0;
-      let m = 0;
-      for (let b = -1; b <= 2; b++) {
-        const wy = w4(b, fy);
-        const ry = j0 + b + ID_BORDER;
-        for (let a = -1; a <= 2; a++) if (isWater[idAt(i0 + a + ID_BORDER, ry)] === 1) m += w4(a, fx) * wy;
-      }
-      s.mask[j * N + i] = m;
+      const c0 = i0 < 0 ? 0 : i0 >= M ? M - 1 : i0;
+      const c1 = i0 + 1 < 0 ? 0 : i0 + 1 >= M ? M - 1 : i0 + 1;
+      const top = (blur[r0 + c0] as number) * (1 - fx) + (blur[r0 + c1] as number) * fx;
+      const bot = (blur[r1 + c0] as number) * (1 - fx) + (blur[r1 + c1] as number) * fx;
+      const m = top * (1 - fy) + bot * fy;
+      mask[j * N + i] = m;
       if (m > 0.5) anyWater = true;
       else anyLand = true;
     }
   }
-  // seeds: the 0.5 crossing between each pair of neighbouring texels, located linearly
+  const both = anyWater && anyLand;
   const INF = 1e9;
-  s.d2.fill(INF);
-  const seed = (k: number, px: number, py: number, tx: number, ty: number) => {
-    const dx = px - tx;
-    const dy = py - ty;
-    const d = dx * dx + dy * dy;
-    if (d < (s.d2[k] as number)) {
-      s.d2[k] = d;
-      s.sx[k] = px;
-      s.sy[k] = py;
-    }
-  };
-  if (anyWater && anyLand)
+  const d2 = s.d2;
+  const sx = s.sx;
+  const sy = s.sy;
+  d2.fill(INF);
+  if (both) {
+    // seeds: every texel beside the 0.5 crossing gets its foot point on the boundary, projected along the mask's
+    // gradient (distance |m − 0.5| ÷ |∇m|), so the shore is smooth between texels rather than scalloped by points
     for (let j = 0; j < N; j++)
       for (let i = 0; i < N; i++) {
         const k = j * N + i;
-        const m = s.mask[k] as number;
+        const m = mask[k] as number;
         const w = m > 0.5;
-        if (i + 1 < N) {
-          const m2 = s.mask[k + 1] as number;
-          if (m2 > 0.5 !== w) {
-            const t = (m - 0.5) / (m - m2);
-            const px = i + t;
-            seed(k, px, j, i, j);
-            seed(k + 1, px, j, i + 1, j);
-          }
-        }
-        if (j + 1 < N) {
-          const m2 = s.mask[k + N] as number;
-          if (m2 > 0.5 !== w) {
-            const t = (m - 0.5) / (m - m2);
-            const py = j + t;
-            seed(k, i, py, i, j);
-            seed(k + N, i, py, i, j + 1);
-          }
+        const l = i > 0 ? (mask[k - 1] as number) : m;
+        const r = i + 1 < N ? (mask[k + 1] as number) : m;
+        const u = j > 0 ? (mask[k - N] as number) : m;
+        const d = j + 1 < N ? (mask[k + N] as number) : m;
+        if (l > 0.5 === w && r > 0.5 === w && u > 0.5 === w && d > 0.5 === w) continue;
+        const gx = (r - l) / (i > 0 && i + 1 < N ? 2 : 1);
+        const gy = (d - u) / (j > 0 && j + 1 < N ? 2 : 1);
+        const g = Math.hypot(gx, gy);
+        if (g < 1e-6) continue;
+        const t = (m - 0.5) / g;
+        const fx = i - (t * gx) / g;
+        const fy = j - (t * gy) / g;
+        const dd = t * t;
+        if (dd < (d2[k] as number)) {
+          d2[k] = dd;
+          sx[k] = fx;
+          sy[k] = fy;
         }
       }
-  // two passes carrying the nearest seed point (8 neighbours)
-  const relax = (k: number, n: number, i: number, j: number) => {
-    if ((s.d2[n] as number) >= INF) return;
-    const px = s.sx[n] as number;
-    const py = s.sy[n] as number;
-    const dx = px - i;
-    const dy = py - j;
-    const d = dx * dx + dy * dy;
-    if (d < (s.d2[k] as number)) {
-      s.d2[k] = d;
-      s.sx[k] = px;
-      s.sy[k] = py;
+    // two raster passes carrying the nearest seed point from the eight neighbours
+    for (let pass = 0; pass < 2; pass++) {
+      const fwd = pass === 0;
+      for (let jj = 0; jj < N; jj++) {
+        const j = fwd ? jj : N - 1 - jj;
+        for (let ii = 0; ii < N; ii++) {
+          const i = fwd ? ii : N - 1 - ii;
+          const k = j * N + i;
+          let best = d2[k] as number;
+          let bx = sx[k] as number;
+          let by = sy[k] as number;
+          for (let n = 0; n < 4; n++) {
+            // forward: west, north-west, north, north-east; backward: their mirror images
+            const di = n === 0 ? -1 : n === 1 ? -1 : n === 2 ? 0 : 1;
+            const dj = n === 0 ? 0 : -1;
+            const ni = fwd ? i + di : i - di;
+            const nj = fwd ? j + dj : j - dj;
+            if (ni < 0 || nj < 0 || ni >= N || nj >= N) continue;
+            const nk = nj * N + ni;
+            if ((d2[nk] as number) >= INF) continue;
+            const px = sx[nk] as number;
+            const py = sy[nk] as number;
+            const d = (px - i) * (px - i) + (py - j) * (py - j);
+            if (d < best) {
+              best = d;
+              bx = px;
+              by = py;
+            }
+          }
+          d2[k] = best;
+          sx[k] = bx;
+          sy[k] = by;
+        }
+      }
     }
-  };
-  if (anyWater && anyLand) {
-    for (let j = 0; j < N; j++)
-      for (let i = 0; i < N; i++) {
-        const k = j * N + i;
-        if (i > 0) relax(k, k - 1, i, j);
-        if (j > 0) {
-          relax(k, k - N, i, j);
-          if (i > 0) relax(k, k - N - 1, i, j);
-          if (i + 1 < N) relax(k, k - N + 1, i, j);
-        }
-      }
-    for (let j = N - 1; j >= 0; j--)
-      for (let i = N - 1; i >= 0; i--) {
-        const k = j * N + i;
-        if (i + 1 < N) relax(k, k + 1, i, j);
-        if (j + 1 < N) {
-          relax(k, k + N, i, j);
-          if (i + 1 < N) relax(k, k + N + 1, i, j);
-          if (i > 0) relax(k, k + N - 1, i, j);
-        }
-      }
   }
   // woodland: discs of radius 1.6 tiles, softened by the 0.6-tile blur
   s.wood.fill(0);
@@ -221,11 +224,11 @@ export function buildShore(
     }
   }
   for (let k = 0; k < N * N; k++) {
-    const water = (s.mask[k] as number) > 0.5;
+    const water = (mask[k] as number) > 0.5;
     let d: number;
-    if (!(anyWater && anyLand)) d = water ? -4 : 4;
+    if (!both) d = water ? -4 : 4;
     else {
-      const dist = Math.sqrt(s.d2[k] as number) / SHORE_TEXELS;
+      const dist = Math.sqrt(d2[k] as number) / SHORE_TEXELS;
       d = water ? -dist : dist;
     }
     const v = Math.round(128 + d * 32);

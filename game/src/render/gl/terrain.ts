@@ -77,15 +77,20 @@ export class TerrainPass {
   /** Whether some material is missing (drawn as a wash). */
   readonly materialLayers: Map<string, number>;
 
+  /** Per tree species: 1 when the atlas can draw it (an undrawable tree tints no woodland). */
+  private readonly treeDrawable: Uint8Array;
+
   constructor(
     gl: WebGL2RenderingContext,
     tileProtos: readonly JsonTile[],
     materialLayers: Map<string, number>,
+    treeDrawable: Uint8Array,
     idCapacity = 192,
     shoreCapacity = 96,
   ) {
     this.gl = gl;
     this.materialLayers = materialLayers;
+    this.treeDrawable = treeDrawable;
     this.idCapacity = idCapacity;
     this.shoreCapacity = shoreCapacity;
     this.prog = createProgram(gl, TERRAIN_VS, TERRAIN_FS, 'terrain');
@@ -184,9 +189,114 @@ export class TerrainPass {
     return h;
   }
 
+  /** Tiles of chunk (x, y) from the mirror (bound once, so the per-frame walk allocates nothing). */
+  private mirrorNow: Mirror | null = null;
+  private readonly tilesOf = (x: number, y: number): Uint8Array | null =>
+    this.mirrorNow?.chunks.get(chunkKeyOf(x, y))?.tiles ?? null;
+
+  /** Held chunks whose shore texture is missing or stale (tests wait for 0 before a screenshot). */
+  pending = 0;
+
+  /** A chunk's slot, its tile ids rebuilt when its neighbourhood changed; null over capacity. */
+  private slotOf(mirror: Mirror, c: ChunkView): Slot | null {
+    const gl = this.gl;
+    let slot = this.slots.get(c.key);
+    if (!slot) {
+      const idLayer = this.freeIds.pop();
+      if (idLayer === undefined) return null; // over capacity: the paper shows through
+      slot = { idLayer, shoreLayer: -1, sig: 0, shoreSig: 0, frame: 0 };
+      this.slots.set(c.key, slot);
+    }
+    const sig = this.signature(mirror, c);
+    if (sig !== slot.sig || slot.sig === 0) {
+      buildIds(this.tilesOf, c.cx, c.cy, this.idBuf);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.ids);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.texSubImage3D(
+        gl.TEXTURE_2D_ARRAY,
+        0,
+        0,
+        0,
+        slot.idLayer,
+        ID_SIZE,
+        ID_SIZE,
+        1,
+        gl.RED_INTEGER,
+        gl.UNSIGNED_BYTE,
+        this.idBuf,
+      );
+      slot.sig = sig;
+    }
+    return slot;
+  }
+
+  /** Rebuilds a chunk's shore texture (water distance and woodland), or frees it when nothing needs one. */
+  private buildShoreOf(mirror: Mirror, c: ChunkView, slot: Slot): void {
+    const gl = this.gl;
+    buildIds(this.tilesOf, c.cx, c.cy, this.idBuf);
+    const n = this.collectTrees(mirror, c.cx, c.cy);
+    if (needsShore(this.idBuf, this.isWater, n)) {
+      if (slot.shoreLayer < 0) slot.shoreLayer = this.freeShore.pop() ?? -1;
+      if (slot.shoreLayer >= 0) {
+        buildShore(this.idBuf, this.isWater, this.trees, n, this.scratch, this.shoreBuf);
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shore);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        gl.texSubImage3D(
+          gl.TEXTURE_2D_ARRAY,
+          0,
+          0,
+          0,
+          slot.shoreLayer,
+          SHORE_SIZE,
+          SHORE_SIZE,
+          1,
+          gl.RG,
+          gl.UNSIGNED_BYTE,
+          this.shoreBuf,
+        );
+        this.shoresBuilt++;
+      }
+    } else if (slot.shoreLayer >= 0) {
+      this.freeShore.push(slot.shoreLayer);
+      slot.shoreLayer = -1;
+    }
+    slot.shoreSig = slot.sig;
+  }
+
   /**
-   * Draws the visible chunks: (re)builds their data as needed (shore textures within `shoreBudgetMs`), then one quad
-   * each. `rect` is the visible rectangle in tiles.
+   * Prepares the held chunks: tile ids at once (cheap), shore textures within `budgetMs` (at least one per frame),
+   * the visible chunks first and then the held margin around them, so a chunk is usually ready before it scrolls in.
+   */
+  private prepare(
+    mirror: Mirror,
+    cx0: number,
+    cy0: number,
+    cx1: number,
+    cy1: number,
+    budgetMs: number,
+    now: () => number,
+  ): void {
+    this.mirrorNow = mirror;
+    this.shoresBuilt = 0;
+    this.pending = 0;
+    const t0 = now();
+    for (let pass = 0; pass < 2; pass++)
+      for (const c of mirror.chunks.values()) {
+        if (!c.tiles) continue;
+        const visible = c.cx >= cx0 && c.cx <= cx1 && c.cy >= cy0 && c.cy <= cy1;
+        if (visible !== (pass === 0)) continue;
+        const slot = this.slotOf(mirror, c);
+        if (slot === null) continue;
+        slot.frame = this.frameNo;
+        if (slot.shoreSig === slot.sig) continue;
+        if (this.shoresBuilt === 0 || now() - t0 < budgetMs) this.buildShoreOf(mirror, c, slot);
+        else this.pending++;
+      }
+  }
+
+  /**
+   * Draws the visible chunks after preparing the held ones (shore textures within `shoreBudgetMs`): one quad each.
+   * `rect` is the visible rectangle in tiles.
    */
   draw(
     mirror: Mirror,
@@ -206,72 +316,14 @@ export class TerrainPass {
     const cx1 = Math.floor(((rect[2] as number) - 1e-9) / CHUNK_TILES);
     const cy1 = Math.floor(((rect[3] as number) - 1e-9) / CHUNK_TILES);
     const S = scaleOf(cam);
-    const t0 = now();
-    this.shoresBuilt = 0;
+    this.prepare(mirror, cx0, cy0, cx1, cy1, shoreBudgetMs, now);
     let quads = 0;
-    const src = (x: number, y: number) => mirror.chunks.get(chunkKeyOf(x, y))?.tiles ?? null;
     for (let cy = cy0; cy <= cy1; cy++)
       for (let cx = cx0; cx <= cx1; cx++) {
         const c = mirror.chunks.get(chunkKeyOf(cx, cy));
         if (!c?.tiles) continue;
-        let slot = this.slots.get(c.key);
-        if (!slot) {
-          const idLayer = this.freeIds.pop();
-          if (idLayer === undefined) continue; // over capacity: the paper shows through (logged by the HUD)
-          slot = { idLayer, shoreLayer: -1, sig: 0, shoreSig: 0, frame: 0 };
-          this.slots.set(c.key, slot);
-        }
-        slot.frame = this.frameNo;
-        const sig = this.signature(mirror, c);
-        if (sig !== slot.sig || slot.sig === 0) {
-          buildIds(src, cx, cy, this.idBuf);
-          gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.ids);
-          gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-          gl.texSubImage3D(
-            gl.TEXTURE_2D_ARRAY,
-            0,
-            0,
-            0,
-            slot.idLayer,
-            ID_SIZE,
-            ID_SIZE,
-            1,
-            gl.RED_INTEGER,
-            gl.UNSIGNED_BYTE,
-            this.idBuf,
-          );
-          slot.sig = sig;
-        }
-        if (slot.shoreSig !== sig && (this.shoresBuilt === 0 || now() - t0 < shoreBudgetMs)) {
-          buildIds(src, cx, cy, this.idBuf);
-          const n = this.collectTrees(mirror, cx, cy);
-          if (needsShore(this.idBuf, this.isWater, n)) {
-            if (slot.shoreLayer < 0) slot.shoreLayer = this.freeShore.pop() ?? -1;
-            if (slot.shoreLayer >= 0) {
-              buildShore(this.idBuf, this.isWater, this.trees, n, this.scratch, this.shoreBuf);
-              gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shore);
-              gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-              gl.texSubImage3D(
-                gl.TEXTURE_2D_ARRAY,
-                0,
-                0,
-                0,
-                slot.shoreLayer,
-                SHORE_SIZE,
-                SHORE_SIZE,
-                1,
-                gl.RG,
-                gl.UNSIGNED_BYTE,
-                this.shoreBuf,
-              );
-              this.shoresBuilt++;
-            }
-          } else if (slot.shoreLayer >= 0) {
-            this.freeShore.push(slot.shoreLayer);
-            slot.shoreLayer = -1;
-          }
-          slot.shoreSig = sig;
-        }
+        const slot = this.slots.get(c.key);
+        if (slot === undefined) continue;
         // the quad: device px from the canvas centre (f64 → f32), chunk-local tile coordinates 0…32
         const x0 = (cx * CHUNK_TILES - cam.cx) * S;
         const y0 = (cy * CHUNK_TILES - cam.cy) * S;
@@ -374,6 +426,7 @@ export class TerrainPass {
         const v = c.objectView;
         for (let i = 0; i < c.objectCount; i++) {
           if (v.getUint8(i * 16 + OV.kind) !== 0) continue;
+          if (this.treeDrawable[v.getUint16(i * 16 + OV.id, true)] !== 1) continue;
           const x = v.getInt32(i * 16 + OV.x, true) / 256 - cx * CHUNK_TILES;
           const y = v.getInt32(i * 16 + OV.y, true) / 256 - cy * CHUNK_TILES;
           if (x < -reach - 2 || y < -reach - 2 || x > CHUNK_TILES + reach + 2 || y > CHUNK_TILES + reach + 2)

@@ -236,7 +236,8 @@ export class Renderer {
     if (textures === null) throw new Error('the atlases do not fit the GPU in any resolution mode');
     const materialLayers = new Map<string, number>(this.terrainTiles.map((t, i) => [t, i]));
     const batcher = new GlBatcher(gl, OVERLAY.solid + 1);
-    const terrain = new TerrainPass(gl, this.protos.tile, materialLayers);
+    const trees = Uint8Array.from(this.look.treeSet, (t) => (t >= 0 ? 1 : 0));
+    const terrain = new TerrainPass(gl, this.protos.tile, materialLayers, trees);
     terrain.useIndex(batcher.index);
     const lut = gl.createTexture();
     const emptyVao = gl.createVertexArray();
@@ -278,6 +279,13 @@ export class Renderer {
 
   get textures(): AtlasTextures | null {
     return this.g?.textures ?? null;
+  }
+
+  /** Work the renderer still has to do before a frame is final: page uploads and shore textures (tests wait). */
+  pending(): number {
+    const g = this.g;
+    if (!g) return 0;
+    return g.textures.pending + g.terrain.pending;
   }
 
   // -------------------------------------------------------------------------------------------- inputs
