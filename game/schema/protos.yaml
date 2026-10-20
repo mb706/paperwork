@@ -230,7 +230,9 @@ records:
 
 # Expressions (§15.2): an ExprRef points at `u16 byte_count` (the op stream that follows, END included),
 # `u8 var_count`, `u8 max_stack`, then the ops. Protos::load refuses a file whose EXPR section holds a
-# malformed program, or an ExprRef that does not point at the start of one.
+# malformed program (an unknown op, a missing operand, a non-finite CONST (D6), a VAR index not below
+# var_count, a stack that underflows or passes max_stack, or an op stream that does not end in END with one
+# value), or an ExprRef that does not point at the start of one.
 expr:
   max_stack: 16
   powi_limit: 1024
