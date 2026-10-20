@@ -50,6 +50,9 @@ import manifest as MF  # noqa: E402
 FIXTURES = os.path.join(K.GAME, 'test', 'fixtures', 'sprites')
 QC = os.path.join(K.CACHE, 'qc')
 UNPACK_CODE = {'bc7': 6, 'bc4': 4}
+# the parts a drawing program draws first (an entity's base or idle, an inserter's platform, a mover's clip or
+# base, a resource's or object's base, an icon): a case's first one must have frames
+PRIMARY_DRAWS = {'base', 'idle', 'platform', 'run', 'mine', 'icon'}
 
 
 def code_signature():
@@ -540,9 +543,20 @@ def fixture_errors():
     errs += [f'fixture {e}' for e in MF.validate(man)]
     import fixture as FX
     for c in K.load_json(cp)['cases']:
-        got = FX.evaluate(man, c)
+        try:
+            got = FX.evaluate(man, c)
+        except (KeyError, ValueError, IndexError) as e:
+            errs.append(f'fixtures: case {c["name"]!r} cannot be drawn: {e}')
+            continue
         if json.dumps(got, sort_keys=True) != json.dumps(c['expect'], sort_keys=True):
             errs.append(f'fixtures: case {c["name"]!r} differs from manifest.py')
+        # 10 §15.7: an impossible combination draws the greybox, never nothing
+        for result in (got, c['expect']):
+            first = next((d for d in result if d.get('part') in PRIMARY_DRAWS), None)
+            if first is None or not first.get('frames'):
+                errs.append(f'fixtures: case {c["name"]!r} expects no picture (an impossible combination must draw '
+                            f'its greybox)')
+                break
     missing = False
     for f in man['pages']:
         for p in f:
