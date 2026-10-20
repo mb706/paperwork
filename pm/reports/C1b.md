@@ -186,3 +186,84 @@ data stage.
 - `CLAUDE.md` (the code section)
 
 Commits on `dev`: e9f0850, 315983c, 60d5015, 0083c92, cf11a7b and the one that adds this report.
+
+## Review response (codex C1b-r1)
+
+All ten findings are fixed in dd26ca9. Each cross-language fix has a shared fixture that the old code fails in
+at least one language; "old TS" results below were reproduced by running the pre-review generated
+TypeScript (90df0c6) on the fixture's bytes. Fixtures are in `test/fixtures/codec/spec/review-r1.hex` (17
+cases, run by both `cargo test -p sim --test codec_fixtures` and `test/codec/fixtures.test.ts`) unless named
+otherwise. Three new directives serve them: `@table <name>`, `@closure_log` and `@lenient <record>`
+(README, "Fixtures").
+
+1. **UTF-8 strings decode differently — Fixed.** The TS decoder keeps a leading U+FEFF
+   (`ignoreBOM: true`), as Rust's `str::from_utf8` does; the reference codec too. Other decoders were audited:
+   magics and column names now compare bytes, pool-directory names and the save header use the strict decoder.
+   Fixtures: console_command with `"﻿x"` and with a BOM-only text, a `removed_proto` record and an
+   `InspectField` message with BOM-prefixed names, and a BOM-named signal in `golden/protos-signal.bin` (the
+   NAMES path). Old TS decoded `"x"`.
+2. **TS accepts noncanonical free pool rows — Fixed.** Both languages refuse a free row whose saved column is
+   off its default (`keep` columns aside) when reading and writing, at the first such value in row order
+   (`not_canonical container.inv @52`). The Rust reader now reports absolute offsets inside columns, and both
+   check the whole directory before reading a column, so error precedence matches. Fixtures: container
+   (canonical, and inv 0 in a free row), entity_table (a free row keeping `gen` 5: accepted; a free row with
+   proto 3: refused). Old TS accepted the free row with inv 0.
+3. **Closure-log readers disagree about missing blobs — Fixed.** Blob references are intrinsic to both
+   readers; the TS callback is gone. A missing blob is `bad_ref ClosureLog.blobs` at the naming action.
+   Fixtures: a log with a place_blueprint naming an absent blob, and the same log with the blob. Old TS
+   accepted the first.
+4. **Tiny inputs trigger enormous allocations — Fixed.**
+   - Closure logs: capacities are bounded by the bytes present (one record per 9 bytes, one blob per 36).
+   - Tables: they declare `max_rows` (4,194,304, an EntityHandle's slot bits; in the hash). A table with rows
+     must carry its live column (`missing_field`), so rows are bounded by the bytes, and sizes use
+     `checked_mul`. `alloc` returns None when a table is full.
+   - Fixtures: logs claiming 2^32 − 1 records or blobs in no bytes, a table header claiming 2^32 − 1 rows
+     (`too_long`), and 16 rows without columns (`missing_field`). Old TS accepted the 16-row table and died
+     of heap exhaustion on the 2^32 − 1-row one.
+5. **Closure-log parsing walks closures without their precondition — Fixed.** Both readers check each
+   record's closure with `check_framing` (the preflight's rules 1–3 for the record's tick, shared with the
+   preflight through one `walk`) before iterating it. A failure is the new error kind
+   `bad_framing ClosureRecord.closure` at the failing batch or action. `ClosureIter` and `closureActions` stop
+   on an empty batch or a short payload instead of panicking. Fixtures: the review's 20-byte closure
+   (`@124`) and a payload past the end (`@140`); `crates/schema/tests/golden.rs` also tests the iterator
+   directly.
+6. **The save header's nested formats are unspecified — Fixed.** `sections.yaml` `save_header` is now a
+   complete JSON schema, generated into `SaveHeader`/`validateSaveHeader` and listed in `SCHEMA_HASH`.
+   - The type syntax gains integer and string ranges, `color` (#rrggbb), `isotime` (UTC), `hex16`, array
+     maxima with `unique` or `ascending <field>`, and `record:<name>`, a record's JSON form. The settings
+     copies are `record:map_settings` and `record:world_settings`, so they follow their records.
+   - The roster holds at most 32 entries, ascending by index, each `{index 0–31, name of 1–64 bytes,
+     color}`. `NameTables` must name exactly ProtoKind's kinds.
+   - Keys are camelCase, as the spec's `buildHash`/`schemaHash` and prototypes.json have them.
+   - `test/codec/save-header.test.ts` refuses 16 malformed headers, the review's `{item: 42}` and `[null]`
+     among them, and round-trips the container. Old TS accepted those two. TypeScript only: Rust never reads
+     the header.
+7. **Distinct float defaults share a hash — Fixed.** The listing writes float defaults as IEEE bits. TS
+   defaults keep −0 and round f32 defaults to f32, as Rust's `from_bits` does. `hash.test.ts` shows 0 and −0
+   hash differently and that the TS default is `-0`; the old listing hashed them alike. A `@lenient
+   map_settings` fixture with no fields checks every default bit for bit in both languages.
+8. **Version bumps and id reuse are not enforced — Fixed.** `game/schema/compat.yaml` is a compatibility
+   ledger (README, "Versions and the hash"; `scripts/schema-gen/compat.ts`). For each version domain it
+   records each version's layout fingerprint: action, packet (with events and UI records), abi, gen_abi,
+   protocol, protos, protos_json, container, closure_log, and schema (every save section). It also records
+   every save section's fingerprint per version and every id ever assigned: actions, events, packet
+   sections, projection kinds, queries, save and proto sections, META records, record field ids, enum values,
+   flag bits and registry ids.
+   - `npm run gen` refuses: a layout change without its version raised; a version going down; a changed save
+     section whose version is not the new schema_version, or a section version above it; an id reused for
+     another name.
+   - It appends what is new, and `--check` requires the ledger to be committed.
+   - `compat.test.ts` covers the review's case (`reverse` from bool to u16 at version 1 is refused; accepted
+     at 2, after which going back to 1 is refused), renames and removed-id reuse (actions, enum values,
+     record field ids) and the save-section rules. Old code accepted all of these.
+9. **Column-less proto tables lose their row count — Fixed.** Every generated table keeps an explicit
+   `row_count`. Fixture: `golden/protos-signal.bin`, written by the TS writer with one signal row. Rust loads
+   it after putting its own SCHEMA_HASH in; the old `len()` returned 0.
+10. **The README advertises a missing struct API — Fixed.** Struct codecs gain `encode`/`decode` (exact
+    buffer, as messages and records). The README's TypeScript examples are concrete now.
+    `test/codec/readme.test.ts` runs them and checks that they are the README's text.
+
+Also:
+- The schema's comments now cite the spec for decisions 2, 3, 4 and 6, which the manager routed.
+- `npm run ci`: green in 35.0 s wall after the change. The release wasm rebuilt because the schema hash
+  moved; warm it stays near 28 s.
