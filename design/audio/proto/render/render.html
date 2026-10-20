@@ -1,0 +1,157 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Paperwork music render</title></head>
+<body>
+<p>Offline renderer for the Paperwork music engine. Driven by render.mjs.</p>
+<script type="module">
+import { MusicEngine } from '../engine/engine.js';
+import { PIECES } from '../engine/pieces/index.js';
+
+/** WAV: float32 (format 3) or 16-bit PCM with TPDF dither (format 1), first `chUsed` channels. */
+function wav(buffer, bits = 32, chUsed = buffer.numberOfChannels) {
+  const ch = chUsed;
+  const n = buffer.length;
+  const bps = bits / 8;
+  const bytes = 44 + n * ch * bps;
+  const dv = new DataView(new ArrayBuffer(bytes));
+  const w = (o, s) => [...s].forEach((c, i) => dv.setUint8(o + i, c.charCodeAt(0)));
+  w(0, 'RIFF'); dv.setUint32(4, bytes - 8, true); w(8, 'WAVE'); w(12, 'fmt ');
+  dv.setUint32(16, 16, true); dv.setUint16(20, bits === 32 ? 3 : 1, true); dv.setUint16(22, ch, true);
+  dv.setUint32(24, buffer.sampleRate, true); dv.setUint32(28, buffer.sampleRate * ch * bps, true);
+  dv.setUint16(32, ch * bps, true); dv.setUint16(34, bits, true); w(36, 'data'); dv.setUint32(40, n * ch * bps, true);
+  const data = [...Array(ch).keys()].map((c) => buffer.getChannelData(c));
+  let o = 44;
+  if (bits === 32) {
+    for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { dv.setFloat32(o, data[c][i], true); o += 4; }
+  } else {
+    for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) {
+      const d = (Math.random() - Math.random()) / 32768;
+      dv.setInt16(o, Math.max(-32768, Math.min(32767, Math.round((data[c][i] + d) * 32767))), true); o += 2;
+    }
+  }
+  return dv.buffer;
+}
+
+/** ITU-R BS.1770-4 integrated loudness (K-weighted, gated) of a stereo pair at 48 kHz, plus sample peak. */
+function loudness(L, R) {
+  const kw = (x) => {
+    const y = new Float32Array(x.length);
+    const st = (b, a, inp, out) => {
+      let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+      for (let i = 0; i < inp.length; i++) {
+        const v = b[0] * inp[i] + b[1] * x1 + b[2] * x2 - a[1] * y1 - a[2] * y2;
+        x2 = x1; x1 = inp[i]; y2 = y1; y1 = v; out[i] = v;
+      }
+    };
+    st([1.53512485958697, -2.69169618940638, 1.19839281085285], [1, -1.69065929318241, 0.73248077421585], x, y);
+    st([1, -2, 1], [1, -1.99004745483398, 0.99007225036621], y, y);
+    return y;
+  };
+  const a = kw(L), b = kw(R);
+  const blk = 19200, hop = 4800;
+  const pw = [];
+  for (let s = 0; s + blk <= a.length; s += hop) {
+    let sum = 0;
+    for (let i = s; i < s + blk; i++) sum += a[i] * a[i] + b[i] * b[i];
+    pw.push(sum / blk);
+  }
+  const lk = (p) => -0.691 + 10 * Math.log10(p);
+  const abs = pw.filter((p) => lk(p) > -70);
+  if (!abs.length) return { I: -Infinity, peak: 0 };
+  const ug = abs.reduce((s, p) => s + p, 0) / abs.length;
+  const rel = abs.filter((p) => lk(p) > lk(ug) - 10);
+  const I = lk(rel.reduce((s, p) => s + p, 0) / rel.length);
+  let peak = 0;
+  for (let i = 0; i < L.length; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
+  return { I: +I.toFixed(2), peakDb: +(20 * Math.log10(peak + 1e-12)).toFixed(2) };
+}
+
+window.render = async (cfg) => {
+  const sr = cfg.sampleRate ?? 48000;
+  const total = cfg.duration + (cfg.tail ?? 6);
+  // stems: one 32-channel render; channels 0-1 are the mix, then one stereo pair per mixer channel
+  // (post-fader, post-pan, dry) and a last pair for the reverb returns.
+  const nch = cfg.stems ? Math.min(32, 2 + 2 * (cfg.stems === true ? 15 : cfg.stems)) : 2;
+  const ctx = new OfflineAudioContext(nch, Math.ceil(sr * total), sr);
+  let out = ctx.destination;
+  let merger = null;
+  if (cfg.stems) {
+    ctx.destination.channelInterpretation = 'discrete';
+    merger = ctx.createChannelMerger(nch);
+    merger.connect(ctx.destination);
+    out = ctx.createGain();
+    const sp = ctx.createChannelSplitter(2);
+    out.connect(sp);
+    sp.connect(merger, 0, 0);
+    sp.connect(merger, 1, 1);
+  }
+  const pack = `../../out/samples/${cfg.pack ?? 'prep'}`;
+  const manifest = await (await fetch(`${pack}/instruments.json`)).json();
+  const eng = new MusicEngine(ctx, {
+    manifest, baseUrl: pack, out,
+    mute: cfg.mute ? new Set(cfg.mute) : null, solo: cfg.solo ? new Set(cfg.solo) : null,
+    mixer: cfg.mixer ?? {},
+  });
+  const spec = PIECES[cfg.piece];
+  await eng.loadSamplers(spec.samplers);
+  spec.setup(eng, cfg.params ?? {});
+  const stemNames = [];
+  if (cfg.stems) {
+    let k = 1;
+    const tap = (node, name) => {
+      if (2 * k + 1 >= nch) return;
+      const sp = ctx.createChannelSplitter(2);
+      node.connect(sp);
+      sp.connect(merger, 0, 2 * k);
+      sp.connect(merger, 1, 2 * k + 1);
+      stemNames.push(name);
+      k++;
+    };
+    for (const [name, ch] of eng.channels) tap(ch.dry, name);
+    for (const [name, rv] of eng.mixer.reverbs) tap(rv.wet, `reverb:${name}`);
+  }
+  // game-state automation: [[t, {key: value}], ...] applied when the clock passes t
+  const auto = (cfg.automation ?? []).slice().sort((a, b) => a[0] - b[0]);
+  eng.clock.listeners.add((now) => { while (auto.length && auto[0][0] <= now) Object.assign(eng.state, auto.shift()[1]); });
+  const piece = new spec.Piece(eng, { ...(cfg.params ?? {}), duration: cfg.duration, start: cfg.start ?? 0.05 });
+  eng.clock.add(piece);
+  const t0 = performance.now();
+  const buf = await eng.clock.renderOffline(total, cfg.step ?? 0.25);
+  const ms = performance.now() - t0;
+  const name = cfg.name;
+  let stemLoudness = null;
+  if (cfg.stems) {
+    stemLoudness = { mix: loudness(buf.getChannelData(0), buf.getChannelData(1)) };
+    stemNames.forEach((n, k) => { stemLoudness[n] = loudness(buf.getChannelData(2 + 2 * k), buf.getChannelData(3 + 2 * k)); });
+  }
+  await fetch(`/save?name=${encodeURIComponent(name)}.wav`, { method: 'POST', body: wav(buf, 32, 2) });
+  await fetch(`/save?name=${encodeURIComponent(name)}.notes.json`, { method: 'POST', body: JSON.stringify({ cfg, stems: stemNames, stemLoudness, notes: eng.log, extra: piece.report?.() ?? null }) });
+  return { ms, seconds: total, notes: eng.log.length, realtime: total / (ms / 1000), stemLoudness, errors: eng.clock.errors };
+};
+/** Realtime playback for benchmarks: the same engine on a live AudioContext with the timer-driven clock.
+ *  Returns main-thread scheduling cost; the audio thread's CPU is measured from outside (bench.mjs). */
+window.play = async (cfg) => {
+  const ctx = new AudioContext({ latencyHint: 'playback' });
+  await ctx.resume();
+  const manifest = await (await fetch('../../out/samples/prep/instruments.json')).json();
+  const eng = new MusicEngine(ctx, { manifest, baseUrl: '../../out/samples/prep', mixer: cfg.mixer ?? {} });
+  const spec = PIECES[cfg.piece];
+  await eng.loadSamplers(spec.samplers);
+  spec.setup(eng, cfg.params ?? {});
+  const auto = (cfg.automation ?? []).slice().sort((a, b) => a[0] - b[0]);
+  const t0 = ctx.currentTime;
+  eng.clock.listeners.add((now) => { while (auto.length && auto[0][0] <= now - t0 + (cfg.offset ?? 0)) Object.assign(eng.state, auto.shift()[1]); });
+  const piece = new spec.Piece(eng, { ...(cfg.params ?? {}), duration: cfg.duration, start: t0 + 0.1 - (cfg.offset ?? 0) });
+  eng.clock.add(piece);
+  let tickMs = 0, ticks = 0, maxTick = 0;
+  const orig = eng.clock.tick.bind(eng.clock);
+  eng.clock.tick = (now) => { const a = performance.now(); orig(now); const d = performance.now() - a; tickMs += d; ticks++; maxTick = Math.max(maxTick, d); };
+  eng.clock.cursor = t0;
+  eng.clock.start();
+  window.__bench = () => ({ tickMs, ticks, maxTick, notes: eng.log.length, dropped: eng.dropped ?? 0, audioTime: ctx.currentTime - t0 });
+  return true;
+};
+window.ready = true;
+</script>
+</body>
+</html>

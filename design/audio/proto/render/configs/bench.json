@@ -1,0 +1,3 @@
+[{"name": "bench-era1", "piece": "era1", "duration": 140, "params": {"seed": 1945}, "automation": [[0, {"activity": 0.8}]], "offset": 95},
+ {"name": "bench-era2", "piece": "era2", "duration": 140, "params": {"seed": 1962}, "automation": [[0, {"activity": 0.8}]], "offset": 40},
+ {"name": "bench-takeoff", "piece": "takeoff", "duration": 150, "params": {"seed": 2024}, "automation": [[0, {"activity": 0.8, "doublingTime": 4}]], "offset": 100}]

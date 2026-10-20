@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paperwork audio demos</title>
+<style>
+  :root {
+    --bg: #f4f1ea; --fg: #1f1d1a; --muted: #6b665d; --rule: #d8d2c4; --accent: #2f5d62; --card: #fbf9f4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #191a1c; --fg: #e8e4dc; --muted: #9a958b; --rule: #34363a; --accent: #8fbcb5; --card: #212326; }
+  }
+  :root[data-theme="dark"] { --bg: #191a1c; --fg: #e8e4dc; --muted: #9a958b; --rule: #34363a; --accent: #8fbcb5; --card: #212326; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 4px; }
+  .tag { color: var(--muted); margin: 0 0 28px; }
+  h2 { font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--rule); padding-bottom: 6px; margin: 36px 0 16px; }
+  .track { background: var(--card); border: 1px solid var(--rule); border-radius: 6px; padding: 16px; margin: 0 0 14px; }
+  .track h3 { margin: 0 0 2px; font-size: 18px; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+  .track p { margin: 8px 0 0; }
+  audio { width: 100%; }
+  .sfx { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  button { font: inherit; font-size: 14px; text-align: left; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 5px; background: var(--card); color: var(--fg); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .note { color: var(--muted); font-size: 14px; }
+  code { font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Paperwork</h1>
+  <p class="tag">Audio direction demos. Information is physical.</p>
+
+  <p>The music is process music played by the history of machine music. Each piece below is a render of the game's
+  own engine (rules, not a fixed score), so in play every piece is different. Mastered to −16 LUFS.</p>
+
+  <h2>Music</h2>
+  <div class="track">
+    <h3>1945: Relays and tubes</h3>
+    <p class="meta">Era I, the charter piece · piano, strings, clarinet, harp, glockenspiel · 2:25</p>
+    <audio controls preload="none" src="paperwork-era1-1945.opus"></audio>
+    <p>The motif is stated once on the piano, then five piano loops of unequal lengths take it apart. They never
+    line up the same way twice. The strings voice-lead under a pentatonic field. A clarinet melody in Pärt's
+    tintinnabuli manner follows, with harp, then a climax in the violins and a quiet coda.</p>
+  </div>
+  <div class="track">
+    <h3>1962: Tape and oscillators</h3>
+    <p class="meta">Era II · marimba tape loops, vibraphone, organ, sine drones, tape · 2:26</p>
+    <audio controls preload="none" src="paperwork-era2-1962.opus"></audio>
+    <p>A marimba loop is built up note by note. A second copy runs 0.4% fast, so it drifts out of phase and,
+    being tape, slightly sharp. Organ figures pile up on a tape echo over a just-intonation sine drone. Two
+    Risset bells sound, and the 1945 motif returns on tape at half speed.</p>
+  </div>
+  <div class="track">
+    <h3>Takeoff</h3>
+    <p class="meta">Era V · the loop closes, then the takeoff · 2:27</p>
+    <audio controls preload="none" src="paperwork-takeoff.opus"></audio>
+    <p>The 1945 motif in five voices, one per era, at tempi 1 : 4/3 : 2 : 3 : 4. All five arrive on one D at the
+    same instant: the only moment every era sounds together. Then an accelerando without end on the piano, tuned
+    to the harmonic series of D, which doubles in tempo whenever research doubles. Then one low D.</p>
+  </div>
+
+  <h2>Sound effects</h2>
+  <p class="note">Prototypes for the slice: card stock, keys, relays, motors. Each button plays one variant.</p>
+  <div class="sfx" id="sfx"></div>
+</main>
+<script>
+  const SFX = [
+    ['ui_click', 3], ['ui_hover', 2], ['build_small', 3], ['build_medium', 3], ['build_large', 2], ['deconstruct', 3],
+    ['mine_ore', 4], ['inserter_swing', 4], ['keypunch_loop', 0], ['belt_loop', 0], ['research_complete', 0],
+    ['alert', 0], ['error', 2], ['footstep_grass', 4], ['footstep_concrete', 4],
+  ];
+  const box = document.getElementById('sfx');
+  let current = null;
+  for (const [name, n] of SFX) {
+    const files = n ? Array.from({ length: n }, (_, i) => `sfx/${name}_${i + 1}.ogg`) : [`sfx/${name}.ogg`];
+    files.forEach((f, i) => {
+      const b = document.createElement('button');
+      b.textContent = name.replace(/_/g, ' ') + (n ? ` ${i + 1}` : '') + (name.endsWith('loop') ? ' (loop)' : '');
+      b.addEventListener('click', () => {
+        if (current) current.pause();
+        current = new Audio(f);
+        current.loop = name.endsWith('loop');
+        current.play();
+      });
+      box.appendChild(b);
+    });
+  }
+</script>
+</body>
+</html>

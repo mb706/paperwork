@@ -1,0 +1,4 @@
+[{"name": "era2 full", "piece": "era2", "duration": 140, "params": {"seed": 1962}, "automation": [[0, {"activity": 0.8}]], "offset": 40},
+ {"name": "era2 no reverb", "piece": "era2", "duration": 140, "params": {"seed": 1962}, "automation": [[0, {"activity": 0.8}]], "offset": 40, "mixer": {"noReverb": true}},
+ {"name": "era2 no glue/limiter", "piece": "era2", "duration": 140, "params": {"seed": 1962}, "automation": [[0, {"activity": 0.8}]], "offset": 40, "mixer": {"glue": false, "limiter": false}},
+ {"name": "takeoff no reverb", "piece": "takeoff", "duration": 150, "params": {"seed": 2024}, "automation": [[0, {"activity": 0.8, "doublingTime": 4}]], "offset": 100, "mixer": {"noReverb": true}}]
