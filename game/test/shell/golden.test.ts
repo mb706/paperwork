@@ -178,13 +178,19 @@ describe('the golden packets through the shell (§15.4, README "The golden flow"
         ),
         blobs,
       });
+    // Each message is run before the next is sent (MessagePort delivery takes its own time).
+    const arrive = async (last: number) => {
+      for (let i = 0; i < 1000 && h.shell.horizon < last; i++) await settle();
+      expect(h.shell.horizon).toBe(last);
+    };
     send(1, 1);
-    await settle();
+    await arrive(1);
     h.advance(2);
+    expect(h.packets).toHaveLength(3);
     // Three packets are out (FULL, tick 0, tick 1): no free buffer, so ticks 2–600 run without extraction.
     for (let t = 2; t <= 600; t += 20) {
       send(t, Math.min(t + 19, 600));
-      await settle();
+      await arrive(Math.min(t + 19, 600));
       h.advance(10);
     }
     expect(h.shell.tick).toBe(600);

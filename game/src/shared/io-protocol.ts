@@ -64,6 +64,8 @@ export type IoRequest =
     }
   /** Reads a save: its validated header and its sections decompressed, as `sim_load` takes them. */
   | { t: 'read'; id: number; name: string }
+  /** As `read`, for container bytes that are not stored (an imported file, a bug bundle's save). */
+  | { t: 'unpack'; id: number; bytes: ArrayBuffer }
   | { t: 'list'; id: number }
   | { t: 'delete'; id: number; name: string }
   /** The container's bytes, for an export (§8.2 "Export and import"). */

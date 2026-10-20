@@ -137,6 +137,12 @@ impl Io {
         code
     }
 
+    /// As `fail`, for an envelope export: its failure returns 0 (§15.8), not the status.
+    pub fn fail_env(&mut self, code: u32, msg: &str) -> u32 {
+        self.fail(code, msg);
+        0
+    }
+
     /// `sim_last_error`'s envelope (its own buffer), or 0 before any failure.
     pub fn last_error(&self) -> u32 {
         if self.err.is_empty() { 0 } else { self.err_at as u32 }

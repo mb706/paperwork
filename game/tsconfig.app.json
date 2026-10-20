@@ -22,6 +22,15 @@
     },
     {
       "path": "./tsconfig.assets.json"
+    },
+    {
+      "path": "./tsconfig.simworker.json"
+    },
+    {
+      "path": "./tsconfig.genworker.json"
+    },
+    {
+      "path": "./tsconfig.ioworker.json"
     }
   ]
 }

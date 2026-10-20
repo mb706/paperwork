@@ -29,10 +29,12 @@ fn with<T>(f: impl FnOnce(&mut Stub) -> T) -> T {
 
 impl Stub {
     fn init(&mut self, len: u32) -> u32 {
-        let Some(req) = self.io.request(len) else { return self.io.fail(ERR_INPUT, "input past the buffer") };
+        let Some(req) = self.io.request(len) else {
+            return self.io.fail_env(ERR_INPUT, "input past the buffer");
+        };
         let v = match GenInitInput::decode_exact(&req) {
             Ok(v) => v,
-            Err(e) => return self.io.fail(ERR_INPUT, &format!("gen_init: {e:?}")),
+            Err(e) => return self.io.fail_env(ERR_INPUT, &format!("gen_init: {e:?}")),
         };
         common::install_panic_hook();
         let h = fnv(fnv(FNV_OFFSET, &v.world.seed.to_le_bytes()), v.protos);
@@ -45,7 +47,7 @@ impl Stub {
 
     fn chunk(&mut self, surface: u32, cx: i32, cy: i32) -> u32 {
         let Some(world_hash) = self.world_hash else {
-            return self.io.fail(ERR_ORDER, "gen_chunk before gen_init");
+            return self.io.fail_env(ERR_ORDER, "gen_chunk before gen_init");
         };
         let mut c = ChunkData {
             world_hash,
@@ -61,14 +63,14 @@ impl Stub {
         }
         let mut buf = Vec::new();
         if c.encode(&mut schema::codec::Writer::new(&mut buf)).is_err() {
-            return self.io.fail(ERR_INPUT, "chunk_data");
+            return self.io.fail_env(ERR_INPUT, "chunk_data");
         }
         self.io.envelope(&buf)
     }
 
     fn chart(&mut self, surface: u32, cx: i32, cy: i32) -> u32 {
         if self.world_hash.is_none() {
-            return self.io.fail(ERR_ORDER, "gen_chart before gen_init");
+            return self.io.fail_env(ERR_ORDER, "gen_chart before gen_init");
         }
         let mut o = Out(Vec::new());
         o.u32(schema::chunk_key(cx, cy).0);
@@ -82,16 +84,18 @@ impl Stub {
     }
 
     fn preview(&mut self, len: u32) -> u32 {
-        let Some(req) = self.io.request(len) else { return self.io.fail(ERR_INPUT, "input past the buffer") };
+        let Some(req) = self.io.request(len) else {
+            return self.io.fail_env(ERR_INPUT, "input past the buffer");
+        };
         let mut r = Reader::new(&req);
         let v = match PreviewRequest::read(&mut r, "PreviewRequest")
             .and_then(|v| r.finish("PreviewRequest").map(|()| v))
         {
             Ok(v) => v,
-            Err(e) => return self.io.fail(ERR_INPUT, &format!("gen_preview: {e:?}")),
+            Err(e) => return self.io.fail_env(ERR_INPUT, &format!("gen_preview: {e:?}")),
         };
         if self.world_hash.is_none() {
-            return self.io.fail(ERR_ORDER, "gen_preview before gen_init");
+            return self.io.fail_env(ERR_ORDER, "gen_preview before gen_init");
         }
         let mut o = Out(Vec::new());
         o.u32(v.width);

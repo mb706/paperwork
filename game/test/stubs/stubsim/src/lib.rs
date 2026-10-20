@@ -383,15 +383,17 @@ impl Stub {
     }
 
     fn extract(&mut self, len: u32) -> u32 {
-        let Some(req) = self.io.request(len) else { return self.io.fail(ERR_INPUT, "input past the buffer") };
+        let Some(req) = self.io.request(len) else {
+            return self.io.fail_env(ERR_INPUT, "input past the buffer");
+        };
         let mut r = Reader::new(&req);
         if let Err(e) = ViewRequest::read(&mut r, "ViewRequest").and_then(|_| r.finish("ViewRequest")) {
-            return self.io.fail(ERR_INPUT, &format!("view: {e:?}"));
+            return self.io.fail_env(ERR_INPUT, &format!("view: {e:?}"));
         }
         let big = std::mem::take(&mut self.big_packet);
         let w = match self.world_or_order() {
             Ok(w) => w,
-            Err(code) => return code,
+            Err(_) => return 0,
         };
         let mut flags = PacketFlags::EMPTY;
         if !w.extracted {
@@ -410,7 +412,7 @@ impl Stub {
         if big {
             // 600 CHUNK_TILES records (about 607 KiB): more than a 256-KiB packet buffer holds (§15.4).
             if p.section(&mut wr, PacketSection::ChunkTiles).is_err() {
-                return self.io.fail(ERR_INPUT, "packet");
+                return self.io.fail_env(ERR_INPUT, "packet");
             }
             for i in 0..600u32 {
                 wr.u32(i);
@@ -420,25 +422,27 @@ impl Stub {
                 wr.zeros(1024);
             }
             if p.end(&mut wr, 600).is_err() {
-                return self.io.fail(ERR_INPUT, "packet");
+                return self.io.fail_env(ERR_INPUT, "packet");
             }
         }
         if p.finish(&mut wr).is_err() {
-            return self.io.fail(ERR_INPUT, "packet");
+            return self.io.fail_env(ERR_INPUT, "packet");
         }
         self.io.envelope(&buf)
     }
 
     fn save(&mut self, len: u32) -> u32 {
-        let Some(req) = self.io.request(len) else { return self.io.fail(ERR_INPUT, "input past the buffer") };
+        let Some(req) = self.io.request(len) else {
+            return self.io.fail_env(ERR_INPUT, "input past the buffer");
+        };
         let mut r = Reader::new(&req);
         let v = match SaveInput::decode(&mut r).and_then(|v| r.finish("SaveInput").map(|()| v)) {
             Ok(v) => v,
-            Err(e) => return self.io.fail(ERR_INPUT, &format!("save: {e:?}")),
+            Err(e) => return self.io.fail_env(ERR_INPUT, &format!("save: {e:?}")),
         };
         let w = match self.world_or_order() {
             Ok(w) => w,
-            Err(code) => return code,
+            Err(_) => return 0,
         };
         let bake = v.flags.contains(schema::SaveFlags::BAKE);
         let lineage = if bake { fnv(w.state_hash(), &w.tick.to_le_bytes()) } else { w.r };
@@ -463,7 +467,7 @@ impl Stub {
     fn meta(&mut self) -> u32 {
         let w = match self.world_or_order() {
             Ok(w) => w,
-            Err(code) => return code,
+            Err(_) => return 0,
         };
         let players: Vec<schema::PlayerMeta> = (0..PLAYERS)
             .filter(|&i| w.present[i])
@@ -484,19 +488,19 @@ impl Stub {
         };
         let mut buf = Vec::new();
         if m.encode(&mut schema::codec::Writer::new(&mut buf)).is_err() {
-            return self.io.fail(ERR_INPUT, "sim_meta");
+            return self.io.fail_env(ERR_INPUT, "sim_meta");
         }
         self.io.envelope(&buf)
     }
 
     fn load_report(&mut self) -> u32 {
         let (true, Some((new_lineage, r))) = (self.last_world_call == 2, self.report) else {
-            return self.io.fail(ERR_ORDER, "no load");
+            return self.io.fail_env(ERR_ORDER, "no load");
         };
         let rep = schema::LoadReport { new_lineage, r, removed: Vec::new() };
         let mut buf = Vec::new();
         if rep.encode(&mut schema::codec::Writer::new(&mut buf)).is_err() {
-            return self.io.fail(ERR_INPUT, "load_report");
+            return self.io.fail_env(ERR_INPUT, "load_report");
         }
         self.io.envelope(&buf)
     }
@@ -504,7 +508,7 @@ impl Stub {
     fn digest(&mut self) -> u32 {
         let w = match self.world_or_order() {
             Ok(w) => w,
-            Err(code) => return code,
+            Err(_) => return 0,
         };
         let mut o = Out(Vec::new());
         o.u32(w.tick);
@@ -528,7 +532,7 @@ impl Stub {
     fn state_hash(&mut self) -> u32 {
         let w = match self.world_or_order() {
             Ok(w) => w,
-            Err(code) => return code,
+            Err(_) => return 0,
         };
         let b = Self::state_hash_bytes(w);
         self.io.envelope(&b)
@@ -583,7 +587,7 @@ impl Stub {
     fn query_step(&mut self, units: u32) -> u32 {
         let (tick, hash, d, r) = match self.world_or_order() {
             Ok(w) => (w.tick, Self::state_hash_bytes(w), w.d, w.r),
-            Err(code) => return code,
+            Err(_) => return 0,
         };
         let n = (units as usize).min(self.queries.len());
         let done: Vec<(u32, u16, u32)> = self.queries.drain(..n).collect();
@@ -619,7 +623,7 @@ impl Stub {
     fn pending_chunks(&mut self) -> u32 {
         let w = match self.world_or_order() {
             Ok(w) => w,
-            Err(code) => return code,
+            Err(_) => return 0,
         };
         let qs = std::mem::take(&mut w.unreported);
         let mut o = Out(Vec::new());

@@ -150,6 +150,8 @@ export class SimShell {
   private timerAt = Number.POSITIVE_INFINITY;
   /** Why the shell stopped (a trap): it never calls the module again. */
   stopped: string | null = null;
+  /** The main thread has sent actions to this world (a replay needs none). */
+  private acted = false;
   /** Blob verifications in flight: later `act`s wait behind them, so each player's order is kept. */
   private intake: Promise<void> = Promise.resolve();
   private intakeBusy = 0;
@@ -195,6 +197,11 @@ export class SimShell {
   /** The module, for tests (null before boot or after a refusal). */
   get instance(): SimInstance | null {
     return this.sim;
+  }
+
+  /** The highest tick whose closure the shell holds (§3.3): unbounded for the LocalSequencer. */
+  get horizon(): number {
+    return this.source.horizon();
   }
 
   /** Handles one message from the main thread (§3.2). */
@@ -466,7 +473,7 @@ export class SimShell {
   }
 
   /** `sim_meta` → `bound` (§3.2), and the sequencer's watermarks. */
-  private bind(): ReturnType<typeof SimMetaCodec.decode> {
+  private bind(post = true): ReturnType<typeof SimMetaCodec.decode> {
     const sim = this.sim as SimInstance;
     const meta = SimMetaCodec.decode(
       sim.cold((s) => s.meta()),
@@ -476,7 +483,7 @@ export class SimShell {
     const players = meta.players.map((p) => ({ index: p.index, lastSeq: p.last_seq, inputGen: p.input_gen }));
     this.seq.bind({ tick: meta.tick, lastSystemSeq: meta.last_system_seq, players });
     this.bound = true;
-    this.host.post({ t: 'bound', gen: this.gen, tick: meta.tick, players });
+    if (post) this.host.post({ t: 'bound', gen: this.gen, tick: meta.tick, players });
     return meta;
   }
 
@@ -516,6 +523,7 @@ export class SimShell {
   }
 
   private submit(firstSeq: number, actions: Uint8Array, blobs: ReadonlyMap<string, Uint8Array> | null): void {
+    this.acted = true;
     const err = this.seq.submit(LOCAL_PLAYER, firstSeq, actions, blobs);
     if (err) this.postError('act', 0, err);
     for (const p of this.seq.problems.splice(0)) this.logLine('warn', p);
@@ -985,7 +993,11 @@ export class SimShell {
     const fail = (message: string) =>
       this.host.post({ t: 'replayed', gen: this.gen, ok: false, tick: this.tick, message });
     if (!sim || !this.bound || this.stopped) return fail('no world');
-    if (this.mode !== 'local' || this.seq.queued > 0) return fail('a replay needs a fresh world');
+    // A replay is the world's whole input: no tick may have run, and no player action may be waiting. The
+    // shell's own `player_joined(0)` for the first tick is dropped: the log holds what really happened.
+    if (this.mode !== 'local' || this.acted || this.tick !== this.log.baseTick)
+      return fail('a replay needs a fresh world');
+    this.bind(false);
     let log: ClosureLog;
     try {
       log = parseClosureLog(bytes);
@@ -1062,6 +1074,19 @@ export class SimShell {
       return;
     }
     this.soon(0);
+  }
+
+  /** Ends an in-process shell (`?sim=inline`, tests) as a terminated worker ends: no more wakes, no messages. */
+  close(): void {
+    if (!this.stopped) this.stopped = 'closed';
+    if (this.timer !== null) this.host.cancel(this.timer);
+    this.timer = null;
+    this.pool?.close();
+    this.io?.close();
+    if (this.closurePort) {
+      this.closurePort.onmessage = null;
+      this.closurePort.close();
+    }
   }
 
   // ------------------------------------------------------------------------------------------------- traps
