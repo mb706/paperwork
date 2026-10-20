@@ -70,6 +70,20 @@ test('E opens the character screen on the CHARACTER projection; E closes it', as
   await slot(page, 'inv-4').hover();
   await expect(page.getByTestId('tooltip')).toBeVisible();
   await page.screenshot({ path: info.outputPath('character-screen-tooltip.png') });
+  // Dragging the title bar moves the window; the position is remembered per window type (I §4.0).
+  const title = (await screen.locator('.titlebar .title').first().boundingBox()) as { x: number; y: number };
+  const before = (await screen.boundingBox()) as { x: number; y: number };
+  await page.mouse.move(title.x + 5, title.y + 5);
+  await page.mouse.down();
+  await page.mouse.move(title.x - 60, title.y + 40, { steps: 4 });
+  await page.mouse.up();
+  const moved = (await screen.boundingBox()) as { x: number; y: number };
+  expect([Math.round(moved.x - before.x), Math.round(moved.y - before.y)]).toEqual([-65, 35]);
+  await page.keyboard.press('e');
+  await expect(screen).toHaveCount(0);
+  await page.keyboard.press('e');
+  const reopened = (await screen.boundingBox()) as { x: number; y: number };
+  expect([reopened.x, reopened.y]).toEqual([moved.x, moved.y]);
   await page.keyboard.press('e');
   await expect(screen).toHaveCount(0);
   expect(problems).toEqual([]);

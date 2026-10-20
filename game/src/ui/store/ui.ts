@@ -5,6 +5,10 @@
 import { createSignal } from 'solid-js';
 
 export type Screen = 'menu' | 'loading' | 'game';
+
+/** The message log's line duration (I §4.20 "chat message duration"; 10 s assumed) and its length. */
+export const MESSAGE_MS = 10_000;
+const MESSAGES_MAX = 6;
 export type MenuPage = 'main' | 'new-game' | 'load' | 'settings';
 
 export type MainWindow =
@@ -65,6 +69,21 @@ export class UiState {
   readonly loadingProgress = createSignal(0);
   /** The character screen's tab in the tabbed layout (I §4.4: F2 character, F3 crafting). */
   readonly charTab = createSignal<'character' | 'crafting'>('character');
+  /** The message log at the bottom left (I §4.1 "Chat log"): the lines still showing, oldest first. */
+  readonly messages = createSignal<{ id: number; text: string; error: boolean }[]>([]);
+  private messageIds = 0;
+
+  /**
+   * A line in the message log (I §4.1: fully opaque, then fading during its last 2 s; `durationMs` is the chat
+   * message duration setting). Repeats of the newest line replace it rather than stacking.
+   */
+  addMessage(text: string, error = false, durationMs = MESSAGE_MS): void {
+    const [list, set] = this.messages;
+    const id = ++this.messageIds;
+    const kept = list().filter((m) => m.text !== text);
+    set([...kept.slice(-(MESSAGES_MAX - 1)), { id, text, error }]);
+    setTimeout(() => set(this.messages[0]().filter((m) => m.id !== id)), durationMs);
+  }
   private readonly back: MainWindow[] = [];
   private readonly forward: MainWindow[] = [];
   /** The green buttons on screen, newest last: E presses the newest enabled one (I §1.4). */
@@ -139,6 +158,7 @@ export class UiState {
     this.gameMenu[1](false);
     this.dialog[1](null);
     this.tooltip[1](null);
+    this.messages[1]([]);
   }
 }
 

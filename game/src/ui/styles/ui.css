@@ -647,12 +647,52 @@ button {
   bottom: 1px;
 }
 
-.crafting-queue {
+.hud-left {
   position: absolute;
   left: 8px;
   bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.crafting-queue {
   box-sizing: border-box;
   padding: 0;
+}
+
+/* Lines stay fully opaque, then fade during their last 2 s (I §4.1; MESSAGE_MS = 10 s). */
+.message-log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 460px;
+}
+
+.message {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  text-shadow:
+    0 0 2px var(--paper),
+    0 0 4px var(--paper);
+  animation: message-fade 10s linear forwards;
+}
+
+.message-error {
+  color: var(--red);
+}
+
+@keyframes message-fade {
+  0%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 /* The queue grows from the left, 10 per row (I §4.5), and wraps upward before it would reach the quickbar. */

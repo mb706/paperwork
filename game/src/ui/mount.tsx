@@ -335,6 +335,8 @@ export function mountUi(o: UiOptions): UiHandle {
     const p = protos();
     if (!p) return;
     if (e.type === 'flying_text') {
+      // Flying text is the acting player's own (Factorio's local flying text); others' stays theirs.
+      if (h.player !== player && h.player !== 0xffff) return;
       const x = e.pos.x / 256;
       const y = e.pos.y / 256;
       const name = p.itemName(e.item);
@@ -347,7 +349,16 @@ export function mountUi(o: UiOptions): UiHandle {
         flying.add(text, x, y, { item: e.item });
       } else {
         const key = p.json.localeKeys.FlyingText.find((k) => k.value === e.text)?.key;
-        if (key) flying.add(t(key, name), x, y, { error: e.text === 4 || e.text === 5 });
+        if (!key) return;
+        if (e.text === 4) {
+          // "Cannot insert X. Inventory is full." is the bottom-left message (I §3.7–§3.9, Factorio 2.0.77).
+          ui.addMessage(t(key, name), true);
+        } else if (e.text === 5) {
+          // "Cannot put away the X. …" is flying text at the mouse cursor (I §3.2).
+          const ptr = core.pointer();
+          const at = camera.toWorld(ptr.x, ptr.y);
+          flying.add(t(key, name), at.x, at.y, { error: true });
+        } else flying.add(t(key, name), x, y);
       }
     } else if (e.type === 'action_failed' && h.player === player) {
       if (DEV_REASONS.has(e.reason)) return;

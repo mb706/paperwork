@@ -16,7 +16,10 @@ export function Hud(): JSX.Element {
   const s = useServices();
   return (
     <div class="hud" classList={{ hidden: s.ui.hideGui[0]() }} data-testid="hud">
-      <CraftingQueue />
+      <div class="hud-left">
+        <MessageLog />
+        <CraftingQueue />
+      </div>
       <div class="hud-bottom">
         <MiningBar />
         <div class="hud-bars">
@@ -25,6 +28,18 @@ export function Hud(): JSX.Element {
         </div>
       </div>
       <DockedInfo />
+    </div>
+  );
+}
+
+/** The message log (I §4.1 "Chat log", BEND-2): notices such as "Cannot insert …", fading out after a while. */
+function MessageLog(): JSX.Element {
+  const s = useServices();
+  return (
+    <div class="message-log" data-testid="message-log">
+      <For each={s.ui.messages[0]()}>
+        {(m) => <div class={`message${m.error ? ' message-error' : ''}`}>{m.text}</div>}
+      </For>
     </div>
   );
 }
@@ -178,61 +193,65 @@ function CraftingQueue(): JSX.Element {
 /** The docked entity info (I §4.8.3): the selection's name, description, status and contents. */
 function DockedInfo(): JSX.Element {
   const s = useServices();
-  const hover = () => s.game.hover[0]();
   const sel = () => s.selection();
-  const entity = () => {
-    const h = hover();
+  /** The hover record, once it names the selected entity (HOVER, sub_id 0). */
+  const live = () => {
+    const h = s.game.hover[0]();
     const x = sel();
     return x?.kind === 'entity' && h && h.serial === x.serial ? h : null;
   };
+  /** The name and description come from the data at once; status and contents follow with the record. */
+  const head = () => {
+    const x = sel();
+    const p = s.protos();
+    if (!x || !p) return null;
+    if (x.kind === 'entity') return { name: p.entityName(x.proto), desc: p.entityDescription(x.proto) };
+    if (x.kind === 'resource') return { name: p.resourceName(x.resource), desc: '' };
+    return null;
+  };
   return (
-    <Show when={sel() && sel()?.kind !== 'tile'}>
-      <div class="docked pw-frame" data-gui="" data-testid="docked-info">
-        <Show
-          when={entity()}
-          fallback={
-            <Show when={sel()?.kind === 'resource' ? sel() : null}>
-              {(r) => (
-                <h1 class="title">{s.protos()?.resourceName((r() as { resource: number }).resource)}</h1>
-              )}
-            </Show>
-          }
-        >
-          {(h) => (
-            <>
-              <h1 class="title">{s.protos()?.entityName(h().proto)}</h1>
-              <div class="panel pw-panel docked-card">
-                <Show when={s.protos()?.entityDescription(h().proto)}>
-                  <div class="tip-desc">{s.protos()?.entityDescription(h().proto)}</div>
-                </Show>
-                <Show when={h().status !== 0}>
-                  <div class="status-line">
-                    <span class={`led led-${ledOf(h().status)}`} />
-                    <span>{statusText(s, h().status)}</span>
-                  </div>
-                </Show>
-                <Show when={h().contents.length > 0}>
-                  <div class="tip-line">{t('tooltip.contents')}</div>
-                  <div class="contents">
-                    <For each={h().contents}>
-                      {(c) => (
-                        <span class="content-item">
-                          <Icon
-                            name={s.protos()?.itemIcon(c.key) ?? 'fx/missing'}
-                            size={24}
-                            label={s.protos()?.itemName(c.key) ?? ''}
-                          />
-                          <span class="typed">{formatCount(c.count)}</span>
-                        </span>
-                      )}
-                    </For>
-                  </div>
-                </Show>
-              </div>
-            </>
-          )}
-        </Show>
-      </div>
+    <Show when={head()}>
+      {(hd) => (
+        <div class="docked pw-frame" data-gui="" data-testid="docked-info">
+          <h1 class="title">{hd().name}</h1>
+          <Show when={hd().desc || (live()?.status ?? 0) !== 0 || (live()?.contents.length ?? 0) > 0}>
+            <div class="panel pw-panel docked-card">
+              <Show when={hd().desc}>
+                <div class="tip-desc">{hd().desc}</div>
+              </Show>
+              <Show when={live()}>
+                {(h) => (
+                  <>
+                    <Show when={h().status !== 0}>
+                      <div class="status-line">
+                        <span class={`led led-${ledOf(h().status)}`} />
+                        <span>{statusText(s, h().status)}</span>
+                      </div>
+                    </Show>
+                    <Show when={h().contents.length > 0}>
+                      <div class="tip-line">{t('tooltip.contents')}</div>
+                      <div class="contents">
+                        <For each={h().contents}>
+                          {(c) => (
+                            <span class="content-item">
+                              <Icon
+                                name={s.protos()?.itemIcon(c.key) ?? 'fx/missing'}
+                                size={24}
+                                label={s.protos()?.itemName(c.key) ?? ''}
+                              />
+                              <span class="typed">{formatCount(c.count)}</span>
+                            </span>
+                          )}
+                        </For>
+                      </div>
+                    </Show>
+                  </>
+                )}
+              </Show>
+            </div>
+          </Show>
+        </div>
+      )}
     </Show>
   );
 }

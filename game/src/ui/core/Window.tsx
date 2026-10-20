@@ -158,7 +158,6 @@ export function Button(props: {
   variant?: 'normal' | 'confirm' | 'red';
   disabled?: boolean;
   testid?: string;
-  title?: string;
   class?: string;
 }): JSX.Element {
   const s = useServices();
@@ -187,7 +186,6 @@ export function Button(props: {
       disabled={props.disabled}
       data-confirm={props.variant === 'confirm' ? '' : undefined}
       data-testid={props.testid}
-      title={props.title}
       onClick={() => props.onClick?.()}
     >
       {props.children}
