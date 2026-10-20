@@ -488,11 +488,11 @@ pub fn history_line(r: &Report, plan: Plan, before: &Host, mhz_after: f64, gate_
 
 /// The cached `m0-load-30k` state under `dir`, keyed by the prototypes, the worldgen version and the factory.
 pub fn load_state(protos: &[u8], dir: &str) -> Result<(Vec<u8>, bool), String> {
-    const FACTORY: u32 = 1;
     let key = format!(
-        "{dir}/m0-load-30k-{}-w{}-f{FACTORY}.state",
+        "{dir}/m0-load-30k-{}-w{}-f{}.state",
         &hex(&sim::sha256::sha256(protos))[..16],
-        sim::save::WORLDGEN_VERSION
+        sim::save::WORLDGEN_VERSION,
+        bench::LOAD_FACTORY_VERSION
     );
     if let Ok(b) = std::fs::read(&key) {
         return Ok((b, true));

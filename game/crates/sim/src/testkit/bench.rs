@@ -317,6 +317,9 @@ pub fn codec_tick(b: &mut Bench, t: u32, chest: u32) -> SimResult<()> {
 
 /// `m0-load-30k`'s chunk count.
 pub const LOAD_CHUNKS: usize = 30_000;
+/// The version of [`m0_load_state`]: raise it with any change to the factory, so `simtool bench` rebuilds its
+/// cached state (2: the dry map).
+pub const LOAD_FACTORY_VERSION: u32 = 2;
 
 /// `m0-load-30k`'s state (`SaveOutput`) with `chunks` generated chunks ([`LOAD_CHUNKS`] for the scenario; tests
 /// use fewer): the dry map (so that the walk after the load keeps crossing pristine chunks), the chunks in a
