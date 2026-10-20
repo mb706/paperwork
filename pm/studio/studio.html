@@ -32,7 +32,7 @@
     padding-left: max(16px, env(safe-area-inset-left, 0px));
     padding-right: max(16px, env(safe-area-inset-right, 0px));
   }
-  main { max-width: 760px; margin: 0 auto; padding-block: 40px 72px; display: grid; gap: 40px; }
+  main { max-width: 1100px; margin: 0 auto; padding-block: 40px 72px; display: grid; gap: 40px; }
   header { display: grid; gap: 6px; }
   .wordmark { font: 600 30px/1.1 var(--mono); letter-spacing: 0.22em; margin: 0; text-wrap: balance; }
   .tagline { font: italic 400 17px/1.4 var(--sans); color: var(--faint); margin: 0; }
@@ -60,6 +60,10 @@
   button:focus-visible, audio:focus-visible { outline: 2px solid var(--carbon); outline-offset: 2px; }
   .note { margin: 0; color: var(--faint); font-size: 15px; max-width: 65ch; }
   ul.asks { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 65ch; }
+  figure { margin: 0; display: grid; gap: 8px; min-width: 0; }
+  figure img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 3px; background: var(--sheet); }
+  figcaption { font-size: 15px; color: var(--faint); max-width: 65ch; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; }
   .stop { justify-self: start; font: 600 13px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
     padding: 9px 12px; border: 1px solid var(--carbon); border-radius: 3px; background: transparent; color: var(--carbon); cursor: pointer; }
 </style>
@@ -68,13 +72,47 @@
   <header>
     <p class="wordmark">PAPERWORK</p>
     <p class="tagline">Information is physical.</p>
-    <p class="lede">Direction studies for the game's sound. The music is process music played by the history of machine music:
-      rules rather than a fixed score, with instruments that advance with the game's Literature year. Each piece here is one
-      render of those rules, so in play no two runs sound the same. Mastered to −16 LUFS.</p>
+    <p class="lede">Direction studies for the game's look and sound, made before any game code. Everything here is
+      generated on the build server: Blender renders, scripted ink and wash, and music written as rules.</p>
   </header>
+
+  <section aria-labelledby="art">
+    <h2 id="art">Art direction</h2>
+    <p class="note">Three directions were built as real in-game mocks from procedurally rendered assets: period realism, a
+      survey plate, and a clean diorama. The survey plate is recommended. The world is drawn as the survey attached to the
+      1945 charter: rendered models washed in three flat tones, then inked and hatched on buff paper. Information items are
+      light paper with ink marks and matter is darker pigment, so a belt's contents read by lightness. Working lamps stain
+      the paper warm, and at night the plate turns to a cyanotype that the lights colour back in. The same models can be
+      rendered in the realism style by switching one shading table, so this choice stays cheap to reverse.</p>
+    <figure>
+      <img src="img/compare-directions.jpg" alt="Four mock screenshots of the same factory: A period realism, C clean diorama, B survey plate first iteration, B survey plate final." width="1930" height="1090" loading="lazy">
+      <figcaption>The same base in each direction. A: period realism. C: clean diorama. B: survey plate, first and final iteration.</figcaption>
+    </figure>
+    <figure>
+      <img src="img/survey-final-1x.jpg" alt="Survey plate at normal zoom: keypunch rooms, a steam engine, furnaces and drills on an ore field, belts and power poles, with the manila HUD." width="1920" height="1080" loading="lazy">
+      <figcaption>Survey plate at normal zoom, with the HUD drawn as 1945 federal paperwork.</figcaption>
+    </figure>
+    <div class="pair">
+      <figure>
+        <img src="img/survey-final-0.3x.jpg" alt="Survey plate zoomed out: the base, a town, woodland and a lake in map conventions." width="1920" height="1080" loading="lazy">
+        <figcaption>Zoomed out to 0.3×: woodland tint, water-lining and the town in map conventions.</figcaption>
+      </figure>
+      <figure>
+        <img src="img/survey-final-night.jpg" alt="The same base at night as a blue cyanotype, with lamps restoring warm colour around them." width="1920" height="1080" loading="lazy">
+        <figcaption>Night: the plate becomes a cyanotype, and lamps colour it back in.</figcaption>
+      </figure>
+    </div>
+    <figure>
+      <img src="img/survey-final-eras.jpg" alt="A row of machines from 1945 to the takeoff, all drawn with the same pen." width="1725" height="762" loading="lazy">
+      <figcaption>One pen across the eras: the machines carry the period, the drawing stays the same.</figcaption>
+    </figure>
+  </section>
 
   <section aria-labelledby="music">
     <h2 id="music">Music</h2>
+    <p class="note">Process music played by the history of machine music: rules rather than a fixed score, with instruments
+      that advance with the game's Literature year. Each piece is one render of those rules, so in play no two runs sound
+      the same. Mastered to −16 LUFS.</p>
     <article class="track">
       <h3>1945: Relays and tubes</h3>
       <p class="meta">Era I · the charter piece · piano, strings, clarinet, harp, glockenspiel · 2:25</p>
@@ -112,6 +150,8 @@
   <section aria-labelledby="asks">
     <h2 id="asks">Useful to hear back</h2>
     <ul class="asks">
+      <li>Does the survey plate feel right, or would you rather have period realism (A)?</li>
+      <li>Could you look at a light paper map for a twelve-hour session?</li>
       <li>Would you leave the 1945 piece on for an hour of building?</li>
       <li>Is Era II's darker balance too heavy?</li>
       <li>Does the takeoff's harmonic-series piano sound luminous, or just out of tune?</li>

@@ -34,3 +34,15 @@ Numbered like DECISIONS.md. Each entry gives the decision, the reason and the so
    - No P2P and no NAT hole punching: browser P2P needs UDP, which the user's network penalises.
    - Single player runs through the same closure pipeline, with a local sequencer.
    - The engine seams S1–S14 and determinism rules D1–D20 in `design/multiplayer/DESIGN.md` §7 are binding for M0, once the A2-r1 fixes are in.
+5. **Art direction: "Survey"** (A3; `design/art/DIRECTION.md`).
+   - The world is the survey plate attached to the 1945 charter: rendered models washed in three flat tones, then inked and hatched on buff paper.
+   - The HUD keeps Factorio's layout, skinned as 1945 federal paperwork.
+   - Information items are light and matter items dark (lightness split).
+   - Emitters stain the paper warm, and the night is a cyanotype that lamps colour back in.
+   - The realism variant stays a one-table switch, so the choice is cheap to reverse; the user has been asked for their taste on the studio page.
+   - **Binding production constraint:** render only the moving parts per animation frame. Rebuilding every model per frame would take about 11 h for the full game. Atlases must use animated layers and compression to fit the GPU budget.
+6. **Audio direction: process music played by the history of machine music** (A4; `design/audio/DIRECTION.md`).
+   - A generative-first hybrid: WebAudio plays the rules live from about 7.5 MB of public-domain samples, and the same code renders offline tracks and fallbacks.
+   - **Binding constraints:**
+     - The audio CPU must come down to a budget the engine work package sets. It is 36–76% of a core here today; use lighter reverbs or pre-rendered stems.
+     - Safari needs an Opus decode probe and an AAC fallback.
