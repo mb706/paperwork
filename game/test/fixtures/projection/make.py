@@ -24,6 +24,19 @@ CAMERAS = [(0.0, 0.0), (-3.25, 7.5), (100.5, -40.25), (-1000.0, -1000.0), (10485
 ANCHORS = [(0.5, 0.5), (-0.5, -0.5), (12.5, -7.0), (-1000.5, 2000.5), (1048580.0, -524290.5)]
 
 
+def dumps(v, ind=0):
+    """JSON as Biome formats it (objects one key per line, scalar arrays on one line), so `npm run ci` passes."""
+    pad = '  ' * (ind + 1)
+    end = '  ' * ind
+    if isinstance(v, dict):
+        return '{\n' + ',\n'.join(f'{pad}{json.dumps(k)}: {dumps(x, ind + 1)}' for k, x in v.items()) + f'\n{end}}}'
+    if isinstance(v, list) and not any(isinstance(x, (dict, list)) for x in v):
+        return '[' + ', '.join(json.dumps(x) for x in v) + ']'
+    if isinstance(v, list):
+        return '[\n' + ',\n'.join(pad + dumps(x, ind + 1) for x in v) + f'\n{end}]'
+    return json.dumps(v)
+
+
 def main():
     for zoom, dpr in COMBOS:
         cases = []
@@ -36,8 +49,7 @@ def main():
                    frame=FRAME, array=MAN['arrays'][0], zoom=zoom, dpr=dpr, cases=cases)
         name = f'z{zoom:g}-dpr{dpr:g}.json'
         with open(os.path.join(HERE, name), 'w') as f:
-            json.dump(out, f, indent=1)
-            f.write('\n')
+            f.write(dumps(out) + '\n')
         print(name, len(cases))
 
 

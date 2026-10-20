@@ -185,6 +185,36 @@
 - **Rules:** the worklet's `process()` never allocates. Keep native nodes few: beside an AudioWorklet each one renders
   on its thread (≈ 0.1 % of a host core per GainNode), so rooms, reverbs and bus faders live in the bank.
 
+## Renderer (`game/src/render/`, `game/src/assets/`; M0 by C4, 10 §6, §9.7–§9.8)
+- **See it:** `npm run dev`, then `/?sim=fake` (the fake sim's factory, following player 0; `?test=1` renders on demand,
+  `?render=none` skips the renderer, `?deny=bc7,astc` forces the format fallbacks). The gallery
+  `/src/dev/gallery.html?scene=golden|golden-real|transitions|survey|single|bench[&night=1&zoom=…&x=…&y=…&clean=1]`
+  draws the golden packets with the tiny atlas, C6's preview scene (`survey`: the M0 art, a lit keypunch for the
+  light pass) and §6.12's frame-cost scenes. Real atlases need `npm run assets` (`public/atlases/`, gitignored).
+  Input stand-ins until the UI package owns them: wheel zooms (×1.1 per notch, 0.3–3×), F9 / Shift+F9 1× / 2×,
+  F4 cycles the debug overlays (chunk grid, tiles, collision and selection boxes), F5 the timings HUD.
+- **Structure:** `manifest.ts` compiles sprites.json v2 into typed tables; `programs.ts` holds §15.7's drawing programs
+  (the TypeScript twin of `scripts/assets/manifest.py`); `mirror.ts` is the view model (packets in, held-set eviction,
+  snapshots); `scene.ts` builds a frame (culling, the counting sort, belt items from gap arrays, smoke, ghosts, debug)
+  into streams; `renderer.ts` runs the passes (terrain → ground → shadows hatched → objects → high → lights → the one
+  grade pass with the cyanotype LUT → overlays); `gl/` is the thin GL layer (batcher, textures, terrain, shaders);
+  `style.ts` holds Survey's constants. `app/world-view.ts` wires renderer, asset worker and loader (and `__render`).
+- **Assets at run time:** `src/assets/worker.ts` (fetch by priority, SHA-256, Basis transcoding, a 64 MB replay cache)
+  with the vendored stock Basis Universal 2.50 transcoder (`worker/basis/`, Apache-2.0); `loader.ts` turns the
+  manifest into requests and hands levels to the renderer (≤ 2 ms of uploads per frame). The stock transcoder cannot
+  make EAC R11 from ETC1S, so shadows fall back BC4 → R8 (the worker reports what it can make at start-up).
+- **Tests:** `npx vitest run test/render` (the 65 sprite cases, golden packets into draw lists, mirror equivalence
+  against the fake, belts, projection fixtures `test/fixtures/projection/` made by its `make.py`, terrain data, memory,
+  the asset queue and transcoding); `npx playwright test e2e/render.spec.ts --project chrome` (@smoke: golden packets
+  at 1×/0.3×, dpr 1/2, pixel-exact placement, the Survey smoke screenshots; @render: night, fallbacks, context loss,
+  the fake factory, F4/F5); `taskset -c 0-7 npx playwright test e2e/render-bench.spec.ts --project chrome` (@bench:
+  main-thread ms per frame against §6.12 × 2.4). Screenshots land in `test-results/dev/`: Read them.
+- **Rules:** the frame path allocates nothing in steady state (typed arrays, bound callbacks; check with the bench's
+  heap numbers); no string lookups per frame; sprite placement only through `projection.ts`/the programs; pages are
+  premultiplied UNORM (never sRGB formats); in headless Chrome `gl.finish()` does not wait, so benchmarks drain the
+  GPU with a 1×1 `readPixels`; any WebGL canvas here logs four "GPU stall due to ReadPixels" compositor warnings,
+  which `e2e/console.ts` ignores.
+
 ## Showing the game to the user
 - Dev server on `127.0.0.1:<high port>`; the user tunnels in: `ssh -L 5173:127.0.0.1:5173 cpuserver10`.
 - Builds can also be published as a private claude.ai Artifact (≤ 16 MB per file).
