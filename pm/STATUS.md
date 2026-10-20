@@ -9,7 +9,7 @@
 | A4 | Audio direction (music + SFX, engine choice, demos) | Opus | done. Era-evolving process music; generative-first hybrid engine. Demos are on the studio page https://claude.ai/artifact/GCpPisM2mG1CMi5zdWJ2HQ. Open: audio CPU is 36–76% of a core here and must come down |
 
 Phase B:
-- B1 is done: 10 v2 for Rust, chapter 11 (multiplayer), the M0 contracts in 10 §15. Codex review B1-r1 is running.
+- B1 is done: 10 v2 for Rust, chapter 11, the M0 contracts in 10 §15. Codex r1's 22 findings are fixed (decision 12).
 - B2 is running: §9 assets and audio, loading and streaming.
 
 Next: codex reviews of A1/A2, then Phase B (an architecture revision that folds A1–A4 into the spec), then M0.
@@ -37,3 +37,9 @@ Next: codex reviews of A1/A2, then Phase B (an architecture revision that folds 
 
 ## Follow-ups (not yet assigned)
 - 08 text: a player-facing message for refusing a save made with a different worldgen version (B1-r1).
+
+## Phase C: M0 (started 2026-10-20)
+The Schema package is split into sequential parts: C1a (scaffold, CI, data stage), then C1b (schema, generator, codec fixtures), then C1c (fake sim, reference model, golden set). After that, the contract gate: a codex review. Then the parallel packages start.
+| WP | Topic | Status |
+|---|---|---|
+| C1a | Scaffold, toolchains, CI, check-arch, data stage, capability manifest | running (commits to `dev`) |
