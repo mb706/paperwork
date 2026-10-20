@@ -34,6 +34,7 @@ import {
   SYSTEM_TYPE_MIN,
 } from '../shared/gen/actions.ts';
 import type { ClosureLog } from '../shared/gen/container.ts';
+import { hashesTo, hexOf } from '../shared/sha256.ts';
 
 export interface ClosureSource {
   /** The highest tick whose closure is held; the LocalSequencer closes ticks on demand (Infinity). */
@@ -47,12 +48,6 @@ export interface ClosureSource {
   /** Tick `tick` ran. */
   done(tick: number): void;
 }
-
-const hexOf = (b: Uint8Array): string => {
-  let s = '';
-  for (const x of b) s += (x < 16 ? '0' : '') + x.toString(16);
-  return s;
-};
 
 /** Every blob a closure's actions name (§15.3), as hex SHA-256s. */
 export function closureBlobs(closure: Uint8Array): string[] {
@@ -490,10 +485,18 @@ export class ReplaySource implements ClosureSource {
   done(_tick: number): void {}
 }
 
-/** Closures from the closure port (multiplayer, 11 §2.4): `{t: 'closures', first, closures, blobs}`. */
+/**
+ * Closures from the closure port (multiplayer, 11 §2.4): `{t: 'closures', first, closures, blobs}`. A message is
+ * taken whole or not at all (11 §3.2), and before the horizon moves (C3-r1 7): every blob must hash to its name
+ * (§15.3 "Blobs"), and every blob a closure names must come with it or be held for an earlier buffered tick.
+ * Blobs are counted by the buffered ticks that name them and dropped after the last of those runs.
+ */
 export class PortSource implements ClosureSource {
   private readonly queue = new Map<number, Uint8Array>();
-  private readonly blobBytes = new Map<string, Uint8Array>();
+  /** Blobs the buffered ticks name: hex SHA-256 → bytes and how many buffered ticks name them. */
+  private readonly held = new Map<string, { bytes: Uint8Array; refs: number }>();
+  /** The blobs each buffered tick names, released when it runs. */
+  private readonly named = new Map<number, string[]>();
   private top = 0;
 
   constructor(start: number) {
@@ -504,19 +507,45 @@ export class PortSource implements ClosureSource {
     return this.top;
   }
 
+  /** Blobs held for buffered ticks. */
+  get heldBlobs(): number {
+    return this.held.size;
+  }
+
   /**
    * Takes a message's closures; returns why it was refused (11 §3.2: a range that does not continue the
    * horizon is a protocol error, dropped before the horizon moves).
    */
   receive(first: number, closures: readonly ArrayBuffer[], blobs: readonly ArrayBuffer[]): string | null {
     if (first !== this.top + 1) return `closures from tick ${first}; the horizon is ${this.top}`;
+    const supplied = new Map<string, Uint8Array>();
     for (const b of blobs) {
       if (b.byteLength < 32) return 'a blob shorter than its hash';
       const u = new Uint8Array(b);
-      this.blobBytes.set(hexOf(u.subarray(0, 32)), u.subarray(32));
+      const name = u.subarray(0, 32);
+      if (!hashesTo(u.subarray(32), name)) return `blob ${hexOf(name)} does not hash to its name`;
+      supplied.set(hexOf(name), u.subarray(32));
+    }
+    const names: string[][] = [];
+    for (let i = 0; i < closures.length; i++) {
+      const c = closures[i] as ArrayBuffer;
+      const n = c.byteLength > 0 ? [...new Set(closureBlobs(new Uint8Array(c)))] : [];
+      for (const h of n)
+        if (!supplied.has(h) && !this.held.has(h))
+          return `tick ${first + i} names blob ${h}, which did not come`;
+      names.push(n);
     }
     closures.forEach((c, i) => {
-      if (c.byteLength > 0) this.queue.set(first + i, new Uint8Array(c));
+      const tick = first + i;
+      if (c.byteLength > 0) this.queue.set(tick, new Uint8Array(c));
+      const n = names[i] as string[];
+      if (n.length === 0) return;
+      this.named.set(tick, n);
+      for (const h of n) {
+        const e = this.held.get(h);
+        if (e) e.refs += 1;
+        else this.held.set(h, { bytes: supplied.get(h) as Uint8Array, refs: 1 });
+      }
     });
     this.top = first + closures.length - 1;
     return null;
@@ -532,17 +561,22 @@ export class PortSource implements ClosureSource {
   }
 
   blobs(tick: number): Uint8Array[] | null {
-    const c = this.queue.get(tick);
-    if (!c) return null;
-    const named = closureBlobs(c);
-    if (named.length === 0) return null;
-    return named.flatMap((h) => {
-      const b = this.blobBytes.get(h);
-      return b ? [blobPut(h, b)] : [];
-    });
+    const n = this.named.get(tick);
+    if (!n) return null;
+    return n.map((h) => blobPut(h, (this.held.get(h) as { bytes: Uint8Array }).bytes));
   }
 
   done(tick: number): void {
     this.queue.delete(tick);
+    const n = this.named.get(tick);
+    if (!n) return;
+    this.named.delete(tick);
+    for (const h of n) {
+      const e = this.held.get(h);
+      if (e) {
+        e.refs -= 1;
+        if (e.refs === 0) this.held.delete(h);
+      }
+    }
   }
 }

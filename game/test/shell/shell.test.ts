@@ -51,7 +51,7 @@ describe('boot: the handshake (§3.2 versions, §15.1, §15.2)', () => {
     const h = new ShellHarness();
     await h.boot(await stubSim());
     expect(h.of('ready')).toEqual([
-      { t: 'ready', abi: ABI_VERSION, schemaHash: SCHEMA_HASH, buildHash: '0'.repeat(64) },
+      { t: 'ready', abi: ABI_VERSION, schemaHash: SCHEMA_HASH, buildHash: '0'.repeat(64), steps: true },
     ]);
   });
 

@@ -23,18 +23,28 @@ import {
   SaveInputCodec,
   SimError,
   SimMetaCodec,
+  SimStatus,
   SubscribeInputCodec,
   UnsubscribeInputCodec,
 } from '../shared/gen/abi.ts';
 import { ActionType, actionBytes, SYSTEM_TYPE_MIN } from '../shared/gen/actions.ts';
 import { Writer } from '../shared/gen/codec.ts';
 import { type ClosureLog, parseClosureLog, type SaveHeader } from '../shared/gen/container.ts';
-import { chunkXY, PacketSection, ViewFlags, ViewRequestCodec } from '../shared/gen/packet.ts';
+import {
+  chunkXY,
+  PACKET_MAGIC,
+  PACKET_VERSION,
+  PacketFlags,
+  PacketHeaderCodec,
+  PacketSection,
+  ViewFlags,
+  ViewRequestCodec,
+} from '../shared/gen/packet.ts';
 import { StateHashCodec } from '../shared/gen/projections.ts';
 import { readPrototypesBin } from '../shared/gen/protos.ts';
 import { PROTOCOL_VERSION, SCHEMA_HASH } from '../shared/gen/schema.ts';
 import { SimFlags } from '../shared/gen/types.ts';
-import type { IoReply, IoRequest } from '../shared/io-protocol.ts';
+import type { IoReply, IoRequest, SaveVersion } from '../shared/io-protocol.ts';
 import type {
   BuildManifest,
   DevOp,
@@ -46,6 +56,7 @@ import type {
   SimToMain,
   StateGen,
 } from '../shared/protocol.ts';
+import { hashesTo, hexOf } from '../shared/sha256.ts';
 import { Clock, MAX_TICKS_PER_WAKE, REBASE_BACKLOG, SHORT_WAIT_MS, TIMER_LEAD_MS } from './clock.ts';
 import { ClosureLogRecorder } from './closurelog.ts';
 import { DEV_PANIC_DUMP_ID } from './dev.ts';
@@ -90,11 +101,6 @@ export const QUERY_TIMER_MS = 4;
 /** Autosave slots when the main thread names none (§8.4). */
 export const AUTOSAVE_SLOTS = 3;
 
-const hex = (b: Uint8Array): string => {
-  let s = '';
-  for (const x of b) s += (x < 16 ? '0' : '') + x.toString(16);
-  return s;
-};
 const hex16 = (v: bigint): string => v.toString(16).padStart(16, '0');
 const ZERO_VIEW = new Uint8Array(ViewRequestCodec.SIZE);
 const EMPTY = new ArrayBuffer(0);
@@ -142,10 +148,21 @@ export class SimShell {
   private flags = 0;
   private hidden = false;
   private catchingUp = false;
-  /** A view, sub or unsub arrived: extract within EXTRACT_SOON_MS even without ticks. */
+  /**
+   * A packet is owed: ticks ran, or a view, sub or unsub arrived (extract within EXTRACT_SOON_MS even without
+   * ticks). Demand only: an extraction runs when one can (C3-r1 4), not while the page is hidden, the world
+   * catches up or no buffer is free; showing the page, the end of catch-up and an `ack` bring it back.
+   */
   private extractWanted = false;
-  /** An extraction was skipped for want of a buffer: extract when one comes back. */
-  private extractPending = false;
+  /**
+   * The module answers `sim_extract` with ERR_ORDER: it has no extraction yet (the sim package's C2b module; it
+   * arrives with C2c). The world runs without packets; a world's first packet is a header-only FULL one, so the
+   * main thread still switches to it (§3.4 step 2).
+   */
+  private extractUnsupported = false;
+  /** A background swap's shadow world owes its first packet until it has caught up (C3-r1 6). */
+  private firstPacketDue = false;
+  private handoverTick = 0;
   private timer: unknown = null;
   /** The pending wake's time, in a typed array: a double stored in an object field may be boxed per store. */
   private readonly timerAt = new Float64Array([Number.POSITIVE_INFINITY]);
@@ -153,9 +170,6 @@ export class SimShell {
   stopped: string | null = null;
   /** The main thread has sent actions to this world (a replay needs none). */
   private acted = false;
-  /** Blob verifications in flight: later `act`s wait behind them, so each player's order is kept. */
-  private intake: Promise<void> = Promise.resolve();
-  private intakeBusy = 0;
   // Tick-path scratch: the system actions a closure carried, handled after the tick.
   private readonly sysTypes = new Uint32Array(16);
   private readonly sysArgs = new Uint32Array(16);
@@ -226,7 +240,7 @@ export class SimShell {
           this.act(m);
           return undefined;
         case 'seq':
-          this.control(m.op);
+          this.control(m.op, m.id);
           return undefined;
         case 'view':
           if (m.gen !== this.gen || !this.bound) return undefined;
@@ -264,14 +278,14 @@ export class SimShell {
           return undefined;
         case 'cancel':
           if (m.gen !== this.gen || !this.sim || !this.bound || this.stopped) return undefined;
-          this.queries.cancel(this.sim, m.id);
+          // A cancelled running query frees a slot: a waiting one starts (C3-r1 11).
+          this.queries.cancel(this.sim, m.id, this.queryDone);
+          if (this.queries.busy) this.soon(0);
           return undefined;
         case 'ack':
           this.packets.release(m.buf);
-          if (this.extractPending) {
-            this.extractPending = false;
-            this.wantExtraction();
-          }
+          // Backpressure ends: a packet owed goes out now (C3-r1 4).
+          if (this.extractWanted) this.soon(0);
           return undefined;
         case 'dev':
           this.devOp(m.id, m.op);
@@ -279,6 +293,7 @@ export class SimShell {
         case 'hidden':
           this.hidden = m.hidden;
           if (!m.hidden) this.wantExtraction();
+          else this.reschedule();
           return undefined;
       }
     } catch (e) {
@@ -334,7 +349,7 @@ export class SimShell {
     }
     // §15.2 "the prototypes.hash handshake", step 2: a prototypes.bin other than the build's is a stale cache.
     const protos = await this.host.protos();
-    const hash = hex(await this.host.sha256(protos));
+    const hash = hexOf(await this.host.sha256(protos));
     if (typeof m.build.prototypesHash === 'string' && m.build.prototypesHash !== hash)
       return this.refuse(
         'protos',
@@ -373,6 +388,7 @@ export class SimShell {
       abi: sim.cold((s) => s.abiVersion()),
       schemaHash: SCHEMA_HASH,
       buildHash: m.build.buildHash,
+      steps: true,
     });
   }
 
@@ -431,20 +447,42 @@ export class SimShell {
         this.seq.system(ActionType.player_joined, a.subarray(4));
       }
     }
-    // The closure log's base: the loaded save, or the world's start (§8.5).
-    if (m.op === 'load' && m.meta.name) base = { kind: 'save', name: m.meta.name, tick: this.tick };
-    else base = this.startBase(sim, m.op === 'load' ? (m.meta.header ?? null) : null);
+    // The closure log's base (§8.5): the exact stored version loaded, pinned while it is the base (C3-r1 9);
+    // else the world's start held in memory. A save of other prototypes was remapped by the load, so its
+    // stored bytes are not this world's start in this build's ids: the start is snapshotted (C3-r1 8).
+    const remapped = m.op === 'load' && m.meta.prototypesHash !== this.protosHash;
+    if (m.op === 'load' && m.meta.version && !remapped) {
+      base = { kind: 'save', version: m.meta.version, tick: this.tick };
+      this.pinBase(m.meta.version);
+    } else base = this.startBase(sim);
     this.log.start(base, this.tick, this.stateHash(sim));
     if (this.pool && genWorld) this.pool.init(this.gen, this.protos, genWorld);
     this.pendingChunks(sim);
-    // §3.4 step 2: the new world's first packet goes out unsolicited, FULL, even while paused.
-    this.extract(true);
     if (this.closurePort) {
       this.mode = 'port';
       this.port = new PortSource(this.tick);
       this.source = this.port;
     }
+    // §3.4 step 2: the new world's first packet goes out unsolicited, FULL, even while paused. A background
+    // swap's shadow holds it until it has caught up with its closure port (C3-r1 6): the main thread switches on
+    // that packet, so it must not show an older world than the one it replaces.
+    this.handoverTick = this.closurePort && m.handover ? m.handover.tick : 0;
+    if (this.handoverTick > this.tick) this.firstPacketDue = true;
+    else this.extract(true);
     this.restartClock();
+  }
+
+  /** Who pins a closure log's base in the IO worker: this worker's world. */
+  private get holder(): string {
+    return `gen${this.gen}`;
+  }
+
+  private pinBase(version: SaveVersion): void {
+    const io = this.io;
+    if (!io) return;
+    void io.request({ t: 'pin', version, holder: this.holder }).then((r) => {
+      if (r.t === 'failed') this.logLine('warn', `pin ${version.file}: ${r.message}`);
+    });
   }
 
   /** `sim_load`'s input written straight into the module: the sections, the remap tables, the lineage. */
@@ -466,12 +504,20 @@ export class SimShell {
     sim.load(len);
   }
 
-  /** The world's start as the log's base: `sim_save` now, with its header (§8.5, §8.6). */
-  private startBase(sim: SimInstance, loaded: SaveHeader | null): LogBase {
+  /**
+   * The world's start as the log's base: `sim_save` now, with a header of this build (§8.5, §8.6): this
+   * build's prototypes hash and name tables, since the state is in this build's ids even after a remap
+   * (C3-r1 8); the world's settings come from the loaded header.
+   */
+  private startBase(sim: SimInstance): LogBase {
     const out = sim.cold((s) => s.save(SaveInputCodec.encode({ flags: 0 })));
     const r = new DataView(out.buffer, out.byteOffset, out.byteLength).getBigUint64(out.length - 8, true);
-    const header = loaded ?? this.header(this.tick, r);
-    return { kind: 'start', tick: this.tick, save: out.slice().buffer, header };
+    // The envelope is already a copy (SimInstance.cold): keep its buffer rather than copy it again (C3-r1 14).
+    const save =
+      out.byteOffset === 0 && out.byteLength === out.buffer.byteLength
+        ? (out.buffer as ArrayBuffer)
+        : (out.slice().buffer as ArrayBuffer);
+    return { kind: 'start', tick: this.tick, save, header: this.header(this.tick, r) };
   }
 
   private header(tick: number, r: bigint): SaveHeader {
@@ -514,30 +560,29 @@ export class SimShell {
       return;
     }
     const actions = new Uint8Array(m.actions);
-    if (!m.blobs?.length && this.intakeBusy === 0) {
-      this.submit(m.firstSeq, actions, null);
-      return;
-    }
-    // Blobs are verified first (§15.3 "Blobs"); acts behind them wait, so the order is kept.
-    this.intakeBusy += 1;
-    this.intake = this.intake.then(async () => {
-      try {
-        const blobs = new Map<string, Uint8Array>();
-        for (const b of m.blobs ?? []) {
-          const u = new Uint8Array(b);
-          if (u.length < 32) throw new Error('a blob shorter than its hash');
-          const h = hex(u.subarray(0, 32));
-          if (hex(await this.host.sha256(u.subarray(32))) !== h)
-            throw new Error(`blob ${h} does not hash to its name`);
-          blobs.set(h, u.subarray(32));
+    let blobs: Map<string, Uint8Array> | null = null;
+    if (m.blobs?.length) {
+      // §15.3 "Blobs": verified at intake, synchronously, so the actions are stamped as they arrive: neither a
+      // tick nor a system action (a `release_inputs`) can overtake them (C3-r1 5). A bad blob refuses the
+      // whole message; none of its seqs is used.
+      blobs = new Map();
+      for (const b of m.blobs) {
+        const u = new Uint8Array(b);
+        const name = u.subarray(0, 32);
+        const bad =
+          u.length < 32
+            ? 'a blob shorter than its hash'
+            : hashesTo(u.subarray(32), name)
+              ? null
+              : `blob ${hexOf(name)} does not hash to its name`;
+        if (bad) {
+          this.postError('act', 0, bad);
+          return;
         }
-        if (m.gen === this.gen && !this.stopped) this.submit(m.firstSeq, actions, blobs);
-      } catch (e) {
-        this.postError('act', 0, String(e instanceof Error ? e.message : e));
-      } finally {
-        this.intakeBusy -= 1;
+        blobs.set(hexOf(name), u.subarray(32));
       }
-    });
+    }
+    this.submit(m.firstSeq, actions, blobs);
   }
 
   private submit(firstSeq: number, actions: Uint8Array, blobs: ReadonlyMap<string, Uint8Array> | null): void {
@@ -549,10 +594,18 @@ export class SimShell {
 
   // ---------------------------------------------------------------------------------------------- pacing
 
-  /** Sequencer control (§3.3, S14). Multiplayer's clock is the relay's: there, only `step` is refused too. */
-  private control(op: SeqOp): void {
+  /**
+   * Sequencer control (§3.3, S14). Multiplayer's clock is the relay's: there, `step` is refused too. A step with
+   * an `id` answers `stepped` (C3-r1 12), after its packet, even when it could not run (the tick unchanged).
+   */
+  private control(op: SeqOp, id?: number): void {
+    const stepped = () => {
+      if (id !== undefined && !this.stopped)
+        this.host.post({ t: 'stepped', gen: this.gen, id, tick: this.tick });
+    };
     if (this.mode === 'port') {
       this.logLine('warn', 'the room paces the game: sequencer control ignored');
+      if (typeof op === 'object' && 'step' in op) stepped();
       return;
     }
     if (op === 'pause') this.clock.paused = true;
@@ -560,7 +613,10 @@ export class SimShell {
     else if ('speed' in op) this.clock.speed = op.speed > 0 ? op.speed : 1;
     else if ('step' in op) {
       // Test mode (§3.3): close n ticks, run them now, then emit one packet.
-      if (!this.bound || this.stopped || this.mode !== 'local') return;
+      if (!this.bound || this.stopped || this.mode !== 'local') {
+        stepped();
+        return;
+      }
       try {
         for (let i = 0; i < op.step; i++) this.runTick();
         this.extract(false, true);
@@ -568,6 +624,7 @@ export class SimShell {
         this.stop(e);
         return;
       }
+      stepped();
       if (this.clock.paused) return;
     }
     this.restartClock();
@@ -621,7 +678,7 @@ export class SimShell {
     if (this.mode === 'local') {
       if (!this.clock.paused) at = this.clock.nextAt(this.tick);
     } else if (this.source.horizon() > this.tick) at = now;
-    if (this.extractWanted) at = Math.min(at, now);
+    if (this.extractWanted && this.canExtract()) at = Math.min(at, now);
     if (this.queries.pending > 0) at = Math.min(at, now + QUERY_TIMER_MS);
     if (at !== Number.POSITIVE_INFINITY) this.setTimer(at, now);
   }
@@ -647,10 +704,16 @@ export class SimShell {
         }
       } else ran = this.runAvailable(start);
       const r = this.replaying;
+      if (ran > 0) this.extractWanted = true;
       if (this.mode === 'replay' && r && (this.mismatch !== null || this.tick >= r.horizon())) {
         this.finishReplay(this.mismatch);
         this.mismatch = null;
-      } else if (ran > 0 || this.extractWanted) this.extract();
+      } else if (this.firstPacketDue) {
+        if (this.tick >= this.handoverTick && !this.catchingUp) {
+          this.firstPacketDue = false;
+          this.extract(true);
+        }
+      } else if (this.extractWanted && this.canExtract()) this.extract();
       if (this.sim && this.queries.busy) {
         const left = QUERY_BUDGET_MS - (this.host.now() - start);
         if (left > 0 || ran === 0)
@@ -674,7 +737,10 @@ export class SimShell {
         ran += 1;
         if (!this.runTick()) break;
       }
-      if (this.mode === 'port' && horizon - this.tick <= CATCHUP_LEAVE) this.setCatchUp(false);
+      if (this.mode === 'port' && horizon - this.tick <= CATCHUP_LEAVE) {
+        this.setCatchUp(false);
+        this.extractWanted = true;
+      }
     } else {
       while (this.tick < horizon && ran < MAX_TICKS_PER_WAKE) {
         this.runTick();
@@ -839,9 +905,14 @@ export class SimShell {
   private extract(unsolicited = false, force = false): void {
     const sim = this.sim;
     if (!sim || this.stopped) return;
-    if (!unsolicited && !force && (this.hidden || this.catchingUp)) return;
-    if (!unsolicited && this.packets.available === 0) {
-      this.extractPending = true;
+    if (this.extractUnsupported) {
+      this.extractWanted = false;
+      if (unsolicited) this.headerOnlyPacket();
+      return;
+    }
+    if (!unsolicited && ((!force && (this.hidden || this.catchingUp)) || this.packets.available === 0)) {
+      // The packet is owed, not lost: it goes out when extraction can run again (C3-r1 4).
+      this.extractWanted = true;
       return;
     }
     const p = sim.input(ViewRequestCodec.SIZE);
@@ -850,6 +921,17 @@ export class SimShell {
     if (env === 0) {
       const e = sim.lastError();
       this.extractWanted = false;
+      if (e.status === SimStatus.err_order) {
+        // A bound world answers ERR_ORDER only if the module has no extraction (C2b's): run without packets.
+        this.extractUnsupported = true;
+        // Expected of the sim package's C2b module (extraction arrives with C2c): a note, not a warning.
+        this.logLine(
+          'info',
+          `sim_extract is not available in this module (${e.message}): the world runs without packets`,
+        );
+        if (unsolicited) this.headerOnlyPacket();
+        return;
+      }
       this.postError('extract', e.status, e.message);
       return;
     }
@@ -860,7 +942,41 @@ export class SimShell {
     const slot = this.packets.take(len) ?? this.packets.extra(len);
     fillPacket(slot, lease.u32, lease.u8, env + 4, len, this.gen, unsolicited ? 0 : this.viewSeq);
     this.extractWanted = false;
-    if (this.viewChart && this.pool) this.chartRequests(slot.dv);
+    // A DataView for the chart requests only when the view charts (rare): the steady state makes none.
+    if (this.viewChart && this.pool) this.chartRequests(new DataView(slot.buf));
+    this.pktMsg.buf = slot.buf;
+    this.pktTransfer[0] = slot.buf;
+    this.packets.posted(slot);
+    this.host.post(this.pktMsg, this.pktTransfer);
+    this.pktMsg.buf = EMPTY;
+  }
+
+  /** Whether an owed packet can be extracted now: shown, not catching up, a buffer free, the first one sent. */
+  private canExtract(): boolean {
+    return (
+      !this.hidden &&
+      !this.catchingUp &&
+      !this.firstPacketDue &&
+      !this.extractUnsupported &&
+      this.packets.available > 0
+    );
+  }
+
+  /** A world's first packet from a module without extraction: the header alone, FULL (§15.4: no sections). */
+  private headerOnlyPacket(): void {
+    const header = PacketHeaderCodec.encode({
+      magic: PACKET_MAGIC,
+      version: PACKET_VERSION,
+      flags: PacketFlags.full,
+      state_gen: this.gen,
+      tick: this.tick,
+      view_seq: 0,
+      daylight: 0,
+      section_count: 0,
+      byte_length: PacketHeaderCodec.SIZE,
+    });
+    const slot = this.packets.take(header.length) ?? this.packets.extra(header.length);
+    slot.u8.set(header, 0);
     this.pktMsg.buf = slot.buf;
     this.pktTransfer[0] = slot.buf;
     this.packets.posted(slot);
@@ -911,20 +1027,37 @@ export class SimShell {
     const r = new DataView(out.buffer, out.byteOffset, out.byteLength).getBigUint64(out.length - 8, true);
     const header = this.header(tick, r);
     const buf = out.buffer.byteLength === out.length ? (out.buffer as ArrayBuffer) : out.slice().buffer;
-    const reply = await this.io.request(
-      { t: 'store', name, reason, save: buf, header, slots: AUTOSAVE_SLOTS, stateHash: hex16(stateHash) },
-      [buf],
-    );
+    // §8.5: the closure log runs from the last autosave (an exit save takes an autosave slot too), which is the
+    // version a trap recovery reloads (§3.6, 10 §12 exit; C3-r1 9). The IO worker pins it as it commits it.
+    const asBase = reason === 'auto' || reason === 'exit';
+    const store: IoRequest & { t: 'store' } = {
+      t: 'store',
+      id: 0,
+      name,
+      reason,
+      save: buf,
+      header,
+      slots: AUTOSAVE_SLOTS,
+      stateHash: hex16(stateHash),
+    };
+    if (asBase) store.pin = { holder: this.holder, unpin: null };
+    const { id: _id, ...req } = store;
+    const reply = await this.io.request(req, [buf]);
     if (reply.t !== 'stored')
       return fail(reply.t === 'failed' ? reply.message : `unexpected answer ${reply.t}`);
     if (id >= 0) this.host.post({ t: 'saved', id, bytes: reply.info.bytes, ms, sha256: reply.info.sha256 });
-    // §8.5: the closure log runs from the last save.
-    if (!this.stopped) this.log.rebase({ kind: 'save', name: reply.info.name, tick }, tick, stateHash);
+    if (!asBase || this.stopped || !reply.info.file) return;
+    const prev = this.log.base?.kind === 'save' ? this.log.base.version.file : null;
+    const version: SaveVersion = { name: reply.info.name, file: reply.info.file, sha256: reply.info.sha256 };
+    this.log.rebase({ kind: 'save', version, tick }, tick, stateHash);
+    // The old base is let go only now that the log no longer starts from it.
+    if (prev && prev !== version.file)
+      void this.io.request({ t: 'unpin', file: prev, holder: this.holder }).then(() => {});
   }
 
   /** The closure log since its base and the digest ring (§8.5 bug bundles). */
   private bundleNow(endTick: number, digestsThrough: number): ShellBundle {
-    const base = this.log.base ?? { kind: 'save', name: '', tick: this.log.baseTick };
+    const base = this.log.base as LogBase;
     const b = this.build as BuildManifest;
     const buildHash = /^[0-9a-f]{64}$/.test(b.buildHash) ? b.buildHash : '0'.repeat(64);
     const log = this.log.write(endTick, this.digests, digestsThrough, buildHash, this.protosHash)
@@ -1027,11 +1160,11 @@ export class SimShell {
     const h = log.header;
     if (h.start_tick !== this.tick)
       return fail(`the log starts at tick ${h.start_tick}; the world is at ${this.tick}`);
-    if (hex(h.prototypes_hash.bytes) !== this.protosHash)
+    if (hexOf(h.prototypes_hash.bytes) !== this.protosHash)
       return fail(
         'the log was recorded with other prototypes (§8.5: it replays only under its prototypesHash)',
       );
-    const buildHash = hex(h.build_hash.bytes);
+    const buildHash = hexOf(h.build_hash.bytes);
     if (buildHash !== '0'.repeat(64) && buildHash !== this.build?.buildHash && this.build?.dev !== true)
       return fail('the log was recorded by another build');
     const state = this.stateHash(sim);
@@ -1040,8 +1173,7 @@ export class SimShell {
         `the world's state hash is ${hex16(state)}; the log starts from ${hex16(h.start_state_hash)}`,
       );
     for (const b of log.blobs)
-      if (hex(await this.host.sha256(b.bytes)) !== hex(b.sha256.bytes))
-        return fail('a blob does not hash to its name');
+      if (!hashesTo(b.bytes, b.sha256.bytes)) return fail('a blob does not hash to its name');
     this.replaying = new ReplaySource(log);
     this.source = this.replaying;
     this.mode = 'replay';
@@ -1090,7 +1222,8 @@ export class SimShell {
     }
     const err = this.port.receive(c.first, c.closures, c.blobs ?? []);
     if (err) {
-      this.logLine('error', `closure port: ${err}`);
+      // Refused before the horizon moved (11 §3.2): nothing of the message is kept.
+      this.postError('closures', 0, err);
       return;
     }
     this.soon(0);

@@ -8,15 +8,17 @@ import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { inlineGen, inlineIo } from '../../src/app/inline.ts';
 import { IoService } from '../../src/ioworker/io.ts';
-import { IdbStorage, openGameDb } from '../../src/ioworker/storage.ts';
+import { MemorySaveLock } from '../../src/ioworker/ownership.ts';
+import { claimEpoch, IdbStorage } from '../../src/ioworker/storage.ts';
 import { PreviewRequestCodec } from '../../src/shared/gen/abi.ts';
 import { actionBytes } from '../../src/shared/gen/actions.ts';
 import { readSaveContainer } from '../../src/shared/gen/container.ts';
 import { StateHashCodec } from '../../src/shared/gen/projections.ts';
 import type { GenToMain } from '../../src/shared/gen-protocol.ts';
 import type { IoReply, IoRequest } from '../../src/shared/io-protocol.ts';
+import { freshDb } from '../helpers/io.ts';
 import { golden, manifest, ShellHarness, settle } from '../helpers/shell-harness.ts';
-import { realGenBytes, STUB_COMMAND, stubGen, stubSim } from '../helpers/stubs.ts';
+import { STUB_COMMAND, scaffold, stubGen, stubSim } from '../helpers/stubs.ts';
 
 const sha256 = async (b: Uint8Array) => new Uint8Array(createHash('sha256').update(b).digest());
 const env = { sha256, now: () => performance.now() };
@@ -107,17 +109,14 @@ describe('the worldgen pool (§15.9)', () => {
   });
 
   it('a refused module (the M0 scaffold gen.wasm) leaves everything to inline generation', async () => {
-    const p = pool(await WebAssembly.compile(realGenBytes() as Uint8Array<ArrayBuffer>), 1);
+    const p = pool(await scaffold(), 1);
     const h = new ShellHarness();
     await h.boot(await stubSim(), manifest(), { genPorts: p.ports });
     await h.newWorld(1);
     await settleAll();
-    const refused = p.main.find((m) => m.t === 'refused');
-    if (refused) {
-      expect(refused).toMatchObject({ reason: 'scaffold', abi: 0 });
-      await h.step(2);
-      expect(logs(h, 'generated inline')).toHaveLength(4);
-    }
+    expect(p.main.find((m) => m.t === 'refused')).toMatchObject({ reason: 'scaffold', abi: 0 });
+    await h.step(2);
+    expect(logs(h, 'generated inline')).toHaveLength(4);
     h.shell.close();
     p.stop();
   });
@@ -155,9 +154,12 @@ async function ioWorker(): Promise<{
   request(r: IoRequest): Promise<IoReply>;
   stop(): void;
 }> {
-  const db = await openGameDb();
-  for (const s of ['saves']) await db.clear(s);
-  const w = inlineIo(env, Promise.resolve(new IdbStorage(db)));
+  const db = await freshDb();
+  const w = inlineIo(env, {
+    storage: Promise.resolve({ storage: new IdbStorage(db), db }),
+    lock: new MemorySaveLock(),
+    channel: null,
+  });
   const waiting = new Map<number, (r: IoReply) => void>();
   w.onmessage = (e: MessageEvent<IoReply | { t: 'ready' }>) => {
     const m = e.data;
@@ -184,7 +186,7 @@ async function untilSaved(h: ShellHarness, n: number): Promise<void> {
 }
 
 describe('the IO worker (§8.1–§8.6)', () => {
-  it('stores a save (deflated, SHA-256) and reads it back to the same state; the save becomes the log base', async () => {
+  it('stores a save (deflated, SHA-256) and reads it back to the same state; an autosave becomes the log base', async () => {
     const io = await ioWorker();
     const h = new ShellHarness({ model: true });
     await h.boot(null, manifest(), { ioPort: io.port() });
@@ -226,9 +228,20 @@ describe('the IO worker (§8.1–§8.6)', () => {
     await h2.send({ t: 'dev', id: 3, op: { op: 'hash' } });
     const after = StateHashCodec.decode(new Uint8Array(h2.last('res')?.value as ArrayBuffer));
     expect(after.hash).toBe(before.hash);
-    // §8.5: the closure log now starts at the save.
+    // §8.5: a manual save is not the closure log's base; the last autosave is, as its exact stored version.
     await h.send({ t: 'dev', id: 4, op: { op: 'bundle' } });
-    expect(h.last('bundle')?.bundle.base).toEqual({ kind: 'save', name: 'mine', tick: 5 });
+    expect(h.last('bundle')?.bundle.base.kind).toBe('start');
+    await h.send({ t: 'save', id: 5, reason: 'auto' });
+    await untilSaved(h, 2);
+    await h.send({ t: 'dev', id: 6, op: { op: 'bundle' } });
+    const base = h.last('bundle')?.bundle.base;
+    const auto = await io.request({ t: 'read', id: 13, name: '_autosave1' });
+    if (auto.t !== 'read') throw new Error(JSON.stringify(auto));
+    expect(base).toEqual({
+      kind: 'save',
+      version: { name: '_autosave1', file: auto.info.file, sha256: h.last('saved')?.sha256 },
+      tick: 5,
+    });
     io.stop();
   });
 
@@ -256,10 +269,10 @@ describe('the IO worker (§8.1–§8.6)', () => {
   });
 
   it('refuses damaged bytes, truncated and trailing containers, and a newer format', async () => {
-    const db = await openGameDb();
-    await db.clear('saves');
+    const db = await freshDb();
     const store = new IdbStorage(db);
-    const svc = new IoService(store, env);
+    const fence = await claimEpoch(db, 0);
+    const svc = new IoService(store, env, () => fence);
     const imp = await svc.handle({ t: 'import', id: 1, name: 'start', bytes: golden('start.save').buffer });
     expect(imp.reply.t).toBe('imported');
     // Damage the stored bytes: the SHA-256 kept with the metadata refuses them.

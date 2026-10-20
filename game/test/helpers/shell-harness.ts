@@ -58,6 +58,8 @@ export class ShellHarness {
   /** The model's exports, when the harness runs the reference model. */
   model: ModelExports | null = null;
   clock = 0;
+  /** Wakes run so far (C3-r1 4: a blocked extraction must not spin). */
+  fired = 0;
   private timers: { at: number; f: () => void }[] = [];
 
   constructor(opts: HarnessOptions = {}) {
@@ -123,7 +125,10 @@ export class ShellHarness {
       this.clock += 1;
       const due = this.timers.filter((x) => x.at <= this.clock);
       this.timers = this.timers.filter((x) => x.at > this.clock);
-      for (const t of due) t.f();
+      for (const t of due) {
+        this.fired += 1;
+        t.f();
+      }
     }
   }
 

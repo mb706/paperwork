@@ -6,16 +6,15 @@
 import 'fake-indexeddb/auto';
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { inlineGen, inlineIo, inlineSim } from '../../src/app/inline.ts';
-import { IoClient } from '../../src/app/io-client.ts';
+import { inlineGen, inlineSim } from '../../src/app/inline.ts';
 import { RefusedError, SimHost, type SimHostEvents, WorldError } from '../../src/app/sim-host.ts';
-import { IdbStorage, openGameDb } from '../../src/ioworker/storage.ts';
 import { NewWorldCodec } from '../../src/shared/gen/abi.ts';
 import { actionBytes } from '../../src/shared/gen/actions.ts';
 import { parseClosureLog } from '../../src/shared/gen/container.ts';
 import { decodePacket, ViewRequestCodec } from '../../src/shared/gen/packet.ts';
 import { ProjectionKind, QueryKind, readUiRecords, UiStatus } from '../../src/shared/gen/projections.ts';
 import { handshake, type SimInstance } from '../../src/simworker/module.ts';
+import { MemoryOpfs, testIo } from '../helpers/io.ts';
 import { modelExports } from '../helpers/model-module.ts';
 import { golden, goldenProtos, manifest, settle } from '../helpers/shell-harness.ts';
 import { STUB_COMMAND, stubGen, stubSim } from '../helpers/stubs.ts';
@@ -64,13 +63,11 @@ function events(): { seen: Seen; events: SimHostEvents } {
 }
 
 /** A host on the stub module (or the reference model), in test mode, with a pool and an IO worker. */
-async function host(opts: { model?: boolean; background?: boolean; module?: WebAssembly.Module } = {}) {
+async function host(
+  opts: { model?: boolean; background?: boolean; module?: WebAssembly.Module; opfs?: MemoryOpfs } = {},
+) {
   const { seen, events: ev } = events();
-  const db = await openGameDb();
-  await db.clear('saves');
-  const io = new IoClient(
-    inlineIo({ sha256, now: () => performance.now() }, Promise.resolve(new IdbStorage(db))),
-  );
+  const { io } = await testIo(opts.opfs ? { opfs: opts.opfs } : {});
   const protos = goldenProtos();
   const h = new SimHost({
     build: manifest(protos),
@@ -139,12 +136,13 @@ describe('SimHost: worlds and generations (§3.4, S15)', () => {
       () => seen.packets.some((p) => p.ui.some((u) => u.sub === character)),
       'the CHARACTER record',
     );
-    // A query the old world will never answer.
-    const pending = h.query(new Uint8Array([QueryKind.hash, 0, 0, 0]));
-    // Stop the old world from answering it: the replacement comes first (single player terminates it).
+    // A query the old world will never answer: the replacement comes first (single player terminates it).
+    const pending = expect(h.query(new Uint8Array([QueryKind.hash, 0, 0, 0]))).rejects.toThrow(
+      /generation 1 was replaced/,
+    );
     const b = await h.loadBytes(golden('start.save'));
     expect(b.gen).toBe(2);
-    await expect(pending).rejects.toThrow(/generation 1 was replaced/);
+    await pending;
     expect(seen.generations).toEqual([1, 2]);
     // The new world got the view and both subscriptions again: its records arrive in generation 2.
     await until(
@@ -221,7 +219,8 @@ describe('SimHost: worlds and generations (§3.4, S15)', () => {
 
 describe('SimHost: trap recovery (§3.6)', () => {
   it('a dev panic: the trap notice with a bundle, recovery into a fresh worker, and the bundle reproduces the panic', async () => {
-    const { h, seen } = await host();
+    const opfs = new MemoryOpfs();
+    const { h, seen } = await host({ opfs });
     await h.newGame(settings());
     h.control({ step: 2 });
     await until(() => seen.packets.at(-1)?.tick === 2, 'tick 2');
@@ -232,19 +231,26 @@ describe('SimHost: trap recovery (§3.6)', () => {
     const t = seen.traps[0];
     expect(t?.tick).toBe(3);
     expect(t?.message).toMatch(/dev panic requested by debug_dump at tick 3/);
-    const bundle = t?.bundle;
-    expect(bundle?.save).not.toBeNull();
-    expect(bundle?.saveName).toBe('');
-    const log = parseClosureLog(bundle?.log as Uint8Array);
+    // The IO worker kept the bundle under reports/<report>/ (C3-r1 14: assembled there, not here).
+    expect(t?.report).toMatch(/^\d{4}-/);
+    const file = (f: string) => opfs.files.get(`reports/${t?.report}/${f}`) as Uint8Array;
+    const save = file('save.save');
+    const logBytes = file('closures.pwlog');
+    const meta = JSON.parse(new TextDecoder().decode(file('report.json'))) as {
+      console: string[];
+      base: unknown;
+    };
+    expect(meta.base).toEqual({ start: 0 });
+    const log = parseClosureLog(logBytes);
     expect([log.header.start_tick, log.header.end_tick]).toEqual([0, 3]);
-    expect(bundle?.console.some((l) => l.includes('panicked'))).toBe(true);
+    expect(meta.console.some((l) => l.includes('panicked'))).toBe(true);
     // Recovery: the world's start (no save yet) in a fresh worker, generation 2.
     await until(() => seen.generations.length === 2, 'the recovered world');
     expect(h.gen).toBe(2);
     // The bundle reproduces the trap: its save and log, replayed, trap at the same tick.
     const recover = (h as unknown as { o: { recover?: boolean } }).o;
     recover.recover = false;
-    await expect(h.replay({ bytes: bundle?.save as Uint8Array }, bundle?.log as Uint8Array)).rejects.toThrow(
+    await expect(h.replay({ bytes: save }, logBytes)).rejects.toThrow(
       /at tick 3: panic: .*dev panic requested by debug_dump at tick 3/s,
     );
     expect(seen.traps.at(-1)?.tick).toBe(3);

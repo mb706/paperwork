@@ -37,8 +37,9 @@ export class QueryScheduler {
     return this.running.size + this.waiting.length;
   }
 
+  /** Work to do: queries running, or waiting for a slot (a wake fills the slots, C3-r1 11). */
   get busy(): boolean {
-    return this.running.size > 0;
+    return this.running.size > 0 || this.waiting.length > 0;
   }
 
   /** A `query` message: `q` is `u16 kind, u16 flags`, then the kind's parameters. */
@@ -47,10 +48,12 @@ export class QueryScheduler {
     this.fill(sim, done);
   }
 
-  /** A `cancel` message: an unknown id is ignored. */
-  cancel(sim: SimInstance, id: number): void {
-    if (this.running.delete(id)) sim.cold((m) => m.queryCancel(id));
-    else {
+  /** A `cancel` message: an unknown id is ignored. A running query's slot goes to the next waiting one. */
+  cancel(sim: SimInstance, id: number, done: (r: QueryResultOut) => void): void {
+    if (this.running.delete(id)) {
+      sim.cold((m) => m.queryCancel(id));
+      this.fill(sim, done);
+    } else {
       const i = this.waiting.findIndex((x) => x.id === id);
       if (i >= 0) this.waiting.splice(i, 1);
     }
@@ -87,6 +90,7 @@ export class QueryScheduler {
 
   /** Advances the running queries by about `ms` of work and answers those that finished. */
   step(sim: SimInstance, ms: number, now: () => number, done: (r: QueryResultOut) => void): void {
+    if (this.running.size === 0) this.fill(sim, done);
     if (this.running.size === 0) return;
     const units = Math.max(1, Math.floor(this.unitsPerMs * ms));
     const t0 = now();

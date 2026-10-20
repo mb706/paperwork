@@ -4,8 +4,7 @@
 // thread differs. The Node tests drive SimHost with these.
 import { GenWorker } from '../genworker/worker.ts';
 import type { IoEnv } from '../ioworker/io.ts';
-import type { Storage } from '../ioworker/storage.ts';
-import { IoWorker } from '../ioworker/worker.ts';
+import { IoWorker, type IoWorkerOptions } from '../ioworker/worker.ts';
 import { type ShellHost, SimShell } from '../simworker/shell.ts';
 import { selfPostWaker } from '../simworker/waker.ts';
 import type { WorkerLike } from './sim-host.ts';
@@ -80,13 +79,11 @@ export function inlineGen(): WorkerLike {
   });
 }
 
-/** The IO worker, in-process (tests pass their storage). */
-export function inlineIo(env: IoEnv, storage?: Promise<Storage>): WorkerLike {
+/** The IO worker, in-process (tests pass their storage, and the lock and channel two "tabs" share). */
+export function inlineIo(env: IoEnv, o: IoWorkerOptions = {}): WorkerLike {
   return channelWorker((port) => {
-    const io = storage
-      ? new IoWorker({ post: (m, transfer) => port.postMessage(m, transfer ?? []) }, env, storage)
-      : new IoWorker({ post: (m, transfer) => port.postMessage(m, transfer ?? []) }, env);
+    const io = new IoWorker({ post: (m, transfer) => port.postMessage(m, transfer ?? []) }, env, o);
     port.onmessage = (e: MessageEvent) => io.handle(e.data);
-    return () => {};
+    return () => io.close();
   });
 }

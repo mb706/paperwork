@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { InitInputCodec, NewWorldCodec, SimError, SimStatus } from '../../src/shared/gen/abi.ts';
+import { ABI_VERSION, InitInputCodec, NewWorldCodec, SimError, SimStatus } from '../../src/shared/gen/abi.ts';
 import { ACTION_SCHEMA_VERSION, actionBytes, encodeClosure } from '../../src/shared/gen/actions.ts';
 import { SCHEMA_HASH } from '../../src/shared/gen/schema.ts';
 import { StaleViewError } from '../../src/simworker/lease.ts';
@@ -17,7 +17,7 @@ import {
 } from '../../src/simworker/module.ts';
 import { modelExports } from '../helpers/model-module.ts';
 import { GAME } from '../helpers/paths.ts';
-import { realSimBytes, STUB_COMMAND, stubSim } from '../helpers/stubs.ts';
+import { realSimBytes, STUB_COMMAND, scaffold, stubSim } from '../helpers/stubs.ts';
 
 const golden = (p: string) => new Uint8Array(readFileSync(join(GAME, 'test', 'golden', 'm0', p)));
 const protosBin = () => golden('protos/prototypes.bin');
@@ -67,18 +67,15 @@ describe('the handshake (§15.1)', () => {
     expect(h.schemaHash).not.toBe(SCHEMA_HASH);
   });
 
-  it('refuses the M0 scaffold (ABI 0) as such', async () => {
-    const bytes = realSimBytes();
-    const err = await instantiateSim(
-      await WebAssembly.compile(bytes as Uint8Array<ArrayBuffer>),
-      quiet,
-      true,
-    ).then(
+  it('refuses the M0 scaffold (ABI 0) as such, and accepts the real module', async () => {
+    const err = await instantiateSim(await scaffold(), quiet, true).then(
       () => null,
       (e: unknown) => e as HandshakeError,
     );
-    // Until the sim package's module lands, crates/simabi is the scaffold; afterwards the handshake passes.
-    if (err) expect(err.reason).toBe('scaffold');
+    expect(err?.reason).toBe('scaffold');
+    const real = await WebAssembly.compile(realSimBytes() as Uint8Array<ArrayBuffer>);
+    const sim = await instantiateSim(real, quiet, true);
+    expect(sim.cold((s) => s.abiVersion())).toBe(ABI_VERSION);
   });
 
   it('refuses a module that lacks exports', () => {

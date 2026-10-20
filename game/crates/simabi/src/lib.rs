@@ -11,10 +11,9 @@
 //! C2b scope: the world, tick, save and digest exports. Extraction, subscriptions, queries, the pool directory
 //! and the allocation counter arrive with C2c; until then they fail with `ERR_ORDER` and say so.
 //!
-//! **Feature `full-abi`.** The table above is exported only with it. Without it the module is still the M0
-//! scaffold (one export, `sim_abi_version` = 0, no imports), which the app's scaffold loader and the e2e smoke
-//! test expect until the Shell package's loader lands; the implementation is compiled (and linted) either
-//! way, and the WebAssembly tests build with the feature.
+//! **Feature `full-abi`** (default since the Shell package's loaders landed, C3-r1). The table above is
+//! exported only with it. Without it the module is the M0 scaffold (one export, `sim_abi_version` = 0, no
+//! imports), which the shell's handshake refuses; the implementation is compiled (and linted) either way.
 
 use schema::abi::SimAbi;
 use schema::{SimFlags, SimStatus};

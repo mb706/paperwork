@@ -3,7 +3,7 @@
 // the shell in Chrome and Firefox before and beside the real modules (e2e/shell.spec.ts passes the stub modules of
 // test/stubs). Worker logs go to `__shellDev.logs`, not the console: traps are expected here.
 import { IoClient } from '../app/io-client.ts';
-import { type BugBundle, SimHost } from '../app/sim-host.ts';
+import { SimHost } from '../app/sim-host.ts';
 import { NewWorldCodec } from '../shared/gen/abi.ts';
 import { decodePacket } from '../shared/gen/packet.ts';
 import type { BuildManifest } from '../shared/protocol.ts';
@@ -15,7 +15,8 @@ interface ShellDev {
   logs: string[];
   packets: { gen: number; tick: number; flags: number; sections: string[] }[];
   generations: number[];
-  traps: { gen: number; tick: number; message: string; bundle: BugBundle | null }[];
+  traps: { gen: number; tick: number; message: string; report: string | null }[];
+  owner: boolean | null;
 }
 
 declare global {
@@ -42,6 +43,7 @@ const dev: ShellDev = {
   packets: [],
   generations: [],
   traps: [],
+  owner: null,
   async start(simB64, genB64) {
     const r = await fetch('/data/build-manifest.json');
     const build = (await r.json()) as BuildManifest;
@@ -79,6 +81,9 @@ const dev: ShellDev = {
         trap: (t) => {
           dev.traps.push(t);
           status(`trapped at tick ${t.tick}; recovering`);
+        },
+        storage: (s) => {
+          dev.owner = s.owner;
         },
       },
     });

@@ -72,11 +72,14 @@ interface Window {
   retainedPerTick: number;
 }
 
-function probe(mode: 'frames' | 'step', n: number): Window[] {
+function probe(mode: 'frames' | 'step' | 'transfer' | 'channel', n: number): Window[] {
   buildStubs(); // the probe reads target/stubs/…/stubsim.wasm
+  // A young generation large enough that no scavenge runs inside a window of real transfers.
+  const flags =
+    mode === 'transfer' || mode === 'channel' ? ['--min-semi-space-size=64', '--max-semi-space-size=64'] : [];
   const out = execFileSync(
     process.execPath,
-    ['--expose-gc', join(GAME, 'test', 'shell', 'steady-probe.ts'), mode, String(n)],
+    ['--expose-gc', ...flags, join(GAME, 'test', 'shell', 'steady-probe.ts'), mode, String(n)],
     { encoding: 'utf8' },
   );
   return (JSON.parse(out.trim().split('\n').at(-1) as string) as { windows: Window[] }).windows;
@@ -107,6 +110,21 @@ describe('the steady-state tick path allocates nothing (A1 open issue 7)', () =>
       expect(w.packets).toBe(1);
     }
     expectNoAllocation(windows);
+  });
+});
+
+describe('packets that cross threads (C3-r1 15)', () => {
+  it('a transferred packet costs the shell its two views, beside the structured clone’s own objects', () => {
+    // `channel`: the same MessageChannel round trips with no shell; `transfer`: the shell's packets, acked as a
+    // new ArrayBuffer object each time. Node's MessagePort makes about 2.3 KB of objects per round trip
+    // either way (the message, the event, the ArrayBuffer wrapper); the shell adds the returning buffer's two
+    // views (about 0.2 KB) and keeps nothing.
+    const quiet = (ws: Window[]) => Math.min(...ws.map((w) => w.allocatedPerTick));
+    const transfer = probe('transfer', 5000);
+    const channel = probe('channel', 5000);
+    for (const w of transfer) expect(w.packets).toBe(5000);
+    expect(quiet(transfer) - quiet(channel), JSON.stringify({ transfer, channel })).toBeLessThan(1024);
+    expect(Math.max(...transfer.map((w) => w.retainedPerTick))).toBeLessThan(32);
   });
 });
 

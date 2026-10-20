@@ -1,9 +1,9 @@
 // The modules the shell's tests run (pm/wp/C3-shell.md):
 // - the stub modules of test/stubs/ (Rust, the generated SimAbi and GenAbi), built on demand into target/stubs/
-//   (cargo's lock serialises concurrent builds; an up-to-date build is a no-op);
-// - the real modules (crates/simabi, crates/genabi), built as the dev server builds them (wasmdev, simcheck).
-//   Until the sim package's module lands they are the M0 scaffold (ABI 0): `realSim()` says so, and the tests
-//   that need the real module skip with that reason.
+//   (cargo's lock serialises concurrent builds; an up-to-date build is a no-op), and the M0 scaffold as a stale
+//   cache would serve it (ABI 0), for the handshake's refusal;
+// - the real modules (crates/simabi, crates/genabi), built as the dev server builds them (wasmdev, simcheck,
+//   the full ABI by default).
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -40,6 +40,12 @@ export function stubSimBytes(): Uint8Array {
   return new Uint8Array(readFileSync(join(GAME, 'target', 'stubs', TARGET, 'release', 'stubsim.wasm')));
 }
 
+/** The M0 scaffold's module (`sim_abi_version` and `gen_abi_version` both 0). */
+export function scaffoldBytes(): Uint8Array {
+  buildStubs();
+  return new Uint8Array(readFileSync(join(GAME, 'target', 'stubs', TARGET, 'release', 'scaffold.wasm')));
+}
+
 /** The stub gen.wasm's bytes. */
 export function stubGenBytes(): Uint8Array {
   buildStubs();
@@ -58,6 +64,7 @@ function compileOnce(key: string, bytes: () => Uint8Array): Promise<WebAssembly.
 
 export const stubSim = (): Promise<WebAssembly.Module> => compileOnce('stubsim', stubSimBytes);
 export const stubGen = (): Promise<WebAssembly.Module> => compileOnce('stubgen', stubGenBytes);
+export const scaffold = (): Promise<WebAssembly.Module> => compileOnce('scaffold', scaffoldBytes);
 
 /** The real modules as the dev server builds them (wasmdev profile, simcheck). */
 function buildReal(): void {
@@ -91,8 +98,8 @@ export function realGenBytes(): Uint8Array {
 }
 
 /**
- * The real sim.wasm, or why the tests that need it skip: while crates/simabi is the M0 scaffold (ABI 0), there
- * is no real module yet (the sim package's C2b/C2c phases deliver it).
+ * The real sim.wasm, or why the tests that need it skip: a build without the `full-abi` feature is the M0
+ * scaffold (ABI 0).
  */
 export async function realSim(): Promise<{ module: WebAssembly.Module } | { skip: string }> {
   const module = await compileOnce('realsim', realSimBytes);
@@ -101,10 +108,12 @@ export async function realSim(): Promise<{ module: WebAssembly.Module } | { skip
   });
   const v = instance.exports.sim_abi_version;
   const abi = typeof v === 'function' ? (v as () => number)() >>> 0 : -1;
-  if (abi === 0)
-    return { skip: 'crates/simabi is the M0 scaffold (ABI 0): the real sim.wasm has not landed' };
+  if (abi === 0) return { skip: 'crates/simabi was built as the M0 scaffold (ABI 0): no full-abi' };
   return { module };
 }
+
+/** The real gen.wasm (compiled once). */
+export const realGen = (): Promise<WebAssembly.Module> => compileOnce('realgen', realGenBytes);
 
 // ------------------------------------------------------------------------------------- the stubs' contract
 
@@ -151,3 +160,6 @@ export const STUB_COMMAND = {
   /** Two chunk requests (5,0) and (6,0) committing 30 ticks on, reported by the next sim_pending_chunks. */
   request: 0xffff0004,
 } as const;
+
+/** A new world with this seed traps in its first `sim_extract` (after `bound`, before its first packet). */
+export const STUB_TRAP_ON_EXTRACT_SEED = 0xdead0001;

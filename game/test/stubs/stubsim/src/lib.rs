@@ -15,7 +15,9 @@
 //! - a new world requests four chunks for tick 2 (§15.9); a supplied answer or inline generation settles each,
 //!   and the stub logs which;
 //! - `debug_dump` ids from 0xFFFF_0000 are test commands (see [`Stub::command`]); 0xFFFF_FFFF is the dev panic
-//!   (C3's proposal to the sim package: the same id panics in `simcheck` builds of the real module).
+//!   (C3's proposal to the sim package: the same id panics in `simcheck` builds of the real module);
+//! - a new world of seed 0xDEAD_0001 traps in its first `sim_extract` (after `bound`, before its first
+//!   packet: C3-r1 3).
 #![allow(clippy::missing_const_for_fn)]
 
 #[allow(dead_code)]
@@ -40,6 +42,8 @@ const CMD_GROW: u32 = 0xFFFF_0001;
 const CMD_BIG_PACKET: u32 = 0xFFFF_0002;
 const CMD_UNREACHABLE: u32 = 0xFFFF_0003;
 const CMD_REQUEST: u32 = 0xFFFF_0004;
+/// A world of this seed traps in `sim_extract`.
+const TRAP_ON_EXTRACT_SEED: u32 = 0xDEAD_0001;
 
 const PLAYERS: usize = 32;
 
@@ -407,6 +411,9 @@ impl Stub {
             Ok(w) => w,
             Err(_) => return 0,
         };
+        if w.seed == TRAP_ON_EXTRACT_SEED {
+            common::trap();
+        }
         let mut flags = PacketFlags::EMPTY;
         if !w.extracted {
             flags = flags.union(PacketFlags::FULL);

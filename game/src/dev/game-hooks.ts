@@ -1,6 +1,7 @@
 // `window.__game` (10 §3.5): in dev builds, and in production builds behind `?dev=1`. Deterministic tests drive
 // the game through it whatever the frame rate: in test mode (`?test=1`) the clock stops and `step(n)` closes n
-// ticks, runs them synchronously and answers with the packet that follows (§3.3). The simulation hooks are here;
+// ticks, runs them synchronously and resolves with the tick after them, once their packet went out (§3.3); each
+// step is answered by its own reply, and steps run one after another (C3-r1 12). The simulation hooks are here;
 // the renderer and the UI register theirs (`ui`, `render`, `camera`, `loadScenario`) with `register`.
 
 import type { BoundInfo, BugBundle, SimHost } from '../app/sim-host.ts';
@@ -19,7 +20,7 @@ import {
 const hex16 = (v: bigint): string => v.toString(16).padStart(16, '0');
 
 export interface GameHooks {
-  /** Closes n ticks, runs them and resolves with the tick of the packet that follows (test mode). */
+  /** Closes n ticks, runs them and resolves with the world's tick after them (test mode). */
   step(n: number): Promise<number>;
   /** An action, encoded and submitted to the sequencer: it runs in the next tick. Returns its seq. */
   dispatch(action: Action): number;
@@ -55,6 +56,8 @@ export interface GameHooks {
   panic(): Promise<void>;
   /** The last packet's tick. */
   tick(): number;
+  /** *Take over* the saves from another tab (§8.2). */
+  takeOver(): void;
   /** Other layers' hooks (`ui.open`, `render.frame`, `camera`, `loadScenario` …). */
   register(more: Record<string, unknown>): void;
   [key: string]: unknown;
@@ -75,11 +78,7 @@ export function gameHooks(host: SimHost): GameHooks {
     return new Uint8Array(r.value as ArrayBuffer);
   };
   const hooks: GameHooks = {
-    async step(n) {
-      const next = host.nextPacket();
-      host.control({ step: n });
-      return next;
-    },
+    step: (n) => host.step(n),
     dispatch: (a) => host.act(actionBytes(a)),
     query: (q) => host.query(q),
     async hash() {
@@ -124,6 +123,7 @@ export function gameHooks(host: SimHost): GameHooks {
       await res(host.dev({ op: 'panic' }));
     },
     tick: () => host.lastTick,
+    takeOver: () => host.takeOver(),
     register(more) {
       Object.assign(hooks, more);
     },

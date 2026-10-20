@@ -125,8 +125,8 @@
   envelopes' payloads.
 - **Rules follow the golden model** (`test/golden/model/rules.ts` and its README's numbered rules): when changing a
   rule, port it from there and cite "rule n"; a refusal changes nothing (`SimContext::set_check_refusals` verifies).
-- **ABI feature:** `simabi`/`genabi` export the full §15.8/§15.9 tables only with the cargo feature `full-abi`; without
-  it they are still the M0 scaffold (ABI 0) the app's loader expects. Flip both defaults when the Shell's loaders land.
+- **ABI feature:** `simabi`/`genabi` export the full §15.8/§15.9 tables with the cargo feature `full-abi`, on by
+  default since the Shell's loaders landed (C3-r1); `--no-default-features` builds the M0 scaffold (ABI 0).
 - **Tests:** `cargo test -p sim --features simcheck` (`tests/core/`: the golden set — every digest, state and event of
   the closure log, the traces; churn, the harness, the scheduler, allocation; `tests/rules/`: R23–R29 and the M0
   scenarios, each with D18 a–c and a recorded session in `test/logs/` that `replay` replays; `UPDATE_SCENARIO_LOGS=1`
@@ -139,24 +139,34 @@
 - **Build times** (pinned `taskset -c 0-15`): a sim edit rebuilds the `ntest` tests in ≈ 1–6 s (incremental, no
   LTO) and runs them in ≈ 7 s; the `wasmdev` modules in ≈ 3.5 s; clippy in ≈ 2 s.
 
-## The worker shell (`game/src/{simworker,genworker,ioworker}`, `src/app/sim-host.ts`; C3, 10 §3, §8, §15.8–§15.9)
+## The worker shell (`game/src/{simworker,genworker,ioworker}`, `src/app/`; C3, 10 §3, §8, §15.8–§15.9)
 - **Sim worker:** `simworker/shell.ts` around sim.wasm: the handshake (`module.ts`: ABI, `sim_schema_hash`, the
   build manifest, prototypes.bin's SHA-256; the M0 scaffold, ABI 0, is refused), the `MemoryLease` (`lease.ts`),
   the `LocalSequencer` (`sequencer.ts`, with `src/shared/admission.ts` and its fixture
-  `test/fixtures/admission/cases.txt`), clock generations, pooled packets, queries, the closure log and digest
-  ring, replay (`replay` message), the closure port (multiplayer), saves through the IO worker, trap bundles. Its
-  steady-state tick path allocates nothing (`test/shell/steady.test.ts`). Protocol additions are marked (C3) in
-  `src/shared/protocol.ts`; the IO and worldgen protocols are `src/shared/{io,gen}-protocol.ts`.
-- **Main thread:** `src/app/sim-host.ts` allocates state generations and runs the world-replacement protocol (a
-  fresh worker per world, the swap, re-sent view and subscriptions), seqs, saves and autosave, the hidden page and
-  trap recovery with bug bundles; `src/app/inline.ts` runs workers in-process (`?sim=inline`, the Node tests).
-  `window.__game` (`src/dev/game-hooks.ts`) drives it in dev builds or with `?dev=1`.
+  `test/fixtures/admission/cases.txt`; blobs verified synchronously at intake, `src/shared/sha256.ts`), clock
+  generations, pooled packets, queries, the closure log (based on the last autosave, an exact pinned version) and
+  digest ring, replay, the closure port (multiplayer, with a handover tick for background swaps), saves through
+  the IO worker, trap bundles. Its steady-state tick path allocates nothing (`test/shell/steady.test.ts`). A
+  module without extraction (C2b's: ERR_ORDER) runs without packets; a world's first is header-only.
+  Protocol additions are marked (C3) in `src/shared/protocol.ts`; the IO and worldgen protocols are
+  `src/shared/{io,gen}-protocol.ts`.
+- **Saves (IO worker):** every save is a new version, written and checked, then published in one IndexedDB
+  transaction (`storage.ts`); writes need the saves' ownership (`ownership.ts`: Web Locks, an owner epoch checked
+  at every commit, *Take over* over a BroadcastChannel; §8.2 "One tab at a time"). Bug bundles are assembled there.
+- **Main thread:** `src/app/main.ts` is the composition root: `createApp` (`app.ts`) builds the one `SimHost`
+  (`sim-host.ts`), the IO worker and the page's lifecycle; the renderer, UI and audio attach to the App there,
+  one line each (`app.host.on('packet' | 'generation' | 'storage' …)`), never a second host. SimHost allocates
+  state generations and runs the world-replacement protocol (a fresh worker per world, the swap, re-sent view and
+  subscriptions; every failed phase rejects), seqs, saves and autosave, pause reasons (`user`, `hidden`, `menu`,
+  `storage`), `step(n)` (answered by `stepped`), and trap recovery from the last autosave. `src/app/inline.ts`
+  runs workers in-process (`?sim=inline`, the Node tests). `window.__game` (`src/dev/game-hooks.ts`) drives it in
+  dev builds or with `?dev=1`.
 - **Tests:** `npx vitest run test/shell` runs the shell on the stub modules (`test/stubs/`, a Rust workspace built
-  on demand into `target/stubs/`; `debug_dump` ids from 0xFFFF0000 are its test commands), on the golden reference
-  model behind the ABI (`test/helpers/model-module.ts`: the golden digests and packets through the shell), and on
-  the real sim.wasm once it lands (`real.test.ts`, skipped while crates/simabi is the scaffold). The browser bench
-  is `/src/dev/shell.html` (`e2e/shell.spec.ts`, @smoke). Several worktrees share this host: give
-  Playwright free ports with `PW_PORT` and `PW_RELEASE_PORT` (defaults 5191, 5193).
+  on demand into `target/stubs/`, with the M0 scaffold as a stale cache serves it; `debug_dump` ids from
+  0xFFFF0000 are its test commands), on the golden reference model behind the ABI (`test/helpers/model-module.ts`),
+  and on the real sim.wasm and gen.wasm (`real.test.ts`); `review-r1.test.ts` holds one test per codex C3-r1
+  finding. The browser bench is `/src/dev/shell.html` (`e2e/shell.spec.ts`, @smoke). Several worktrees share this
+  host: give Playwright free ports with `PW_PORT` and `PW_RELEASE_PORT` (defaults 5191, 5193).
 
 ## Assets (`npm run assets`; C6, 10 §9, the *Survey* look of `design/art/DIRECTION.md`)
 - **Sources** (committed): `game/assets/blender/` (`lib/` style, materials, parts, rig, contract; `entities/`,
