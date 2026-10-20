@@ -30,7 +30,8 @@ pub const HOST_FACTOR: f64 = 2.4;
 /// The M0 scenarios, in §10.6's order.
 pub const SCENARIOS: [&str; 4] = ["m0-walk", "m0-chests-10k", "m0-codec", "m0-load-30k"];
 
-/// One threshold of §10.6: a metric, its limit on the reference machine, and whether it is a floor.
+/// One threshold of §10.6: a metric, its limit on the reference machine, whether it is a floor, and whether it
+/// depends on the machine's speed (a count does not, so the host factor leaves it alone).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Threshold {
     pub metric: &'static str,
@@ -38,10 +39,12 @@ pub struct Threshold {
     pub unit: &'static str,
     /// A floor (throughput) rather than a ceiling (time).
     pub floor: bool,
+    /// A time or a rate, which `ci`'s gate scales by [`HOST_FACTOR`].
+    pub scales: bool,
 }
 
 const fn ceiling(metric: &'static str, limit: f64, unit: &'static str) -> Threshold {
-    Threshold { metric, limit, unit, floor: false }
+    Threshold { metric, limit, unit, floor: false, scales: true }
 }
 
 /// §10.6's thresholds of a scenario.
@@ -55,9 +58,17 @@ pub fn thresholds(scenario: &str) -> &'static [Threshold] {
         ceiling("hash_ms", 20.0, "ms"),
     ];
     const CODEC: [Threshold; 1] =
-        [Threshold { metric: "actions_per_s", limit: 1e6, unit: "actions/s", floor: true }];
-    const LOAD: [Threshold; 2] =
-        [ceiling("load_ms", 1000.0, "ms"), ceiling("max_regenerations_per_tick", 8.0, "chunks")];
+        [Threshold { metric: "actions_per_s", limit: 1e6, unit: "actions/s", floor: true, scales: true }];
+    const LOAD: [Threshold; 2] = [
+        ceiling("load_ms", 1000.0, "ms"),
+        Threshold {
+            metric: "max_regenerations_per_tick",
+            limit: 8.0,
+            unit: "chunks",
+            floor: false,
+            scales: false,
+        },
+    ];
     match scenario {
         "m0-walk" => &WALK,
         "m0-chests-10k" => &CHESTS,

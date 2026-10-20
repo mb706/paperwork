@@ -334,7 +334,11 @@ fn state_input(state: &[u8]) -> Result<Vec<u8>, String> {
 /// The gate of one threshold: (value, reference limit, host limit, pass).
 pub fn gate(r: &Report, t: &Threshold) -> Option<(f64, f64, bool)> {
     let v = r.get(t.metric)?;
-    let host = if t.floor { t.limit / HOST_FACTOR } else { t.limit * HOST_FACTOR };
+    let host = match (t.scales, t.floor) {
+        (false, _) => t.limit,
+        (true, true) => t.limit / HOST_FACTOR,
+        (true, false) => t.limit * HOST_FACTOR,
+    };
     let pass = if t.floor { v >= host } else { v <= host };
     Some((v, host, pass))
 }
