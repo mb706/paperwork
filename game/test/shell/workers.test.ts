@@ -10,12 +10,13 @@ import { inlineGen, inlineIo } from '../../src/app/inline.ts';
 import { IoService } from '../../src/ioworker/io.ts';
 import { IdbStorage, openGameDb } from '../../src/ioworker/storage.ts';
 import { PreviewRequestCodec } from '../../src/shared/gen/abi.ts';
+import { actionBytes } from '../../src/shared/gen/actions.ts';
 import { readSaveContainer } from '../../src/shared/gen/container.ts';
 import { StateHashCodec } from '../../src/shared/gen/projections.ts';
 import type { GenToMain } from '../../src/shared/gen-protocol.ts';
 import type { IoReply, IoRequest } from '../../src/shared/io-protocol.ts';
 import { golden, manifest, ShellHarness, settle } from '../helpers/shell-harness.ts';
-import { realGenBytes, stubGen, stubSim } from '../helpers/stubs.ts';
+import { realGenBytes, STUB_COMMAND, stubGen, stubSim } from '../helpers/stubs.ts';
 
 const sha256 = async (b: Uint8Array) => new Uint8Array(createHash('sha256').update(b).digest());
 const env = { sha256, now: () => performance.now() };
@@ -62,6 +63,25 @@ describe('the worldgen pool (§15.9)', () => {
     await h.step(2);
     expect(logs(h, 'supplied at tick 2')).toHaveLength(4);
     expect(logs(h, 'generated inline')).toHaveLength(0);
+    h.shell.close();
+    p.stop();
+  });
+
+  it('requests that come with a tick reach the pool too (the per-tick sim_pending_chunks)', async () => {
+    const p = pool(await stubGen(), 2);
+    const h = new ShellHarness();
+    await h.boot(await stubSim(), manifest(), { genPorts: p.ports });
+    await h.newWorld(1);
+    await settleAll();
+    await h.step(3);
+    const cmd = actionBytes({ type: 'debug_dump', dump_id: STUB_COMMAND.request });
+    await h.send({ t: 'dev', id: 1, op: { op: 'system', actions: cmd.slice().buffer } });
+    await h.step(1); // tick 4 issues the requests for tick 34; the shell reads them after the tick
+    await settleAll();
+    expect(logs(h, 'supplied for tick 34')).toHaveLength(2);
+    await h.step(30);
+    expect(logs(h, 'supplied at tick 34')).toHaveLength(2);
+    expect(logs(h, 'chunk 5,0 generated inline')).toHaveLength(0);
     h.shell.close();
     p.stop();
   });

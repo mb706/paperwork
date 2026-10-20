@@ -61,11 +61,33 @@ export class PacketPool {
     return slot(new ArrayBuffer(size));
   }
 
-  /** A buffer back from the main thread (`ack`). */
+  /** The last slots posted (a fixed ring): an `ack` that returns the very same buffer (in-process) reuses them. */
+  private readonly sent: (PacketSlot | null)[] = [null, null, null, null, null, null, null, null];
+  private sentAt = 0;
+
+  /** A slot was posted. */
+  posted(s: PacketSlot): void {
+    this.sent[this.sentAt] = s;
+    this.sentAt = (this.sentAt + 1) & 7;
+  }
+
+  /**
+   * A buffer back from the main thread (`ack`). A transfer between threads makes a new ArrayBuffer object, whose
+   * views are made here, once per packet and outside the tick; in-process the buffer is the same object.
+   */
   release(buf: ArrayBuffer): void {
     if (buf.byteLength === 0) return; // detached or foreign: nothing to reuse
     this.out = Math.max(0, this.out - 1);
-    if (this.free.length < this.count) this.free.push(slot(buf));
+    if (this.free.length >= this.count) return;
+    for (let i = 0; i < 8; i++) {
+      const s = this.sent[i];
+      if (s && s.buf === buf) {
+        this.sent[i] = null;
+        this.free.push(s);
+        return;
+      }
+    }
+    this.free.push(slot(buf));
   }
 
   /** Returns a buffer that was taken but not sent. */

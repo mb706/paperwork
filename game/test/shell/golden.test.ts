@@ -9,18 +9,18 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { SimStatus } from '../../src/shared/gen/abi.ts';
 import { closureActions } from '../../src/shared/gen/actions.ts';
 import { Reader } from '../../src/shared/gen/codec.ts';
 import { parseClosureLog, readSaveContainer } from '../../src/shared/gen/container.ts';
 import { decodePacket, ViewRequestCodec } from '../../src/shared/gen/packet.ts';
 import { StateHashCodec, SubRequestCodec } from '../../src/shared/gen/projections.ts';
-import { handshake, type SimInstance } from '../../src/simworker/module.ts';
+import { handshake } from '../../src/simworker/module.ts';
 import { STATUS_NAME } from '../golden/build/traces.ts';
 import { modelExports } from '../helpers/model-module.ts';
 import { GAME } from '../helpers/paths.ts';
 import { golden, loadMessage, ShellHarness, settle } from '../helpers/shell-harness.ts';
 import { stubDigest, stubSim } from '../helpers/stubs.ts';
+import { invokeTrace } from './trace-invoke.ts';
 
 const digestsTxt = () =>
   new TextDecoder()
@@ -249,62 +249,6 @@ describe('the negative saves (§8.1, §8.3) through `world load`', () => {
   });
 });
 
-/** The sim exports a trace calls, by kind (abi.yaml `sim_exports`), and those taking parameters, not input. */
-const STATUS_EXPORTS = new Set([
-  'sim_init',
-  'sim_new_world',
-  'sim_load',
-  'sim_tick',
-  'sim_set_flags',
-  'sim_blob_put',
-  'sim_supply_chunk',
-  'sim_subscribe',
-  'sim_unsubscribe',
-  'sim_query',
-  'sim_query_cancel',
-]);
-const PARAM_EXPORTS = new Set(['sim_set_flags', 'sim_query_step', 'sim_query_cancel']);
-const NO_INPUT = new Set([
-  'sim_pending_chunks',
-  'sim_digest',
-  'sim_state_hash',
-  'sim_meta',
-  'sim_load_report',
-]);
-
-/**
- * Runs an indexed trace call as the shell calls exports (README "ABI traces"; build/traces.ts `invoke`): the
- * input written into `sim_input`'s buffer, the raw status or envelope address, and on a failure the code that
- * `sim_last_error` reports, which must be the status. `out` is the envelope's payload.
- */
-function invoke(
-  sim: SimInstance,
-  call: string,
-  input: Uint8Array,
-  params: number[],
-): { status: number; out?: Uint8Array } {
-  const e = sim.e as unknown as Record<string, (...a: number[]) => number>;
-  let args: number[] = [];
-  if (PARAM_EXPORTS.has(call)) args = params;
-  else if (!NO_INPUT.has(call)) {
-    const p = sim.input(input.length);
-    sim.lease.u8.set(input, p);
-    args = [input.length];
-  }
-  const f = e[call];
-  if (!f) throw new Error(`no export ${call}`);
-  const ret = f(...args) >>> 0;
-  sim.lease.check();
-  if (STATUS_EXPORTS.has(call)) {
-    if (ret !== SimStatus.ok) expect(sim.lastError().status, `${call}: sim_last_error`).toBe(ret);
-    return { status: ret };
-  }
-  if (ret === 0) return { status: sim.lastError().status };
-  expect(ret % 8, `${call}: an 8-aligned envelope`).toBe(0);
-  const len = sim.lease.dv.getUint32(ret, true);
-  return { status: SimStatus.ok, out: sim.lease.u8.slice(ret + 4, ret + 4 + len) };
-}
-
 describe('the ABI traces through the shell’s module wrapper (abi/traces.json)', () => {
   it('every sim trace replays: statuses, envelopes, sim_last_error and state assertions', () => {
     const traces = JSON.parse(
@@ -336,7 +280,7 @@ describe('the ABI traces through the shell’s module wrapper (abi/traces.json)'
         if (c.call.startsWith('gen_')) return; // the worldgen workers' calls (src/genworker)
         const where = `${t.name} call ${i + 1} ${c.call}`;
         const before = hash();
-        const r = invoke(sim, c.call, c.in ? golden(c.in) : new Uint8Array(), c.params ?? []);
+        const r = invokeTrace(sim, c.call, c.in ? golden(c.in) : new Uint8Array(), c.params ?? []);
         const after = hash();
         expect(STATUS_NAME.get(r.status), where).toBe(c.status);
         if (c.out) expect(Buffer.compare(r.out as Uint8Array, golden(c.out)), where).toBe(0);

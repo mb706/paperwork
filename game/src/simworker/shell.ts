@@ -147,7 +147,8 @@ export class SimShell {
   /** An extraction was skipped for want of a buffer: extract when one comes back. */
   private extractPending = false;
   private timer: unknown = null;
-  private timerAt = Number.POSITIVE_INFINITY;
+  /** The pending wake's time, in a typed array: a double stored in an object field may be boxed per store. */
+  private readonly timerAt = new Float64Array([Number.POSITIVE_INFINITY]);
   /** Why the shell stopped (a trap): it never calls the module again. */
   stopped: string | null = null;
   /** The main thread has sent actions to this world (a replay needs none). */
@@ -205,25 +206,37 @@ export class SimShell {
   }
 
   /** Handles one message from the main thread (§3.2). */
-  async handle(m: MainToSim): Promise<void> {
+  /**
+   * Handles one message from the main thread (§3.2). The frequent ones (`ack`, `act`, `view`, `seq` …) are handled
+   * synchronously, without a promise; `boot`, `world`, `save` and `replay` return theirs.
+   */
+  handle(m: MainToSim): Promise<void> | undefined {
     try {
       switch (m.t) {
         case 'boot':
-          return await this.boot(m);
+          return this.guard(this.boot(m));
         case 'world':
-          return await this.startWorld(m);
+          return this.guard(this.startWorld(m));
+        case 'save':
+          return this.guard(this.save(m.id, m.reason, m.name ?? null));
+        case 'replay':
+          if (m.gen !== this.gen) return undefined;
+          return this.guard(this.startReplay(new Uint8Array(m.log)));
         case 'act':
-          return this.act(m);
+          this.act(m);
+          return undefined;
         case 'seq':
-          return this.control(m.op);
+          this.control(m.op);
+          return undefined;
         case 'view':
-          if (m.gen !== this.gen || !this.bound) return;
+          if (m.gen !== this.gen || !this.bound) return undefined;
           this.view.set(ViewRequestCodec.encode(m.v));
           this.viewSeq = m.v.view_seq >>> 0;
           this.viewChart = (m.v.flags & ViewFlags.chart) !== 0;
-          return this.wantExtraction();
+          this.wantExtraction();
+          return undefined;
         case 'sub':
-          if (m.gen !== this.gen || !this.sim || !this.bound || this.stopped) return;
+          if (m.gen !== this.gen || !this.sim || !this.bound || this.stopped) return undefined;
           try {
             const input = SubscribeInputCodec.encode({ subs: m.subs });
             this.sim.cold((s) => s.subscribe(input));
@@ -231,9 +244,10 @@ export class SimShell {
             if (e instanceof TrapError) throw e;
             this.postError('subscribe', e instanceof SimError ? e.status : 0, String(e));
           }
-          return this.wantExtraction();
+          this.wantExtraction();
+          return undefined;
         case 'unsub':
-          if (m.gen !== this.gen || !this.sim || !this.bound || this.stopped) return;
+          if (m.gen !== this.gen || !this.sim || !this.bound || this.stopped) return undefined;
           try {
             const input = UnsubscribeInputCodec.encode({ ids: m.ids });
             this.sim.cold((s) => s.unsubscribe(input));
@@ -241,37 +255,41 @@ export class SimShell {
             if (e instanceof TrapError) throw e;
             this.postError('unsubscribe', e instanceof SimError ? e.status : 0, String(e));
           }
-          return this.wantExtraction();
+          this.wantExtraction();
+          return undefined;
         case 'query':
-          if (m.gen !== this.gen || !this.sim || !this.bound || this.stopped) return;
+          if (m.gen !== this.gen || !this.sim || !this.bound || this.stopped) return undefined;
           this.queries.submit(this.sim, m.id, new Uint8Array(m.q), this.queryDone);
-          return this.soon(0);
+          this.soon(0);
+          return undefined;
         case 'cancel':
-          if (m.gen !== this.gen || !this.sim || !this.bound || this.stopped) return;
+          if (m.gen !== this.gen || !this.sim || !this.bound || this.stopped) return undefined;
           this.queries.cancel(this.sim, m.id);
-          return;
+          return undefined;
         case 'ack':
           this.packets.release(m.buf);
           if (this.extractPending) {
             this.extractPending = false;
             this.wantExtraction();
           }
-          return;
-        case 'save':
-          return await this.save(m.id, m.reason, m.name ?? null);
+          return undefined;
         case 'dev':
-          return this.devOp(m.id, m.op);
+          this.devOp(m.id, m.op);
+          return undefined;
         case 'hidden':
           this.hidden = m.hidden;
           if (!m.hidden) this.wantExtraction();
-          return;
-        case 'replay':
-          if (m.gen !== this.gen) return;
-          return await this.startReplay(new Uint8Array(m.log));
+          return undefined;
       }
     } catch (e) {
       this.stop(e);
     }
+    return undefined;
+  }
+
+  /** An async handler's failure stops the shell as a synchronous one's does. */
+  private guard(p: Promise<void>): Promise<void> {
+    return p.catch((e: unknown) => this.stop(e));
   }
 
   // ------------------------------------------------------------------------------------------------ boot
@@ -578,15 +596,15 @@ export class SimShell {
   /** Makes sure a wake comes within `ms`. */
   private soon(ms: number): void {
     if (!this.bound || this.stopped) return;
-    const at = this.host.now() + ms;
-    if (this.timer !== null && this.timerAt <= at) return;
-    this.setTimer(at);
+    const now = this.host.now();
+    if (this.timer !== null && (this.timerAt[0] as number) <= now + ms) return;
+    this.setTimer(now + ms, now);
   }
 
-  private setTimer(at: number): void {
+  private setTimer(at: number, now: number): void {
     if (this.timer !== null) this.host.cancel(this.timer);
-    const ms = at - this.host.now() - TIMER_LEAD_MS;
-    this.timerAt = at;
+    const ms = at - now - TIMER_LEAD_MS;
+    this.timerAt[0] = at;
     this.timer = this.host.wake(ms > SHORT_WAIT_MS ? ms : 0, this.wakeFn);
   }
 
@@ -595,7 +613,7 @@ export class SimShell {
     if (this.timer !== null) {
       this.host.cancel(this.timer);
       this.timer = null;
-      this.timerAt = Number.POSITIVE_INFINITY;
+      this.timerAt[0] = Number.POSITIVE_INFINITY;
     }
     if (!this.bound || this.stopped) return;
     const now = this.host.now();
@@ -605,13 +623,13 @@ export class SimShell {
     } else if (this.source.horizon() > this.tick) at = now;
     if (this.extractWanted) at = Math.min(at, now);
     if (this.queries.pending > 0) at = Math.min(at, now + QUERY_TIMER_MS);
-    if (at !== Number.POSITIVE_INFINITY) this.setTimer(at);
+    if (at !== Number.POSITIVE_INFINITY) this.setTimer(at, now);
   }
 
   /** A wake (§3.3): the due ticks (at most 3; a backlog over 6 rebases), one extraction, then queries. */
   private wake(): void {
     this.timer = null;
-    this.timerAt = Number.POSITIVE_INFINITY;
+    this.timerAt[0] = Number.POSITIVE_INFINITY;
     if (!this.bound || this.stopped) return;
     const start = this.host.now();
     let ran = 0;
@@ -713,10 +731,11 @@ export class SimShell {
     sim.digest();
     const d = sim.digestOut;
     this.digests.push(t, d[1] as number, d[2] as number);
+    // The envelope (`u32 len`) holds PendingChunks: `u32 count`, then 16-byte ChunkRequest records (§15.8).
     const pc = sim.pendingChunks();
     lease = sim.lease;
-    if (lease.dv.getUint32(pc, true) > 0)
-      this.requestChunks(lease.u8.slice(pc + 4, pc + 4 + lease.dv.getUint32(pc, true)));
+    const requests = lease.dv.getUint32(pc + 4, true);
+    if (requests > 0) this.requestChunks(lease.u8.slice(pc + 8, pc + 8 + 16 * requests));
     if (this.pool) this.pool.forget(t);
     if (this.sysCount > 0) this.afterSystem(t);
     const r = this.replaying;
@@ -844,6 +863,7 @@ export class SimShell {
     if (this.viewChart && this.pool) this.chartRequests(slot.dv);
     this.pktMsg.buf = slot.buf;
     this.pktTransfer[0] = slot.buf;
+    this.packets.posted(slot);
     this.host.post(this.pktMsg, this.pktTransfer);
     this.pktMsg.buf = EMPTY;
   }
@@ -1040,7 +1060,7 @@ export class SimShell {
     this.setFlag(SimFlags.historical, false);
     this.clock.paused = true;
     this.bind();
-    const u64 = (lo: number, hi: number) => hex16((BigInt(hi) << 32n) | BigInt(lo));
+    const u64 = (lo: number, hi: number) => hex16((BigInt(hi >>> 0) << 32n) | BigInt(lo >>> 0));
     this.host.post(
       mismatch
         ? {

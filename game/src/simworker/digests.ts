@@ -9,7 +9,7 @@ export class DigestRing {
   last = 0;
   count = 0;
 
-  /** Stores d_t; a tick that does not follow the last starts the ring afresh. */
+  /** Stores d_t (its words signed or unsigned); a tick that does not follow the last starts the ring afresh. */
   push(tick: number, lo: number, hi: number): void {
     if (this.count > 0 && tick !== this.last + 1) this.count = 0;
     const i = (tick % DIGEST_RING_TICKS) * 2;

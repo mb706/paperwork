@@ -103,8 +103,8 @@ export class ShellHarness {
     for (const b of this.held.splice(0)) void this.shell.handle({ t: 'ack', buf: b });
   }
 
-  send(m: MainToSim): Promise<void> {
-    return this.shell.handle(m);
+  async send(m: MainToSim): Promise<void> {
+    await this.shell.handle(m);
   }
 
   /** Messages of one type. */

@@ -39,6 +39,7 @@ const DEV_PANIC: u32 = 0xFFFF_FFFF;
 const CMD_GROW: u32 = 0xFFFF_0001;
 const CMD_BIG_PACKET: u32 = 0xFFFF_0002;
 const CMD_UNREACHABLE: u32 = 0xFFFF_0003;
+const CMD_REQUEST: u32 = 0xFFFF_0004;
 
 const PLAYERS: usize = 32;
 
@@ -378,6 +379,17 @@ impl Stub {
                 self.io.moved();
             }
             CMD_BIG_PACKET => self.big_packet = true,
+            CMD_REQUEST => {
+                // Two chunks east of the start, committing 30 ticks on (§5.18), reported by the next
+                // sim_pending_chunks: the shell's per-tick path.
+                if let Some(w) = self.world.as_mut() {
+                    for cx in [5, 6] {
+                        let q = Request { cx, cy: 0, commit: tick + 30, supplied: false };
+                        w.requests.push(q);
+                        w.unreported.push(q);
+                    }
+                }
+            }
             _ => log(0, &format!("stub: debug_dump {id} at tick {tick}")),
         }
     }

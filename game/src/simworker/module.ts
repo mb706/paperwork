@@ -181,8 +181,11 @@ export class SimInstance {
   dead: TrapError | null = null;
   /** The panic hook's last message (`host_panic`, set by the imports before the abort). */
   panicMessage: string | null = null;
-  /** sim_digest's result after `digest()`: tick, d (low, high), r (low, high). */
-  readonly digestOut = new Uint32Array(5);
+  /**
+   * sim_digest's result after `digest()`: tick, d (low, high), r (low, high), as 32-bit words read signed (so no
+   * word ever becomes a boxed double on the tick path); `>>> 0` gives the unsigned value.
+   */
+  readonly digestOut = new Int32Array(5);
 
   constructor(e: SimExports, memory: WebAssembly.Memory, dev: boolean) {
     this.e = e;
@@ -287,11 +290,11 @@ export class SimInstance {
     if (p === 0) throw this.lastError();
     const dv = this.lease.dv;
     const o = this.digestOut;
-    o[0] = dv.getUint32(p + 4, true);
-    o[1] = dv.getUint32(p + 8, true);
-    o[2] = dv.getUint32(p + 12, true);
-    o[3] = dv.getUint32(p + 16, true);
-    o[4] = dv.getUint32(p + 20, true);
+    o[0] = dv.getInt32(p + 4, true);
+    o[1] = dv.getInt32(p + 8, true);
+    o[2] = dv.getInt32(p + 12, true);
+    o[3] = dv.getInt32(p + 16, true);
+    o[4] = dv.getInt32(p + 20, true);
   }
 
   /** `sim_pending_chunks()`: the envelope's address (`u32 count`, then ChunkRequest records). */

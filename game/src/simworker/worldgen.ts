@@ -91,6 +91,8 @@ export class GenPool {
   /** Forgets requests whose commit tick has passed (the sim generated them inline). */
   forget(tick: number): void {
     this.tick = tick;
+    // Every tick calls this: with nothing in flight it allocates nothing (no iterator).
+    if (this.inflight.size === 0) return;
     for (const [id, q] of this.inflight) if (q.commit <= tick) this.inflight.delete(id);
   }
 

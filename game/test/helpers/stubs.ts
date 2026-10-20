@@ -148,4 +148,6 @@ export const STUB_COMMAND = {
   bigPacket: 0xffff0002,
   /** A trap without a panic message. */
   unreachable: 0xffff0003,
+  /** Two chunk requests (5,0) and (6,0) committing 30 ticks on, reported by the next sim_pending_chunks. */
+  request: 0xffff0004,
 } as const;

@@ -240,10 +240,20 @@ export class LocalSequencer implements ClosureSource {
     }
   }
 
+  /**
+   * The room of a tick from `open` on: a ring indexed by tick, reset as each tick closes. An admission that
+   * reaches past the ring (megabytes of spilled actions) doubles it, placing each room at its tick again.
+   */
   private room(tick: number): TickRoom {
-    const i = tick - this.open;
-    while (i >= this.rooms.length) this.rooms.push(emptyRoom());
-    return this.rooms[i] as TickRoom;
+    while (tick - this.open >= this.rooms.length) {
+      const old = this.rooms;
+      const n = old.length * 2;
+      const grown: TickRoom[] = Array.from({ length: n }, () => emptyRoom());
+      for (let t = this.open; t < this.open + old.length; t++)
+        grown[t & (n - 1)] = old[t & (old.length - 1)] as TickRoom;
+      this.rooms = grown;
+    }
+    return this.rooms[tick & (this.rooms.length - 1)] as TickRoom;
   }
 
   /** Admits an action (§15.3) from the open tick, never before its player's previous one (11 §3.4). */
@@ -407,13 +417,12 @@ export class LocalSequencer implements ClosureSource {
       this.head = 0;
       this.tail = 0;
       this.arenaTop = 0;
-      this.blobStore.clear();
+      // Map.clear() makes a new table even when empty: only when there is something to clear.
+      if (this.blobStore.size > 0) this.blobStore.clear();
     }
+    // The closed tick's room, empty, serves the tick a ring's length later.
+    resetRoom(this.rooms[tick & (this.rooms.length - 1)] as TickRoom);
     this.open = tick + 1;
-    // The closed tick's room becomes the last one, empty.
-    const r = this.rooms.shift() as TickRoom;
-    resetRoom(r);
-    this.rooms.push(r);
   }
 }
 
@@ -422,13 +431,14 @@ export class ReplaySource implements ClosureSource {
   readonly log: ClosureLog;
   private readonly byTick = new Map<number, Uint8Array>();
   private readonly blobBytes = new Map<string, Uint8Array>();
-  private readonly digestWords: Uint32Array;
+  /** The log's digests as signed words, as SimInstance.digestOut holds them. */
+  private readonly digestWords: Int32Array;
 
   constructor(log: ClosureLog) {
     this.log = log;
     for (const r of log.records) this.byTick.set(r.tick, r.closure);
     for (const b of log.blobs) this.blobBytes.set(hexOf(b.sha256.bytes), b.bytes);
-    this.digestWords = new Uint32Array(log.digests.length * 2);
+    this.digestWords = new Int32Array(log.digests.length * 2);
     log.digests.forEach((d, i) => {
       this.digestWords[2 * i] = Number(d & 0xffffffffn);
       this.digestWords[2 * i + 1] = Number(d >> 32n);
