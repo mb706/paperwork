@@ -67,3 +67,7 @@ Ordered by importance.
 ## Files
 Created and changed.
 ```
+
+## Manager note: worktrees
+
+Keep a worktree agent's worktree until its codex review cycle is complete. A removed worktree cannot be resumed, so the fixes would need a fresh agent.

@@ -5,7 +5,7 @@
     "lib": ["es2024", "webworker"],
     "types": ["vite/client"]
   },
-  "include": ["src/simworker/**/*.ts", "src/app/workers/sim.ts"],
+  "include": ["src/simworker/**/*.ts", "src/app/workers/sim.ts", "src/app/workers/fake-sim.ts"],
   "exclude": ["**/*.test.ts"],
   "references": [{ "path": "./tsconfig.shared.json" }]
 }

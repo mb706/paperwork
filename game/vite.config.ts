@@ -6,6 +6,7 @@ import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
 import { cargoPlugin } from './scripts/cargo-plugin.ts';
 import { dataStagePlugin, schemaGenPlugin } from './scripts/data-stage-plugin.ts';
+import { fakeDataPlugin } from './scripts/fake-data-plugin.ts';
 import { releasePlugin } from './scripts/release-plugin.ts';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
@@ -16,6 +17,7 @@ export default defineConfig({
   plugins: [
     schemaGenPlugin({ root }),
     dataStagePlugin({ root }),
+    ...fakeDataPlugin({ root }),
     cargoPlugin({ root }),
     solid(),
     releasePlugin({ root }),

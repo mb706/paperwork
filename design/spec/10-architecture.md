@@ -4210,7 +4210,7 @@ So that the renderer, UI, audio and shell can be built before the sim, and the s
 - **Codec fixtures** (§15.1), generated and hand-written, pin both languages' codecs, including the `new_world`, `sim_meta`, `load_report`, `ChunkData` and view-request records and every ABI envelope (§15.8).
 - **The M0 golden integration set** (`test/golden/m0/`; B1-r1 1, 21) is frozen by the contract gate before any parallel package starts (§12):
   - the M0 prototype set: its `prototypes.bin` and `prototypes.json`;
-  - a **start save** written with the generated TypeScript section writers: a bounded map of 3 × 3 chunks around the origin (map size, 07 §17), so it has negative chunk coordinates, with its tiles, a pond and a resource patch stored as modified chunks, a chest and one player, so no worldgen runs;
+  - a **start save** written with the generated TypeScript section writers: a bounded map of 96 × 96 tiles centred on the origin (map size, 07 §17; it touches chunks −2 to 1 on each axis), so it has negative chunk coordinates, with its tiles, a pond and a resource patch stored as modified chunks, a chest and one player, so no worldgen runs;
   - a **closure log** of 600 ticks (§8.5) with every M0 action, a refusal of each M0 reason, a malformed and an `unsupported` action, a fenced held input, a `player_left` and a return, and a blob;
   - the **expected per-tick digests**, and the expected canonical state at ticks 1, 2, 300 and 600;
   - the **expected packets** for a fixed view request at ticks 0, 1 and 600, with every M0 section, and the expected record of every M0 projection and query;
