@@ -19,6 +19,7 @@ import { type ShellHost, SimShell } from '../../src/simworker/shell.ts';
 import { modelExports } from '../helpers/model-module.ts';
 import { GAME } from '../helpers/paths.ts';
 import { golden, goldenProtos, loadMessage, manifest } from '../helpers/shell-harness.ts';
+import { buildStubs } from '../helpers/stubs.ts';
 
 /**
  * A shell whose host keeps nothing: a manual clock whose one pending wake the test fires, and packets acked at
@@ -72,6 +73,7 @@ interface Window {
 }
 
 function probe(mode: 'frames' | 'step', n: number): Window[] {
+  buildStubs(); // the probe reads target/stubs/…/stubsim.wasm
   const out = execFileSync(
     process.execPath,
     ['--expose-gc', join(GAME, 'test', 'shell', 'steady-probe.ts'), mode, String(n)],
