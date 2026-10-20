@@ -622,3 +622,22 @@ after every interesting tick and covers:
   - changed: `src/simworker/fake.ts`, `src/simworker/fake/{world,extract,protos}.ts`, `src/app/fake-mode.ts`,
     `scripts/fake-data-plugin.ts`, `test/fake/{harness,fake.test}.ts`, `e2e/fake.spec.ts`.
 - **CLAUDE.md:** the golden workflow, the fake and the sound tables.
+
+## Integration: sounds.yaml
+
+C7 (audio v0, merge 257f698) added `game/data/engine/sounds.yaml`, which the data stage reads.
+- **Data-stage tests** now expect the real table: `prototypes.json.sounds` equals the file's 15 names, sorted. The
+  negative test writes a `sounds.yaml` whose working sound is undeclared into a scratch repository, and expects
+  the diagnostic with its file and line. A new test shows that `--engine-file` is read only when
+  `game/data/engine` lacks the file.
+- **The golden set, version 4: a mechanical bump** (decision 14).
+  - Only `protos/prototypes.json` changed: its `sounds` list.
+  - `prototypes.bin` is byte-identical, because M0's entities (the chest and the character) have no working
+    sound. So no state, digest, projection, query, packet or trace changed, and the atlas's `prototypesHash`
+    still matches.
+  - `main.ts` now allows a mechanical bump when only `protos/` changed.
+  - The README's Freezing section (a contract input) still lists only the atlas and the schema hash as mechanical,
+    and its audio paragraph still names the deleted fixture. Both edits wait for the next value bump.
+- **The fake** builds with the real table. `test/fixtures/fake/sounds.yaml` and the `--engine-file` argument are
+  gone. The ids are unchanged (belt-loop 1, keypunch-loop 10), because the fixture held the same names.
+- `npm run ci`: green in 40.4 s.

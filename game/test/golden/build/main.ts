@@ -8,7 +8,8 @@
 //
 // A changed golden file is a changed contract: --write alone leaves the set failing its freeze test until the
 // change has been reviewed and recorded with --bump. Decision 14's two kinds: a *mechanical* bump changes no
-// expected value (only the tiny atlas, or a schema layout change: the schema hash moved), and the package that
+// expected value (only the tiny atlas, a schema layout change: the schema hash moved, or only the frozen
+// prototype files under protos/: a data change no expected value depends on), and the package that
 // causes it may record it; a *value* bump changes expected states, digests, records, packets or refusals and
 // names the approval it was made under (a review or the manager's decision, e.g. pm/reviews/GATE-r1.md). The
 // tool refuses a mechanical bump of anything else, a value bump without an approval, and a short reason.
@@ -247,14 +248,20 @@ function main(): number {
       return 1;
     }
     if (bumpKind === 'mechanical' && latest) {
-      // Mechanical (decision 14): only the tiny atlas changed, or the schema layout did (the hash moved).
+      // Mechanical (decision 14): only the tiny atlas changed, the schema layout did (the hash moved), or only the
+      // frozen prototype files did (protos/: a data change that alters no expected state, digest, record or
+      // packet, since every other file is unchanged).
       const old = existsSync(join(M0, MANIFEST))
         ? (JSON.parse(readFileSync(join(M0, MANIFEST), 'utf8')) as Manifest)
         : null;
-      const filesChanged = !old || canonical(old.files) !== canonical(table);
+      const changed = [...new Set([...Object.keys(old?.files ?? {}), ...Object.keys(table)])].filter(
+        (p) => old?.files[p] !== table[p],
+      );
+      const filesChanged = !old || changed.length > 0;
+      const protosOnly = changed.length > 0 && changed.every((p) => p.startsWith('protos/'));
       const contractChanged = !old || canonical(old.contract ?? {}) !== canonical(contract);
       const schemaMoved = !old || old.schemaHash !== SCHEMA_HASH;
-      if (contractChanged || (filesChanged && !schemaMoved)) {
+      if (contractChanged || (filesChanged && !schemaMoved && !protosOnly)) {
         console.error(
           'golden set: expected values or the contract changed without a schema change: that is a value bump (--bump value --approval …)',
         );

@@ -1,7 +1,6 @@
 // Drives the fake sim (src/simworker/fake.ts) in-process through the §3.2 protocol, with a manual clock, for
 // tests and for the debug snapshot.
 
-import { join } from 'node:path';
 import { formatDiagnostic } from '../../scripts/data-stage/diagnostics.ts';
 import { runDataStage } from '../../scripts/data-stage/index.ts';
 import { NewWorldCodec } from '../../src/shared/gen/abi.ts';
@@ -25,8 +24,6 @@ export function fakeProtos(): PrototypesJson {
     allowIncomplete: true,
     schemaHash: SCHEMA_HASH,
     protocolVersion: PROTOCOL_VERSION,
-    // As the dev server builds it (scripts/fake-data-plugin.ts): with a complete sound table.
-    engineFiles: { 'sounds.yaml': join(GAME, 'test', 'fixtures', 'fake', 'sounds.yaml') },
   });
   if (r.diagnostics.errors.length > 0) throw new Error(r.diagnostics.errors.map(formatDiagnostic).join('\n'));
   const bytes = r.outputs.get('public/data/prototypes.json');

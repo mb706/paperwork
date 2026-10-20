@@ -110,8 +110,8 @@
   `gamedev-python scripts/assets/fixture.py`, then bump.
 - **Fake sim (C1c, 10 §15.10):** `npm run dev`, then `/?sim=fake` (dev builds only) runs `src/simworker/fake.ts` in a
   worker on the M1 prototype build, which the dev server builds into `.cache/data/m1/` and serves at `/data/fake/`
-  (with `test/fixtures/fake/sounds.yaml` as its sound table until `data/engine/sounds.yaml` exists). Its M0
-  interactions follow the reference model's rules (`src/simworker/fake/rules.ts`), and `save` answers `saved`.
+  (its `AUDIO_WORKING` uses the build's sound ids, from `data/engine/sounds.yaml`). Its M0 interactions follow the
+  reference model's rules (`src/simworker/fake/rules.ts`), and `save` answers `saved`.
   It speaks `src/shared/protocol.ts` (§3.2) and sends every section and M0 projection. WASD walks; `?fakeDay=N`
   shortens the day; `?test=1` pauses it, and `window.__fake.step(n)`, `.act(action)` and `.status()` drive it. Tests
   run it in-process (`test/fake/harness.ts`); `node test/fake/snapshot.ts out.png [ticks]` draws its packet stream.

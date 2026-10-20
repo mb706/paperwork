@@ -3,3 +3,4 @@
 1 f224fbe0bab115025b297691e47ed850630b017a29d955c0adf88eac86f8a21d initial M0 golden set (C1c)
 2 5cae6732787a3e774475c0fc7cd066d01abaf52ce4e2194bb9ee675016841882 the tiny atlas is C6's fixture (test/fixtures/sprites/), frozen as external files; my own atlas dropped
 3 e3f7188da7a62dec99eef217c8c4ffb1ea983decfcc46936d9e6d0328455c23c kind=value approval=pm/reviews/GATE-r1.md prev=74f124de175e19b7 GATE-r1 fixes: Factorio 2.0.77 rules for the bar, Q, transfers, mining and crafting; seq watermark records; d_t per 4.8 and pinned slice/r/lineage over 3,600 ticks; ABI traces incl. capacity, packet transitions, watermarks, remap; executed negative cases; atlas for these prototypes
+4 214d50780ec6866b86695fbe8f49824251c8989a1ce16984a030e538805908df kind=mechanical approval=- prev=57a1e08e6c47c5b5 integration of C7's sounds.yaml: prototypes.json lists the 15 sound names; prototypes.bin and every expected value are unchanged

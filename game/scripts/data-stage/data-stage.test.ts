@@ -1,7 +1,7 @@
 // The data stage end to end (10 §2.4, §15.2): determinism (D14), the binary format read back, M0's
 // prototypes, and diagnostics that name the file, the path and the line. Error cases run on a scratch
 // copy of the repository's data, so the real files are never touched.
-import { writeFileSync } from 'node:fs';
+import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { DecodeError } from '../../src/shared/gen/codec.ts';
@@ -11,10 +11,11 @@ import { edit, messages, options, scratchRepo } from '../../test/helpers/data-st
 import { GAME } from '../../test/helpers/paths.ts';
 import { ByteReader } from '../lib/bytes.ts';
 import { sha256Hex } from '../lib/hash.ts';
-import { formatDiagnostic } from './diagnostics.ts';
+import { Diagnostics, formatDiagnostic } from './diagnostics.ts';
 import { readColumnTable, readSections } from './emit/container.ts';
 import { DATA_VERSION, FORMAT_VERSION, HEADER_BYTES, MAGIC, SECTION_IDS } from './emit/protos-bin.ts';
 import { type DataStageResult, OUTPUT_PATHS, runDataStage } from './index.ts';
+import { loadYaml } from './sources.ts';
 
 describe('the data stage on the repository data', () => {
   let r: DataStageResult;
@@ -166,9 +167,19 @@ describe('the data stage on the repository data', () => {
     expect(Object.keys(json.localeKeys).sort()).toEqual(['AlertType', 'FailReason', 'FlyingText', 'Status']);
     expect(json.milestones).toContain('first-memo');
     expect([...json.milestones].sort()).toEqual(json.milestones);
-    expect(json.sounds).toEqual([]);
+    // The sound-id table (10 §15.6; C1b decision 14): game/data/engine/sounds.yaml's names, sorted.
+    expect(json.sounds).toEqual(soundNames());
   });
 });
+
+/** The names game/data/engine/sounds.yaml declares, in the data stage's id order (code-unit order). */
+function soundNames(): string[] {
+  const d = new Diagnostics();
+  const src = loadYaml(join(GAME, 'data/engine/sounds.yaml'), 'game/data/engine/sounds.yaml', d);
+  if (!src) throw new Error('game/data/engine/sounds.yaml does not load');
+  const names = Object.keys((src.value as { sounds: Record<string, unknown> }).sounds);
+  return names.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
 
 describe('diagnostics point at the YAML file, path and line', () => {
   it('reports a wrongly typed field', () => {
@@ -253,19 +264,12 @@ describe('diagnostics point at the YAML file, path and line', () => {
 });
 
 describe('the sound tables (10 §15.6; C1b decision 14)', () => {
-  const fixture = join(GAME, 'test/fixtures/fake/sounds.yaml');
-
   it('reads sounds.yaml: ids dense and sorted by name, each entity its working sound', () => {
-    const r = runDataStage({
-      ...options(),
-      manifest: 'm1',
-      allowIncomplete: true,
-      engineFiles: { 'sounds.yaml': fixture },
-    });
+    const r = runDataStage({ ...options(), manifest: 'm1', allowIncomplete: true });
     expect(messages(r)).toEqual([]);
     const json = JSON.parse(new TextDecoder().decode(r.outputs.get(OUTPUT_PATHS.json)));
-    expect(json.sounds).toEqual([...json.sounds].sort());
-    expect(json.sounds).toContain('belt-loop');
+    expect(json.sounds).toEqual(soundNames());
+    expect(json.sounds.length).toBeGreaterThan(0);
     const bin = readPrototypesBin(r.outputs.get(OUTPUT_PATHS.bin) as Uint8Array, undefined, []);
     const sound = (entity: string) => bin.entity[bin.names.entity.indexOf(entity)]?.working_sound;
     expect(sound('transport-belt')).toBe(json.sounds.indexOf('belt-loop'));
@@ -275,11 +279,32 @@ describe('the sound tables (10 §15.6; C1b decision 14)', () => {
 
   it('refuses a working sound that is not declared', () => {
     const { game, spec } = scratchRepo();
-    const bad = join(game, 'sounds.yaml');
-    writeFileSync(bad, 'sounds:\n  belt-loop: {}\nworking_sounds:\n  transport-belt: hum\n');
-    const out = messages(runDataStage({ ...options(game, spec), engineFiles: { 'sounds.yaml': bad } })).join(
-      '\n',
+    // A sounds.yaml whose working sound names a sound it does not declare.
+    writeFileSync(
+      join(game, 'data/engine/sounds.yaml'),
+      'sounds:\n  belt-loop: {}\nworking_sounds:\n  transport-belt: hum\n',
     );
-    expect(out).toMatch(/working sound hum of transport-belt is not a declared sound/);
+    const out = messages(runDataStage(options(game, spec))).join('\n');
+    expect(out).toMatch(
+      /sounds\.yaml:\d+:\d+: working_sounds\.transport-belt: working sound hum of transport-belt is not a declared sound/,
+    );
+  });
+
+  it('reads an --engine-file override only where game/data/engine lacks the file', () => {
+    const { game, spec } = scratchRepo();
+    const own = join(game, 'data/engine/sounds.yaml');
+    const other = join(game, 'other-sounds.yaml');
+    writeFileSync(other, 'sounds:\n  hum: {}\nworking_sounds:\n  iron-chest: hum\n');
+    const names = (r: ReturnType<typeof runDataStage>) =>
+      JSON.parse(new TextDecoder().decode(r.outputs.get(OUTPUT_PATHS.json))).sounds;
+    // The engine's own file wins.
+    expect(names(runDataStage({ ...options(game, spec), engineFiles: { 'sounds.yaml': other } }))).toEqual(
+      soundNames(),
+    );
+    // Without it, the override is read.
+    rmSync(own);
+    expect(names(runDataStage({ ...options(game, spec), engineFiles: { 'sounds.yaml': other } }))).toEqual([
+      'hum',
+    ]);
   });
 });

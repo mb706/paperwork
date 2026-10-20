@@ -17,17 +17,10 @@ export function fakeDataPlugin({ root }: { root: string }): Plugin[] {
       name: 'fake-data',
       root,
       script: 'scripts/data-stage.ts',
-      // The fake's build carries a complete sound table (10 §15.6): the audio package's sounds.yaml when it
-      // exists, else the fixture with the same names (test/fixtures/fake/sounds.yaml).
-      args: [
-        '--manifest',
-        'm1',
-        '--allow-incomplete',
-        '--quiet',
-        '--engine-file',
-        'sounds.yaml=test/fixtures/fake/sounds.yaml',
-      ],
-      watched: [...dataStageWatched(root), join(root, 'test', 'fixtures', 'fake', 'sounds.yaml')],
+      // The build's sound table comes from game/data/engine/sounds.yaml (10 §15.6), so the fake's
+      // AUDIO_WORKING carries the audio package's own sound ids.
+      args: ['--manifest', 'm1', '--allow-incomplete', '--quiet'],
+      watched: dataStageWatched(root),
       holdPrefixes: ['/data/fake/'],
       dependsOn: ['schema-gen', 'fake-data'],
       follows: ['schema-gen'],

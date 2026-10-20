@@ -422,7 +422,7 @@
     "projections/tick-3600/stats-m1.bin": "cc500aad05adbe9856bd7263507d9b5d48ad78a308fa55f088d776becebc2858",
     "projections/tick-3600/stats-s5.bin": "e2df0ce2573735e752f23dc59fde009b7838a6f3ced0fa3ddff99565d058d74a",
     "protos/prototypes.bin": "db6d64a69842c21d8afb28993937d391d87e825a645d70eaa7d6d5310397be49",
-    "protos/prototypes.json": "af89bf3e0d638ec98b44ec48dc2bc1218f35a3834f05be53445fc0724f908dda",
+    "protos/prototypes.json": "6a6a20954cd4d4df65280df8fddb223bda4dcd95f8d9c29904dc4570a29bcccf",
     "queries/tick-0000.txt": "d88b37f55beab01d5310cccb780f2f6612d3371d38a8df766cefed346514f55e",
     "queries/tick-0000/digest.bin": "b010140625e72f63d6a112f09cd445eabfd88fd5194650478681d1b853c44afd",
     "queries/tick-0000/hash.bin": "a89d29bf0cc7187e3a20fbd08b9cd3c0ff2f202440132bdbcba49fb79f9991fc",
@@ -490,5 +490,5 @@
     "view.bin": "daa6576b55def4e169b3472f0f3370edb84a9182004aa9a63ebc52994a641517"
   },
   "schemaHash": "bed0caa0b5b03465cddfbab410209d9611f1f8416ba834d7ac0b33304e240444",
-  "version": 3
+  "version": 4
 }
