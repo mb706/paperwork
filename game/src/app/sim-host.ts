@@ -174,8 +174,10 @@ export class SimHost {
   private pausedByHide = false;
   /** The last bug bundle (§8.5), for `__game.exportBugBundle()` and *Send report*. */
   lastBundle: BugBundle | null = null;
-  /** Packets delivered, by generation (tests and the debug overlay). */
+  /** Packets delivered (tests and the debug overlay), and the last one's tick. */
   delivered = 0;
+  lastTick = 0;
+  private packetWaiters: ((tick: number) => void)[] = [];
 
   constructor(o: SimHostOptions) {
     this.o = o;
@@ -353,7 +355,9 @@ export class SimHost {
         if (s === this.current && gen === s.gen) {
           const len = v.getUint32(24, true);
           this.delivered += 1;
+          this.lastTick = v.getUint32(12, true);
           this.events.packet?.(new Uint8Array(m.buf, 0, len), gen);
+          if (this.packetWaiters.length > 0) for (const f of this.packetWaiters.splice(0)) f(this.lastTick);
         }
         this.post(s, { t: 'ack', buf: m.buf }, [m.buf]);
         return;
@@ -509,9 +513,14 @@ export class SimHost {
     return new Promise((resolve, reject) => this.waiting.set(id, { gen, resolve, reject }));
   }
 
-  /** Sequencer control (§3.3, S14). `step` resolves with the next packet's tick. */
+  /** Sequencer control (§3.3, S14). */
   control(op: SeqOp): void {
     if (this.current) this.post(this.current, { t: 'seq', op });
+  }
+
+  /** The next packet of the current generation: its tick (test mode's `step(n)` answers with one, §3.3). */
+  nextPacket(): Promise<number> {
+    return new Promise((resolve) => this.packetWaiters.push(resolve));
   }
 
   /** A dev hook (§3.5): `res`, or `bundle` for `{op: 'bundle'}`. */
