@@ -2,6 +2,7 @@
 //! reference interpreter on every formula of the design data at every checked point, and the hand-written
 //! golden values of the edge cases. The fixture is written by the data stage (`npm run data`):
 //! game/test/fixtures/expr/cases.txt; scripts/data-stage/emit/expr-fixture.ts documents its format.
+#![allow(clippy::disallowed_methods)] // a test reads its fixture
 
 use det::expr::{Range, eval};
 use std::fs;
@@ -59,13 +60,19 @@ fn rust_matches_the_reference_interpreter() {
                 let (name, range) = (f[1], Range { lo: f64_bits(f[3]), hi: f64_bits(f[4]) });
                 let code = bytes(f[6]);
                 let want_count: usize = f[7].parse().expect("count");
+                assert!(want_count > 0, "{name}: a case without points checks nothing");
                 let mut hash = Fnv32(0x811c_9dc5);
+                let mut units = Fnv32(0x811c_9dc5);
                 let pts = points(f[5], usize::from(code[2]));
                 let mut values = Vec::with_capacity(pts.len());
                 for vars in &pts {
                     let v = eval(&code, vars, range).expect("valid bytecode");
                     hash.result(v.value, v.flags);
+                    units.result(det::unit_count(v.value), 0);
                     values.push(v.value);
+                }
+                if f[10] != "-" && format!("{:08x}", units.0) != f[10] {
+                    failures.push(format!("{name}: unit counts hash {:08x}, want {}", units.0, f[10]));
                 }
                 if pts.len() != want_count || format!("{:08x}", hash.0) != f[8] {
                     let samples: Vec<String> = f[9]

@@ -10,7 +10,7 @@ import { extname, join, sep } from 'node:path';
 import { brotliCompressSync, constants, gzipSync } from 'node:zlib';
 import type { Plugin } from 'vite';
 import { PROTOCOL_VERSION, SCHEMA_HASH } from '../src/shared/gen/schema.ts';
-import { MANIFEST_PATH, releaseManifest, writeManifest } from './build-manifest.ts';
+import { type BuildManifest, MANIFEST_PATH, releaseManifest, writeManifest } from './build-manifest.ts';
 
 /** Text-like files get compressed siblings (10 §9.7); KTX2, WebP, PNG, Opus, M4A and WOFF2 do not. */
 export const TEXT_LIKE = new Set([
@@ -100,13 +100,17 @@ export function releasePlugin({ root }: ReleasePluginOptions): Plugin {
       handler() {
         if (command !== 'build') return;
         const dist = join(root, 'dist');
-        // The build's name (its capability manifest) comes from the data stage's manifest in public/data.
-        const { build } = JSON.parse(readFileSync(join(dist, MANIFEST_PATH), 'utf8')) as { build: string };
+        // The build's name and contents come from the data stage's manifest, copied from public/data.
+        const data = JSON.parse(readFileSync(join(dist, MANIFEST_PATH), 'utf8')) as BuildManifest;
         const m = releaseManifest(dist, {
           schemaHash: SCHEMA_HASH,
           protocolVersion: PROTOCOL_VERSION,
-          build,
+          build: data.build,
+          contents: data.contents,
         });
+        // Both modules ship with every build (C1a-r1 finding 12).
+        const missing = ['sim', 'gen'].filter((k) => !m.modules[k]);
+        if (missing.length > 0) this.error(`the release build lacks ${missing.join(' and ')}.wasm`);
         writeManifest(join(dist, MANIFEST_PATH), m);
         const n = compressSiblings(dist);
         this.info?.(

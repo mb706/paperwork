@@ -1,5 +1,6 @@
 // The expression compiler and its reference interpreter (10 §15.2): grammar, bytecode layout, golden
 // values, the hand-written edge cases, and refusal of malformed input.
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { GAME } from '../../test/helpers/paths.ts';
@@ -146,6 +147,21 @@ describe('det::powi and the limits', () => {
     expect(unitCount(27337.5)).toBe(27338);
     expect(unitCount(2.4999999)).toBe(2);
     expect(FIELDS.count_formula.range).toEqual({ lo: 1, hi: 2 ** 53 });
+  });
+
+  // C1a-r1 finding 7: the goldens det::unit_count shares (test/fixtures/expr/unit-counts.txt).
+  const goldens = readFileSync(join(GAME, 'test/fixtures/expr/unit-counts.txt'), 'utf8')
+    .split('\n')
+    .map((l) => (l.split('#')[0] as string).trim())
+    .filter((l) => l !== '')
+    .map((l) => l.split(/\s+/).map(Number) as [number, number]);
+  it.each(goldens)('unitCount(%d) = %d', (v, want) => {
+    expect(unitCount(v)).toBe(want);
+  });
+  it('differs from floor(v + 0.5) where v + 0.5 rounds', () => {
+    expect(goldens.length).toBeGreaterThanOrEqual(14);
+    expect(Math.floor(4503599627370497 + 0.5)).toBe(4503599627370498);
+    expect(Math.floor(0.49999999999999994 + 0.5)).toBe(1);
   });
 });
 

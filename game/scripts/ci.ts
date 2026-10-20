@@ -4,18 +4,24 @@
 //          without simcheck), the clippy bans, the data stage --check (run twice, D14), and the Python
 //          spec checks (validate_spec, render_spec --check, render_slice --check)
 //   test   cargo test (dev and ntest profiles, simcheck) and Vitest
-//   ci     check and test, then the e2e smoke (Chrome and Firefox) and the release WebAssembly build with
-//          its feature gate, skipped when nothing it depends on changed since the last green run
+//   ci     check and test, then the data stage, then in parallel the e2e smoke (Chrome and Firefox) and the
+//          release path: the release WebAssembly (its build skipped when no input changed since the last
+//          green run, its feature gate always run), vite build, the bundle check and the preview smoke
 //
 // Steps in one lane run in order (the cargo steps share target/); lanes run concurrently. In M0, "green"
 // means M0's checks and tests (the capability manifest, 10 §2.4); the cross-engine smoke trace and
 // `bench --quick` join when the simulation exists. Pin the run on a busy host: `taskset -c 0-15 npm run ci`.
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compareCodeUnits } from './lib/canonical.ts';
-import { sha256Hex } from './lib/hash.ts';
+import {
+  mustRebuild,
+  outputHashes,
+  RELEASE_OUTPUTS,
+  releaseInputsKey,
+  type Stamp,
+} from './ci-release-cache.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = (name: string) => join(ROOT, 'node_modules', '.bin', name);
@@ -26,6 +32,8 @@ interface Step {
   cmd: string[];
   /** Skip with a note when this returns a reason. */
   skip?: () => string | null;
+  /** What to run instead when skipped. */
+  skipCmd?: string[];
   /** Run after the step succeeds. */
   after?: () => void;
 }
@@ -80,44 +88,42 @@ const CARGO_TEST: Step[] = [
 ];
 const VITEST: Step = { name: 'vitest', cmd: [BIN('vitest'), 'run'] };
 
-/** The release build's inputs: when none changed since the last green run, the slow build is skipped. */
-function releaseInputsHash(): string {
-  const files: string[] = [];
-  const walk = (dir: string): void => {
-    if (!existsSync(dir)) return;
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      const p = join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else files.push(relative(ROOT, p).split(sep).join('/'));
-    }
-  };
-  walk(join(ROOT, 'crates'));
-  walk(join(ROOT, 'schema'));
-  for (const f of [
-    'Cargo.toml',
-    'Cargo.lock',
-    'rust-toolchain.toml',
-    'scripts/wasm-release.sh',
-    'scripts/wasm-feature-gate.ts',
-  ])
-    if (existsSync(join(ROOT, f))) files.push(f);
-  files.sort(compareCodeUnits);
-  return sha256Hex(files.map((f) => `${sha256Hex(readFileSync(join(ROOT, f)))}  ${f}\n`).join(''));
-}
-const STAMP = join(ROOT, '.cache', 'ci', 'wasm-release.stamp');
+const STAMP = join(ROOT, '.cache', 'ci', 'wasm-release.stamp.json');
+const readStamp = (): Stamp | null => {
+  try {
+    return JSON.parse(readFileSync(STAMP, 'utf8')) as Stamp;
+  } catch {
+    return null;
+  }
+};
+let releaseKey = '';
 const RELEASE: Step = {
   name: 'release wasm + feature gate',
   cmd: ['sh', 'scripts/wasm-release.sh'],
-  skip: () =>
-    existsSync(STAMP) &&
-    readFileSync(STAMP, 'utf8') === releaseInputsHash() &&
-    existsSync(join(ROOT, 'target/wasm-release/sim.wasm'))
-      ? 'unchanged since the last green run'
-      : null,
+  // Skipped only when the inputs and both outputs are those of the last green run; the gate still runs.
+  skip: () => {
+    releaseKey = releaseInputsKey({ root: ROOT, env: process.env });
+    const why = mustRebuild(ROOT, readStamp(), releaseKey);
+    return why === null ? 'unchanged since the last green run (feature gate run)' : null;
+  },
+  skipCmd: [NODE, 'scripts/wasm-feature-gate.ts', ...RELEASE_OUTPUTS],
   after: () => {
     mkdirSync(dirname(STAMP), { recursive: true });
-    writeFileSync(STAMP, releaseInputsHash());
+    const stamp: Stamp = {
+      key: releaseKey || releaseInputsKey({ root: ROOT, env: process.env }),
+      outputs: outputHashes(ROOT) ?? {},
+    };
+    writeFileSync(STAMP, `${JSON.stringify(stamp, null, 2)}\n`);
   },
+};
+const BUILD: Step = {
+  name: 'vite build',
+  cmd: [NODE, 'node_modules/vite/bin/vite.js', 'build', '--logLevel', 'warn'],
+};
+const CHECK_RELEASE: Step = { name: 'release bundle check', cmd: [NODE, 'scripts/check-release.ts'] };
+const E2E_RELEASE: Step = {
+  name: 'e2e @release (preview)',
+  cmd: [BIN('playwright'), 'test', '-c', 'playwright.release.config.ts'],
 };
 const E2E: Step = {
   name: 'e2e @smoke (Chrome, Firefox)',
@@ -134,10 +140,11 @@ interface Result {
 
 function runStep(s: Step): Promise<Result> {
   const reason = s.skip?.();
-  if (reason) return Promise.resolve({ name: s.name, ok: true, ms: 0, note: `skipped: ${reason}` });
+  if (reason && !s.skipCmd)
+    return Promise.resolve({ name: s.name, ok: true, ms: 0, note: `skipped: ${reason}` });
   const t0 = performance.now();
   return new Promise((resolve) => {
-    const [cmd, ...args] = s.cmd as [string, ...string[]];
+    const [cmd, ...args] = (reason ? s.skipCmd : s.cmd) as [string, ...string[]];
     const child = spawn(cmd, args, {
       cwd: ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -152,10 +159,10 @@ function runStep(s: Step): Promise<Result> {
     });
     const done = (ok: boolean, extra = ''): void => {
       const ms = Math.round(performance.now() - t0);
-      if (ok) s.after?.();
-      else console.log(`\n── ${s.name} FAILED ──\n${out.trim()}${extra}\n`);
+      if (!ok) console.log(`\n── ${s.name} FAILED ──\n${out.trim()}${extra}\n`);
+      else if (!reason) s.after?.();
       console.log(`${ok ? '  ok  ' : ' FAIL '} ${s.name.padEnd(30)} ${(ms / 1000).toFixed(1).padStart(6)} s`);
-      resolve({ name: s.name, ok, ms });
+      resolve({ name: s.name, ok, ms, ...(reason ? { note: `skipped: ${reason}` } : {}) });
     };
     child.on('error', (e) => done(false, `\n${e.message}`));
     child.on('close', (code) => done(code === 0));
@@ -185,7 +192,11 @@ async function main(): Promise<number> {
   else if (mode === 'test') results = await runLanes([CARGO_TEST, [VITEST]]);
   else if (mode === 'ci') {
     results = await runLanes([...CHECK, [...CARGO_CHECK, ...CARGO_TEST], [VITEST]]);
-    if (results.every((r) => r.ok)) results.push(...(await runLanes([[DATA, E2E], [RELEASE]])));
+    // The data stage first, alone: afterwards every run of it (the dev server's, vite build's) writes
+    // nothing, so the two browser suites never read a file being written.
+    if (results.every((r) => r.ok)) results.push(...(await runLanes([[DATA]])));
+    if (results.every((r) => r.ok))
+      results.push(...(await runLanes([[E2E], [RELEASE, BUILD, CHECK_RELEASE, E2E_RELEASE]])));
   } else {
     console.error('usage: node scripts/ci.ts check|test|ci');
     return 2;
@@ -200,4 +211,4 @@ async function main(): Promise<number> {
   return failed.length === 0 ? 0 : 1;
 }
 
-process.exitCode = await main();
+if (process.argv[1] === fileURLToPath(import.meta.url)) process.exitCode = await main();

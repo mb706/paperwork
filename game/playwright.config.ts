@@ -8,7 +8,9 @@ const port = Number(process.env.PW_PORT ?? 5191);
 
 export default defineConfig({
   testDir: 'e2e',
-  outputDir: 'test-results',
+  // The release smoke has its own config (playwright.release.config.ts) and server.
+  testIgnore: ['release.spec.ts'],
+  outputDir: 'test-results/dev',
   timeout: 60_000,
   expect: { timeout: 30_000 },
   fullyParallel: false,

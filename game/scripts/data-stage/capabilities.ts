@@ -6,9 +6,12 @@
 import { z } from 'zod';
 import { compareCodeUnits } from '../lib/canonical.ts';
 import type { Diagnostics } from './diagnostics.ts';
+import { EMITTED_META } from './emit/contents.ts';
+import { playthrough } from './playthrough.ts';
 import type { Index } from './refs.ts';
 import type { DesignData } from './schema/index.ts';
 import { at, type SourceFile } from './sources.ts';
+import { triggerTarget } from './triggers.ts';
 
 const id = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 const name = z.string().regex(/^[A-Za-z0-9_-]+$/);
@@ -23,6 +26,8 @@ const manifest = z.strictObject({
     world_objects: z.array(id),
     technologies: z.array(id),
   }),
+  /** The META blocks the milestone's engine reads (C1a-r1 finding 5); each must be in prototypes.bin. */
+  data: z.array(z.string()),
   actions: z.array(name),
   system_actions: z.array(name),
   registries: z.strictObject({
@@ -98,6 +103,7 @@ export function loadCapabilities(src: SourceFile, diags: Diagnostics): Capabilit
         world_objects: u(base.prototypes.world_objects, m.prototypes.world_objects),
         technologies: u(base.prototypes.technologies, m.prototypes.technologies),
       },
+      data: u(base.data, m.data),
       actions: u(base.actions, m.actions),
       system_actions: u(base.system_actions, m.system_actions),
       registries: {
@@ -129,6 +135,13 @@ export function capabilityBuild(
 ): BuildSet {
   const p = cap.prototypes;
   const base = ['manifests', cap.name, 'prototypes'];
+  cap.data.forEach((part, k) => {
+    if (!(EMITTED_META as readonly string[]).includes(part))
+      diags.error(
+        `${cap.name} reads meta ${part}, which prototypes.bin does not carry yet (it carries ${EMITTED_META.join(', ')}; the schema package emits the rest)`,
+        at(src, ['manifests', cap.name, 'data', k]),
+      );
+  });
   const err = (path: (string | number)[], msg: string): void => diags.error(msg, at(src, [...base, ...path]));
   const singular: Record<string, string> = {
     entities: 'entity',
@@ -161,31 +174,57 @@ export function capabilityBuild(
     for (const pk of Object.keys(ix.technologies.get(t)?.cost?.packs ?? {})) items.add(pk);
   items.delete('');
   const startInventory = new Map(Object.entries(d.meta.start.inventory).filter(([k]) => items.has(k)));
-  // Closure: everything obtainable from resources, world objects, the start inventory and the recipes.
-  const ok = new Set<string>([...startInventory.keys()]);
-  for (const r of resources) ok.add(ix.resources.get(r)?.yields ?? '');
-  for (const w of worldObjects) for (const y of Object.keys(ix.world.get(w)?.yields ?? {})) ok.add(y);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const r of recipes) {
-      const rec = ix.recipes.get(r);
-      if (!rec?.ingredients.every((i) => ok.has(i.id))) continue;
-      for (const pr of rec.products)
-        if (!ok.has(pr.id)) {
-          ok.add(pr.id);
-          changed = true;
-        }
-    }
-  }
+  // Closure (C1a-r1 finding 3): a playthrough inside the build. Items must be obtainable, recipes enabled
+  // (at start, or unlocked by a technology the build researches), technologies researchable and resources
+  // extractable, all with the build's own prototypes.
+  const startRecipes = new Set(
+    [...(ix.technologies.get('prior-art')?.unlocks.recipes ?? []), ...d.meta.start.recipes].filter((r) =>
+      recipes.has(r),
+    ),
+  );
+  const play = playthrough(
+    {
+      items,
+      recipes,
+      entities,
+      technologies,
+      resources,
+      worldObjects,
+      startInventory: new Set(startInventory.keys()),
+      startRecipes,
+    },
+    ix,
+  );
+  for (const i of [...items].sort(compareCodeUnits))
+    if (!play.have.has(i)) err([], `item ${i} is not obtainable in ${cap.name}`);
+  for (const r of [...recipes].sort(compareCodeUnits))
+    if (!play.enabled.has(r))
+      err(
+        ['recipes'],
+        `recipe ${r} is never enabled in ${cap.name}: it is no start recipe, and no technology ${cap.name} researches unlocks it`,
+      );
+  for (const t of [...technologies].sort(compareCodeUnits))
+    if (!play.researched.has(t))
+      err(['technologies'], `technology ${t} cannot be researched inside ${cap.name}`);
+  for (const r of [...resources].sort(compareCodeUnits))
+    if (!play.extractable.has(r))
+      err(
+        ['resources'],
+        `resource ${r} cannot be extracted in ${cap.name}: it is not solid, and no included extractor can take it`,
+      );
   const cats = new Set<string>();
   for (const e of entities) for (const c of ix.entities.get(e)?.categories ?? []) cats.add(c);
-  for (const i of [...items].sort(compareCodeUnits))
-    if (!ok.has(i)) err([], `item ${i} is not obtainable in ${cap.name}`);
   for (const r of recipes) {
     const rec = ix.recipes.get(r);
     if (rec && !(rec.handcraft ?? rec.category === 'crafting') && !cats.has(rec.category))
       err(['recipes'], `recipe ${r} can be crafted neither by hand nor by an included machine`);
+  }
+  // Trigger targets live inside the build, in the namespace their type names (C1a-r1 finding 4).
+  for (const t of technologies) {
+    const tr = ix.technologies.get(t)?.trigger;
+    if (!tr || tr.type === 'start' || tr.type === 'research') continue;
+    const target = triggerTarget(tr, { items, recipes, entities, resources });
+    if (typeof target === 'string') err(['technologies'], `${t}: ${target}`);
   }
   for (const i of items) {
     const it = ix.items.get(i);
@@ -208,11 +247,6 @@ export function capabilityBuild(
     if (tr && !cap.registries.triggers.includes(tr))
       err(['technologies'], `${t} uses the trigger ${tr}, which ${cap.name} does not implement`);
   }
-  const startRecipes = new Set(
-    [...(ix.technologies.get('prior-art')?.unlocks.recipes ?? []), ...d.meta.start.recipes].filter((r) =>
-      recipes.has(r),
-    ),
-  );
   return {
     name: cap.name,
     character: p.character,

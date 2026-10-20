@@ -28,6 +28,14 @@ pub fn powi(x: f64, n: i32) -> f64 {
     if n < 0 { 1.0 / r } else { r }
 }
 
+/// A cost rounded half up to whole units (10 §5.12), from the fractional part: `v - floor(v)` is exact
+/// for every finite double, where `floor(v + 0.5)` is not (2^52 + 1 would become 2^52 + 2). The data
+/// stage's `unitCount` is its TypeScript twin; test/fixtures/expr/unit-counts.txt pins both.
+pub fn unit_count(v: f64) -> f64 {
+    let f = v.floor();
+    if v - f >= 0.5 { f + 1.0 } else { f }
+}
+
 /// The larger of two values, as a comparison: `b` unless `a > b` (so a NaN in `a` yields `b`, and a NaN
 /// in `b` yields NaN). `f64::max` differs between native code and WebAssembly on −0 and NaN (10 §4.1).
 pub fn fmax(a: f64, b: f64) -> f64 {

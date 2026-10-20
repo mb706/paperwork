@@ -1,4 +1,4 @@
-# Determinism bans for every crate (10 §4.1 rule 3, D13, D19). Each entry is verified to fire by
+# Determinism and purity bans for every crate (10 §4.1 rule 3, §2.5, D13, D19). Each entry is verified to fire by
 # scripts/check-clippy-bans.ts against test/clippy-bans (part of `npm run check`).
 # `std` calls the platform's libm natively but musl's code in WebAssembly, LLVM's powi has unspecified
 # rounding, and native code and WebAssembly differ on -0 and NaN in max/min/clamp: use crate `det`.
@@ -66,10 +66,54 @@ disallowed-methods = [
   { path = "std::time::Instant::now", reason = "D13: no wall clock in the simulation" },
   { path = "std::time::SystemTime::now", reason = "D13: no wall clock in the simulation" },
   { path = "std::thread::spawn", reason = "D19: one thread" },
+  # I/O, environment and process (10 §2.5: no I/O in det, worldgen or sim). Bans on the resolved paths fire
+  # whatever the import's spelling; simtool (the host) and test files that read fixtures allow them.
+  { path = "std::fs::read", reason = "no I/O in det, worldgen or sim (10 §2.5): the host does it" },
+  { path = "std::fs::read_to_string", reason = "no I/O in the simulation" },
+  { path = "std::fs::write", reason = "no I/O in the simulation" },
+  { path = "std::fs::read_dir", reason = "no I/O in the simulation" },
+  { path = "std::fs::metadata", reason = "no I/O in the simulation" },
+  { path = "std::fs::symlink_metadata", reason = "no I/O in the simulation" },
+  { path = "std::fs::create_dir", reason = "no I/O in the simulation" },
+  { path = "std::fs::create_dir_all", reason = "no I/O in the simulation" },
+  { path = "std::fs::remove_file", reason = "no I/O in the simulation" },
+  { path = "std::fs::remove_dir", reason = "no I/O in the simulation" },
+  { path = "std::fs::remove_dir_all", reason = "no I/O in the simulation" },
+  { path = "std::fs::rename", reason = "no I/O in the simulation" },
+  { path = "std::fs::copy", reason = "no I/O in the simulation" },
+  { path = "std::fs::hard_link", reason = "no I/O in the simulation" },
+  { path = "std::fs::canonicalize", reason = "no I/O in the simulation" },
+  { path = "std::fs::read_link", reason = "no I/O in the simulation" },
+  { path = "std::fs::set_permissions", reason = "no I/O in the simulation" },
+  { path = "std::fs::exists", reason = "no I/O in the simulation" },
+  { path = "std::env::var", reason = "no environment in the simulation (D13): settings arrive as world state" },
+  { path = "std::env::var_os", reason = "no environment in the simulation" },
+  { path = "std::env::vars", reason = "no environment in the simulation" },
+  { path = "std::env::vars_os", reason = "no environment in the simulation" },
+  { path = "std::env::args", reason = "no environment in the simulation" },
+  { path = "std::env::args_os", reason = "no environment in the simulation" },
+  { path = "std::env::current_dir", reason = "no environment in the simulation" },
+  { path = "std::env::set_current_dir", reason = "no environment in the simulation" },
+  { path = "std::env::set_var", reason = "no environment in the simulation" },
+  { path = "std::env::remove_var", reason = "no environment in the simulation" },
+  { path = "std::env::temp_dir", reason = "no environment in the simulation" },
+  { path = "std::env::current_exe", reason = "no environment in the simulation" },
+  { path = "std::process::exit", reason = "the simulation never ends its process: a panic aborts the module (10 §3.6)" },
+  { path = "std::process::abort", reason = "the simulation never ends its process" },
+  { path = "std::process::id", reason = "no process state in the simulation" },
+  { path = "std::io::stdin", reason = "no standard streams in the simulation: log through the host import" },
+  { path = "std::io::stdout", reason = "no standard streams in the simulation: log through the host import" },
+  { path = "std::io::stderr", reason = "no standard streams in the simulation: log through the host import" },
 ]
 disallowed-types = [
   { path = "std::collections::HashMap", reason = "randomly seeded per process: iteration order differs between peers (D3)" },
   { path = "std::collections::HashSet", reason = "randomly seeded per process (D3)" },
+  { path = "std::fs::File", reason = "no I/O in det, worldgen or sim (10 §2.5)" },
+  { path = "std::fs::OpenOptions", reason = "no I/O in the simulation" },
+  { path = "std::net::TcpStream", reason = "no network in the simulation" },
+  { path = "std::net::TcpListener", reason = "no network in the simulation" },
+  { path = "std::net::UdpSocket", reason = "no network in the simulation" },
+  { path = "std::process::Command", reason = "no processes in the simulation" },
 ]
 disallowed-macros = [
   { path = "std::println", reason = "does nothing in WebAssembly: log through the host import (10 §2.5)" },

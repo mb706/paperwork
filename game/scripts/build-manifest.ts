@@ -23,6 +23,11 @@ export interface BuildManifest {
   modules: Record<string, string>;
   /** Release builds: every served file in dist/ (the manifest excluded) with its SHA-256, by path. */
   assets: { path: string; sha256: string }[];
+  /**
+   * What prototypes.bin carries and omits (scripts/data-stage/emit/contents.ts): a consumer refuses a build
+   * that lacks what it needs.
+   */
+  contents: { meta: string[]; omitted: string[] };
 }
 
 export const MANIFEST_PATH = 'data/build-manifest.json';
@@ -46,6 +51,7 @@ export function devManifest(input: {
   schemaHash: string;
   protocolVersion: number;
   build: string;
+  contents: BuildManifest['contents'];
 }): BuildManifest {
   return {
     buildHash: devBuildHash(input.modules, input.prototypesHash, input.schemaHash),
@@ -56,6 +62,7 @@ export function devManifest(input: {
     build: input.build,
     modules: input.modules,
     assets: [],
+    contents: input.contents,
   };
 }
 
@@ -72,7 +79,7 @@ function walk(dir: string): string[] {
 /** The release manifest of a finished dist/ directory. */
 export function releaseManifest(
   distDir: string,
-  input: { schemaHash: string; protocolVersion: number; build: string },
+  input: { schemaHash: string; protocolVersion: number; build: string; contents: BuildManifest['contents'] },
 ): BuildManifest {
   const files = walk(distDir)
     .map((p) => relative(distDir, p).split(sep).join('/'))
@@ -95,6 +102,7 @@ export function releaseManifest(
     build: input.build,
     modules,
     assets: files.map((path) => ({ path, sha256: hashes.get(path) as string })),
+    contents: input.contents,
   };
 }
 

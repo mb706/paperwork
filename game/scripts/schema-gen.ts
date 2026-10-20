@@ -21,6 +21,11 @@ interface Output {
   body: string;
 }
 
+/** The generated files the (empty) schema produces, with their full text: the inventory check-arch uses. */
+export function schemaGenOutputs(schemaHash = ZERO_HASH_HEX): { path: string; text: string }[] {
+  return generate(schemaHash).map((o) => ({ path: o.path, text: render(o, schemaHash) }));
+}
+
 function generate(schemaHash: string): Output[] {
   const hashBytes = '[0; 32]';
   return [
@@ -130,4 +135,4 @@ function main(): number {
   return 0;
 }
 
-process.exitCode = main();
+if (process.argv[1] === fileURLToPath(import.meta.url)) process.exitCode = main();

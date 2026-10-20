@@ -14,9 +14,10 @@ import { devManifest, manifestText } from '../build-manifest.ts';
 import { fromHex, sha256Bytes, toHex } from '../lib/hash.ts';
 import { type BuildSet, capabilityBuild, filterBuild, loadCapabilities } from './capabilities.ts';
 import { Diagnostics } from './diagnostics.ts';
+import { contentsRecord } from './emit/contents.ts';
 import { exprFixture, loadEdgeCases } from './emit/expr-fixture.ts';
 import { protoIdsTs } from './emit/proto-ids.ts';
-import { type TableSummary, writePrototypesBin } from './emit/protos-bin.ts';
+import { type EmitProblem, type TableSummary, writePrototypesBin } from './emit/protos-bin.ts';
 import { prototypesJson } from './emit/protos-json.ts';
 import { checkFormulaRefs } from './formula-refs.ts';
 import { compileFormulas } from './formulas.ts';
@@ -31,10 +32,11 @@ import {
   summary,
 } from './manifests.ts';
 import { buildModel } from './model.ts';
+import { OUTPUT_PATHS } from './outputs.ts';
 import { loadOverlay, type OverlaySources } from './overlay.ts';
 import { checkReferences, indexDesign } from './refs.ts';
-import { FILE_KINDS, type FileKind, validateDesign } from './schema/index.ts';
-import { loadYaml, type SourceFile } from './sources.ts';
+import { type DesignData, FILE_KINDS, type FileKind, validateDesign } from './schema/index.ts';
+import { at, loadYaml, type SourceFile } from './sources.ts';
 
 export interface DataStageOptions {
   /** The game/ directory. */
@@ -69,15 +71,30 @@ export interface DataStageResult {
   extra: { name: string; bytes: number; hash: string; jsonBytes: number }[];
 }
 
-export const OUTPUT_PATHS = {
-  bin: 'public/data/prototypes.bin',
-  json: 'public/data/prototypes.json',
-  manifest: 'public/data/build-manifest.json',
-  protoIds: 'src/shared/gen/proto-ids.ts',
-  exprFixture: 'test/fixtures/expr/cases.txt',
-} as const;
+export { OUTPUT_PATHS } from './outputs.ts';
 
 const enc = new TextEncoder();
+
+const KIND_FILE: Record<EmitProblem['kind'], FileKind | null> = {
+  item: 'items',
+  fluid: 'items',
+  recipe: 'recipes',
+  entity: 'entities',
+  technology: 'technologies',
+  resource: 'resources',
+  tile: 'tiles',
+  world: 'world',
+  signal: null,
+};
+
+/** The writer's refusals as diagnostics at the YAML field they come from (C1a-r1 finding 1). */
+function reportProblems(problems: readonly EmitProblem[], design: DesignData, diags: Diagnostics): void {
+  for (const p of problems) {
+    const file = KIND_FILE[p.kind];
+    if (file) diags.error(p.message, at(design.sources[file], [p.filePos, ...p.path]));
+    else diags.error(`${p.kind} ${p.id}: ${p.message}`);
+  }
+}
 
 /**
  * 10 §2.4 step 4: per machine that takes modules, the build's recipes in its categories that a
@@ -194,6 +211,8 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
   if (diags.errors.length > 0) return result;
   const schemaHash = fromHex(o.schemaHash);
   const bin = writePrototypesBin(model, schemaHash);
+  reportProblems(bin.problems, design, diags);
+  if (diags.errors.length > 0) return result;
   const prototypesHash = toHex(sha256Bytes(bin.bytes));
   result.prototypesHash = prototypesHash;
   result.tables = bin.tables;
@@ -203,9 +222,19 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
       `${model.entities.length} entities, ${model.technologies.length} technologies, ${model.resources.length} resources, ` +
       `${model.tiles.length} tiles, ${model.world.length} world objects; prototypes.bin ${bin.bytes.length} bytes, sha256 ${prototypesHash.slice(0, 16)}…`,
   );
+  if (o.manifest)
+    report.push(
+      `  ${build.name}'s prototypes.bin omits ${contentsRecord().omitted.length} parts of the design data (its META contents record lists them): an engine must refuse a build that lacks what it reads`,
+    );
   const out = result.outputs;
   out.set(OUTPUT_PATHS.bin, bin.bytes);
-  out.set(OUTPUT_PATHS.json, enc.encode(prototypesJson(model, o.schemaHash, prototypesHash)));
+  try {
+    out.set(OUTPUT_PATHS.json, enc.encode(prototypesJson(model, o.schemaHash, prototypesHash)));
+  } catch (e) {
+    diags.error(`prototypes.json: ${(e as Error).message}`);
+    out.clear();
+    return result;
+  }
   out.set(
     OUTPUT_PATHS.manifest,
     enc.encode(
@@ -216,6 +245,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
           schemaHash: o.schemaHash,
           protocolVersion: o.protocolVersion,
           build: build.name,
+          contents: contentsRecord(),
         }),
       ),
     ),
@@ -240,6 +270,8 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
     for (const d of scratch.errors) diags.add(d);
     if (scratch.errors.length > 0) continue;
     const b = writePrototypesBin(m, schemaHash);
+    reportProblems(b.problems, design, diags);
+    if (b.problems.length > 0) continue;
     const h = toHex(sha256Bytes(b.bytes));
     const j = prototypesJson(m, o.schemaHash, h);
     result.extra.push({ name, bytes: b.bytes.length, hash: h, jsonBytes: enc.encode(j).length });

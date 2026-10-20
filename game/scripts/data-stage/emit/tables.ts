@@ -25,6 +25,7 @@ import { ENERGY_SOURCES, ENTITY_TYPES } from '../schema/entities.ts';
 import { ITEM_TAGS } from '../schema/items.ts';
 import { REGIMES, TRIGGER_TYPES } from '../schema/technologies.ts';
 import { RESOURCE_KINDS, type Resource, type Tile, WORLD_KINDS, type WorldObject } from '../schema/world.ts';
+import { triggerTarget } from '../triggers.ts';
 import type { ColType } from './container.ts';
 
 /** Section ids of prototypes.bin. */
@@ -44,14 +45,16 @@ export const SECTION_IDS = {
   NAMES: 19,
 } as const;
 
-/** Record types in the META section. */
-export const META_RECORDS = { start: 1 } as const;
+/** Record types in the META section: 1 the start record, 2 what the file carries and omits (contents.ts). */
+export const META_RECORDS = { start: 1, contents: 2 } as const;
 
 export interface ColumnSpec {
   name: string;
   type: ColType;
   /** Where the value comes from (documentation; becomes protos.yaml's source path). */
   from: string;
+  /** The field in the prototype's YAML that a bad value points at, when there is one. */
+  path?: readonly (string | number)[];
 }
 
 export interface Ctx {
@@ -107,6 +110,15 @@ export class ExprPool {
   }
 }
 
+/** A value an emitter cannot write, with the field of the prototype it comes from. */
+export class EmitError extends Error {
+  readonly path: readonly (string | number)[];
+  constructor(message: string, path: readonly (string | number)[] = []) {
+    super(message);
+    this.path = path;
+  }
+}
+
 const MJ = 1e6;
 const KW = 1e3;
 const KJ = 1e3;
@@ -156,10 +168,10 @@ const items: TableSpec<ItemRec> = {
   kind: 'item',
   rows: (m) => m.items,
   columns: [
-    { name: 'stack_size', type: 'u32', from: 'items.stack' },
+    { name: 'stack_size', type: 'u32', from: 'items.stack', path: ['stack'] },
     { name: 'places_entity', type: 'u16', from: 'items.places (EntityId; 0xFFFF none)' },
     { name: 'places_tile', type: 'u8', from: 'items.places_tile (TileId; 0xFF none)' },
-    { name: 'fuel_value', type: 'f64', from: 'items.fuel_value (MJ → J)' },
+    { name: 'fuel_value', type: 'f64', from: 'items.fuel_value (MJ → J)', path: ['fuel_value'] },
     {
       name: 'fuel_category',
       type: 'u8',
@@ -184,16 +196,23 @@ const fluids: TableSpec<ItemRec> = {
   kind: 'fluid',
   rows: (m) => m.fluids,
   columns: [
-    { name: 'default_temperature', type: 'f64', from: 'items.default_temperature (°C; 15 when absent, ISO)' },
+    {
+      name: 'default_temperature',
+      type: 'f64',
+      from: 'items.default_temperature (°C; 15 when absent, ISO)',
+      path: ['default_temperature'],
+    },
     {
       name: 'max_temperature',
       type: 'f64',
       from: 'items.max_temperature (°C; the default temperature when absent)',
+      path: ['max_temperature'],
     },
     {
       name: 'heat_capacity',
       type: 'f64',
       from: 'items.heat_capacity_kj_per_k (kJ/K → J/K; 1 kJ/K when absent, ISO)',
+      path: ['heat_capacity_kj_per_k'],
     },
     { name: 'tier', type: 'u8', from: 'items.tier (index in meta.tiers)' },
   ],
@@ -214,7 +233,7 @@ const recipes: TableSpec<RecipeRec> = {
   rows: (m) => m.recipes,
   columns: [
     { name: 'category', type: 'u8', from: 'recipes.category (index in meta.crafting_categories)' },
-    { name: 'energy_required', type: 'f64', from: 'recipes.time (s at crafting speed 1)' },
+    { name: 'energy_required', type: 'f64', from: 'recipes.time (s at crafting speed 1)', path: ['time'] },
     ...list('ingredients', 'recipes.ingredients (IngredientEntry)'),
     ...list('products', 'recipes.products (ProductEntry)'),
     { name: 'handcraft', type: 'bool', from: 'recipes.handcraft (default: category is crafting)' },
@@ -266,8 +285,8 @@ const entities: TableSpec<EntityRec> = {
   rows: (m) => m.entities,
   columns: [
     { name: 'type', type: 'u8', from: 'entities.type (index in ENTITY_TYPES)' },
-    { name: 'size_w', type: 'u8', from: 'entities.size[0]' },
-    { name: 'size_h', type: 'u8', from: 'entities.size[1]' },
+    { name: 'size_w', type: 'u8', from: 'entities.size[0]', path: ['size', 0] },
+    { name: 'size_h', type: 'u8', from: 'entities.size[1]', path: ['size', 1] },
     { name: 'item', type: 'u16', from: 'entities.item (ItemId: placed by, mined into)' },
     ...box('collision', 'overlay collision_box'),
     ...box('selection', 'overlay selection_box'),
@@ -276,16 +295,32 @@ const entities: TableSpec<EntityRec> = {
     { name: 'rotatable', type: 'bool', from: 'overlay rotatable' },
     { name: 'flippable', type: 'bool', from: 'overlay flippable' },
     { name: 'energy_source', type: 'u8', from: 'entities.energy.source (index in ENERGY_SOURCES)' },
-    { name: 'energy_usage', type: 'f64', from: 'entities.energy.kw (kW → W)' },
-    { name: 'drain', type: 'f64', from: 'entities.energy.drain_kw (kW → W)' },
-    { name: 'crafting_speed', type: 'f64', from: 'entities.crafting_speed (0 when absent)' },
-    { name: 'mining_speed', type: 'f64', from: 'entities.mining_speed (0 when absent)' },
-    { name: 'module_slots', type: 'u8', from: 'entities.module_slots' },
-    { name: 'inventory_slots', type: 'u16', from: 'entities.extra.slots (chests, wagons; 0 otherwise)' },
+    { name: 'energy_usage', type: 'f64', from: 'entities.energy.kw (kW → W)', path: ['energy', 'kw'] },
+    { name: 'drain', type: 'f64', from: 'entities.energy.drain_kw (kW → W)', path: ['energy', 'drain_kw'] },
+    {
+      name: 'crafting_speed',
+      type: 'f64',
+      from: 'entities.crafting_speed (0 when absent)',
+      path: ['crafting_speed'],
+    },
+    {
+      name: 'mining_speed',
+      type: 'f64',
+      from: 'entities.mining_speed (0 when absent)',
+      path: ['mining_speed'],
+    },
+    { name: 'module_slots', type: 'u8', from: 'entities.module_slots', path: ['module_slots'] },
+    {
+      name: 'inventory_slots',
+      type: 'u16',
+      from: 'entities.extra.slots (chests, wagons; 0 otherwise)',
+      path: ['extra', 'slots'],
+    },
     {
       name: 'belt_speed',
       type: 'u16',
       from: 'entities.extra.items_per_s of a belt, as positions per tick (15 → 8)',
+      path: ['extra', 'items_per_s'],
     },
     { name: 'computing', type: 'bool', from: 'entities.heat.class is set (10 §5.9)' },
     {
@@ -361,17 +396,21 @@ export function beltSpeed(id: string, itemsPerS: number): number {
   return v;
 }
 
-const triggerTarget = (m: Model, t: TechRec): { kind: number; id: number } => {
+/** The trigger's target as (ProtoKind, id); throws when it is not in the build (C1a-r1 finding 4). */
+const triggerTargetId = (m: Model, t: TechRec): { kind: number; id: number } => {
   const tr = t.data.trigger;
   if (!tr) return { kind: NONE_U8, id: NONE_U16 };
-  const name = tr.item ?? tr.entity ?? tr.recipe;
-  if (name === undefined) return { kind: NONE_U8, id: NONE_U16 };
-  const order: ProtoKind[] = tr.recipe !== undefined ? ['recipe'] : ['item', 'fluid', 'entity', 'resource'];
-  for (const k of order) {
-    const id = m.ids[k].get(name);
-    if (id !== undefined) return { kind: PROTO_KINDS.indexOf(k), id };
-  }
-  return { kind: NONE_U8, id: NONE_U16 };
+  const names = (k: ProtoKind) => new Set(m.ids[k].keys());
+  const r = triggerTarget(tr, {
+    items: new Set([...names('item'), ...names('fluid')]),
+    recipes: names('recipe'),
+    entities: names('entity'),
+    resources: names('resource'),
+  });
+  if (r === null) return { kind: NONE_U8, id: NONE_U16 };
+  if (typeof r === 'string') throw new EmitError(r, ['trigger']);
+  const kind: ProtoKind = r.kind === 'item' ? (m.ids.item.has(r.name) ? 'item' : 'fluid') : r.kind;
+  return { kind: PROTO_KINDS.indexOf(kind), id: m.ids[kind].get(r.name) as number };
 };
 
 const technologies: TableSpec<TechRec> = {
@@ -379,9 +418,14 @@ const technologies: TableSpec<TechRec> = {
   kind: 'technology',
   rows: (m) => m.technologies,
   columns: [
-    { name: 'count', type: 'f64', from: 'technologies.cost.count (0 with a count_formula or a trigger)' },
+    {
+      name: 'count',
+      type: 'f64',
+      from: 'technologies.cost.count (0 with a count_formula or a trigger)',
+      path: ['cost', 'count'],
+    },
     { name: 'count_expr', type: 'u32', from: 'technologies.count_formula (ExprRef; 0xFFFFFFFF none)' },
-    { name: 'time', type: 'f64', from: 'technologies.cost.time (s per unit)' },
+    { name: 'time', type: 'f64', from: 'technologies.cost.time (s per unit)', path: ['cost', 'time'] },
     { name: 'first_level', type: 'u32', from: 'technologies.first_level (1)' },
     {
       name: 'max_level',
@@ -403,7 +447,12 @@ const technologies: TableSpec<TechRec> = {
       type: 'u16',
       from: 'technologies.trigger.item, .entity or .recipe (id in its kind)',
     },
-    { name: 'trigger_count', type: 'u32', from: 'technologies.trigger.count (1)' },
+    {
+      name: 'trigger_count',
+      type: 'u32',
+      from: 'technologies.trigger.count (1)',
+      path: ['trigger', 'count'],
+    },
     { name: 'field_year_expr', type: 'u32', from: 'technologies.field_year (ExprRef; 0xFFFFFFFF none)' },
     { name: 'regime', type: 'u8', from: 'technologies.regime (index in REGIMES)' },
     { name: 'hidden', type: 'bool', from: 'technologies.hidden' },
@@ -431,7 +480,7 @@ const technologies: TableSpec<TechRec> = {
       'recipe',
       (t.data.unlocks.recipes ?? []).filter((r) => m.ids.recipe.has(r)),
     );
-    const target = triggerTarget(m, t);
+    const target = triggerTargetId(m, t);
     return {
       count: t.data.cost?.count ?? 0,
       count_expr: exprRef(c, `count_formula/${t.id}`),
@@ -466,7 +515,12 @@ const resources: TableSpec<Ranked<Resource>> = {
     { name: 'kind', type: 'u8', from: 'resources.kind (index in RESOURCE_KINDS)' },
     { name: 'yield_kind', type: 'u8', from: 'resources.yields (0 item, 1 fluid)' },
     { name: 'yield_id', type: 'u16', from: 'resources.yields (ItemId or FluidId)' },
-    { name: 'mining_time', type: 'f64', from: 'resources.mining_time (s at mining speed 1; 0 for fluids)' },
+    {
+      name: 'mining_time',
+      type: 'f64',
+      from: 'resources.mining_time (s at mining speed 1; 0 for fluids)',
+      path: ['mining_time'],
+    },
     { name: 'infinite', type: 'bool', from: 'resources.infinite' },
     { name: 'requires_fluid', type: 'u16', from: 'resources.requires_fluid (FluidId; 0xFFFF none)' },
   ],
@@ -488,9 +542,14 @@ const tiles: TableSpec<Ranked<Tile>> = {
   kind: 'tile',
   rows: (m) => m.tiles,
   columns: [
-    { name: 'kappa_per_s', type: 'f64', from: 'tiles.kappa_per_s (0 when null)' },
+    { name: 'kappa_per_s', type: 'f64', from: 'tiles.kappa_per_s (0 when null)', path: ['kappa_per_s'] },
     { name: 'has_kappa', type: 'bool', from: 'tiles.kappa_per_s is not null' },
-    { name: 'walking_speed', type: 'f64', from: 'tiles.walking_speed (0 when null)' },
+    {
+      name: 'walking_speed',
+      type: 'f64',
+      from: 'tiles.walking_speed (0 when null)',
+      path: ['walking_speed'],
+    },
     { name: 'walkable', type: 'bool', from: 'tiles.walking_speed is not null' },
     { name: 'buildable', type: 'bool', from: 'tiles.buildable' },
     { name: 'map_color', type: 'u32', from: 'tiles.map_color (0xRRGGBB)' },
@@ -517,13 +576,13 @@ const world: TableSpec<Ranked<WorldObject>> = {
   rows: (m) => m.world,
   columns: [
     { name: 'kind', type: 'u8', from: 'world.kind (index in WORLD_KINDS)' },
-    { name: 'size_w', type: 'u8', from: 'world.size[0]' },
-    { name: 'size_h', type: 'u8', from: 'world.size[1]' },
-    { name: 'mining_time', type: 'f64', from: 'world.mining_time (0: not minable)' },
+    { name: 'size_w', type: 'u8', from: 'world.size[0]', path: ['size', 0] },
+    { name: 'size_h', type: 'u8', from: 'world.size[1]', path: ['size', 1] },
+    { name: 'mining_time', type: 'f64', from: 'world.mining_time (0: not minable)', path: ['mining_time'] },
     { name: 'collides', type: 'bool', from: 'world.collides' },
     { name: 'selectable', type: 'bool', from: 'world.selectable' },
     { name: 'cosmetic', type: 'bool', from: 'world.cosmetic' },
-    { name: 'leaf_stages', type: 'u8', from: 'world.leaf_stages (0)' },
+    { name: 'leaf_stages', type: 'u8', from: 'world.leaf_stages (0)', path: ['leaf_stages'] },
     ...list('yields', 'world.yields (YieldEntry)'),
   ],
   row: (o, c) => {

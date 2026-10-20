@@ -19,6 +19,7 @@ manifests:
       tiles: [grass, dirt, sand, water, deep-water, out-of-map]   # worldgen v0: terrain, water; out-of-map bounds a map
       world_objects: []
       technologies: []
+    data: [start.inventory]              # the META blocks M0's engine reads; prototypes.bin must carry each
     actions:                             # walking, hand mining, building and mining the chest, I §8.2's transfers, hand crafting, settings
       - start_walking
       - stop_walking

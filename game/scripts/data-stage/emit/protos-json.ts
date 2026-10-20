@@ -15,6 +15,7 @@
 import { canonicalJson } from '../../lib/canonical.ts';
 import type { Model, StackRef } from '../model.ts';
 import { stackRef } from '../model.ts';
+import { contentsRecord } from './contents.ts';
 
 export const JSON_FORMAT_VERSION = 1;
 
@@ -76,6 +77,7 @@ export function prototypesJson(m: Model, schemaHashHex: string, prototypesHashHe
     prototypesHash: prototypesHashHex,
     build: m.build.name,
     character: m.build.character,
+    contents: contentsRecord(),
     item: m.items.map(itemJson('item')),
     fluid: m.fluids.map(itemJson('fluid')),
     recipe: m.recipes.map((r) => {

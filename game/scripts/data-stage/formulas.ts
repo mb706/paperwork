@@ -111,10 +111,25 @@ export function compileFormulas(d: DesignData, diags: Diagnostics): Formulas {
     let lv: TechLevels = { first: 1, last: 1, infinite: false };
     if (t.count_formula !== undefined) {
       const path: DataPath = [i, 'count_formula'];
-      if (t.cost?.count !== undefined)
-        fail('technologies', path, 'count_formula and cost.count are exclusive');
       const first = t.first_level ?? 1;
       const max = t.max_level ?? 'infinite';
+      // Every checked range is nonempty and starts at a level the engine stores (C1a-r1 finding 6).
+      if (first > MAX_TECH_LEVEL) {
+        fail(
+          'technologies',
+          [i, 'first_level'],
+          `first_level ${first} is above the highest level, ${MAX_TECH_LEVEL}`,
+        );
+        return;
+      }
+      if (max !== 'infinite' && max > MAX_TECH_LEVEL) {
+        fail(
+          'technologies',
+          [i, 'max_level'],
+          `max_level ${max} is above the highest level, ${MAX_TECH_LEVEL}`,
+        );
+        return;
+      }
       if (max !== 'infinite' && max < first) {
         fail('technologies', [i, 'max_level'], `max_level ${max} is below first_level ${first}`);
         return;
@@ -123,6 +138,7 @@ export function compileFormulas(d: DesignData, diags: Diagnostics): Formulas {
       if (!c) return;
       const last = checkCost(c, first, max, (msg) => fail('technologies', path, msg));
       if (last === null) return;
+      if (last < first) throw new Error(`technology ${t.id}: empty level range ${first}..${last}`);
       lv = { first, last, infinite: max === 'infinite' };
       uses.push({
         field: FIELDS.count_formula,

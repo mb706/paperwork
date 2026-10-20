@@ -398,9 +398,15 @@ export function evaluate(code: Uint8Array, vars: readonly number[], range: Range
   return { value: c.value, flags: raw.flags | c.flags };
 }
 
-/** A unit count: the value rounded half up (10 §5.12; validate_spec.unit_count). */
+/**
+ * A unit count: the value rounded half up (10 §5.12), from its fractional part (C1a-r1 finding 7).
+ * `Math.floor(v + 0.5)` is wrong where v + 0.5 rounds: 2^52 + 1 gives 2^52 + 2, and 0.49999999999999994
+ * gives 1. `v - floor(v)` is exact for every finite double, so this rounds every value correctly. Its Rust
+ * twin is det::unit_count; both are pinned by test/fixtures/expr/unit-counts.yaml.
+ */
 export function unitCount(v: number): number {
-  return Math.floor(v + 0.5);
+  const f = Math.floor(v);
+  return v - f >= 0.5 ? f + 1 : f;
 }
 
 /** Whether the compiled code contains a power (its results may differ from libm's pow in the last bits). */

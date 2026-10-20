@@ -5,6 +5,7 @@
 import type { DataPath, Diagnostics } from './diagnostics.ts';
 import type { DesignData, FileKind } from './schema/index.ts';
 import { at } from './sources.ts';
+import { triggerTarget } from './triggers.ts';
 
 /** 08 §6's achievement condition registry, as tools/validate_spec.py lists it (text.yaml may override). */
 export const DESIGN_CONDITION_TYPES = [
@@ -243,8 +244,30 @@ export function checkReferences(d: DesignData, ix: Index, diags: Diagnostics): v
       err('technologies', [i, 'trigger', 'entity'], `trigger references unknown entity ${tr.entity}`);
     if (tr?.recipe && !ix.recipes.has(tr.recipe))
       err('technologies', [i, 'trigger', 'recipe'], `trigger references unknown recipe ${tr.recipe}`);
+    // The trigger's type names the field and namespace of its target (C1a-r1 finding 4).
+    if (tr) {
+      const target = triggerTarget(tr, {
+        items: new Set(ix.items.keys()),
+        recipes: new Set(ix.recipes.keys()),
+        entities: new Set(ix.entities.keys()),
+        resources: new Set(ix.resources.keys()),
+      });
+      if (typeof target === 'string')
+        err('technologies', [i, 'trigger'], target.replace('of this build', 'in the data'));
+    }
     if ((t.cost === undefined) === (tr === undefined))
       err('technologies', [i], 'exactly one of cost and trigger is required');
+    // A paid technology has exactly one unit count: cost.count, or a count_formula (C1a-r1 finding 2).
+    if (t.cost !== undefined && (t.cost.count === undefined) === (t.count_formula === undefined))
+      err(
+        'technologies',
+        [i, 'cost'],
+        t.cost.count === undefined
+          ? 'a paid technology needs cost.count or a count_formula'
+          : 'cost.count and count_formula are exclusive',
+      );
+    if (t.cost === undefined && t.count_formula !== undefined)
+      err('technologies', [i, 'count_formula'], 'a count_formula needs a cost (time and packs)');
   });
   checkTechCycles(d, ix, diags);
   // meta

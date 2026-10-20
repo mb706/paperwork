@@ -1,47 +1,17 @@
 // The data stage end to end (10 §2.4, §15.2): determinism (D14), the binary format read back, M0's
 // prototypes, and diagnostics that name the file, the path and the line. Error cases run on a scratch
 // copy of the repository's data, so the real files are never touched.
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { GAME, REPO, scratchDir } from '../../test/helpers/paths.ts';
+import { edit, messages, options, scratchRepo } from '../../test/helpers/data-stage.ts';
 import { ByteReader } from '../lib/bytes.ts';
-import { sha256Hex, ZERO_HASH_HEX } from '../lib/hash.ts';
+import { sha256Hex } from '../lib/hash.ts';
 import { formatDiagnostic } from './diagnostics.ts';
 import { readColumnTable, readSections } from './emit/container.ts';
 import { DATA_VERSION, FORMAT_VERSION, HEADER_BYTES, MAGIC } from './emit/protos-bin.ts';
 import { SECTION_IDS } from './emit/tables.ts';
-import { type DataStageOptions, type DataStageResult, OUTPUT_PATHS, runDataStage } from './index.ts';
-
-const options = (gameDir = GAME, specDir = join(REPO, 'design', 'spec')): DataStageOptions => ({
-  gameDir,
-  specDir,
-  schemaHash: ZERO_HASH_HEX,
-  protocolVersion: 0,
-});
-
-/** A scratch copy of the inputs: design/spec (data, 09, 10) and game/data/engine plus the expr edge cases. */
-function scratchRepo(): { game: string; spec: string } {
-  const root = scratchDir('data-stage');
-  const spec = join(root, 'design', 'spec');
-  const game = join(root, 'game');
-  mkdirSync(spec, { recursive: true });
-  cpSync(join(REPO, 'design/spec/data'), join(spec, 'data'), { recursive: true });
-  for (const f of ['09-vertical-slice.md', '10-architecture.md'])
-    cpSync(join(REPO, 'design/spec', f), join(spec, f));
-  cpSync(join(GAME, 'data/engine'), join(game, 'data/engine'), { recursive: true });
-  cpSync(join(GAME, 'test/fixtures/expr/edge-cases.yaml'), join(game, 'test/fixtures/expr/edge-cases.yaml'));
-  return { game, spec };
-}
-
-function edit(path: string, from: string | RegExp, to: string): void {
-  const text = readFileSync(path, 'utf8');
-  const next = text.replace(from, to);
-  if (next === text) throw new Error(`edit did not apply to ${path}`);
-  writeFileSync(path, next);
-}
-
-const messages = (r: DataStageResult) => r.diagnostics.errors.map(formatDiagnostic);
+import { type DataStageResult, OUTPUT_PATHS, runDataStage } from './index.ts';
 
 describe('the data stage on the repository data', () => {
   let r: DataStageResult;
@@ -123,12 +93,12 @@ describe('the data stage on the repository data', () => {
     // u32 count; record: u16 type 1 (start), u32 length; field 1 (inventory): u16 id, u32 length, then the
     // list: u32 count, and per item u32 length and its triples (1: u16 item, 2: u32 count).
     const meta = new ByteReader(byId.get(SECTION_IDS.META) as Uint8Array);
-    expect([meta.u32(), meta.u16(), meta.u32()]).toEqual([1, 1, 32]);
+    expect([meta.u32(), meta.u16(), meta.u32()]).toEqual([2, 1, 32]);
     expect([meta.u16(), meta.u32(), meta.u32(), meta.u32()]).toEqual([1, 26, 1, 18]);
     expect([meta.u16(), meta.u32(), meta.u16(), meta.u16(), meta.u32(), meta.u32()]).toEqual([
       1, 2, 2, 2, 4, 8,
     ]);
-    expect(meta.remaining).toBe(0);
+    expect(meta.u16()).toBe(2); // then the contents record (C1a-r1 finding 5)
   });
 
   it('records the prototypes hash and the M0 contents in prototypes.json and build-manifest.json', () => {

@@ -4,16 +4,27 @@
 // hand-written edge cases of edge-cases.yaml with their expected values. crates/det/tests/expr_cross.rs
 // runs the Rust interpreter over the same programs and points and must reproduce every hash and value.
 //
-//   case <name> <field> <lo> <hi> <points> <code> <count> <fnv32> <samples>
+//   case <name> <field> <lo> <hi> <points> <code> <count> <fnv32> <samples> <units>
 //   edge <name> <lo> <hi> <vars> <code> <value> <flags>
 // Floats are written as their IEEE bits in 16 hex digits; points are `L=a..b` (levels) or `grid=n`
-// (k / n for k = 0 … n per variable, the first variable outer); samples are `index:bits` pairs.
+// (k / n for k = 0 … n per variable, the first variable outer); samples are `index:bits` pairs; units is
+// the FNV-1a 32 of the unit counts (unitCount, det::unit_count; flags byte 0) for count_formula cases, else
+// `-`.
 import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { withHeader } from '../../lib/generated.ts';
 import { toHex } from '../../lib/hash.ts';
 import type { Diagnostics } from '../diagnostics.ts';
-import { clamp, compile, evaluate, FLAG_CLAMPED, FLAG_EXPONENT, FLAG_NAN, Program } from '../expr.ts';
+import {
+  clamp,
+  compile,
+  evaluate,
+  FLAG_CLAMPED,
+  FLAG_EXPONENT,
+  FLAG_NAN,
+  Program,
+  unitCount,
+} from '../expr.ts';
 import { type Formulas, forEachPoint } from '../formulas.ts';
 import { parseYaml } from '../sources.ts';
 
@@ -76,6 +87,7 @@ export function exprFixture(formulas: Formulas, edges: readonly EdgeCase[]): str
   for (const u of formulas.uses) {
     const program = new Program(u.compiled.code);
     const hash = new Fnv32();
+    const units = new Fnv32();
     const values: string[] = [];
     let n = 0;
     forEachPoint(u.points, u.field.vars.length, (vars) => {
@@ -83,10 +95,12 @@ export function exprFixture(formulas: Formulas, edges: readonly EdgeCase[]): str
       const c = clamp(raw.value, u.field.range);
       const flags = raw.flags | c.flags;
       hash.result(c.value, flags);
+      units.result(unitCount(c.value), 0);
       values.push(bits(c.value));
       n++;
       return true;
     });
+    if (n === 0) throw new Error(`${u.name}: no points to check (C1a-r1 finding 6)`);
     const samples = [...new Set([0, Math.floor(n / 3), Math.floor((2 * n) / 3), n - 1])].map(
       (i) => `${i}:${values[i]}`,
     );
@@ -104,6 +118,7 @@ export function exprFixture(formulas: Formulas, edges: readonly EdgeCase[]): str
         String(n),
         hash.hex(),
         samples.join(','),
+        u.field.name === 'count_formula' ? units.hex() : '-',
       ].join(' '),
     );
   }

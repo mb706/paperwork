@@ -70,8 +70,9 @@
 - **Check and test:** `npm run check` (Biome, `tsc -b`, check-arch, schema-gen --check, rustfmt, clippy -D warnings
   with the determinism bans, the bans' own fixture, the data stage --check, the Python spec checks; ~12 s warm),
   `npm test` (cargo test, dev and ntest profiles; Vitest), `npm run e2e` (Playwright, Chrome + Firefox, own server
-  on port 5191), `npm run ci` (all of it plus the e2e smoke and the release wasm gate; ~25 s warm, ~30 s from a
-  clean clone). On a busy host: `taskset -c 0-15 npm run ci`. `npm run format` applies Biome's fixes.
+  on port 5191), `npm run ci` (all of it, then the e2e smoke and the release path: release wasm + feature gate,
+  `vite build`, `scripts/check-release.ts`, a preview smoke on port 5193; ~30 s warm, ~35 s from a clean clone).
+  On a busy host: `taskset -c 0-15 npm run ci`. `npm run format` applies Biome's fixes.
 - **Data stage:** `npm run data` turns `design/spec/data` + `game/data/engine/*.yaml` into `public/data/` (gitignored)
   and refreshes the committed `src/shared/gen/proto-ids.ts` and `test/fixtures/expr/cases.txt`: run it after any data
   edit and commit those two. Errors name the file, line and path. `--manifest m1…m5 [--allow-incomplete]` builds a
