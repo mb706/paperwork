@@ -19,7 +19,11 @@ test('the release bundle loads, compressed, without errors @release', async ({ p
   expect(Object.keys(manifest.modules).sort()).toEqual(['gen', 'sim']);
   for (const path of ['/', '/data/prototypes.json', '/data/build-manifest.json'])
     expect(encodings.get(path), path).toBe('br');
-  // sim.wasm and gen.wasm, each compiled once by the page (§9.7).
-  expect([...encodings].filter(([p]) => p.endsWith('.wasm')).map(([, e]) => e)).toEqual(['br', 'br']);
+  // sim.wasm and gen.wasm, each compiled once by the page (§9.7); the asset worker's transcoder (C4) is the only other
+  // module, compressed too
+  const wasm = [...encodings].filter(([p]) => p.endsWith('.wasm'));
+  expect(wasm.filter(([p]) => /\/(sim|gen)-[^/]*\.wasm$/.test(p)).map(([, e]) => e)).toEqual(['br', 'br']);
+  for (const [p, e] of wasm)
+    expect(/\/(sim|gen|basis_transcoder)-[^/]*\.wasm$/.test(p) && e === 'br', p).toBe(true);
   expect(problems).toEqual([]);
 });
