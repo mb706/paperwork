@@ -11,7 +11,10 @@ keeps a slot of its own: two slots in both directions. The shadow follows the an
 
 import math
 
-META = dict(kind='entity', size=(2, 2), height=1.3, dirs=[0, 4], states=['working', 'idle'],
+# two-way like the steam engine, and total: every other direction value draws the picture of the nearer axis
+META = dict(kind='entity', size=(2, 2), height=1.3, dirs=[0, 4],
+            dir_alias={v: (4 if v % 8 in (3, 4, 5) else 0) for v in range(16) if v not in (0, 4)},
+            states=['working', 'idle'],
             layers=[dict(parts=['wheel'], frames=8), dict(parts=['lamp'], frames=8), dict(parts=['flag'], frames=8)],
             light=True, anim_shadow=True, margin=0.4, ink='machine', shadow_samples=16)
 WHEEL_R = 0.24
