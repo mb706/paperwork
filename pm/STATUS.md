@@ -46,6 +46,7 @@ The Schema package is split into sequential parts: C1a (scaffold, CI, data stage
 | WP | Topic | Status |
 |---|---|---|
 | C1a | Scaffold, toolchains, CI, check-arch, data stage, capability manifest | done (3ebd435..53e1d61); `npm run ci` takes about 33 s. Codex r1's 15 findings are fixed |
-| C1b | Schema, generator, codec fixtures (gate items 1–3) | running (commits to `dev`) |
+| C1b | Schema, generator, codec fixtures (gate items 1–3) | done (e9f0850..529182a). Codex r1's 10 findings are fixed, with shared fixtures; `npm run ci` takes 35 s |
+| C1c | Fake sim, reference model, frozen M0 golden set (gate items 4 and 6) | running (commits to `dev`) |
 | C6 | Asset pipeline v0 (Survey): rig, passes, layered renders, KTX2 atlases, manifest, greyboxes, M0 art | running in a worktree (independent of the gate) |
 | C7 | Audio v0: worklet engine port, mixer, SFX, working sounds | running in a worktree (independent of the gate) |
