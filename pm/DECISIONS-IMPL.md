@@ -55,3 +55,7 @@ Numbered like DECISIONS.md. Each entry gives the decision, the reason and the so
    - Belt lines update in the downstream-first rank of 10 §5.3.
 10. **One fresh sim worker per world** (B1).
 11. **The M0 contracts in 10 §15 are binding for Phase C** (B1). Any change goes through the schema plus a note in the report of the WP that makes it.
+12. **The "Changes in v2" table at the top of 10 (rows 1–48) is binding** (B1, B1-r1). It holds every engine decision made in Phase B. The notable ones:
+    - **The schema package is M0's executable contract.** No other M0 package starts until its gate passes: complete machine-readable layouts, generated code in both languages, codec fixtures, the fake sim (with STATS), and a frozen M0 golden integration set. The golden set's expected results come from a small TypeScript reference model of M0's rules.
+    - **An M0 capability manifest** defines what "CI green" means for M0. Later-milestone features fail with explicit "unsupported" errors.
+    - **Malformed payloads** in a closure are refused with an event (row 48); they never stop the tick. One bad client must not halt a room.

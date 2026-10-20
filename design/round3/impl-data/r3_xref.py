@@ -59,6 +59,7 @@ age-builder train-stations rail-signals toggle-status-lights give-rate-calculato
 toggle-world-strip open-milestones open-university toggle-personal-roboport check-arch
 gamedev-python data-updates data-final-fixes border-image maxrects-packer slice-3h mid-article
 late-modelcard belts-300k inserters-50k agents-5k trains-100 circuits-2k takeoff-500
+m0-walk m0-chests-10k m0-codec m0-load-30k worldgen-frontier
 swiftshader-webgl
 '''.split())
 

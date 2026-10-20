@@ -18,7 +18,7 @@ The numbers are in Appendix A. They drive the language decision (§0 #1), expand
 
 ## Changes in v2
 
-Every change of decision against version 1 (round 5), with its reason and source. Sources: **A1** (`pm/reports/A1.md`), **A1-r1** (`pm/reviews/A1-r1.md`), **A2** (`design/multiplayer/DESIGN.md`, now chapter 11), **A2-r1** (`pm/reviews/A2-r1.md`, numbered findings), **IMPL-n** (`pm/DECISIONS-IMPL.md` item n), and **B1** for calls made in this revision, each with its reason.
+Every change of decision against version 1 (round 5), with its reason and source. Sources: **A1** (`pm/reports/A1.md`), **A1-r1** (`pm/reviews/A1-r1.md`), **A2** (`design/multiplayer/DESIGN.md`, now chapter 11), **A2-r1** (`pm/reviews/A2-r1.md`, numbered findings), **IMPL-n** (`pm/DECISIONS-IMPL.md` item n), **B1-r1** (`pm/reviews/B1-r1.md`, codex's review of this revision, numbered findings), and **B1** for calls made in this revision, each with its reason. Rows 28–48 answer B1-r1.
 
 | # | Where | Change | Reason | Source |
 |---|---|---|---|---|
@@ -49,6 +49,27 @@ Every change of decision against version 1 (round 5), with its reason and source
 | 25 | §13 | Risks: "JS performance" goes; the boundary, WebAssembly debugging and traps, two toolchains and release build time come in | The risk moved | A1, A1-r1 |
 | 26 | §6.2, §6.7, §7.4, §15.7 | Style parameters (shadow and light composites, the night grade, the UI palette) become **named constants**, with A3's *Survey* values as their first setting | The art direction fills in style, not format | A3, IMPL-5 |
 | 27 | §15 (new) | **The M0 contracts**: schema and codegen, the prototype data path, action and closure formats, the render packet, projections and subscriptions, events and audio, projection and the sprite manifest, the WebAssembly ABI, the worldgen contract, fixtures, ownership and tests (the worker messages are §3.2) | M0's work packages build against them in parallel without talking to each other | The brief of WP B1 |
+| 28 | §12, §15.11 | **The schema work package is the executable contract.** Its acceptance gate: complete machine-readable layouts for every M0 record, generated code in both languages, reviewed codec fixtures, the fake sim (with `STATS`), and a frozen **M0 golden integration set** (prototypes, a start save, a closure log, expected states and digests, every M0 projection, a tiny atlas, negative cases), whose expected results come from a small TypeScript reference model of M0's rules; hand-written codec fixtures catch mistakes both generated sides share, and `prototypes.json` gets a schema. Parallel M0 packages start only after it passes | Prose cannot be byte-complete for everything; an executable contract can, and every package then tests against the same fixtures | B1-r1 1, 21; the coordinator |
+| 29 | §2.4, §12 | **An M0 capability manifest** says what M0 supports; anything else fails with an explicit `unsupported` error, and later milestones' formulas, effects, scenarios and benchmarks are outside M0's checks | "CI green" must have a definite meaning in M0 | B1-r1 19 |
+| 30 | §2.5, §12 | **M0 is trimmed** to closures, chests, projections, deterministic saves and worker replacement: no general migration framework, M0-sized registries and codecs, `simtool` limited to replay, hash, trace and bench (diff and bisect come in M1), allocation gates only on measured steady-state paths | A short serial critical path; every binding seam stays (IMPL-4, 11 §7) | B1-r1 22 |
+| 31 | §3.6, §15.8 | **`SimContext { world, pres }`**: extraction, subscriptions, the event queue, the held set and what has been sent live in a `PresentationState` that the module owns; extraction borrows the World immutably and the presentation state mutably | One owner per mutable field; the shell keeps no competing state | B1-r1 4 |
+| 32 | §15.8, §15.9 | **One normative ABI table**, generated from `schema/abi.yaml`: every pointer-returning export returns a `{u32 len, bytes}` envelope, or 0 on failure with the error from `sim_last_error`; the exceptions are declared; the exported memory is `memory`; lifetimes are stated; `sim_extract` returns the complete packet; queries are stepped and cancellable; `sim_save` can bake | The old text mixed raw pointers and envelopes | B1-r1 5 |
+| 33 | §8.5 | **Closure logs are counted and length-delimited**: a fixed header holds the record, digest and blob counts and byte lengths; trailing or missing bytes are errors | The old format could not be parsed unambiguously | B1-r1 2 |
+| 34 | §15.1 | **The schema hash covers resolved layouts**, and ordered fields are YAML lists | Reordering fields changed bytes without changing a key-sorted hash | B1-r1 3 |
+| 35 | §4.5, §8.1, §15.1 | **Saves store serials, not handles** (two-pass loading); unordered saved collections serialize sorted (`order: set`); padding is measured from the file start | Canonical bytes must have one interpretation | B1-r1 6 |
+| 36 | §4.4, §8.3 | **Worldgen is versioned in saves**: a save made under other generation rules is refused with an explicit error (`ERR_WORLDGEN`) unless its own build baked its pristine chunks first; a load that remaps or migrates, and a baked save, start a new digest lineage | Lazy regeneration must regenerate the same land | B1-r1 7 |
+| 37 | §4.8 | **Digest coverage is exhaustive and exact**: a generated map spreads every saved section over the 3,600 slices, and the per-tick record, the closure checksum and r₀ are pinned | No section may escape the slices, and none may cost a big scan once a minute | B1-r1 8 |
+| 38 | §15.3 | **Closure validation is a preflight**: every structural check, with temporary watermarks and checked arithmetic, and blob availability run before any watermark or state changes | A malformed later batch must not consume seqs | B1-r1 9 |
+| 39 | §15.3; 11 §3.2, §3.4 | **One admission function**, shared by the `LocalSequencer`, the relay and the native `TestSequencer`, bounds each tick's simulation closure and its wire form to 1 MiB, reserves 4 KiB for system actions, and spills deterministically: the first action that does not fit closes the tick to player actions | Limits must survive the conversion between the two formats, and one tick must fit one `TICKS` message | B1-r1 10 |
+| 40 | §3.2, §15.3 | **One seq-allocation and input-generation rule**: the main thread allocates seqs from the loaded, accepted and pending watermarks; only `release_inputs` and `player_left` change input generations | Single player and multiplayer resumed differently | B1-r1 11 |
+| 41 | §3.3, §3.4, §15.4 | After `bound` the worker sends an unsolicited `FULL` packet, and while no tick runs it extracts on demand after view and subscription changes | A replacement or a paused load could wait forever for its first packet | B1-r1 12 |
+| 42 | §15.4, §10.4 | **Every packet section is declared snapshot, event or delta**, with retirement rules (`BELT_RETIRE`, overlay and chart resets); what was sent advances only when a packet is, so skipped extractions lose nothing; a mirror-equivalence test checks it | Caches must not keep obsolete data while the camera stands still | B1-r1 13 |
+| 43 | §15.5 | **Budgets for subscriptions and queries**: concurrency and byte limits, identical projections shared, source revisions instead of rebuilding, cooperative queries with cancellation, `STATS` series appended rather than resent | Projections and queries must not starve ticks | B1-r1 15 |
+| 44 | §4.4, §5.18, §5.19 | **Worldgen commits are bounded and deduplicated**: at most 8 per tick in a canonical order, later requests get later commit ticks; every generated chunk keeps its κ, θ and sunlight; regeneration is bounded too (8 chunks per tick or per packet), and pristine chunks' chart images come from the worldgen pool (`gen_chart`) | Inline generation and lazy regeneration must not stall catch-up or the first map view after a load | B1-r1 16 |
+| 45 | §4.6 | **Wake registrations are bounded and reclaimed; timers name entities by serial**; a timer is due no earlier than the next tick | Handle generations wrap, and stale nodes must not accumulate | B1-r1 17 |
+| 46 | §4.3, §15.2 | **RNG algorithms, salts and stream ids are pinned** with golden vectors; formula results have declared ranges with deterministic clamping at the limits, and infinite technologies a data-stage level cap | "Finite at every reachable level" could not be checked | B1-r1 18 |
+| 47 | §10 | **Short runs compare canonical state bytes every tick**; a native `TestSequencer` drives scenarios; test commands name the `simcheck` feature; M0's scenarios and benchmarks are listed with thresholds | The verification claims must match the tests | B1-r1 20, 19 |
+| 48 | §15.3; 11 §3.3 | **A malformed action is refused, not fatal**: field-level validation (type, length, enums, tags, reserved bytes, UTF-8) runs as the action applies and refuses it with the developer reason `malformed`; only structural errors stop a tick | A buggy or hostile client must not stop a room, and the relay stays game-agnostic | B1-r1 9 |
 
 ---
 
@@ -210,12 +231,12 @@ browsergame/
 | `npm run data` | Data stage (§2.4) |
 | `npm run gen` | Schema generator (§15.1): writes `crates/schema/`, `crates/sim/src/gen/` and `src/shared/gen/` |
 | `npm run check` | `biome check`, `tsc -b`, `check-arch`, `schema-gen --check`, `cargo fmt --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, the data stage in strict mode (run twice; the outputs must be byte-identical, D14), `gamedev-python ../tools/validate_spec.py ../design/spec/data`, and the generated-spec freshness checks `gamedev-python ../tools/render_spec.py --check` (02, 05) and `gamedev-python ../tools/render_slice.py --check` (09 §1–§2) |
-| `npm test` | `cargo test --workspace --locked` (native units, `dev` profile), `cargo test --workspace --locked --profile ntest` (scenario, golden, property and determinism suites), and Vitest (codecs, the shell against a dev build of `sim.wasm`, decoders, UI logic) |
+| `npm test` | `cargo test --workspace --locked --features simcheck` (native units, `dev` profile), `cargo test --workspace --locked --profile ntest --features simcheck` (scenario, golden, property and determinism suites, the golden integration set of §15.10), and Vitest (codecs, the shell against a `wasmdev` build of `sim.wasm` with `simcheck`, decoders, UI logic) |
 | `npm run test:slow` | Native long runs (heavy mode, NO_SLEEP and join equivalence at Mid and Late scale, D18 fuzzing), worldgen seed sweeps (09 S-G1), cross-engine traces on every recorded log in Node, Chrome and Firefox, the scripted opening's full replay. Nightly and at milestone exits |
 | `npm run e2e` | Playwright: feel tests, window screenshots, smoke. `--project firefox` runs the Firefox 157 suite with `?render=none` (§10.5) |
 | `npm run bench [-- --scenario X]` / `npm run bench:ab -- --base <rev>` | Benchmark runner (native, Node and browsers; §10.6) / a paired A/B of two builds in one session |
 | `npm run assets [-- --only id]` | Blender, SVG and audio pipelines. Incremental, using content hashes of each source script and its parameters |
-| `npm run ci` | `check`, `test`, `e2e --grep @smoke`, the cross-engine smoke trace (§10.4), the release WebAssembly build with its feature gate (skipped when nothing under `crates/` or `schema/` changed since the last green run, because it takes about a minute), and `bench --quick` against the §11 budgets (a budget gate, not a regression gate; §10.6). Installed as a git pre-commit hook once the repository is initialised |
+| `npm run ci` | `check`, `test`, `e2e --grep @smoke`, the cross-engine smoke trace (§10.4), the release WebAssembly build with its feature gate (skipped when nothing under `crates/` or `schema/` changed since the last green run, because it takes about a minute), and `bench --quick` against the §11 budgets (a budget gate, not a regression gate; §10.6). It runs only what the current milestone's **capability manifest** enables (§2.4): in M0, "green" means M0's checks, tests and benchmarks. Installed as a git pre-commit hook once the repository is initialised |
 
 **Cargo profiles** (`game/Cargo.toml`):
 
@@ -255,7 +276,7 @@ Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` �
    - item group, subgroup and order (they drive the crafting grid, I §7.2);
    - the **quality stat table** (L5, §5.16): which stats of each entity type scale with quality (ISO 2.0). The slope is the design's `meta.quality.stat_bonus_per_level`;
    - terrain materials per tile id (§6.5);
-   - `manifests.yaml`, the milestone build filters (§12).
+   - `manifests.yaml`, the milestone build filters (§12), and `capabilities.yaml`, the capability manifests (below).
 
    **Defaults** come in two layers: per entity `type`, and per `mirrors` id. The `mirrors` defaults are a hand-typed table of Factorio 2.0 numbers from the wiki and the published prototype values (`round1/I-data/data/*.lua`): numbers only, never copied files.
    - **Parse rule** (J23): the defaults id is the leading `[a-z0-9-]+` token of `mirrors`.
@@ -267,7 +288,8 @@ Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` �
       - It allows numbers, `+ − * /`, `^`, parentheses and the field's variables, and nothing else.
       - `^` needs an integer right operand after substitution and evaluates by repeated multiplication in a fixed order, so the result is exact in every engine (§4.1).
       - Each expression compiles once to a postfix program in `prototypes.bin`. The data stage evaluates the same bytecode with its own reference interpreter to validate it; costs are cached per level and product tables per value of j at runtime (§5.5).
-      - An unknown variable, a non-integer exponent at any level the technology can reach, or a non-finite value at any reachable level, is a data-stage error.
+      - An unknown variable or a non-integer exponent is a data-stage error.
+      - **Ranges and level caps** (B1-r1 18). Every formula field declares a result range in `schema/protos.yaml` (costs ≥ 1 unit; amounts ≥ 0; the collapse factor in [0, 1]), and the interpreter clamps results to it (§15.2). The stage checks each expression at every level up to the field's **level cap**: a finite technology's `max_level`, and for an infinite technology the last level whose cost is finite, at most 2⁵³ units, and whose exponents stay within ±1,024. The cap is stored in `prototypes.bin`; the technology cannot be researched beyond it, identically everywhere. Fields over bounded variables (j, σ, c ∈ [0, 1]) are checked at 1,001 evenly spaced points per variable, endpoints included.
    3. **Derive.**
       - Belt speed in positions per tick from `items_per_s` (15 → 8).
       - Nothing for containers: every fill and empty recipe is explicit in the data (`container: fill | empty`; barrels for water, sulfuric acid, lubricant and coolant, drives for the four data fluids; none for steam or plasma, ISO).
@@ -283,7 +305,7 @@ Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` �
         - Spoil results (Scooped) and Wild loot are conditional. A recipe that needs only them is reported as inert, not as an error.
         - M1's list is generated from the data by `tools/render_slice.py` (09 §1, §2.7). Its derived keys (start recipes, items, entities, tiles, world objects, resources, scenery) are checked against the same rules.
         - The reference implementation of these rules, run against the current data, is `design/round4/arch-data/manifests.py`.
-   4. **Validate** with zod schemas. Every entity has boxes and sprite references. Fluid boxes match recipe fluids. Every recipe category has a machine. Every item has an icon or a placeholder. **Every technology effect type, trigger type, achievement condition (`text.yaml`) and `formula_ref` named in the data exists in the engine's registries.** The registries are part of the schema (`schema/registries.yaml`, §15.1), which also generates a Rust enum per registry with an exhaustive `match`, so a registry entry without an implementation does not compile. This last check is what keeps design and code in sync. Also:
+   4. **Validate** with zod schemas. Every entity has boxes and sprite references. Fluid boxes match recipe fluids. Every recipe category has a machine. Every item has an icon or a placeholder. **Every technology effect type, trigger type, achievement condition (`text.yaml`) and `formula_ref` named in the data exists in the engine's registries.** The registries are part of the schema (`schema/registries.yaml`, §15.1), which also generates a Rust enum per registry with an exhaustive `match`, so a registry entry without an implementation does not compile. This last check is what keeps design and code in sync. It runs over the prototypes that the milestone's capability manifest includes (below): in M0 only their entries need implementations, and the rest of the data is checked by `tools/validate_spec.py` and the schema, not against engine code that does not exist yet. Also:
       - a research-per-paper effect carries `multiplier_from: returns_to_research`. A literal multiplier there is an error (J14);
       - a catalyst product carries `affected_by_quality: false` (L5);
       - productivity applies only to recipes with `allow_productivity: true` (DECISIONS §30). The stage lists, per machine, the recipes a productivity module would block;
@@ -295,7 +317,16 @@ Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` �
       - `public/data/prototypes.json`: what the UI and the renderer read (names, groups, icons, sprite set names, boxes, display data);
       - `src/shared/gen/proto-ids.ts`: string-literal unions, so tests and code that name `'memo'` are checked at compile time;
       - `prototypes.hash`, the SHA-256 of `prototypes.bin`, into `build-manifest.json`. Saves, checkpoints and multiplayer handshakes carry it (§15.2).
-4. **At runtime**, the sim loads `prototypes.bin` into its `Protos` tables (Rust `Vec` columns indexed by dense id, e.g. `protos.entity.crafting_speed: Vec<f64>`), and the UI and renderer build their own lookup tables from `prototypes.json`. Rust never hard-codes a prototype id: names the engine must know (`frontier-checkpoint`, the `research-run` recipe, the rollback types) are listed in `schema/registries.yaml` under `well_known`, resolved by name at load, and checked to exist by the data stage.
+4. **At runtime**, the sim loads `prototypes.bin` into its `Protos` tables (Rust `Vec` columns indexed by dense id, e.g. `protos.entity.crafting_speed: Vec<f64>`), and the UI and renderer build their own lookup tables from `prototypes.json`. Rust never hard-codes a prototype id: names the engine must know (`frontier-checkpoint`, the `research-run` recipe, the rollback types) are listed in `schema/registries.yaml` under `well_known`, resolved by name at load, and checked to exist by the data stage (those the milestone's capability manifest includes).
+
+**Capability manifests** (`game/data/engine/capabilities.yaml`; B1-r1 19). Each milestone's manifest states what the engine supports at that milestone, so that "green" has a definite meaning and nothing is half-supported:
+- **prototypes** the build includes (M0: one chest, the character, worldgen v0's tiles and one resource, the items they need and one hand-craftable recipe); the data stage filters `prototypes.bin` and `prototypes.json` to them, as a build filter does (§12);
+- **actions** the sim implements (M0: walking, mining by hand, building and mining the chest, the inventory transfers of I §8.2, hand crafting, the settings actions and every system action); any other action type decodes, but is refused at application with `action_failed` and the reason `unsupported`, a developer reason without player-facing text (§15.3);
+- **registry entries** that must be implemented (effects, triggers, achievement conditions, formula references; M0: those its prototypes use, which may be none);
+- **projections, queries and packet sections** the module produces (M0: §15.5's marked kinds and §15.4's sections for chunks, `DYN`, `MOVERS`, `EVENTS` and `UI`); a subscription or query outside it gets status 2 (invalid) with the reason `unsupported`;
+- **scenarios, rule scenarios and benchmarks** that `npm test`, `test:slow` and `ci` run (§10.8's rows marked M0; §10.6's M0 benchmarks).
+
+Each manifest extends the previous one, and the data stage checks that the build's prototypes close over it. Asking the engine for anything outside the manifest fails with an explicit error, never silently.
 
 ### 2.5 Code rules
 
@@ -308,7 +339,7 @@ Factorio builds its prototypes in a data stage (`data.lua` → `data-updates` �
 - Edition 2024; rustfmt; clippy at `-D warnings` with the determinism bans of `clippy.toml` (§4.1) and `clippy::wildcard_enum_match_arm` denied in `sim`, so a new enum variant is handled everywhere.
 - **Typed handles.** Every id is a generated newtype (`Serial(u32)`, `EntityHandle(u32)`, `ItemKey(u16)`, `RecipeId(u16)`, `PlayerIndex(u16)` …); integers never stand in for each other. A giant `World` indexed by interchangeable integers would forfeit Rust's guardrails (A1-r1).
 - **No `unsafe`** outside `simabi` and `genabi`. Indexing stays checked in release builds: an out-of-range index panics (a trap, §3.6) instead of corrupting state silently.
-- **The tick allocates nothing**: no heap allocation in per-tick paths; pools grow only on build. A counting global allocator (feature `simcheck`) backs `__game.allocs()` and a test that runs 6,000 steady-state ticks of each benchmark save and asserts zero allocations.
+- **The steady-state tick allocates nothing**: no heap allocation in per-tick paths. Growth is allowed only where it is explicit and amortised: pools, arenas and the slot heap on build, the event queue up to its cap (§15.6), the serial index, and the first regeneration of a pristine chunk (§4.4). A counting global allocator (feature `simcheck`) backs `__game.allocs()` and a test that runs 6,000 steady-state ticks of each benchmark save of the milestone (§10.6) and asserts zero allocations; the growth paths are measured, not banned (B1-r1 22).
 - **Integer discipline** (D7): counters that can pass their range use `wrapping_*` or `checked_*` explicitly, and say which; `as` casts from floats saturate (Rust semantics, identical in every target).
 - **No recursion** deeper than a constant bound (stack sizes differ between native and WebAssembly; D19): graph walks use explicit stacks.
 - **No I/O, no threads, no clock** in `det`, `worldgen` and `sim` (D13, D19). Logging goes through a `log!` macro to the host import (§15.8); `println!` does nothing in WebAssembly and is banned.
@@ -368,6 +399,7 @@ type MainToSim =
   | { t: 'sub'; gen: StateGen; subs: SubRequest[] }       // add or replace subscriptions (§15.5)
   | { t: 'unsub'; gen: StateGen; ids: number[] }
   | { t: 'query'; gen: StateGen; id: number; q: ArrayBuffer }   // one-off, read-only (§15.5)
+  | { t: 'cancel'; gen: StateGen; id: number }            // drop a running or waiting query (§15.5)
   | { t: 'ack'; buf: ArrayBuffer }                        // a packet buffer returned for reuse
   | { t: 'save'; id: number; reason: 'manual' | 'auto' | 'exit' | 'checkpoint' }
   | { t: 'dev'; id: number; op: DevOp };                  // hash, digest, flags, bundle … (§3.5)
@@ -377,6 +409,8 @@ type SimToMain =
   | { t: 'bound'; gen: StateGen; tick: number; players: { index: number; lastSeq: number; inputGen: number }[] }
                                                           // a world is loaded and running (from sim_meta, §15.8)
   | { t: 'loadReport'; gen: StateGen; report: ArrayBuffer }                             // §8.3
+  | { t: 'chart'; gen: StateGen; records: ArrayBuffer }  // pristine chunks' chart images from the worldgen pool,
+                                                          // in CHART's record format (§5.19)
   | { t: 'pkt'; buf: ArrayBuffer }                        // one render-and-UI packet (§15.4), transferred
   | { t: 'res'; gen: StateGen; id: number; ok: boolean; value: ArrayBuffer }
   | { t: 'clock'; gen: StateGen; clockGen: number; tick: number; speed: number; paused: boolean }   // §3.3
@@ -386,7 +420,12 @@ type SimToMain =
 ```
 
 - **`InputAction`** mirrors Factorio's `defines.input_action`, as I §8.2 lists it, with stable numbers of our own (§15.3). Our additions are in Appendix B. The main thread encodes each action with the generated encoder and sends it to the **sequencer port**: the sim worker's `LocalSequencer` in single player, the net worker in multiplayer. Actions never reach the World except as part of a closure (D2).
-- **Seqs are the main thread's.** It numbers its own player's actions, continuing from `bound`'s `lastSeq`, so it knows the seq of every action it sends and can name the entities an unconfirmed build creates by creation id (§15.3). The sequencer checks that seqs rise and stamps ticks.
+- **Seqs are the main thread's** (B1-r1 11). It is the only allocator of its player's seqs, so it knows the seq of every action it sends and can name the entities an unconfirmed build creates by creation id (§15.3). One rule sets its counter:
+  - when a world is bound, `nextSeq = max(loaded, accepted, pending) + 1`, where *loaded* is its player's `lastSeq` in `bound`, *accepted* the relay's `acceptedThrough` (multiplayer; 0 in single player) and *pending* the highest seq it has sent but not yet seen applied;
+  - a single-player replacement discards pending actions, which were addressed to the old world; in multiplayer they stay addressed to the room, and the net worker re-sends those above `acceptedThrough` (11 §3.3);
+  - the counter never moves backwards within a world or a room session.
+
+  The sequencer refuses seqs that do not rise, stamps ticks and writes input generations (§15.3).
 - **Closures from the network** arrive on the `closurePort` as `{ t: 'closures'; first: number; closures: ArrayBuffer[]; blobs: ArrayBuffer[] }` (11 §2.4): closure k is `closures[k − first]`, in the format of §15.3, and every blob they name comes with them.
 - **Validation.** Each action is validated in the sim against reach, items, collisions and permissions. Failures come back as events: flying text with a reason, an error sound (§15.6). The sim never calls UI code.
 - **Queries** are read-only and are not logged. Examples: the rate calculator, map search, "where is X made", "total raw", Handbook live counts. They run between ticks against `&World` (D9).
@@ -421,6 +460,7 @@ type SimToMain =
   - The main thread renders the latest packet on `requestAnimationFrame`. Camera pans and zooms animate at the display rate.
   - World content updates at 60 Hz, as in Factorio, which renders at its update rate.
   - At most one extraction per wake: after a wake that ran several ticks, the shell extracts once, after the last.
+  - **Extraction without ticks** (B1-r1 12). While no tick runs (paused, a step-mode test, a stalled sequencer), the shell still extracts once within 16 ms after any `view`, `sub` or `unsub` message, so a paused game answers camera moves and newly opened windows.
 - **Hidden page** (07-ui §19.3).
   - **Single player:** the `LocalSequencer` pauses when the page is hidden (a new clock generation), and the game autosaves if the last save is older than a minute. The Interface setting *Keep running in background tab* (default off) keeps it closing ticks at whatever rate the browser allows, with extraction skipped.
   - **Multiplayer never pauses on a hidden tab** (11 §3.6): the worker is driven by arriving ticks, extraction stops while hidden, and on return the client catches up or re-syncs.
@@ -451,7 +491,7 @@ The sim re-validates every action authoritatively. Live values (a tooltip's reso
 
 **The world-replacement protocol** (S15; A2-r1 13). The main thread holds a **current state generation** (`u32`) and is the only thread that allocates one. A new generation starts whenever the world it shows is replaced: a new game, a load, a join, a re-sync swap, a rewind, a trap recovery. Each replacement goes through a fresh sim worker (§3.1):
 1. The main thread allocates the next generation g and sends the new worker its world (`world {gen: g, …}`). The current generation stays g − 1 meanwhile: in multiplayer's background re-sync the old world keeps playing and its packets keep being drawn; in single player the old worker is already gone and the loading screen shows.
-2. Every packet, response, event and trap carries the generation it came from, and the main thread **accepts only the current generation**, plus g's `ready`, `bound` and first packet.
+2. Every packet, response, event and trap carries the generation it came from, and the main thread **accepts only the current generation**, plus g's `ready`, `bound` and first packet. The new worker sends that first packet **unsolicited**, right after `bound`, even when the world is paused: a `FULL` packet with only the sections that need no view (the `UI` section is empty, since the new worker has no subscriptions yet). So the switch never waits for a view request (B1-r1 12).
 3. When g's first packet arrives, the generation switches to g, and the main thread:
    1. drops the whole view model, so chunk versions are never compared across generations, even when the counters coincide;
    2. re-sends its view request and every subscription; open entity windows rebind by serial and close if the entity is gone (§15.5);
@@ -484,11 +524,29 @@ The split between Rust and TypeScript follows IMPL-1's five rules. Each has an o
 
 | # | Rule | How | Test |
 |---|---|---|---|
-| 1 | **Rust owns the authoritative state and the rules.** Closures enter through one validated API (`sim_tick`). Queries, extraction and TypeScript views never mutate state or influence future results | `World` is mutated only by `World::tick` and loading; extract, project, query and save take `&World` (§2.5) | D18 (a)–(e); the D9 test: the full state hash is unchanged by a burst of extractions, every query kind and every projection kind |
+| 1 | **Rust owns the authoritative state and the rules.** Closures enter through one validated API (`sim_tick`). Queries, extraction and TypeScript views never mutate state or influence future results | `World` is mutated only by `World::tick` and loading; extract, project, query and save take `&World`, plus the part of `PresentationState` they own (below; §2.5) | D18 (a)–(e); the D9 continuation test (§10.4 #13): different read schedules give identical digests and state |
 | 2 | **One schema generates the contracts** with fixed widths, units, ids, ordering and versions, never Rust's incidental layout | `schema/` and `scripts/schema-gen.ts` (§15.1) | `schema-gen --check` in `npm run check`; the schema-hash handshake at start-up; cross-language codec fixtures |
 | 3 | **Data leaves the sim in bulk**: render packets, projections and query results, through reusable writers. No per-entity calls across the boundary and no gameplay arithmetic in TypeScript | §15.4–§15.6 | A Vitest audit: the shell calls at most a fixed number of exports per tick; review |
 | 4 | **View lifetimes are explicit.** Only the sim worker's shell touches linear memory, and it reacquires every view after memory growth or pool reallocation. No pointer survives an invalidating call | The `MemoryLease` below | A Vitest test that grows memory mid-session and checks that stale views throw in dev builds |
 | 5 | **The boundary is reviewable and testable from M0**: real inventory and statistics projections, save and load, structured errors, trap recovery, native goldens and browser traces | M0 exit criteria (§12) | §10.4, §10.5 |
+
+**Who owns what inside the module** (B1-r1 4). The module's state is one `SimContext { world: World, pres: PresentationState }`. `World` is the authoritative state: saved, hashed, and changed only by `World::tick` (or replaced by a load). `PresentationState` is everything the outputs must remember; the module owns it, and no rule ever reads it. Each of its fields has one writer:
+
+| Field | Written by | Read by |
+|---|---|---|
+| The event queue (§15.6) | the tick, through an `EventSink` borrowed from `pres` | extraction, which drains it |
+| The subscription table, each subscription's cadence, last record hash, last source revisions and sent series points (§15.5) | `sim_subscribe` and `sim_unsubscribe`; extraction updates the rest | extraction |
+| The held set, each held chunk's sent versions, the sent belt geometry, the overlay and chart state (§15.4) | extraction | extraction |
+| The view's cache of regenerated pristine chunks (§4.4) | extraction | extraction |
+| The packet arena and output envelopes (§15.8) | extraction and queries | the shell, which copies them |
+| Query continuations (§15.5) | `sim_query`, `sim_query_step` and `sim_query_cancel` | `sim_query_step` |
+| The historical, `NO_SLEEP` and profiling flags | `sim_set_flags` | the tick (event marking), extraction |
+| Which chunk requests the shell has been given (§15.9) | `sim_pending_chunks` | `sim_pending_chunks` |
+
+- The tick is `World::tick(&mut world, closure, &mut EventSink)`; extraction is `extract(&world, &mut pres, &ViewRequest)`; projections and queries take `&World` and their own part of `pres`. The borrow checker keeps every read path from changing the World (D1, D9).
+- Presentation fields inside pools (§4.5, such as `anim`) are part of the World's memory but are written only by the tick, read only by extraction, and never saved or hashed.
+- The shell keeps no copy of any of this: it forwards requests and copies outputs. Only the main thread remembers its own subscriptions, to re-send them after a replacement.
+- **Continuation equivalence** (D9): runs that differ only in their read schedule (extraction every tick, never or at random; subscriptions and queries added and dropped at random) give identical per-tick digests and full states (§10.4 #13).
 
 **View lifetimes.** WebAssembly memory growth detaches the old `ArrayBuffer`, and a pool that reallocates moves its columns. So:
 - every view the shell holds (generated pool views, the output arena, the input buffer) is obtained through a `MemoryLease` that records `memory.buffer` and `sim_memory_epoch()` (§15.8), which the module increments whenever any exported column or buffer moves;
@@ -496,7 +554,7 @@ The split between Rust and TypeScript follows IMPL-1's five rules. Each has an o
 - in dev builds a stale view throws on access;
 - packets and responses leave the worker as copies (one `memcpy` into a pooled buffer, 1.7 ns per sprite record, A1), so no other thread ever sees linear memory.
 
-**Structured errors.** Every export that can fail returns a status code; `sim_last_error()` returns `{code, message}` (§15.8). Examples: a save from a newer format, a closure that fails framing, prototypes that do not match the save and cannot be remapped. The shell turns them into `log` messages and the main thread into user-facing notices whose strings come from 08.
+**Structured errors.** Every export that can fail returns a status code; `sim_last_error()` returns `{code, message}` (§15.8). Examples: a save from a newer format or another worldgen version, a closure that fails the preflight (§15.3), prototypes that do not match the save and cannot be remapped. The shell turns them into `log` messages and the main thread into user-facing notices whose strings come from 08.
 
 **Traps.** Release builds use `panic = "abort"`: a Rust panic (an index out of range, a failed assertion in a check that stays on) ends in a WebAssembly `unreachable` trap, and the instance is unusable afterwards (A1: its panic state stays set).
 1. `sim_init` installs a **panic hook** that passes the message, file and line to the host import `host_panic` before the abort (A1 demonstrated it: "index out of bounds: the len is 3 but the index is 7", with file and line).
@@ -561,7 +619,7 @@ Several counters are called "generations". They are different things.
 | D6 | **No NaN in saved state.** WebAssembly NaN payloads are nondeterministic, and NaN breaks comparisons | Raw-byte hashing and saving would differ between engines | Builds with `simcheck` (§2.3) scan the float columns of active pools after each phase (generated per pool); the hash maps every NaN to one bit pattern, so a NaN fails the scan in tests rather than desyncing | sim |
 | D7 | **Integer discipline.** Explicit `wrapping_*` or `checked_*` arithmetic where a value can leave its range: release builds wrap silently, debug builds panic. Counters that can pass 2³¹ say how they wrap | "It wrapped" against "it didn't" is a classic divergence, and here also debug against release | Review; property tests at the boundaries; overflow checks in `dev`, `test` and `ntest` builds | sim |
 | D8 | **Checkpoints are complete,** including everything that orders future work: pool high-water marks and handle generations (§4.5; allocation is canonical lowest-free-slot, so no free list needs saving), the serial counter, RNG stream states, timers with their owners, the order of every order-relevant list, per-player state (input generations, creation rings, `lastSeq`, inventory versions, crafting queues, undo stacks), the blueprint store, **the set of generated chunks** and the chunks' rule versions (§4.4), each electric network's **satisfaction from the last tick** (phase 2 reads it before phase 4 recomputes it), and **pending worldgen requests** with their commit ticks. Derived state is rebuilt on load *in canonical order*. The digest lineage (r) is saved beside the state but not hashed (§4.8) | A joiner, a re-synced client and a resumed room must continue bit-identically. OpenTTD's first-listed desync cause is an incomplete savegame | D18(a); heavy mode D18(c); the save/load test compares full state for 10,000 ticks after load | sim |
-| D9 | **Caches are pure.** A cache gives identical values whenever it is (re)computed, and is never filled as a side effect of a query or of extraction in a way that changes later results | Clients extract different views and run different queries | `&World` for every read path (D1); the full state hash is unchanged by a burst of extractions, every query and every projection kind | sim |
+| D9 | **Caches are pure.** A cache gives identical values whenever it is (re)computed, and is never filled as a side effect of a query or of extraction in a way that changes later results | Clients extract different views and run different queries | `&World` for every read path, with bookkeeping in `PresentationState` (§3.6); the continuation test: runs with different read schedules give identical per-tick digests and states (§10.4 #13) | sim |
 | D10 | **No local player in the simulation.** The sim never branches on which player is "us"; events carry player indices and the client filters them | Each client has a different local player | Structural: the ABI has no such input (§15.8); the multi-client harness gives each world a different viewer (D18 f) | sim |
 | D11 | **Rule-affecting personal settings are world state** (per player, set by actions): auto-sort inventory and "Pick ghost item if no items are available"; game settings such as trimmed collision are world state too. The smart-belt flag travels in the build action. The audit table is §7.6. Client-only settings may change *which actions are sent*, never how they execute | Otherwise one setting yields two results | The audit table (§7.6); R29 | sim, UI |
 | D12 | **Worldgen stays pure and is committed at sim-determined ticks** (§5.18: commit at t + 30; a late chunk is generated inline). The worker-pool size never influences results | Clients have different core counts | Test: no pool, 1 worker and 4 workers give the same chunk hashes and the same world hash | sim |
@@ -570,10 +628,10 @@ Several counters are called "generations". They are different things.
 | D15 | **Outputs are outputs.** Events, packets and projections never feed back into the simulation. Events produced while catching up or replaying are marked historical and suppressed at the boundary (S15) | The UI differs per client | Of the module's imports only `host_now` returns a value, and only the profiling module sees it (§15.8, D13); the D9 test | sim, shell |
 | D16 | **No ordering by identity.** Nothing is ordered by a pointer, an address, or the insertion order of objects whose history is not saved | Allocation history differs after load and between native and WebAssembly | D18(a) and (d): native and WebAssembly allocate at different addresses, so any address-dependent order shows up as a cross-engine mismatch | sim |
 | D17 | **Strings never decide rules**, except as equality on data ids. Sorting, if ever needed, is by bytes, never by locale | Locales differ between players | Rust's `str` ordering is bytewise and `std` has no locale collation; a unit test pins the order of non-ASCII names | sim |
-| D18 | **The tests that enforce the rest**, from M0, on every scenario and on fuzzed action sequences, comparing **full canonical state**, not only digests: (a) join equivalence; (b) NO_SLEEP equivalence; (c) heavy mode; (d) cross-engine traces, native against Node, Chrome and Firefox; (e) replay of every recorded session; (f) the multi-client harness; (g) wire and codec probes. §10.4 defines each | Rules without tests rot; sampled digests cannot catch every transient divergence | `cargo test` and `npm test` (a, b, e, f, g); `npm run test:slow` (c, d); `npm run ci` (a smoke of d) | sim, shell |
+| D18 | **The tests that enforce the rest**, from M0, on every scenario and on fuzzed action sequences, comparing **full canonical state**, not only digests, and in short runs comparing the canonical state bytes after **every** tick (§10.4): (a) join equivalence; (b) NO_SLEEP equivalence; (c) heavy mode; (d) cross-engine traces, native against Node, Chrome and Firefox; (e) replay of every recorded session; (f) the multi-client harness; (g) wire and codec probes. §10.4 defines each | Rules without tests rot; sampled digests cannot catch every transient divergence | `cargo test` and `npm test` (a, b, e, f, g); `npm run test:slow` (c, d); `npm run ci` (a smoke of d) | sim, shell |
 | D19 | **The Rust and WebAssembly rule set:** the arithmetic rules above; no random-state maps; no NaN in state (D6); never SIMD or relaxed SIMD; explicit wrapping (D7); no pointer-dependent logic (D16); no recursion beyond a constant bound (stack limits differ between native and WebAssembly); one thread; no `std::time` (D13). A panic aborts the module (§3.6) | WebAssembly is deterministic except where it explicitly is not, and native tests are only worth something if native and WebAssembly agree | `clippy.toml` (verified); the feature gate (§2.3); D18(d) | sim, schema |
 | D20 | **Every new piece of state declares** whether it is saved or derived (and how it is rebuilt), whether its order matters, and its canonical order | The cheapest place to prevent D3 and D8 bugs is the line that adds the state | The schema requires the attributes, and the generator refuses a field without them (§15.1) | schema |
-| D21 | **Per-player action order.** The sequencer assigns each player's actions nondecreasing ticks and keeps their send order within a tick (11 §3.4). The sim checks in every build that each batch's first seq is above the player's saved `last_seq` (a framing rule, §15.3), so each player's `(tick, seq)` rises strictly | Otherwise a stop can run before the start it answers (A2-r1 2) | Relay unit tests (11 §9); the framing check; R27 | sim, relay |
+| D21 | **Per-player action order.** The sequencer assigns each player's actions nondecreasing ticks and keeps their send order within a tick (11 §3.4). The sim checks in every build that each batch's first seq is above the player's saved `last_seq` (a preflight rule, §15.3), so each player's `(tick, seq)` rises strictly | Otherwise a stop can run before the start it answers (A2-r1 2) | Relay unit tests (11 §9); the preflight; R27 | sim, relay |
 | D22 | **Held inputs are fenced** by a per-player input generation: `release_inputs` raises it, and a held-input action carrying another generation is a no-op with an event (§15.3) | An action stamped before a release but scheduled after it must not undo the release (A2-r1 3) | R23 | sim |
 | D23 | **Targets by identity.** Actions name existing entities by serial and just-predicted ones by creation id; the sim never falls back to "whatever stands there". Positions only for actions defined on positions (§15.3) | A position fallback acts on another player's replacement entity (A2-r1 12) | R24, R25 | sim |
 
@@ -614,8 +672,14 @@ Several counters are called "generations". They are different things.
 
 **RNG:**
 - **The world seed** is a `u32` (07 §17's seed field).
-- **Streams:** `xoshiro128**`, whose four 32-bit state words are four successive outputs of `splitmix32` started from `hash(worldSeed, streamId)`. Used where a sequence is natural: enemy AI (Wild), worldgen regions.
-- **Counter-based:** `rand(a, b, c, d)` = a 32-bit avalanche hash (Murmur3 finalizer chain) of the world seed and four keys. Used for every per-event draw, so the result is independent of update order and of sleeping:
+- **The primitives** (B1-r1 18; all arithmetic on `u32`, wrapping; `rotl` is a left rotation):
+  - `fmix32(h)`, Murmur3's finalizer: `h ^= h >> 16; h *= 0x85EBCA6B; h ^= h >> 13; h *= 0xC2B2AE35; h ^= h >> 16`.
+  - `rand(a, b, c, d)`: `h = fmix32(seed ^ 0x2545F491); h = fmix32(h ^ a); h = fmix32((h + 0x9E3779B9) ^ b); h = fmix32((h + 0x7F4A7C15) ^ c); h = fmix32((h + 0x94D049BB) ^ d)`, returning h. The salts differ per position, so permuted keys give different draws. A draw becomes a probability as `h as f64 × 2⁻³²`.
+  - `splitmix32(s)`: `s += 0x9E3779B9; z = s; z = (z ^ (z >> 16)) * 0x85EBCA6B; z = (z ^ (z >> 13)) * 0xC2B2AE35; return z ^ (z >> 16)`.
+  - `xoshiro128**` as published by Blackman and Vigna: `result = rotl(s1 * 5, 7) * 9; t = s1 << 9; s2 ^= s0; s3 ^= s1; s1 ^= s2; s0 ^= s3; s2 ^= t; s3 = rotl(s3, 11)`.
+  - Stream ids are the schema enum `RngStream` (worldgen regions, ambient noise, town names, decoratives, then the Wild purposes), and the fourth key of a per-event draw is the schema enum `RngPurpose`. The schema package's fixtures hold golden vectors for each primitive and the first 16 outputs of two streams for seeds 0, 1 and `0xDEADBEEF` (§15.10).
+- **Streams:** `xoshiro128**`, whose four state words are four successive outputs of `splitmix32`, started from `rand(streamId, 0, 0, 0xFFFFFFFF)` (the purpose `0xFFFFFFFF` is reserved for seeding). Used where a sequence is natural: enemy AI (Wild), worldgen regions.
+- **Counter-based:** `rand(a, b, c, d)`. Used for every per-event draw, so the result is independent of update order and of sleeping:
   - probabilistic recipe products (D's uranium 0.7%; A's experiment-media loop at 0.05/0.95 with catalyst returns): `rand(serial, craftCount, productIndex, 0) / 2³² < p`;
   - quality rolls: `rand(serial, craftCount, productIndex, 1)`;
   - the selector combinator's random mode: `rand(serial, tick, 0, 2)`;
@@ -679,7 +743,10 @@ Chunk  { cx, cy, tiles: [u8; 1024], resources: sparse (tile → proto, amount u3
 - The campus and landmarks are not minable. The campus opens the University window.
 - Town buildings are not objects: they are building-block tiles (above), drawn as era-skinned buildings (§6.5). The **salvage** is not in `world.yaml`: its single definition is `meta.start.salvage` (DECISIONS §33; §5.18).
 
-**Pristine chunks** (generated and never modified: no build, no mining, no tile change, no tree removed or stripped of a leaf stage, no ground item) are not saved. **Which chunks exist is saved**: the hashed `GENERATED` section lists every generated chunk key per surface (§8.1), because heat flows into generated chunks and to the Map edge past ungenerated ones, and agents skip ungenerated chunks (D8). A pristine chunk's content (tiles, resources, trees, objects, κ) is a pure function of the seed, so the sim regenerates it **lazily**, inline, the first time a rule or an extraction needs it. Regeneration is a pure cache (D9) and never changes state; a load therefore costs nothing per pristine chunk, and only the chunks a rule touches, the characters' surroundings first, are rebuilt (§11). Their charted bits and nonzero heat are saved separately (§8.1). This keeps an "endless" map affordable in both memory and saves.
+**Pristine chunks** (generated and never modified: no build, no mining, no tile change, no tree removed or stripped of a leaf stage, no ground item) are not saved. **Which chunks exist is saved**: the hashed `GENERATED` section lists every generated chunk key per surface (§8.1), because heat flows into generated chunks and to the Map edge past ungenerated ones, and agents skip ungenerated chunks (D8). A pristine chunk's content (tiles, resources, trees, objects) is a pure function of the seed, so the sim regenerates it **lazily**, inline, the first time a rule or an extraction needs it. Regeneration is a pure cache (D9) and never changes state; a load therefore costs nothing per pristine chunk, and only the chunks a rule touches, the characters' surroundings first, are rebuilt (§11). Their charted bits and nonzero heat are saved separately (§8.1). This keeps an "endless" map affordable in both memory and saves.
+- **Cheap metadata stays** (B1-r1 16). Each `GENERATED` entry keeps the chunk's κ, θ and sunlight (three `f64`), so the thermal field, solar output and the climate never force a regeneration; only rules that need tiles, resources or objects do (placement, collision, mining, drills, the view).
+- **Regeneration is bounded** (B1-r1 16). A rule that needs a pristine chunk regenerates it on the spot (a build, a mining action). Otherwise the tick keeps each character's surroundings regenerated, nearest first and at most 8 chunks per tick, so after a load the held set around a character is back within a few ticks. Extraction cannot write the World: a pristine chunk that the view needs and the tick has not regenerated (the map view, a remote camera) is generated into a bounded cache in `PresentationState`, at most 8 chunks per packet, nearest the view's centre first; the rest follow in later packets. Chart images of pristine chunks never pass through the sim (§5.19).
+- **The rules that generated it are pinned** (B1-r1 7). `GLOBALS` records the **worldgen version** (`u32`, raised by hand whenever any chunk's output could change) and the hash of the worldgen-relevant tables of `prototypes.bin` (tiles, resources, autoplace, world objects). A build whose pair differs cannot regenerate the save's pristine chunks faithfully, so it refuses the save with an explicit error naming both, unless the save was first **baked** by a build with the save's own pair: baking (a save option, and the first step of a sealed upgrade, 11 §6.3) writes every pristine chunk into the save's `CHUNKS` as if modified, without changing the running world, and the baked save starts a new digest lineage (§4.8). CI pins golden chunk hashes per worldgen version, so a change to generation without a version bump fails the build.
 
 **Versions.** Each chunk keeps a saved **rule version** (`u32`), raised whenever its entities, ghosts, tiles or resources change; the only rule that reads it is the Area scanner's (§5.2). The view versions of §15.4 are derived presentation counters and never read by a rule.
 
@@ -728,6 +795,8 @@ TransportLinePool (§5.3), ElectricNet arrays (§5.7), FluidSegment arrays (§5.
 
 Each pool also carries derived scheduling columns: the `active` bitset and a `wake_seq: u32` per slot (§4.6).
 
+**Saves hold serials, never handles** (B1-r1 6). A saved field of type `EntityHandle` is written as the referenced entity's serial (`u32`, 0 = none), and loading runs in two passes: the entity table first, which rebuilds the serial index and each slot's handle generation, then every other section, translating serials back into handles. Handles are runtime-only, as §4.3 says, and a save's bytes do not depend on which slots were reused how often.
+
 - **Inventories** live in a **slot heap** (`Slot = {key: ItemKey, count: i32}`) made of one arena per size class (powers of two up to 128 slots, then multiples of 64). An inventory owns one block of its class, named by `(class, block index)`; allocation takes the **lowest free block** of the class, and a block is free exactly when no live inventory owns it, so the free state is a function of the live inventories and each arena's saved high-water mark. Freed blocks are zeroed. Filters, the limit bar and the hand-marker slot are parallel sparse arrays.
   - Inventories are typed, and each type has its own acceptance rule: input, output, fuel, modules (ISO), **staff** (a Seminar's single slot: a Researcher only, never filled by inserters; 07 §6.2), **accelerators** (a Research hall's 20 single-item slots), **weights** (its single frontier-checkpoint slot), and the hidden **rollback input** (one slot that exists only while the entity is compromised; §5.17).
   - The rules live in one table, `acceptance(inventoryType, entity, itemKey, actor)`, shared by hand transfer, fast transfer, inserters and agent item requests. A refusal returns the reason code the UI shows (§15.6).
@@ -772,7 +841,7 @@ Each pool also carries derived scheduling columns: the `active` bitset and a `wa
 
 **Sleep.**
 - A system puts an entity to sleep only when a whole update would provably change nothing.
-- The entity records a sleep reason and registers with exactly one wake source:
+- The entity records a sleep reason and registers with the wake sources of that reason, **at most four** (B1-r1 17): for example an inserter waiting on a belt holds its source line's arrival timer, the target's *space* list and its network's power-restored list. All of them carry the entity's current wake sequence number, so the first to fire wakes it and makes the others stale:
 
 | Sleeper | Sleeps when | Woken by |
 |---|---|---|
@@ -792,6 +861,7 @@ Each pool also carries derived scheduling columns: the `active` bitset and a `wa
 **Wake rules** (A1 finding 2; NO_SLEEP equivalence held only with all of them):
 1. **Waking only marks.** A wake-up sets the entity's active bit and does no work; the entity's own phase does the work (D3 b).
 2. **Wake sequence numbers.** Each entity has a `wake_seq` (`u32`, wrapping) that increments every time it wakes. A watch-list or timer node records the sequence at registration; when the list fires, a node whose sequence differs from the entity's current one is stale and dropped.
+   - **Reclamation** (B1-r1 17). Nodes live in one pool with a free list. A list that has not fired is compacted whenever its stale nodes outnumber its live ones, and a full sweep runs whenever the pool holds more than twice the live registrations, so retained nodes stay within twice the live ones. Destroying an entity drops its registrations in the same tick.
 3. **Arrival timers are lower bounds.** An inserter sleeping for a belt item schedules a timer at the earliest tick the item can arrive (`distance ÷ speed`); on waking it re-checks and re-arms if the item is not there.
 4. **Insertion into a line.** Inserting mid-line wakes the line's timer-holding waiters (their estimates may now be early). Inserting at the back wakes only waiters that have no item upstream of their pickup point.
 5. **Dropping onto a belt.** An inserter dropping onto a moving belt polls each tick; dropping onto a stalled belt, it waits for the line to restart.
@@ -802,9 +872,10 @@ Each pool also carries derived scheduling columns: the `active` bitset and a `wa
 **Timers.**
 - A 4,096-bucket timer wheel (one bucket per tick, modulo 4,096).
 - A binary heap for longer delays: ghost expiry after one week is 36,288,000 ticks.
-- Entries are `(dueTick, entityHandle, eventCode, owner, wakeSeq)` at runtime. `owner` (`u32`) is 0 for entity timers; timers owned by no entity use serial 0 and name their owner there (an infection's id, which is its first member's serial; a publication release's index). Stale handles are dropped on generation mismatch, stale wake timers on sequence mismatch.
+- Entries are `(dueTick, serial, eventCode, owner, wakeSeq)` at runtime. Timers name entities by **serial**, which is never reused, and resolve it through the serial index when they fire; a timer whose entity is gone is dropped. Handles are not used, because a 10-bit handle generation repeats after 1,024 reuses of a slot while a long timer may survive (B1-r1 17). `owner` (`u32`) is 0 for entity timers; timers owned by no entity use serial 0 and name their owner there (an infection's id, which is its first member's serial; a publication release's index). Stale wake timers are dropped on sequence mismatch.
+- **Same-tick rules.** A timer is due no earlier than the next tick: a delay of 0 means 1. A wake-up during a tick marks the entity active; whether it runs in this tick or the next follows the bitset rule above (D3 b).
 - **Fire order** (D3 c): timers that only wake entities fire in any order, because waking only sets bits; timers that do work (ghost expiry, spread, escape, agent arrival, releases) fire in `(dueTick, serial, eventCode, owner)` order, which is total, sorted within the bucket.
-- Saves store `(dueTick, entitySerial, eventCode, owner)` for timers that do work, in that order, and re-key by serial on load (§8.1). Wake timers are derived and not saved.
+- Saves store `(dueTick, entitySerial, eventCode, owner)` for timers that do work, in that order (§8.1). Wake timers are derived and not saved.
 
 **Bucketed systems:**
 - the thermal field: 1/64 of chunks per tick, Factorio's pollution cadence;
@@ -852,15 +923,18 @@ Host-only effects are not budgeted: on this two-socket server, NUMA page migrati
 **The full state hash** is XXH64 (seed 0) over the canonical bytes of every hashed section of a save (§8.1), in ascending section id, each prefixed by its id and raw length (`u32` each). It covers exactly the saved state: not the header, the thumbnail, the closure log or the digest lineage. XXH64 is implemented in `sim` (about 100 lines, checked against the reference test vectors), so native and WebAssembly agree. `__game.hash()` and `simtool hash` print it in hexadecimal. Tests compare it (§10.4); two worlds with equal hashes are equal for every purpose of this document, and the D18 tests also compare the sections byte for byte when a hash differs, to name the first differing field.
 
 **Digests** (S7; A2 §5.1; A2-r1 5) are computed by the sim in phase 16 of every tick, in single player too, where replays and bug bundles use them:
-1. **Per-tick digest** `d_t` (`u64`, XXH64 over a fixed record): the tick number; a checksum of the closure applied; every RNG stream state; the entity count; this tick's nonzero production and consumption counters (§5.20's per-tick arrays); each online character's position bits and its player's saved inventory version (a `u32` in `PLAYERS`, raised on every change to the main inventory or the hand); the research progress bits; and the global scalars of §4.4. Cost: about a microsecond.
-2. **Slice hash, chosen by key.** Every tick also hashes about 1/3,600 of the state:
-   - the saved fields of every entity whose serial ≡ t (mod 3,600), from a derived index of 3,600 buckets kept in ascending serial;
-   - every modified chunk and every cold record whose key ≡ t (mod 3,600);
-   - the global sections when t ≡ 0.
+1. **Per-tick digest** `d_t` (`u64`): XXH64 (seed 0) of the schema record `tick_digest`, packed little-endian in this order (B1-r1 8): `u32 tick`; `u64 closure_hash`, the XXH64 of the closure's bytes as applied (an empty closure hashes zero bytes); every RNG stream's four state words, in `RngStream` order; `u32 entity_count`; this tick's nonzero production and consumption counters as `(u32 key, f64 value)` pairs in ascending key, preceded by their `u32` count; for each online player in index order, `u16 index`, the character's position as two `f64`, and the player's saved **inventory version** (a `u32` in `PLAYERS`, raised on every change to the main inventory or the hand); the current research's `u16` technology and `f64` progress; and the `GLOBALS` fields that the schema marks `digest: tick` (the global scalars of §5.11, L, and the tick at which the loop closed). Cost: about a microsecond.
+2. **Slice hash, chosen by key.** Every tick also hashes about 1/3,600 of the state. A generated **shard map** assigns every byte of every saved section to exactly one of 3,600 shards, and slice t is the XXH64 of shard `t mod 3,600`'s members, in (section id, key) order and canonical bytes, with NaN mapped to one bit pattern (D6):
+   - per entity (its entity-table row, its pool rows, its slot-heap blocks, its cold records, its work timers): shard = serial mod 3,600, from a derived index of 3,600 buckets kept in ascending serial;
+   - per chunk (`CHUNKS`, `CHARTED`, `THERMAL`, `GENERATED`, `WORLDGEN_PENDING` entries): shard = chunk key mod 3,600;
+   - per network (`NETWORKS` contents): shard = the network's key, its lowest member serial, mod 3,600;
+   - per player (`PLAYERS`, `UNDO`): shard = (1,800 + 97 × index) mod 3,600;
+   - keyed global records (`STATS` by item key, `RESEARCH` by technology, `BLUEPRINTS` by record id): shard = key mod 3,600;
+   - the remaining global records (`GLOBALS`, `RNG`, the pools' high-water marks): each in 4-KiB pieces, each piece at its own residue fixed in `sections.yaml`, so no tick hashes more than a few kilobytes of globals.
 
-   All in canonical order, with NaN mapped to one bit pattern (D6). The schedule is a pure function of the tick and the current state, so there is no cursor to save, and everything that exists for a whole cycle is checked once a minute. For 100 MB of state that is about 28 kB per tick, a few microseconds in WebAssembly. Sampling cannot catch every *transient* divergence (an entity that diverges and is destroyed before its slice comes round), which is why D18's tests compare full state.
-3. **Rolling digest** `r_t = XXH64(r_{t−1} ‖ d_t ‖ slice_t)` over the three `u64` values. A divergence anywhere stays visible in every later r.
-4. **Lineage.** Because r depends on history, a world loaded from identical state cannot reconstruct it. Every save and checkpoint therefore carries its **digest lineage**, r at its tick, in the header beside the state but outside the hash (§8.1), and `sim_load` takes it back, so a joiner's or a re-synced client's digests continue the room's sequence (S7, S9). Digest *epochs* are not world state: the relay assigns them and the net worker attaches them to its reports (11 §5.1).
+   The generator refuses a saved section without a shard rule, and a test checks that the 3,600 shards together are exactly the canonical state. The schedule is a pure function of the tick and the current state, so there is no cursor to save, and everything that exists for a whole cycle is checked once a minute. For 100 MB of state that is about 28 kB per tick, a few microseconds in WebAssembly. Sampling cannot catch every *transient* divergence (an entity that diverges and is destroyed before its slice comes round), which is why D18's tests compare full state.
+3. **Rolling digest** `r_t = XXH64(r_{t−1} ‖ d_t ‖ slice_t)` over the three values as little-endian `u64` (24 bytes, seed 0). A divergence anywhere stays visible in every later r. A new world starts from `r_0 = XXH64(u32 worldSeed ‖ u32 0)`.
+4. **Lineage.** Because r depends on history, a world loaded from identical state cannot reconstruct it. Every save and checkpoint therefore carries its **digest lineage**, r at its tick, in the header beside the state but outside the hash (§8.1), and `sim_load` takes it back, so a joiner's or a re-synced client's digests continue the room's sequence (S7, S9). A load that remaps prototypes or migrates (§8.3) and a baked save (§4.4) start a new lineage, `r = XXH64(u64 stateHash ‖ u32 tick)` over the resulting state, because the old r describes another state (B1-r1 7). Digest *epochs* are not world state: the relay assigns them and the net worker attaches them to its reports (11 §5.1).
 5. **Per-phase digests** in builds with `simcheck` (§2.3): a digest after each of the 16 phases, to name the system in which two runs first differ (`simtool bisect`, 11 §5.3).
 6. **The digest ring**: the last 36,000 per-tick digests (288 kB), kept by the shell for bug bundles (§8.5) and desync reports (11 §5.3).
 
@@ -1756,7 +1830,8 @@ Target: 1,000 active units in ≤ 2 ms per tick. **Deferred to M5** (§14).
 
 **The commit protocol** keeps determinism with asynchronous workers.
 - The sim asks for a chunk at tick *t*: on charting, on a radar scan, or when the chunk enters a character's pre-generation radius. Agents and heat diffusion never trigger generation. Agents skip ungenerated chunks, and heat sent toward them is lost to the Map edge sink (§5.9).
-- The request `(surface, cx, cy, commit tick t + 30)` is world state: it is saved in `WORLDGEN_PENDING` and survives a load (D8). The shell sends it to the worldgen pool (§15.9).
+- The request `(surface, cx, cy, commit tick)` is world state: it is saved in `WORLDGEN_PENDING` and survives a load (D8). The shell sends it to the worldgen pool (§15.9).
+- **Deduplicated, bounded and ordered** (B1-r1 16). A chunk that is already generated or already pending is not requested again. A tick commits at most **8** chunks: a new request takes the first tick from t + 30 on that has fewer than 8 commits scheduled, so a burst (a character running into new land, a radar sweep, eight players exploring) spreads over ticks instead of stalling one. Requests made in one tick are scheduled in ascending (surface, cy, cx), and a tick's commits run in that order too. At 1–2 ms per inline chunk, the bound keeps a tick's worst inline cost near one catch-up slice (12 ms, §3.3).
 - At the commit tick (phase 3), the sim commits the worker's result. **If the result has not arrived, the sim generates the chunk itself** with the same crate, and the late answer is ignored. That is a stall of about 1–2 ms per chunk, reported in F5. It replaces round 5's "the sim waits for the worker", which would need a blocking wait across threads.
 - Generation is pure and the commit tick depends only on sim state, so replays, joins and native tests are identical with or without a pool (D12, R28). Catch-up, replays and native tests generate inline throughout.
 - Pre-generation keeps a radius of 7 chunks around each character and radar targets 2 chunks ahead.
@@ -1770,7 +1845,7 @@ Target: 1,000 active units in ≤ 2 ms per tick. **Deferred to M5** (§14).
 - **Charting:**
   - each chunk has a *charted* bit and *keep-revealed* counters (FFF-421). Characters, radars and hubs register areas, and overlaps cost nothing;
   - radars also sweep distant sectors on their own cadence.
-- **The chart image** is 32×32 RGBA per chunk: tile map colours plus entity map colours. Extraction generates it when a chunk is charted or changes while the map view or minimap watches it, and sends it in the packet's `CHART` section (§15.4).
+- **The chart image** is 32×32 RGBA per chunk: tile map colours plus entity map colours. Extraction generates it when a chunk is charted or changes while the map view or minimap watches it, and sends it in the packet's `CHART` section (§15.4). A pristine chunk has no entities, so its image is a pure function of the seed: the shell asks the worldgen pool for it (`gen_chart`, §15.9) and forwards it to the main thread, and the sim sends `CHART` records only for modified chunks. Opening the map over a late game's 30,000 charted chunks therefore costs the sim nothing (B1-r1 16).
 - **Fog (ISO, I §3.15).** A charted chunk that is not watched shows its **last snapshot**. The worker freezes the chunk's view data (§3.4) when the chunk stops being watched and serves that copy until it is watched again.
   - In the peaceful slice nothing can change unseen in a way that matters, so the slice renders the live state under a fog tint. The frozen snapshots arrive in M2 (§14); radar itself is in the slice.
 
@@ -2069,6 +2144,8 @@ sections, repeated: u32 id | u16 version | u8 codec (0 raw, 1 deflate: fflate le
 
 A section's `version` is the schema version (§15.1) at which its layout last changed; the loader reads older versions through `since` defaults and migrations (§8.3).
 
+**Alignment** (B1-r1 6) is measured from the start of the file. The header is padded with spaces so that `headerLength`, which includes the padding, is a multiple of 8; the first section header therefore starts at a multiple of 8. A section header is 16 bytes, so its data starts at a multiple of 8 too, and the zero padding after each section's stored bytes restores that for the next. Offsets inside a section count from the start of its data and refer to the raw (uncompressed) bytes.
+
 **The header** holds metadata, outside the state hash: format version, game version, `buildHash`, `protocolVersion`, `schemaHash`, `prototypesHash`, tick, seed, map settings and presets (copies, for the load screen; the originals are in `GLOBALS`), play time, the wall-clock save time, the thumbnail section's id, the **name tables** per prototype kind (§8.3), the **roster** (each player's index, name and colour; names are not world state, §4.4), and the **digest lineage** (`r` at the save's tick, as 16 hexadecimal digits; §4.8). Rust never reads the header: the shell strips it and passes the sections (§15.8).
 
 **Sections** (ids are stable and listed in `schema/sections.yaml`; all are hashed except the last two):
@@ -2086,8 +2163,8 @@ unhashed: CLOSURE_LOG (optional; §8.5, with its blobs inside)   THUMBNAIL (WebP
 ```
 
 **Two encodings**, both canonical (equal state gives equal bytes):
-- **Column tables** for the entity table and every pool: `u32 rows, u16 fields, u16 reserved`, then per field `u8 nameLength, name, u8 type, u8 reserved, u32 offset, u32 length`, then the columns, each starting at a multiple of 8. Offsets count from the start of the section. `rows` is the pool's saved high-water mark; free slots hold their default values, except handle generations (§4.5). Type codes: 1 `u8`, 2 `u16`, 3 `u32`, 4 `u64`, 5 `i8`, 6 `i16`, 7 `i32`, 8 `i64`, 9 `f32`, 10 `f64`, 11 `bool` (one byte); id, enum and flag types are stored as their base type.
-- **Records** for everything else: a section holds `u32 count`, then per record `u32 length` (the bytes that follow for this record) and its fields as `(u16 fieldId, u32 length, value)` triples in ascending field id, every field present. In `COLD`, each record is `u16 recordType, u32 serial, u32 length`, then its triples, sorted by `(recordType, serial)`. Field ids are declared in the schema and never reused (§8.3). A list value is a `u32` count followed by its items in the field's declared order (D3, D20); an item that is itself a record is encoded as a record (`u32 length`, then triples), so lists nest.
+- **Column tables** for the entity table and every pool: `u32 rows, u16 fields, u16 reserved`, then per field `u8 nameLength, name, u8 type, u8 reserved, u32 offset, u32 length`, then the columns, each starting at a multiple of 8. The directory lists the fields in the schema's declaration order; a loader matches them by name. `rows` is the pool's saved high-water mark; free slots hold their default values, except handle generations (§4.5). Fields of type `EntityHandle` are written as serials (§4.5). Type codes: 1 `u8`, 2 `u16`, 3 `u32`, 4 `u64`, 5 `i8`, 6 `i16`, 7 `i32`, 8 `i64`, 9 `f32`, 10 `f64`, 11 `bool` (one byte); id, enum and flag types are stored as their base type.
+- **Records** for everything else: a section holds `u32 count`, then per record `u32 length` (the bytes that follow for this record) and its fields as `(u16 fieldId, u32 length, value)` triples in ascending field id, every field present. In `COLD`, each record is `u16 recordType, u32 serial, u32 length`, then its triples, sorted by `(recordType, serial)`. Field ids are declared in the schema and never reused (§8.3). A list value is a `u32` count followed by its items in the field's declared order (D3, D20): by serial, by key, by slot, or as saved; an unordered collection (`order: set`) is written sorted by the items' encoded bytes, and `order: none` is allowed only on fields that are not saved. An item that is itself a record is encoded as a record (`u32 length`, then triples), so lists nest.
 
 Floats are stored as their IEEE bits (there is no NaN in state, D6); strings as a `u16` length and UTF-8; padding bytes are zero.
 
@@ -2099,7 +2176,7 @@ Floats are stored as their IEEE bits (there is no NaN in state, D6); strings as 
   - the closure tick and the overhang snapshot, milestone times, achievement progress;
   - the run-report accumulators: the 60-s power ring, recent research completion ticks with the best 600-s count, the doubling-time rings and history string;
   - the research scheduling toggle and the queue bylines (the queue itself is in `RESEARCH`);
-  - the world's identity and settings: the tick, the seed, the map settings and presets, the game settings (trimmed collision, D11) and the surfaces with their parameters;
+  - the world's identity and settings: the tick, the seed, the map settings and presets, the game settings (trimmed collision, D11), the surfaces with their parameters, and the **worldgen version** with the hash of the worldgen-relevant data (§4.4);
   - the serial counter, `last_system_seq` (§15.3) and the map tags (per force).
 - **Entity state** in the pools and the slot heap includes:
   - each deploying building's share ℓᵢ;
@@ -2111,8 +2188,8 @@ Floats are stored as their IEEE bits (there is no NaN in state, D6); strings as 
 - **`PLAYERS`**: every `PlayerState` of §4.4, including the input generation, `last_seq`, the inventory version (§4.8), the creation ring, the crafting queue, the clipboard, pins, the rule-affecting settings and the per-player accumulators. The hand-crafted count of the run report is the sum over players (§5.20).
 - **`NETWORKS`** also holds each electric network's satisfaction per class from the last tick, keyed by the network's lowest member serial (phase 2's timers read it before phase 4 recomputes it, §4.6), and the per-network electric statistics under the same key. Round-robin cursors and task queues (logistics, M3) are saved fields of their owners.
 - **`CHUNKS`** holds each modified chunk's ground items and rule version (§4.4) with its tiles and objects.
-- **`GENERATED`**: every generated chunk key per surface, sorted; chunks in it but not in `CHUNKS` are pristine and regenerate lazily (§4.4).
-- **`TIMERS`**: every timer that does work as `(dueTick, entitySerial, eventCode, owner)`, sorted in that order (D3 c), re-keyed by serial on load (§4.6). Wake timers are derived.
+- **`GENERATED`**: every generated chunk per surface, sorted by key, with its κ, θ and sunlight; chunks in it but not in `CHUNKS` are pristine and regenerate lazily (§4.4).
+- **`TIMERS`**: every timer that does work as `(dueTick, entitySerial, eventCode, owner)`, sorted in that order (D3 c); timers name entities by serial at runtime too (§4.6). Wake timers are derived.
 - **`RNG`**: the states of every xoshiro stream (§4.3). Counter-based draws need no state.
 - **`WORLDGEN_PENDING`**: every requested chunk as `(surface, cx, cy, commitTick)`, sorted by commit tick, then surface, cx, cy (D8, §5.18). The data in flight is not saved: a loaded world regenerates it.
 
@@ -2164,7 +2241,9 @@ The file is the container itself, named `<name>.save`. Import refuses a newer fo
 
 - **Pools load by field name** using each column table's directory. Added fields take their schema defaults and removed fields are dropped, like protobuf.
 - **Records load by field id.** Unknown ids are skipped (their lengths are known), and missing ones take their defaults (`since`, §15.1).
-- **Semantic changes** run migration functions in `sim::migrate`, registered by format version, in sequence.
+- **Semantic changes** run migration functions in `sim::migrate`, registered by format version, in sequence. M0 has one format and builds no migration machinery; the first format change after M0 adds it, with its first migration (B1-r1 22).
+- **Worldgen changes** are not migrations: a save made under another worldgen version or worldgen data is refused with an explicit error unless it was baked first (§4.4).
+- **A load that remaps prototypes or migrates** starts a new digest lineage (§4.8), and its load report says so.
 - **Prototypes are remapped by name.** When a save's `prototypesHash` differs from the build's, the shell builds remap tables (old id → new id, or "removed") from the save's name tables and passes them to `sim_load` (§15.8), one per kind of the `ProtoKind` enum (item, fluid, recipe, entity, technology, resource, tile, world object, signal). The generated loader remaps every field whose type is a prototype id or an item key. An entity whose prototype disappeared is removed, and an item disappears from inventories; the sim lists both in a **load report** (`sim_load_report`, §15.8), which the shell forwards to the main thread (`loadReport`, §3.2) for 08's notice (Factorio's mod-removal behaviour).
 - **Golden saves** from each milestone are kept in `test/saves/` and must load in every later build (§10.4).
 
@@ -2180,17 +2259,25 @@ The file is the container itself, named `<name>.save`. Import refuses a newer fo
 **The closure log** (S8) replaces round 5's input log: it stores closures verbatim, with every blob they name, so single-player replays and bug bundles share one self-contained format, and the relay's room log (11 §6.4), which stores closed ticks in the wire format, converts to it entry by entry. A closure log replays only under the build and `prototypesHash` it names.
 
 ```
-CLOSURE_LOG (a save section, or a file *.pwlog with the same bytes)
-  header:  u32 magic "PWCL" | u16 formatVersion (1) | u8 actionSchemaVersion | u8 flags (bit 0 HAS_DIGESTS)
-           | u32 startTick (the tick of the start checkpoint) | u32 endTick
-           | u8 buildHash[32] | u8 prototypesHash[32] | u32 startStateHash.lo | u32 startStateHash.hi
-  records: for each tick in (startTick, endTick] with a non-empty closure, ascending:
-           u32 tick | u32 length | closure bytes (§15.3)
-  digests: if HAS_DIGESTS: u32 firstTick | u32 count | count × (u32 lo, u32 hi) per-tick digests d_t
-  blobs:   u32 count | count × (u8 sha256[32] | u32 length | bytes)   every blob a closure references
+CLOSURE_LOG (a save section, or a file *.pwlog with the same bytes; packed, little-endian)
+  header (116 bytes):
+     0 u32 magic "PWCL"             4 u16 formatVersion (2)   6 u8 actionSchemaVersion   7 u8 flags (bit 0 HAS_DIGESTS)
+     8 u32 startTick (the start checkpoint's tick)           12 u32 endTick (≥ startTick)
+    16 u8 buildHash[32]            48 u8 prototypesHash[32]
+    80 u32 startStateHash.lo      84 u32 startStateHash.hi
+    88 u32 recordCount            92 u32 recordBytes
+    96 u32 digestFirstTick       100 u32 digestCount        (0 unless HAS_DIGESTS)
+   104 u32 blobCount             108 u32 blobBytes         112 u32 reserved (0)
+  records, exactly recordBytes bytes: recordCount × (u32 tick | u32 length (≥ 1) | closure bytes, §15.3),
+           ticks strictly ascending within (startTick, endTick]; ticks without actions are not recorded
+  digests, exactly 8 × digestCount bytes: d_t for digestFirstTick … digestFirstTick + digestCount − 1, as (u32 lo, u32 hi)
+  blobs, exactly blobBytes bytes: blobCount × (u8 sha256[32] | u32 length | bytes), ascending by hash, each blob once
+  nothing follows
 ```
 
-- **Replay.** `__game.replay(log)` and `simtool replay save log` load the start checkpoint, then run every tick from `startTick + 1` to `endTick` through a `LocalSequencer` in replay mode, with the recorded closure or an empty one, supplying blobs as their ticks come. With `HAS_DIGESTS`, each tick's digest is compared and the first mismatch reported. The result is bit-identical in every engine (§4.1).
+**Parsing is unambiguous** (B1-r1 2): the header gives every region's count and length, an empty log is the header with every count 0, and a reader rejects a log whose regions do not consume exactly its bytes (truncated or trailing data), a record outside the tick range or out of order, an empty record, a digest range outside the tick range, unsorted or duplicate blobs, and a blob that a record names but the log lacks. The golden set (§15.10) holds logs with and without digests and blobs, the empty log, and truncated and trailing negative cases.
+
+- **Replay.** `__game.replay(log)` and `simtool replay save log` load the start checkpoint, then run every tick from `startTick + 1` to `endTick` through a `LocalSequencer` in replay mode (natively, its Rust twin, the `TestSequencer` of §10.2), with the recorded closure or an empty one, supplying blobs as their ticks come. With `HAS_DIGESTS`, each tick's digest is compared and the first mismatch reported. The result is bit-identical in every engine (§4.1).
 - **Recording.** In single player the shell records the closure log since the last autosave whenever the dev setting is on or a bug bundle may be needed (always in dev builds); its cost is the closures themselves, a few kilobytes per minute of play. Autosaves may embed it as the `CLOSURE_LOG` section.
 - **Bug bundles** (`/report` or Ctrl+Alt+F12) contain:
   - the last autosave plus the closure log since it, with digests;
@@ -2336,7 +2423,7 @@ They are normalised and encoded the same way.
 
 ### 10.2 The scenario DSL
 
-Scenarios are Rust tests against the `sim` crate. They drive the World **through closures**: every helper that changes the world encodes an action with the generated codec and runs it through a `LocalSequencer`, so every scenario exercises the action pipeline (S2).
+Scenarios are Rust tests against the `sim` crate. They drive the World **through closures**: every helper that changes the world encodes an action with the generated codec and runs it through the **`TestSequencer`**, so every scenario exercises the action pipeline (S2). The `TestSequencer` (in `sim::testkit`) is the native twin of the TypeScript `LocalSequencer` (§3.3): it allocates seqs, writes input generations, applies the shared admission rule (§15.3) and closes ticks on demand. A fixture pins the pair: the same action script produces byte-identical closures in both (B1-r1 20).
 
 ```rust
 #[test]
@@ -2363,7 +2450,7 @@ C i A . . i C
 - `infinite power` and `infinite source/sink` test entities;
 - `hash()`, `digest()`, `save()` and `load()`.
 
-**Every scenario runs three ways** by default (`Scenario::check_equivalence`, on in `ntest`): as written; under NO_SLEEP; and saved and loaded into a fresh World at a seeded random tick. The three must agree on every per-tick digest and on the full state at the end (D18 a, b). Each scenario also records its closure log in `test/logs/`, which the cross-engine runs replay (§10.4).
+**Every scenario runs three ways** by default (`Scenario::check_equivalence`, on in `ntest`): as written; under NO_SLEEP; and saved and loaded into a fresh World at a seeded random tick. The three must agree on every per-tick digest and on the full state at the end (D18 a, b); for the first 2,000 ticks they must agree on the **full canonical state bytes after every tick** (B1-r1 20). Each scenario also records its closure log in `test/logs/`, which the cross-engine runs replay (§10.4).
 
 ### 10.3 Golden ratio tests (expected values from Factorio and the wiki, frozen after the first pass)
 
@@ -2403,19 +2490,20 @@ The D18 suites (§4.1) compare **full canonical state**, not only digests: a ful
 |---|---|---|---|
 | 1 | Repeatability | The same scenario run twice gives the same per-tick digests and hash | every scenario (`cargo test`) |
 | 2 | Save/load | Run to tick t, save, load into a fresh World, continue to T: equal to an uninterrupted run; also 10,000 ticks after load on the benchmark saves (D8) | every scenario; `test:slow` |
-| 3 | **Join equivalence** D18(a) | Save at seeded random ticks, load, and compare per-tick digests and the full state every 600 ticks and at the end against the uninterrupted run | every scenario and fuzz case |
+| 3 | **Join equivalence** D18(a) | Save at seeded random ticks, load, and compare against the uninterrupted run: the full canonical state bytes after **every** tick for the first 2,000 ticks after the load, then per-tick digests and the full state every 600 ticks and at the end (B1-r1 20) | every scenario and fuzz case |
 | 4 | **NO_SLEEP equivalence** D18(b) | Per-tick digests and full state equal with and without sleeping (§4.6) | every scenario; Mid and Late saves in `test:slow` |
 | 5 | **Heavy mode** D18(c) | Every k ticks, serialize, load into a second World, step both and compare full state; finds unsaved state and order-dependent rebuilds (after Factorio's heavy mode) | `test:slow` on long runs; `?heavy=1` in the browser |
-| 6 | **Cross-engine** D18(d) | The same closure logs natively (`simtool replay --trace`), in Node, Chrome and Firefox (the trace page, §10.5): identical per-tick digest traces and final hashes | `ci`: one 10,000-tick log; `test:slow`: every log in `test/logs/`, on the release build too |
+| 6 | **Cross-engine** D18(d) | The same closure logs natively (`simtool replay --trace`), in Node, Chrome and Firefox (the trace page, §10.5): identical per-tick digest traces and final hashes, and for short adversarial logs (≤ 2,000 ticks: the golden set, fuzz cases) the **full state hash after every tick** (B1-r1 20) | `ci`: one 10,000-tick log and the golden set; `test:slow`: every log in `test/logs/`, on the release build too |
 | 7 | **Replay** D18(e) | Every recorded session (E2E closure logs, bug bundles, the scripted opening) replays to its recorded digests and hash | `npm test`, `test:slow` |
 | 8 | **Multi-client harness** D18(f) | N Worlds in one process fed one closure stream through a simulated sequencer; joins by checkpoint mid-run; full-state agreement after every injected fault. M0 builds it natively in Rust; the MP milestone adds the relay's `RoomCore` and a simulated network (11 §9) | `cargo test`; MP |
 | 9 | **Codec and wire probes** D18(g) | Every action, event, projection and packet record at its field limits; refusal of over-long payloads, truncated batches, unknown types and versions; fuzzed closures never trap. The MP milestone adds the relay's wire probes (11 §9) | `cargo test`, Vitest |
 | 10 | Incremental equals rebuilt | After random edit sequences, transport lines (with their ranks), fluid segments, electric, circuit, logistic and data networks and rail blocks equal a from-scratch rebuild in canonical form, **including the floats each network computes** (D4) | property tests |
 | 11 | Conservation | Total items across inventories, belts, hands, the ground, agents and machine slots (staff, accelerator, weights and rollback inputs included) change only through recorded production, consumption, mining, crafting, rollback and destruction. Fluids likewise | property tests |
 | 12 | Old saves | Every golden save from earlier milestones loads and runs 1,000 ticks without error (§8.3) | `npm test` |
-| 13 | Pure reads (D9) | The full state hash is unchanged by a burst of extractions over random views, every query kind and every projection kind | `cargo test` |
+| 13 | **Continuation equivalence** (D9) | Runs that differ only in their read schedule (extraction every tick, never, or at random over random views; subscriptions and queries of every kind added and dropped at random) give identical per-tick digests and full states, and the full state hash is unchanged by any burst of reads (§3.6; B1-r1 4) | `cargo test` |
 | 14 | Worldgen | Sweeps (09 S-G1): every guarantee of 01 §9 over 1,000 seeds, including DECISIONS §32's compactness and the lake rule; the same seed gives identical chunk hashes twice; no pool, 1 worker and 4 workers give identical chunks and world hash (D12) | `test:slow` (about a minute on this host's 32 threads) |
-| 15 | Allocation | Zero heap allocations in 6,000 steady-state ticks of each benchmark save (§2.5) | `test:slow` |
+| 15 | Allocation | Zero heap allocations in 6,000 steady-state ticks of each of the milestone's benchmark saves (§10.6), with the growth paths of §2.5 measured rather than banned | `test:slow` |
+| 16 | **Mirror equivalence** (§15.4) | After random world edits (belt lines deleted, split and merged under a camera that never moves), view moves, overlay and chart toggles, subscription changes and skipped extractions, the state the main thread decodes from the packet stream equals what one `FULL` extraction of the same world gives; a paused load and a replacement each receive their first packet (B1-r1 12, 13) | Vitest against `wasmdev` |
 
 ### 10.5 E2E and screenshots
 
@@ -2436,19 +2524,21 @@ The D18 suites (§4.1) compare **full canonical state**, not only digests: a ful
 
 ### 10.6 Benchmarks and calibration
 
-**Scenarios** are generated by `bench/factories/*` (A1's seeded generator, `design/engine-study/gen/`, is the starting point) and stored as saves:
+**Scenarios** are generated by `bench/factories/*` (A1's seeded generator, `design/engine-study/gen/`, is the starting point) and stored as saves. Each belongs to the milestone that implements its systems, and the capability manifest enables it (§2.4; B1-r1 19). Thresholds are for the reference machine; `ci`'s budget gate multiplies them by the host factor 2.4 (§11).
 
-| Scenario | Content |
-|---|---|
-| `slice-3h` | A typical slice factory |
-| `mid-article` | Mid-game base, §11 |
-| `late-modelcard` | Late-game base, §11 |
-| `belts-300k` | Belt items |
-| `inserters-50k` | Inserters |
-| `agents-5k` | Agents |
-| `trains-100` | Trains |
-| `circuits-2k` | Combinators |
-| `takeoff-500` | 500 compute halls |
+| Scenario | Content | From | Threshold |
+|---|---|---|---|
+| `m0-walk` | One character walking for 10 minutes in a straight line through new land, with no worldgen workers (inline commits only) | M0 | mean ≤ 0.2 ms per tick, p99 ≤ 2 ms |
+| `m0-chests-10k` | 10,000 chests with filled inventories and a character, with 32 chest windows open | M0 | tick mean ≤ 0.1 ms; extraction with the 32 subscriptions ≤ 0.3 ms; save ≤ 50 ms; load ≤ 300 ms; full state hash ≤ 20 ms |
+| `m0-codec` | Encode, frame-check and apply 100,000 actions | M0 | ≥ 10⁶ actions per second natively |
+| `m0-load-30k` | A save with 30,000 generated, mostly pristine chunks | M0 | load ≤ 1 s; no tick in the next 600 regenerates more than 8 chunks |
+| `slice-3h` | A typical slice factory | M1 | §11's slice row |
+| `worldgen-frontier` | Eight characters exploring in different directions, radar bursts, and a heat front reaching pristine chunks right after a load, with no worldgen workers (B1-r1 16) | M1 | p99 ≤ 4 ms per tick |
+| `mid-article` | Mid-game base, §11 | M2 | §11's Mid row |
+| `belts-300k`, `inserters-50k` | Belt items; inserters | M2 | §4.7's per-entity costs × 1.5 |
+| `trains-100`, `circuits-2k` | Trains; combinators | M2 | §4.7's rows × 1.5 |
+| `late-modelcard`, `agents-5k` | Late-game base, §11; agents | M3 | §11's Late row; §4.7's agent row × 1.5 |
+| `takeoff-500` | 500 compute halls | M4 | §11's Takeoff row |
 
 **Runners.** `simtool bench --scenario X` (native), the Node runner (WebAssembly in a worker thread) and the browser runner (WebAssembly in a module worker in Chrome and Firefox, driven by Playwright; A1's `harness/bench-core.ts` is the starting point) report the mean, p50, p90, p99 and maximum ms per tick, per-phase µs, linear-memory bytes and allocations. Results append to `bench/history.jsonl` with the git hash, the host's clock log and the load during the run.
 
@@ -2486,7 +2576,7 @@ Playtest checkpoints are part of each milestone's exit criteria (§12).
 
 ### 10.8 Rule scenarios (one per engine rule that the design left open until round 4)
 
-Each is a scenario test (§10.2) in `crates/sim/tests/rules/`, named by the critique's tag, and each also runs under NO_SLEEP and through a save/load in the middle (§10.2).
+Each is a scenario test (§10.2) in `crates/sim/tests/rules/`, named by the critique's tag, and each also runs under NO_SLEEP and through a save/load in the middle (§10.2). A scenario runs from the milestone that implements its systems, as the capability manifest lists (§2.4): **M0 runs R23–R29**, except R28's heat case (M1) and agent case (M3) and R29's smart-belt case (M1); R21–R22 run from M1a; the rest as §12 says (B1-r1 19).
 
 | # | Rule | Scenario and pass condition |
 |---|---|---|
@@ -2517,7 +2607,7 @@ Each is a scenario test (§10.2) in `crates/sim/tests/rules/`, named by the crit
 | R25 | Creation ids (S5) | Rotate an entity by creation id before its build is confirmed: it rotates the right one; if the build failed, the rotate fails cleanly |
 | R26 | Offline characters (§5.1) | A player leaves while walking, mining and hand-crafting: the character stays, stops and keeps its inventory; the hand returns to the inventory if it fits; the queue resumes on return |
 | R27 | Per-player order (D21) | A batch whose first seq is not above the player's saved `last_seq` is refused with `ERR_FRAMING` in every build, also right after a save and load (a negative test); the same actions in order apply in send order |
-| R28 | Inline commits and pristine chunks (§4.4, §5.18, D12) | A chunk whose worker answer is withheld is generated inline at its commit tick with the same chunk hash; a late answer, or one carrying another world's hash, is ignored; with no pool at all the world hash is unchanged. A save and load with pristine chunks next to a heat source and under an agent's path continues bit-identically, and loading a save with 30,000 generated chunks regenerates none of them until a rule or the view touches them |
+| R28 | Inline commits and pristine chunks (§4.4, §5.18, D12) | A chunk whose worker answer is withheld is generated inline at its commit tick with the same chunk hash; a late answer, or one carrying another world's hash, is ignored; with no pool at all the world hash is unchanged; a burst of requests commits at most 8 chunks per tick, in canonical order. A save and load with pristine chunks around a walking character continues bit-identically (M0), as do pristine chunks next to a heat source (M1) and under an agent's path (M3); loading a save with 30,000 generated chunks regenerates none of them until a rule or the view touches them. A save made under another worldgen version is refused unless baked |
 | R29 | Per-player settings (D11) | Two players with different auto-sort settings: each inventory sorts by its owner's setting. A client-only setting (smart belts, even distribution) changes which actions are sent, never how an action executes |
 
 ---
@@ -2565,7 +2655,7 @@ This section is the **single source** of the game's performance targets (J7). 09
 | Audio | the audio-thread budget of §9.4 (set by WP B2) |
 
 **Every scale:**
-- **Loading** a late save ≤ 3 s; `WebAssembly.compileStreaming` of `sim.wasm` ≤ 50 ms (A1: 4.7 ms in Chrome, 8.9 ms in Firefox for a 70 kB study module). Pristine chunks are not regenerated at load (§4.4): at 1–2 ms per chunk, regenerating a late game's 30k explored chunks would take far longer than the budget, so they come back lazily, the characters' surroundings first (about 50 chunks, under 0.1 s).
+- **Loading** a late save ≤ 3 s; `WebAssembly.compileStreaming` of `sim.wasm` ≤ 50 ms (A1: 4.7 ms in Chrome, 8.9 ms in Firefox for a 70 kB study module). Pristine chunks are not regenerated at load (§4.4): at 1–2 ms per chunk, regenerating a late game's 30k explored chunks would take far longer than the budget, so they come back lazily, the characters' surroundings first and at most 8 per tick, and the heat model never needs them (B1-r1 16). The map's images of pristine chunks come from the worldgen pool (§5.19).
 - **Autosave stall** ≤ 100 ms (the section copy only).
 - **Garbage collection:** the sim tick allocates nothing (§2.5), and neither does the shell's per-tick path; main-thread GC pauses ≤ 2 ms.
 - **Input latency** ≤ 2 frames from key to rendered effect in single player (multiplayer: 11 §3.4).
@@ -2584,7 +2674,7 @@ This section is the **single source** of the game's performance targets (J7). 09
 - The uncertainty is ±50%. Asset work (Blender, SVG, audio) is included and runs at about 20% of each milestone.
 - **Version 2 resized the plan** (Changes in v2, row 24). M0 is itemised below and is about three times round 5's estimate: round 5 counted neither the schema and generator, the boundary, the worker shell, nor the multiplayer seams and D18's tests, and A1 already expected Rust to add 20–30%. M1–M4 gain 10%: Rust takes about 1.2× the TypeScript lines for the same logic (A1's two kernels), and features cross the boundary as projections and schema entries (A1-r1).
 
-**Parallel streams.** M0 starts with the *schema* work package alone (§15.11): the scaffold, the schema and generator, the data stage and CI. Then the sim, the shell, the renderer, the UI, the asset pipeline and audio run as parallel agents against the contracts of §15, with the fake sim (§15.10) standing in for the real one until integration. After M0, four streams continue:
+**Parallel streams.** M0 starts with the *schema* work package alone (§15.11): the scaffold, the schema and generator, the data stage, CI, the fake sim and the golden integration set. Only when its **contract gate** passes (M0 below) do the sim, the shell, the renderer, the UI, the asset pipeline and audio run as parallel agents against the contracts of §15, each first passing the golden set from its side, with the fake sim (§15.10) standing in for the real one until integration. After M0, four streams continue:
 1. the sim (Rust);
 2. the renderer and assets;
 3. the UI and input;
@@ -2594,7 +2684,7 @@ The critical path is sim → UI integration, through projections. With three age
 
 | Milestone | Theme | Production / test LOC | Agent-days |
 |---|---|---|---|
-| **M0** | Foundations (itemised below) | 28k / 10k | 24–32 |
+| **M0** | Foundations (itemised below) | 29k / 11k | 25–34 |
 | **M1** | Vertical slice: Memo + Report, peaceful (DECISIONS §15 and §17, 09) | 45k / 22k | 42–53 |
 | **M1.5** | Veteran pass (the rest of I's M2) | 4k / 2k | 3–4 |
 | **M2** | Article tier: fluids, data, rails, logic | 35k / 17k | 31–40 |
@@ -2608,9 +2698,9 @@ The critical path is sim → UI integration, through projections. With three age
 **Order.** M0 → M1 → M1.5 → M2 → M3 → M4 → **MP** → M6, with M5 optional between them and M7 last. Multiplayer comes late, as the user asked, but its seams exist from M0 (11 §7), so MP adds the network, the relay and the multiplayer UI without touching the simulation's structure.
 
 **Totals:**
-- The complete base game with *Contained* (M0–M4) is about 155k + 71k lines and **138–179 agent-days**.
-- With multiplayer it is about 167k + 79k lines and **152–197 agent-days**.
-- With *Wild* and polish as well, about 195k + 89k lines and **178–233 agent-days**.
+- The complete base game with *Contained* (M0–M4) is about 156k + 72k lines and **139–181 agent-days**.
+- With multiplayer it is about 168k + 80k lines and **153–199 agent-days**.
+- With *Wild* and polish as well, about 196k + 90k lines and **179–235 agent-days**.
 - Round 4 added about 2 agent-days: the data contract (expression compiler, manifests, tiles, world objects, text data; M0) and the containment rules (rollback input, locks, linear spread; M3).
 
 **Milestone builds are filters** (J17). Each milestone ships the full data filtered by a manifest, checked for closure by the data stage (§2.4); `design/round4/arch-data/manifests.py` runs the same check on the current data. M1's manifest is 09 §2.7's explicit list. The later ones are rules, kept in `game/data/engine/manifests.yaml`:
@@ -2643,19 +2733,31 @@ manifests:
 
 ### M0 — Foundations (no gameplay)
 
+**Scope** (B1-r1 22). M0 is closures, chests, projections, deterministic saves and worker replacement, with every binding seam: S1–S10, S12, S14 and S15, S11's port and swap, and D1–D23 (IMPL-4, 11 §7). What it supports is exactly its **capability manifest** (§2.4): the character, one chest, worldgen v0's tiles and one resource, one hand-craftable recipe, the actions and projections those need, and M0's scenarios and benchmarks; anything else fails explicitly. It builds M0-sized codecs, registries and adapters first, no migration framework (§8.3), and only the tools M0 uses (`simtool` replay, hash, trace and bench; diff and bisect come in M1).
+
 **Contents**, by work package (§15.11 names the owners; the manager assigns ids):
 
 | Work package | Contents | Production / test LOC | Agent-days |
 |---|---|---|---|
-| **Schema** (first, alone) | The repository and pinned toolchains (npm and the Cargo workspace), Vite with the cargo plugin, `check-arch`, `clippy.toml`, the WebAssembly feature gate, the `npm run` scripts and the pre-commit `ci`; **the schema** with M0's records and **the generator** (§15.1); **the data stage** on `spec/data`, covering every kind including tiles, world objects and text, the expression compiler with its bytecode and reference interpreter, the manifest closure check, `prototypes.bin`, `prototypes.json` and `build-manifest.json` (§2.4, §15.2); the codec fixtures; **the fake sim** (§15.10) | 6k / 2k | 5–6 |
-| **Sim** | The crates `det`, `worldgen` v0 (terrain, water, ore spots; no towns) and `sim`: World with `players[]`, surfaces, chunks, the entity table and pools, the scheduler (bitsets, wake sequence numbers, the timer wheel), RNG, digests and the state hash (§4.8), the save container v2 and checkpoints, the action pipeline (framing, references, input fencing, the creation ring, system actions), character movement and collision, chests and inventories, hand mining and crafting, inline chunk commits, extraction, the M0 projections (`HUD`, `CHARACTER`, `INVENTORY`, `ENTITY_PANEL`, `HOVER`, `STATS`, `DEBUG`), queries; `simabi`, `genabi` and `simtool` (replay, hash, bisect, bench) | 9k / 4k | 7–9 |
+| **Schema** (first, alone; the executable contract) | The repository and pinned toolchains (npm and the Cargo workspace), Vite with the cargo plugin, `check-arch`, `clippy.toml`, the WebAssembly feature gate, the `npm run` scripts and the pre-commit `ci`; **the schema** with complete layouts for every M0 record, and **the generator** with readers and writers in both languages (§15.1); **the data stage** on `spec/data`: every kind (tiles, world objects and text included) parsed and validated against its schema, M0's prototypes compiled, the expression compiler with its bytecode and reference interpreter, the closure check for every milestone's manifest, the M0 capability manifest, `prototypes.bin`, `prototypes.json` and `build-manifest.json` (§2.4, §15.2); reviewed codec fixtures; **the fake sim**, `STATS` included; **the M0 golden integration set** with the reference model that produces it (§15.10) | 8k / 3k | 7–9 |
+| **Sim** | The crates `det`, `worldgen` v0 (terrain, water, ore spots; no towns) and `sim`: World with `players[]`, surfaces, chunks, the entity table and pools, the scheduler (bitsets, wake sequence numbers, the timer wheel), RNG, digests and the state hash (§4.8), the save container v2 and checkpoints, the action pipeline (preflight and field validation, references, input fencing, the creation ring, system actions), character movement and collision, chests and inventories, hand mining and crafting, inline chunk commits, extraction with its `PresentationState`, the M0 projections (`HUD`, `CHARACTER`, `INVENTORY`, `ENTITY_PANEL`, `HOVER`, `STATS`, `DEBUG`), M0's queries; `simabi`, `genabi` and `simtool` (replay, hash, trace, bench); the `TestSequencer` | 8k / 4k | 6–8 |
 | **Shell** | The sim worker: module loading and the schema handshake, `MemoryLease`, the `LocalSequencer` with pacing and clock generations, packets and pooling, subscriptions, the world-replacement protocol (S15) and the worker swap (S11), checkpoint copies, closure logs and replay, trap recovery (§3.6); the worldgen and IO workers; `__game` | 3.5k / 1.5k | 3–4 |
 | **Renderer v0** | The batcher, atlases from the manifest (§15.7), the terrain shader, camera and zoom, layers, belt-item expansion from gap arrays, F4/F5 debug overlays; built against the fake sim | 2.5k / 0.5k | 2–3 |
 | **UI and input v0** | The Solid shell, Window and Slot, the character screen's skeleton on real projections, the input core (action map, capture layer, resolver skeleton, action encoder); built against the fake sim | 2k / 0.5k | 2 |
 | **Asset pipeline v0** | Per §9 (WP B2): the rig, greybox auto-models, the projection calibration test, atlas packing, the sprite manifest, contact sheets | 1.5k / 0.3k | 1–2 |
 | **Audio v0** | Per A4 and §9.4 (WP B2): the engine port, the mixer and buses, the event-to-sound map, working sounds from `AUDIO_WORKING` | 2k / 0.5k | 2–3 |
 | **Integration and QA** | The test harness (the scenario DSL, the rule-scenario folder (§10.8), D18's suites, the trace page, the Playwright config, golden helpers), the benchmark runners and `bench.html`, the dev-server endpoints, the exit review | 1.5k / 1k | 2–3 |
-| **Total** | | **28k / 10k** | **24–32** (about 14–18 calendar days with the parallel packages) |
+| **Total** | | **29k / 11k** | **25–34** (about 16–20 calendar days: the schema package alone, then the others in parallel, then integration) |
+
+**The contract gate** (B1-r1 1, 21; the coordinator). The schema package is the executable contract, and **no other M0 package starts before its acceptance gate passes**. The gate (§15.11 lists its parts) is:
+1. **The machine-readable schema**, with complete layouts for every M0 record: every M0 action and system action, event, projection kind and query kind, the packet header and every M0 section, the save sections of M0's state, `new_world`, `sim_meta`, load reports, every export of `abi.yaml` with its input and output records (§15.8), `ChunkData`, the `prototypes.bin` tables of M0's kinds and the schema of `prototypes.json`, with every numeric registry (enum values, section ids, kinds) and namespace table (prototype names, the icon table, the locale keys of `FailReason` and `FlyingText`).
+2. **Generated code in both languages**, compiling, with readers and writers for every record.
+3. **Codec fixtures** in both directions, generated and hand-written (§15.1), reviewed independently (a second agent or codex) before the gate closes.
+4. **The fake sim**, `STATS` included (§15.10).
+5. **The M0 capability manifest** (§2.4), with the explicit errors for everything outside it.
+6. **The frozen M0 golden integration set** (§15.10): the M0 prototype set, a start save, a closure log, the expected states and per-tick digests, the expected record of every M0 projection, a tiny compatible atlas, and negative cases.
+
+Once the gate passes, each parallel package's first deliverable is to pass the golden set from its side: the sim reproduces its states and digests natively and in WebAssembly, the shell replays its log, the renderer draws its packets with its atlas, and the UI shows its projections. A change to the gated contract reopens the gate for the packages it touches.
 
 **Mandatory multiplayer seams in M0** (11 §7): S1–S10, S12, S14 and S15, S11's port and swap, D1–D23 with D18's tests (a)–(e), (f) natively and (g) for the codecs, and rule scenarios R23–R29.
 
@@ -2663,15 +2765,18 @@ manifests:
 - A placeholder character walks on generated terrain at 60 UPS, driven by closures from the `LocalSequencer`, in Chrome, and in Firefox with `?render=none`.
 - Chests can be placed, filled and mined through actions in native scenario tests, in Node through the shell, and through the real input layer in Playwright.
 - The chest's `INVENTORY` and the character's `STATS` (hand-mined and crafted items) come from real projections (IMPL-1 rule 5).
-- Save, load and the state hash match natively and in the browser. Join equivalence, NO_SLEEP equivalence, heavy mode and replay (D18 a, b, c, e) pass on every M0 scenario; the cross-engine trace (D18 d) is identical natively, in Node, Chrome and Firefox on a 10,000-tick log; R23–R29 pass.
+- The golden integration set passes in every package (the contract gate above).
+- Save, load and the state hash match natively and in the browser. Join equivalence, NO_SLEEP equivalence, heavy mode and replay (D18 a, b, c, e) pass on every M0 scenario, with per-tick canonical comparison in short runs; the cross-engine trace (D18 d) is identical natively, in Node, Chrome and Firefox on a 10,000-tick log and the golden set; R23–R29's M0 cases pass (§10.8); the M0 benchmarks meet their thresholds (§10.6).
+- Every action, projection and query outside the capability manifest fails with its explicit error.
 - World replacement works through a fresh worker for a new game, a load and trap recovery: a dev-only panic shows the trap notice, reloads the last autosave and leaves a bundle that reproduces the panic natively.
 - The schema handshake refuses a stale module; `schema-gen --check` is clean; the release modules pass the feature gate.
 - Every manifest passes the closure check (R17).
 - The smoke screenshot has been reviewed.
-- `npm run ci` is green.
+- `npm run ci` is green under M0's capability manifest (§2.4).
 
 **Risks:**
-- The boundary's first version: the schema's shape will move while the first systems arrive. Mitigation: the schema package lands first and alone, and the generator's `--check` makes every change explicit.
+- The boundary's first version: the schema's shape will move while the first systems arrive. Mitigation: the schema package lands first and alone, its gate freezes M0's contract with executable fixtures, and the generator's `--check` makes every later change explicit.
+- The gate serialises the start of M0. Mitigation: the schema package stays M0-sized (no full-game registries, no migrations, B1-r1 22), and the fake sim and golden set let every other package start at full speed once it passes.
 - TS 7 checker gaps (fallback 6.0.3).
 - The SwiftShader speed (measured, mitigated by on-demand rendering).
 - Release builds of about a minute: `ci` uses them only for the feature gate; the loop uses `wasmdev` (§2.3).
@@ -2710,7 +2815,8 @@ The three phases below group those steps for sizing: M1a ≈ S0 and S2's hand, M
 - the World strip and window, the charter screen, milestone log lines (07-ui §4, §14, §15);
 - toasts, the Handbook (Factoriopedia), production statistics with the Papers item and the Heat tab;
 - the **rate calculator** (Alt+X) and **trimmed collision** (DECISIONS §17, 07-ui §16);
-- saves, autosave, the main menu, settings and the Controls screen.
+- saves, autosave, the main menu, settings and the Controls screen;
+- `simtool diff` and `bisect`, and the migration framework with the first format change that needs it (§8.3, B1-r1 22).
 
 **M1c — Slice content, art and audio:**
 - Blender art for about 45 slice entities and the town and salvage world objects;
@@ -2725,7 +2831,8 @@ The three phases below group those steps for sizing: M1a ≈ S0 and S2's hand, M
 - The scripted opening meets 09 §7.1's milestone times.
 - The F-tests of 09 §7.2 pass, and S-G1–S-G19 pass. That includes Firefox hashes and capture via `?render=none`, and the throttle path on the dev entity.
 - §11's slice acceptance table holds on the reference machine.
-- G1–G12 and G14–G16 pass (G13 needs M2's full fluids; G16's module case waits for M2's modules), and so do the rule scenarios of §10.8 that the slice can run: R1's boiler case, R5 without Terminals or modules, R11, R14 (on a test prototype: no slice technology is multi-level), R15 and R17.
+- G1–G12 and G14–G16 pass (G13 needs M2's full fluids; G16's module case waits for M2's modules), and so do the rule scenarios of §10.8 that the slice can run: R1's boiler case, R5 without Terminals or modules, R11, R14 (on a test prototype: no slice technology is multi-level), R15, R17, R21, R22, R28's heat case and R29's smart-belt case.
+- The M1 capability manifest is green, and the M1 benchmarks (`slice-3h`, `worldgen-frontier`) meet their thresholds (§10.6).
 - The user's Factorio-comparison playtest is within 09's 10% / 15%.
 
 **Risks:**
@@ -2882,7 +2989,7 @@ Not estimated until 06 goes beyond an outline.
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| Scope: about 195k lines of Rust and TypeScript plus assets | High | High | Data-driven systems, milestone exits, parallel agents on fixed contracts (§15), ruthless deferral (*Wild*, expansion) |
+| Scope: about 196k lines of Rust and TypeScript plus assets | High | High | Data-driven systems, milestone exits, parallel agents on fixed contracts (§15) behind M0's contract gate (§12), ruthless deferral (*Wild*, expansion) |
 | **The two-language boundary**: generated layouts, features that cross both languages, the schema's shape moving while systems arrive (A1-r1) | High | Medium | One schema for every contract (§15.1) with `--check`, a runtime hash handshake and cross-language fixtures; bulk projections instead of per-entity calls; the schema package lands first; the fake sim lets UI and renderer start early |
 | Feel fidelity (belts, inserters, drag-building) | Medium | High | Wiki goldens G1–G7, R21–R22, I's F-tests, early user playtests in M1 |
 | UI breadth (about 25 screens) | High | Medium | Generic kinds, data-generated grids and tooltips, generated projection decoders, screenshot goldens |
@@ -2945,24 +3052,27 @@ M0's work packages (§15.11) build against these interfaces in parallel, without
 |---|---|---|
 | `types.yaml` | Scalars, id newtypes (`Serial: u32`, `ItemKey: u16`, `RecipeId: u16` …), enums with explicit values (`Direction`, `Status`, `InventoryType` …), flag sets with explicit bits, small fixed records (`EntityRef`, `TilePos2`, `FinePos`) | Rust newtypes and `#[repr(u8/u16)]` enums with checked conversions; TypeScript `const` objects, numeric types and reader and writer functions |
 | `state.yaml` | The entity table, every pool, the singleton records (`globals`, `player`, …), cold record types, chunk records | Rust SoA structs with lowest-free-slot allocation, defaults, save, load and hash per section, the per-entity slice hash (§4.8) and the NaN scans (D6); TypeScript read-only views for the sim worker (§3.6) |
-| `sections.yaml` | Save sections: id, name, version, codec, hashed or not, content | Rust section writers and readers; TypeScript section ids and names for the IO worker and tools |
-| `actions.yaml` | Action types: stable id, name, fields, flags (`held`, `system`, `blob`) | The Rust decoder (a typed enum, framing validation) and encoder (tests); the TypeScript encoder |
+| `sections.yaml` | Save sections: id, name, version, codec, hashed or not, content, and the digest shard rule (§4.8) | Rust section writers and readers and the shard map; TypeScript section ids, names and writers for the IO worker, tools and the golden set |
+| `actions.yaml` | Action types: stable id, name, fields, flags (`held`, `system`, `blob`) | The Rust decoder (a typed enum, preflight and field validation, §15.3) and encoder (tests); the TypeScript encoder and the same validation |
 | `events.yaml` | Event types and payloads (§15.6) | Rust writers; TypeScript decoders and writers |
 | `projections.yaml` | Subscription kinds, their parameters, record layouts and cadence; query kinds and results (§15.5) | Rust record writers; TypeScript decoders, writers and parameter encoders |
 | `packet.yaml` | The packet header, section types and record layouts (§15.4) | Rust writers; TypeScript decoders, writers and layout constants |
-| `protos.yaml` | The prototype tables the sim reads, per kind, with the data-stage source path of each field (§15.2) | The TypeScript writer the data stage uses; the Rust loader (`Protos`) |
+| `protos.yaml` | The prototype tables the sim reads, per kind, with the data-stage source path of each field and each formula's result range; the layout of `prototypes.json` (§15.2) | The TypeScript writers the data stage uses; the Rust loader (`Protos`); the `prototypes.json` types and validator |
+| `abi.yaml` | Every module export: signature, input record, result envelope, errors (§15.8) | Rust export signatures; the shell's typed wrappers |
 | `registries.yaml` | Effect types, trigger types, achievement condition types, formula references, well-known names | Rust enums matched exhaustively; TypeScript lists for the data stage's checks (§2.4) |
 
 **Field attributes.** Every field in `state.yaml` must state:
 - `type` (required): a scalar (`u8 u16 u32 u64 i8 i16 i32 i64 f32 f64 bool`), a declared type, a fixed array `[T; N]`, or, in records only, `list<T>` (a `u32` count, then the items), `str` (a `u16` length, then UTF-8) or `bytes` (a `u32` length, then bytes). Every `list`, `str` and `bytes` declares `max`.
 - `saved` (required, D20): `true`; or `false` together with either `derived: <rebuild function>`, which names the hand-written Rust function that rebuilds it on load, or `presentation: true`, for values that systems write and only extraction reads (never saved, hashed or read by a rule).
-- `order` (required for every list-valued or keyed field, D3, D20): `none` (order cannot matter) or the canonical key (`serial`, `key`, `slot` or `saved`, the last meaning that the stored order is itself state).
+- `order` (required for every list-valued or keyed field, D3, D20): the canonical key (`serial`, `key`, `slot`, or `saved`, meaning that the stored order is itself state); `set` for an unordered saved collection, which is written sorted by its items' encoded bytes; or `none`, allowed only on fields that are not saved (§8.1).
 - `id` for every field of a record (not a pool column): a `u16`, stable and never reused, because saves store records by field id (§8.1, §8.3).
-- `default` (when not zero), `unit` (documentation and debug formatting: `J`, `tick`, `pos256` …), `wraps: true` for counters that wrap (D7), `since: <schema version>` for fields added after the first save format (the loader fills the default, §8.3), and `view: true` to export it to the TypeScript views.
+- `default` (when not zero), `unit` (documentation and debug formatting: `J`, `tick`, `pos256` …), `wraps: true` for counters that wrap (D7), `since: <schema version>` for fields added after the first save format (the loader fills the default, §8.3), `view: true` to export it to the TypeScript views, and `digest: tick` for the global fields that enter the per-tick digest (§4.8).
 
 **Versions.** `schema/types.yaml` carries `schema_version` (`u16`), which the author raises with every change that alters a save section's layout; `since` refers to it, and every save records it per section (§8.1). `ACTION_SCHEMA_VERSION` (`u8`, `actions.yaml`) and `PACKET_VERSION` (`u16`, `packet.yaml`) version the wire formats separately. The schema hash (below) identifies the whole schema.
 
 The generator refuses a field without the required attributes, a duplicate or reused id, and a change to an existing id's layout without a version bump.
+
+**Fields are ordered lists** (B1-r1 3). Every `fields:` is a YAML sequence of single-key mappings, so declaration order is explicit and survives any YAML tool; the generator refuses a mapping where order matters.
 
 **Example** (excerpts; the real files grow with every system):
 
@@ -2972,34 +3082,34 @@ pools:
   crafting:
     doc: "Crafting machines, furnaces, labs and drills (§5.5)"
     fields:
-      entity:     { type: EntityHandle, saved: true }
-      recipe:     { type: RecipeId, saved: true, default: 0xFFFF }
-      progress:   { type: f64, saved: true, unit: craft }
-      prod_bar:   { type: f64, saved: true }
-      speed_eff:  { type: f32, saved: false, derived: crafting::recompute_speed_eff }
-      energy_buf: { type: f64, saved: true, unit: J }
-      status:     { type: Status, saved: true, view: true }
-      crafts:     { type: u32, saved: true, wraps: true }
-      anim:       { type: f32, saved: false, presentation: true }
+      - entity:     { type: EntityHandle, saved: true }
+      - recipe:     { type: RecipeId, saved: true, default: 0xFFFF }
+      - progress:   { type: f64, saved: true, unit: craft }
+      - prod_bar:   { type: f64, saved: true }
+      - speed_eff:  { type: f32, saved: false, derived: crafting::recompute_speed_eff }
+      - energy_buf: { type: f64, saved: true, unit: J }
+      - status:     { type: Status, saved: true, view: true }
+      - crafts:     { type: u32, saved: true, wraps: true }
+      - anim:       { type: f32, saved: false, presentation: true }
 records:
   player:
     fields:
-      online:        { id: 1, type: bool, saved: true }
-      character:     { id: 2, type: Serial, saved: true }
-      input_gen:     { id: 3, type: u16, saved: true, wraps: true }
-      last_seq:      { id: 4, type: u32, saved: true }
-      creation_ring: { id: 5, type: "list<CreationEntry>", max: 256, saved: true, order: saved }
+      - online:        { id: 1, type: bool, saved: true }
+      - character:     { id: 2, type: Serial, saved: true }
+      - input_gen:     { id: 3, type: u16, saved: true, wraps: true }
+      - last_seq:      { id: 4, type: u32, saved: true }
+      - creation_ring: { id: 5, type: "list<CreationEntry>", max: 256, saved: true, order: saved }
 cold:
-  label: { key: Serial, fields: { text: { id: 1, type: str, max: 200, saved: true } } }
+  label: { key: Serial, fields: [ { text: { id: 1, type: str, max: 200, saved: true } } ] }
 
 # schema/actions.yaml
 version: 1                       # ACTION_SCHEMA_VERSION: bump on any layout change (u8 in the batch header)
 actions:
-  - { id: 1,  name: start_walking, held: true, fields: { dir: Direction } }
+  - { id: 1,  name: start_walking, held: true, fields: [ { dir: Direction } ] }
   - { id: 2,  name: stop_walking,  held: true }
-  - { id: 20, name: build, fields: { item: ItemKey, pos: TilePos2, dir: Direction, flip: u8, mode: BuildMode, drag_id: u32 } }
-  - { id: 21, name: rotate_entity, fields: { target: EntityRef, reverse: bool } }
-  - { id: 0xFF01, name: player_joined, system: true, fields: { player: PlayerIndex, flags: u8, reserved: u8 } }
+  - { id: 20, name: build, fields: [ { item: ItemKey }, { pos: TilePos2 }, { dir: Direction }, { flip: u8 }, { mode: BuildMode }, { drag_id: u32 } ] }
+  - { id: 21, name: rotate_entity, fields: [ { target: EntityRef }, { reverse: bool } ] }
+  - { id: 0xFF01, name: player_joined, system: true, fields: [ { player: PlayerIndex }, { flags: u8 }, { reserved: u8 } ] }
 ```
 
 **Layout rules.**
@@ -3010,8 +3120,8 @@ actions:
 **Drift is caught four ways.**
 1. **Freshness:** `npm run check` runs `schema-gen --check`, which regenerates in memory and fails on any difference with the committed files.
 2. **Hand edits:** every generated file starts with `@generated by scripts/schema-gen.ts from schema/<file>`, the schema hash and the file's own content hash; `check-arch` and a cargo test fail on a mismatch.
-3. **Runtime handshake:** the generator writes `SCHEMA_HASH`, the SHA-256 of the canonicalised schema (keys sorted, numbers normalised), into both outputs. The shell compares `sim_schema_hash()` with its own at start-up and refuses to run a module from another schema, naming both hashes. `build-manifest.json` and every save header carry it.
-4. **Cross-language fixtures:** a Vitest test encodes every action type at its field limits into `test/fixtures/codec/actions.bin`; `cargo test` decodes and re-encodes it byte for byte. In the other direction, `cargo test` writes every event, projection and packet record type into `test/fixtures/codec/records.bin`, and Vitest decodes it and compares field by field. `npm run gen` regenerates both fixtures.
+3. **Runtime handshake:** the generator writes `SCHEMA_HASH` into both outputs: the SHA-256 of the **resolved layouts** (B1-r1 3), a canonical listing of every type, record, action, event, projection, query, packet section, save section and enum with its fields in order, their offsets, widths and padding, enum values, ids and versions. Reordering fields, changing a width or renumbering an enum therefore changes the hash, and a generator test mutates each such property and checks that it does. The shell compares `sim_schema_hash()` with its own at start-up and refuses to run a module from another schema, naming both hashes. `build-manifest.json` and every save header carry it.
+4. **Cross-language fixtures:** a Vitest test encodes every action type at its field limits into `test/fixtures/codec/actions.bin`; `cargo test` decodes and re-encodes it byte for byte. In the other direction, `cargo test` writes every event, projection and packet record type into `test/fixtures/codec/records.bin`, and Vitest decodes it and compares field by field. Both sides also decode a **hand-written** fixture per record kind (`test/fixtures/codec/spec/*.hex`: annotated bytes written from the layout listing, not by the generator), so a mistake that the two generated sides share cannot pass (B1-r1 21). `npm run gen` regenerates the generated fixtures; the hand-written ones and the golden set (§15.10) change only with a version bump and a review.
 
 Generated files are committed, so cargo builds without Node and every change is reviewable.
 
@@ -3035,6 +3145,8 @@ design/spec/data/*.yaml + game/data/engine/*.yaml
 
 Only fields listed in `schema/protos.yaml` go in, and that file names each one's source in the YAML, so the data stage's writer and Rust's loader come from one description. `Protos::load` checks the header's `schemaHash` against the module's and fails with `ERR_PROTOS` otherwise.
 
+**`prototypes.json` has a schema too** (B1-r1 1). `schema/protos.yaml` also declares its layout: a header (`formatVersion`, `schemaHash`, `prototypesHash`), then per kind an array in id order of the fields the UI and renderer read (name, group and order, icon index, locale keys, sprite-set and collision-box references, display values), and the namespace tables that ids resolve through (the icon table, the sprite-set table, the locale-key table). The generator emits its TypeScript types, a validator the loader runs, and the data stage's writer; the golden set (§15.10) holds the M0 file.
+
 **Expressions compile to bytecode** (B1's call). The alternative was to compile each expression to Rust code at build time. Bytecode wins because:
 - a data edit must not need a Rust rebuild (balance churn, §1; a release build takes about 67 s, A1);
 - `prototypes.bin` stays self-contained, so `prototypes.hash` covers the formulas;
@@ -3052,7 +3164,7 @@ Only fields listed in `schema/protos.yaml` go in, and that file names each one's
 | `0x20 POWI` | — | pop e, pop b; e must be an integer in [−1024, 1024]; push `det::powi(b, e)` (§4.1) |
 | `0xFF END` | — | the result is the single value left |
 
-The data stage guarantees for every reachable variable value: `maxStack` ≤ 16, integer exponents, finite results. The Rust interpreter checks the same and panics on a violation, which is a data-stage bug. Rounding rules stay with the consumer (costs round half up to whole units, §5.12).
+The data stage guarantees `maxStack` ≤ 16 and integer exponents within ±1,024, and checks for finite results at every level up to the level cap and at the sample points of bounded variables (§2.4; B1-r1 18). It does not promise more than it can check, so the runtime behaviour at the limits is defined instead: the interpreter clamps every result to its field's declared range (an infinity becomes the bound), maps NaN to the range's lower bound and logs a warning, and treats an exponent outside ±1,024 as the nearest limit. All of this is deterministic everywhere, and the data stage's checks make each case a data bug to fix. Rounding rules stay with the consumer (costs round half up to whole units, §5.12).
 
 **Ids.** Dense `u16` per kind, assigned by the data stage (§2.4 step 5). The same ids appear in `prototypes.bin`, `prototypes.json`, `proto-ids.ts`, packets, projections, actions and saves. Rust never hard-codes one (§2.4 step 4).
 
@@ -3089,7 +3201,7 @@ No action carries a float: the client quantises positions to `TilePos2` or `Fine
 
 | Offset | Field | Meaning |
 |---|---|---|
-| 0 | `u8 version` | `ACTION_SCHEMA_VERSION`; any other value is a framing error |
+| 0 | `u8 version` | `ACTION_SCHEMA_VERSION`; any other value fails the preflight |
 | 1 | `u8 flags` | bit 0 `SYSTEM` (player must be `0xFFFF`); other bits 0 |
 | 2 | `u16 player` | 0–31, or `0xFFFF` for system actions |
 | 4 | `u32 tick` | the tick this closure belongs to |
@@ -3100,37 +3212,46 @@ No action carries a float: the client quantises positions to `TilePos2` or `Fine
 
 **A closure** is the batches of one tick, back to back, in execution order; an empty closure is zero bytes. Execution order is the sequencer's: within a tick, the relay's queueing order (11 §3.4) and, in single player, submission order. A player's actions may form several batches in one tick when other players' actions interleave.
 
-**Limits.** A payload is at most 65,531 bytes, so that an encoded action (its 4-byte header plus the payload) fits every `u16` length field, including the wire's (11 §3.2); larger payloads are blobs. A batch holds at most 65,535 actions. A closure is at most 1 MiB: the `LocalSequencer` moves overflowing actions to the next tick in order, and the relay's `TICKS` framing gives the same bound (11 §3.2). Strings respect their schema `max`.
+**Limits.** A payload is at most 65,531 bytes, so that an encoded action (its 4-byte header plus the payload) fits every `u16` length field, including the wire's (11 §3.2); larger payloads are blobs. A closure is at most `CLOSURE_MAX` = 1 MiB (1,048,576 bytes). Strings respect their schema `max`.
 
-**Framing validation** (`sim_tick`, before any state changes; a failure returns `ERR_FRAMING` and the tick does not run):
-1. every batch: `version`, `flags`, `reserved` and `tick == world.tick + 1` as above; `count ≥ 1`; `player ≤ 31` unless `SYSTEM`;
-2. every action: a known type; system types only in system batches and vice versa; `len` equal to the type's fixed size, or, for a type with a variable-length tail, consistent with it;
-3. the batches consume exactly the closure's bytes;
-4. **seqs rise** (D21): each batch's `first_seq` is above the player's saved `last_seq` (or `last_system_seq`), and `last_seq` advances batch by batch, so a player's seqs rise strictly across the tick's batches and across ticks. This holds in every build, because `last_seq` is saved state.
+**Admission** (B1-r1 10). One function decides which tick an action joins, and every sequencer uses it: the `LocalSequencer` and the relay's `RoomCore` import it from `src/shared/admission.ts`, and the native `TestSequencer` (§10.2) mirrors it, pinned by a shared fixture. It reads only each action's player, type id, length and blob count, so the relay still never parses payloads. Each tick keeps two running sizes:
+- its **closure size**: 16 bytes per batch plus 4 + payload bytes per action, where a new batch starts whenever the acting player changes (the system "player" included);
+- its **wire size**: the bytes of its `TICKS` entries (11 §3.2), 17 + 32 × blobCount + payload bytes per action.
 
-A framing error means a bug in a sequencer or a codec. Every client decodes the same bytes, so every client fails identically; the shell treats it like a trap (§3.6). The codec tests (D18 g) and fuzzing exist to keep it impossible.
+A player's action fits a tick if both sizes stay within `CLOSURE_MAX − 4,096`; a system action fits if both stay within `CLOSURE_MAX`, so 4 KiB of every tick is reserved for system actions. An action that does not fit goes to the first later tick where it does, and the tick it did not fit is then **closed** to player actions, so every later action goes later too and each player's order is kept. The relay records the action's tick in `lastAssigned` before it acknowledges it (11 §3.4). A player's action with a type id from `0xFF00` never enters a tick: the `LocalSequencer` drops it with an error in the log, and the relay treats it as a protocol error (11 §3.2). Since every action costs at least 17 wire bytes, a tick holds at most 61,680 actions, so a batch's `u16` count and a `TICKS` message's entry count always suffice, and one tick always fits one `TICKS` message.
+
+**Preflight validation** (`sim_tick`, before any state changes; B1-r1 9). The module first walks the whole closure with **temporary** watermarks, copied from each player's `last_seq` and from `last_system_seq`, and writes nothing to the World until every check has passed. A failure returns `ERR_FRAMING` (or `ERR_BLOB_MISSING`), and the tick does not run:
+1. the closure is at most `CLOSURE_MAX` bytes, and its batches consume exactly its bytes;
+2. every batch: `version`, `flags`, `reserved` and `tick == world.tick + 1` as above; `count ≥ 1`; `player ≤ 31` unless `SYSTEM`;
+3. every action's 4-byte header and its `len` bytes lie inside its batch, and its type id is from `0xFF00` exactly when the batch is a system batch;
+4. **seqs rise** (D21): each batch's `first_seq` is above the temporary watermark of its player, `first_seq + count − 1` is computed with checked arithmetic and must not pass `u32::MAX`, and the watermark moves to it. A player's seqs therefore rise strictly across the tick's batches and across ticks, in every build, because `last_seq` is saved state;
+5. every blob named by an action that decodes has been supplied (`sim_blob_put`); otherwise the result is `ERR_BLOB_MISSING`.
+
+A preflight failure means a bug in a sequencer, a codec or the shell, because the sequencers build exactly these structures. Every client decodes the same bytes, so every client fails identically; the shell treats it like a trap (§3.6). The codec tests (D18 g) and fuzzing exist to keep it impossible.
+
+**Malformed actions are refused, not fatal** (B1-r1 9). Phase 1 decodes each action with the generated decoder, which checks everything the schema declares: a known type; `len` equal to the type's fixed size or consistent with its variable tail; every enum value and `EntityRef` tag in range; `bool` 0 or 1; reserved fields zero; list counts and string lengths within `max`; strings valid UTF-8. A failure refuses that action with `action_failed` and the reason `malformed`, consumes its seq and changes nothing else, identically on every client. A buggy or hostile client therefore cannot stop a room, and the relay stays game-agnostic. `malformed` and `unsupported` (§2.4) are developer reasons: they have no player-facing text, and the shell logs them.
 
 **Semantic validation** happens in phase 1 as each action applies (§4.6): the player must exist and be online; reach, items, collisions and acceptance rules hold; references resolve. A refusal changes nothing and emits `action_failed` with a reason (§15.6), identically everywhere.
 
 **References** (S5, D23). An `EntityRef` with tag 1 resolves through the serial index; a missing serial fails the action with the reason "target gone", even if another entity of the same prototype now stands there. Tag 2 resolves through the acting player's creation ring (§4.3) and fails cleanly if the creating action failed or left the ring. There is **no position fallback**: positions appear only in actions defined on positions (build, mine a tile or resource, drop an item, place a blueprint, place a ping or tag).
 
-**Input fencing** (D22). A held-input action whose `input_gen` differs from `players[p].input_gen` is a no-op with an `input_fenced` event. `release_inputs(p)` stops p's walking, mining and picking and increments the generation (wrapping; only equality is compared). **The sequencer writes `input_gen`** into each held-input action when it stamps it, from the generation it tracks: the world's value at load (`bound`, §3.2) plus the `release_inputs(p)` it has seen since in the closure stream. An action stamped before the release arrived therefore carries the old generation and is fenced; the client re-sends any input still held (11 §2.6). The main thread never needs to know generations.
+**Input fencing** (D22). A held-input action whose `input_gen` differs from `players[p].input_gen` is a no-op with an `input_fenced` event. Exactly two actions change the generation (B1-r1 11): `release_inputs(p)` and `player_left(p)` each stop p's walking, mining and picking and increment it (wrapping; only equality is compared); `player_joined` does not change it. **The sequencer writes `input_gen`** into each held-input action when it stamps it, from the generation it tracks: the world's value at load (`bound`, §3.2) plus one for every `release_inputs(p)` and `player_left(p)` it has seen since in the closure stream. An action stamped before the release arrived therefore carries the old generation and is fenced; the client re-sends any input still held (11 §2.6). The main thread never needs to know generations.
 
 **Blobs.** A payload larger than 65,531 bytes (a large blueprint record) travels as a blob: the action carries the blob's SHA-256. The shell supplies the blob with `sim_blob_put` before the tick that uses it, after verifying the hash; the module keeps supplied blobs only until that tick ends. Retention for replays and resumes is the shell's and the relay's job (§8.5, 11 §6.5). A missing blob is `ERR_BLOB_MISSING`, a shell bug.
 
-**Identity and seq** (11 §3.3). An action is `(player, seq)`. The World keeps each player's `last_seq` and a `last_system_seq`, set by phase 1 to the seq of every action it applies, refused or not; the `LocalSequencer` continues from them after a load, so seqs never repeat within a world. System actions take their seqs from the sequencer's own counter.
+**Identity and seq** (11 §3.3). An action is `(player, seq)`. The World keeps each player's `last_seq` and a `last_system_seq`, set by phase 1 to the seq of every action it applies, refused or not; after a load the main thread continues from them by §3.2's rule, so seqs never repeat within a world. System actions take their seqs from the sequencer's own counter, which continues from `last_system_seq` (the relay seeds it the same way, 11 §6.3).
 
 **System actions** (player `0xFFFF`; ids from `0xFF00`):
 
 | Id | Name | Payload | Effect |
 |---|---|---|---|
 | `0xFF01` | `player_joined` | `u16 player, u8 flags` (bit 0: returning), `u8 reserved` | Creates or re-activates the player's state and character. Single player's `LocalSequencer` issues `player_joined(0)` in a new world's first tick |
-| `0xFF02` | `player_left` | `u16 player` | Marks the player offline and releases held inputs; the hand returns to the inventory if it fits (§5.1) |
+| `0xFF02` | `player_left` | `u16 player` | Marks the player offline and releases held inputs, incrementing the input generation as `release_inputs` does; the hand returns to the inventory if it fits (§5.1) |
 | `0xFF03` | `release_inputs` | `u16 player` | Stops walking, mining and picking; increments the input generation |
 | `0xFF04` | `snapshot_marker` | `u32 snapshot_id, u16 donor` | Nothing in the World; the donor's shell writes a checkpoint after this tick (11 §4.1) |
 | `0xFF05` | `debug_dump` | `u32 dump_id` | Nothing in the World; clients write desync bundles after this tick (11 §5.3) |
 
-**The `act` message** (main thread → sequencer, §3.2) carries `firstSeq` and actions without ticks: `u16 type, u16 len, payload`, back to back, the i-th with seq `firstSeq + i`. The main thread numbers its player's actions itself, continuing from `bound`'s `lastSeq`, so it can name its own unconfirmed creations by creation id; the sequencer refuses seqs that do not rise, stamps ticks, fills input generations and builds batches. Blobs named by `blob_or_bytes` fields travel beside the actions in `act.blobs`.
+**The `act` message** (main thread → sequencer, §3.2) carries `firstSeq` and actions without ticks: `u16 type, u16 len, payload`, back to back, the i-th with seq `firstSeq + i`. The main thread numbers its player's actions itself, by §3.2's rule (`nextSeq = max(loaded, accepted, pending) + 1`), so it can name its own unconfirmed creations by creation id; the sequencer refuses seqs that do not rise, admits each action to a tick (above), fills input generations and builds batches. Blobs named by `blob_or_bytes` fields travel beside the actions in `act.blobs`.
 
 ### 15.4 The render packet
 
@@ -3142,7 +3263,7 @@ One packet per extraction: a transferable `ArrayBuffer` with a header, a section
 |---|---|---|
 | 0 | `u32 magic` | `0x4B505750` ("PWPK") |
 | 4 | `u16 version` | `PACKET_VERSION` from the schema |
-| 6 | `u16 flags` | bit 0 `FULL` (drop the mirror before applying: set on a world's first packet, when every held chunk is sent afresh), bit 1 `EVENTS_DROPPED`, bit 2 `COALESCED` (ticks passed without extraction) |
+| 6 | `u16 flags` | bit 0 `FULL`: drop everything held for this world before applying (the mirror, belt geometry, overlay and chart data, subscription records). Set on exactly one packet, a generation's first, which the worker sends unsolicited after `bound` (§3.4); its sent-state is empty then, so the packet that answers the generation's first view request sends every held chunk afresh (B1-r1 12). Bit 1 `EVENTS_DROPPED`, bit 2 `COALESCED` (ticks passed without extraction) |
 | 8 | `u32 state_gen` | §3.4 |
 | 12 | `u32 tick` | the tick after which this was extracted |
 | 16 | `u32 view_seq` | the view request this packet answers |
@@ -3166,12 +3287,32 @@ One packet per extraction: a transferable `ArrayBuffer` with a header, a section
 | 7 | `MOVERS` | `u32 serial, u16 proto, u8 kind` (0 character, 1 agent, 2 rolling stock, 3 unit, 4 projectile), `u8 flags, i32 x, i32 y` (1/256 tile), `i16 vx, i16 vy` (1/256 tile per tick), `u32 base_tick, u16 orientation` (turns × 65,536), `u16 aux` (player index for characters, held item for agents), `u32 reserved` (32) | every packet; the renderer extrapolates from `base_tick` (§6.8) |
 | 8 | `OVERLAY_CHUNK` | `u32 chunk_key, u16 surface, u16 flags, f32 temperature` (12) | while the thermal overlay or the heat tint (07 §3.2) is on, after each chunk's 64-tick update |
 | 9 | `OVERLAY_STAFFING` | `i32 x0, i32 y0` (campus corner), `u16 radius, u8 hue, u8 flags` (12) | while the staffing overlay is on, on change |
-| 10 | `CHART` | `u32 chunk_key, u16 surface, u16 reserved, u32 version`, then 32 × 32 RGBA8 (4,108) | while the view request asks for chart data: when a charted chunk enters the chart rectangle or changes |
+| 10 | `CHART` | `u32 chunk_key, u16 surface, u16 reserved, u32 version`, then 32 × 32 RGBA8 (4,108) | while the view request asks for chart data: when a charted modified chunk enters the chart rectangle or changes |
 | 11 | `EVENTS` | §15.6 | every packet with events |
 | 12 | `UI` | §15.5 | every packet with subscription records |
 | 13 | `AUDIO_WORKING` | §15.6 (16) | every packet while audio is on |
 | 14 | `CHUNK_OBJECTS` | per chunk: `u32 chunk_key, u16 surface, u16 count, u32 version, u32 reserved`, then `count` × ObjectView (16) | when a chunk enters the held set or its objects change; replaces the chunk's objects |
 | 15 | `CHUNK_RESOURCES` | per chunk: `u32 chunk_key, u16 surface, u16 count, u32 version, u32 reserved`, then `count` × (`u16 tile` (index in the chunk), `u16 resource, u8 band` (the richness band that picks the sprite, 0–7), `u8 reserved, u16 reserved`) (8) | when a chunk enters the held set, or a tile changes band or is depleted; exact amounts come from `HOVER` and queries |
+| 16 | `BELT_RETIRE` | `u32 line_id, u32 geom_gen` (8) | when geometry the main thread holds stops existing: the line was deleted, rebuilt, split, merged or reshaped (B1-r1 13) |
+| 17 | `CHART_PRISTINE` | `u32 chunk_key, u16 surface, u16 reserved` (8) | while the view request asks for chart data: when a charted pristine chunk enters the chart rectangle. The shell gets its image from the worldgen pool and posts it in a `chart` message (§3.2, §5.19); the main thread ignores an image whose chunk has left the rectangle |
+
+**Three kinds of section** (B1-r1 13):
+- **Snapshots** describe the present completely, and the main thread replaces its copy with each packet's: `DYN`, `HANDS`, `BELT_ITEMS`, `MOVERS` and `AUDIO_WORKING`. An absent snapshot section means "none".
+- **Events** report what happened since the previous packet: `EVENTS`. The module keeps them until a packet carries them (bounded; `EVENTS_DROPPED`, §15.6).
+- **Deltas** change the main thread's retained state, and stay until replaced or retired (`BELT_RETIRE` only retires); the retirement rules are what keep that state bounded under a camera that never moves:
+
+| Delta section | A record replaces | Retired when |
+|---|---|---|
+| `CHUNK_TILES`, `CHUNK_ENTITIES`, `CHUNK_OBJECTS`, `CHUNK_RESOURCES` | that chunk's tiles, entities, objects or resources | the chunk leaves the held set |
+| `BELT_GEOM` | nothing: each `(line_id, geom_gen)` is new | `BELT_RETIRE` names it, or the last held chunk the line touches leaves the held set |
+| `OVERLAY_CHUNK` | that chunk's overlay value | the chunk leaves the held set, or a view request turns both the thermal overlay and the heat tint off |
+| `OVERLAY_STAFFING` | the whole set, whenever the section is present | a view request turns the staffing overlay off |
+| `CHART`, `CHART_PRISTINE` | that chunk's chart image (for a pristine chunk, from the `chart` message) | the chunk leaves the chart rectangle, or a view request turns chart data off |
+| `UI` | that subscription's record (§15.5) | the subscription ends |
+
+A retirement caused by a view request takes effect with the packet that answers it, on both sides, like the held set. Turning an overlay or the chart back on therefore starts from nothing: that packet sends every held chunk's current value, without waiting for the next 64-tick update.
+
+**What the worker remembers** of the main thread's state (the held set, each held chunk's sent versions, the sent geometry pairs, the overlay and chart state, the subscription hashes) lives in `PresentationState` (§3.6) and advances only when a packet is actually extracted and sent. A skipped extraction (no free buffer, a hidden tab) therefore loses nothing: the next packet's deltas are computed against what was really sent, and its snapshots and events cover the gap. The main thread applies every packet of the current generation in order; it may skip drawing one, never applying one. The test is **mirror equivalence** (§10.4 #16): after any mix of world edits, view moves, overlay toggles and skipped extractions, the state the main thread holds equals what a single `FULL` extraction of the same world would give.
 
 **Per-chunk versions.** Each per-chunk section (`CHUNK_TILES`, `CHUNK_ENTITIES`, `CHUNK_OBJECTS`, `CHUNK_RESOURCES`) has its own version counter in the chunk, so a status change resends the chunk's entities and nothing else. Resource amounts change with every mining operation, so the view carries only each tile's richness band.
 
@@ -3183,7 +3324,7 @@ One packet per extraction: a transferable `ArrayBuffer` with a header, a section
 
 **Belt items as gap arrays** (A1 change 11). A line's items are sent as the line holds them: `front_gap` is gap[0], the distance in positions from the line's downstream end to its first item, and `gap[i]` for i ≥ 1 is the slack beyond the 64-position saturated spacing (§5.3). Item i lies at distance dᵢ from the end, with d₀ = `front_gap` and dᵢ = dᵢ₋₁ + 64 + gap[i]. Segments are listed from the line's downstream end; each gives its own downstream end point `(x, y)` on the lane's centreline, its length in positions, its direction of travel at that end (`dir`), and, for an arc (`turn` = −1 left, +1 right), its radius. The main thread walks the segments from the front, maps each distance to a point on the centreline (straight runs linearly, arcs by angle about the centre that `dir`, `turn` and `radius` fix), culls points outside the view and writes quads in the same loop (§6.8). The sim supplies every length and shape, so the renderer does no gameplay arithmetic. Per item this sends 4 bytes and costs the worker a copy, against 16 bytes and about 8 ns per sprite on the reference machine for expanded records; at §6.12's 60k visible belt items that saves about 0.5 ms of worker time per frame.
 
-**Line identity.** `line_id` is the line's pool index; `geom_gen` is taken from a **global** counter each time a line is built, rebuilt, split, merged or reshaped, so `(line_id, geom_gen)` never repeats even when a pool slot is reused (§3.7). The main thread caches geometry by that pair and drops a line's entry when the last held chunk the line touches leaves the held set; the worker applies the same rule, so it knows which geometry the main thread holds. All entries go on a new state generation.
+**Line identity.** `line_id` is the line's pool index; `geom_gen` is taken from a **global** counter each time a line is built, rebuilt, split, merged or reshaped, so `(line_id, geom_gen)` never repeats even when a pool slot is reused (§3.7). The main thread caches geometry by that pair and drops a line's entry when the last held chunk the line touches leaves the held set, or when `BELT_RETIRE` names it; the worker applies the same rules, so it knows which geometry the main thread holds. At each extraction the worker compares its sent pairs with the live lines and retires every pair whose line is gone or now carries another `geom_gen` (a scan over the lines that touch held chunks, a few thousand at most). All entries go on a new state generation.
 
 **The view request** (main → shell → `sim_extract`), 52 bytes: `u32 view_seq, u16 surface, u16 flags` (bit 0 thermal overlay, 1 staffing overlay, 2 chart, 3 audio, 4 alt-mode), `i32 x0, i32 y0, i32 x1, i32 y1` (tiles: the **visible** rectangle, no margin, the upper bounds exclusive), `f32 zoom, u32 hovered_serial` (0 none), `f32 audio_half_range` (tiles), `i32 chart_x0, i32 chart_y0, i32 chart_x1, i32 chart_y1` (chunks, when bit 2 is set). **The held set** is the chunks overlapping the visible rectangle expanded by one chunk on every side, computed by one generated function in both languages; the worker applies a request when it extracts the packet that answers it, the main thread when that packet arrives, and both evict the chunks that leave the set (§3.4).
 
@@ -3195,11 +3336,14 @@ The UI never reads simulation state directly. Open windows **subscribe** to proj
 
 **A subscription request** (main → shell → `sim_subscribe`): `u32 sub_id, u16 kind, u16 flags` (bit 0: a tail follows), `u32 target` (an entity serial, a player index or 0), `u32 p0, u32 p1, u32 p2, u32 p3`, then, when flagged, a tail (`u16 len`, bytes) for list parameters. The main thread allocates `sub_id`s from 1 and never reuses one within a state generation; `sub_id` 0 is the hover projection that the view request's `hovered_serial` drives. Sending an existing `sub_id` replaces that subscription.
 
-**A `UI` record** (in the packet): `u32 sub_id, u16 kind, u16 status` (0 ok, 1 gone, 2 invalid), `u32 version, u32 len`, then the kind's record (`len` bytes, padded to 4). `version` counts the records sent for that subscription.
+**A `UI` record** (in the packet): `u32 sub_id, u16 kind, u16 status` (0 ok, 1 gone, 2 invalid), `u32 version, u32 len`, then the kind's record (`len` bytes, padded to 4). `version` counts the records sent for that subscription. A status-2 record's body is a `u16` reason: 1 unsupported (outside the capability manifest, §2.4), 2 bad parameters, 3 over a limit (below). These are developer reasons without player-facing text; the shell logs them.
 
 **Rules** (A2-r1 13).
 - **Evaluation.** Each subscription is evaluated during extraction, in `sub_id` order, at its kind's cadence: every packet (`HOVER`, `ENTITY_PANEL`, `CHARACTER`, `INVENTORY`), or on subscribing and then at the first extraction at least 60 ticks after its last evaluation (`HUD`, `RESEARCH`, `STATS`, `ELECTRIC`, `WORLD`), so a skipped extraction delays a slow projection but never loses it.
-- **Change detection.** The module hashes each record it writes (XXH64) and sends it only when the hash differs from the last one sent for that `sub_id`. No per-kind version bookkeeping is needed.
+- **Change detection.** The module hashes each record it writes (XXH64) and sends it only when the hash differs from the last one sent for that `sub_id`.
+- **Source revisions** (B1-r1 15). A kind may declare in `projections.yaml` the revision counters its record depends on: an inventory's version (raised by every insertion, removal, filter or limit change), a player's inventory and crafting-queue versions, an entity's status. These are presentation fields (§4.5), raised by the tick and never saved or hashed. When none of them has changed since the subscription's last evaluation, the module skips building and hashing its record, so an open chest window costs nothing while the chest is untouched. A kind without declared sources (a working machine's panel, whose progress moves every tick) is rebuilt at its cadence; one entity's record is small.
+- **Shared evaluation.** Subscriptions with the same kind, target, parameters and tail are evaluated once per extraction; each still gets its own record, version and hash.
+- **Limits** (B1-r1 15). At most 32 subscriptions besides `sub_id` 0, of which at most 4 are `STATS`. A record is at most 64 KiB, which the generator checks from each kind's field maxima, and the `UI` section at most 256 KiB per packet: subscriptions due beyond that wait for the next extraction, starting after the last one written, and lose nothing, because what was sent advances only when a packet is (§15.4). A request beyond a limit is answered with status 2, reason 3. With these limits, evaluating every subscription costs at most about 0.3 ms per extraction on the reference machine (§10.6, `m0-chests-10k`).
 - **Targets that disappear.** If a subscription's target no longer exists, the module sends one record with status 1 (gone) and drops the subscription; the window closes. Entity windows bind by serial, never by handle or position.
 - **State generations.** Every `sub`, `unsub` and `query` carries the state generation (§3.2); the shell drops those from another generation. A fresh worker starts with no subscriptions, so after a new generation the main thread re-sends all of its subscriptions and its view request (§3.4). Records and responses from an old generation are rejected by the main thread.
 - **Content.** Records contain no handles or pointers: entities by serial, items by `ItemKey`, strings as locale ids (08) or, for player text such as labels, UTF-8.
@@ -3214,14 +3358,19 @@ The UI never reads simulation state directly. Open windows **subscribe** to proj
 | 4 | `ENTITY_PANEL` | entity serial | prototype, status, recipe, progress, crafts per second now, energy satisfaction, buffer and draw, productivity bar, modules, every inventory's slots inline, fluid boxes, and a kind-specific tail (staff, throttle, resources remaining …) | yes (chests) |
 | 5 | `HOVER` | entity serial (the view request's `hovered_serial` uses `sub_id` 0) | the tooltip's live values for the entity's kind | yes |
 | 6 | `RESEARCH` | — | queue (tech, level, progress, byline), and a state table for the technology screen (tech, state, level, progress) | |
-| 7 | `STATS` | `p0` precision (0–9), `p1` tab; tail: up to 256 keys | per key: produced and consumed totals over the precision's window and, when `p2` bit 0 is set, the 300-point series of each | yes (hand-mined and hand-crafted items) |
+| 7 | `STATS` | `p0` precision (0–9), `p1` tab; tail: up to 256 keys | per key: produced and consumed totals over the precision's window and, when `p2` bit 0 is set (for at most 32 keys), the 300-point series of each: whole in the first record after subscribing or after a parameter change, then only the points appended since the previous record (`u16 from, u16 count`; B1-r1 15) | yes (hand-mined and hand-crafted items) |
 | 8 | `ELECTRIC` | a pole's serial | satisfaction by class, production and consumption by prototype, accumulator charge, series | |
 | 9 | `WORLD` | — | the World window's values (W_own, W_pub, Y_pub, j, σ, Field, Literature …) | |
 | 10 | `DEBUG` | — | per-system active counts, pool sizes, linear-memory bytes, per-phase µs (dev builds), this tick's digests | yes |
 
 M0 must ship real `INVENTORY` and `STATS` projections (IMPL-1 rule 5), not fixtures.
 
-**Queries** (one-off, read-only, not logged): `query {gen, id, q}` with `q` = `u16 kind, u16 flags`, then the kind's parameters; the result is `res {gen, id, ok, value}` with the kind's record, both laid out in `projections.yaml`. The shell answers between ticks, in arrival order. Kinds (ids append-only): 1 `rates` (entities or an area; §5.20's rate calculator), 2 `map_search` (text), 3 `total_raw` (recipe, count), 4 `where_made` (item), 5 `patch_info` (a resource tile), and, in dev builds, 6 `inspect` (every saved field of one entity), 7 `hash`, 8 `digest`. A1 measured query latency at p50 0.45–0.73 ms and p99 about one tick plus a message hop against a worker paced at 60 UPS, which is why open windows subscribe instead of polling.
+**Queries** (one-off, read-only, not logged): `query {gen, id, q}` with `q` = `u16 kind, u16 flags`, then the kind's parameters; the result is `res {gen, id, ok, value}` with the kind's record, both laid out in `projections.yaml`. **Queries never delay a tick** (B1-r1 15):
+- The module runs them cooperatively, as continuations in `PresentationState`: `sim_query` starts one, and `sim_query_step(units)` advances the running ones in arrival order by at most `units` of work (an entity, chunk or record visited each) and returns those that finished (§15.8). The shell steps them only in the time a wake has left after its due ticks, at most 2 ms per wake, converting milliseconds to units from its own measurements; while no tick runs it steps them on a timer.
+- At most 4 queries run at once; the shell holds later ones in arrival order. `cancel {gen, id}` drops a query, and a new state generation drops them all.
+- A result is at most 1 MiB; a kind that can produce more (search, inspect) states its order and sets the result's `TRUNCATED` flag. A query that spans ticks reads the world as each slice finds it, and its result names its first and last tick.
+
+Kinds (ids append-only): 1 `rates` (entities or an area; §5.20's rate calculator), 2 `map_search` (text), 3 `total_raw` (recipe, count), 4 `where_made` (item), 5 `patch_info` (a resource tile), and, in dev builds, 6 `inspect` (every saved field of one entity), 7 `hash`, 8 `digest`. A1 measured query latency at p50 0.45–0.73 ms and p99 about one tick plus a message hop against a worker paced at 60 UPS, which is why open windows subscribe instead of polling.
 
 ### 15.6 Events, feedback and audio
 
@@ -3322,78 +3471,101 @@ Sprites are pre-rendered in this projection, so the renderer only places them: a
 
 ### 15.8 The WebAssembly ABI
 
-`sim.wasm` exports plain C-ABI functions (no wasm-bindgen; A1 showed it is enough). Pointers and lengths are `u32` (read with `>>> 0` in JavaScript); no export takes or returns `i64`, so no BigInt crosses the boundary. Calls are never re-entrant. Each output function returns a pointer to `{u32 len, bytes[len]}` in the module's output arena, valid until the next call into the module (§3.6), except that `sim_memory_epoch` and `sim_last_error` move nothing and invalidate nothing.
+`sim.wasm` exports plain C-ABI functions (no wasm-bindgen; A1 showed it is enough) and one linear memory, named **`memory`**; the shell uses nothing else the module exports. Pointers and lengths are `u32` (read with `>>> 0` in JavaScript); no export takes or returns `i64`, so no BigInt crosses the boundary. Calls are never re-entrant.
 
-| Export | Meaning |
-|---|---|
-| `sim_abi_version() -> u32` | Bumped on any change to this table |
-| `sim_schema_hash() -> ptr` | 32 bytes: the schema's SHA-256 (§15.1) |
-| `sim_input(len) -> ptr` | A reusable input buffer of at least `len` bytes; the shell writes a record there before the calls below |
-| `sim_init(len) -> status` | Input: `prototypes.bin`, then an init record (flags). Loads `Protos`, installs the panic hook |
-| `sim_new_world(len) -> status` | Input: seed, map settings, game settings and presets |
-| `sim_load(len) -> status` | Input: the section directory and raw (decompressed) sections of a save or checkpoint (§8.1), the remap tables (§8.3) and the digest lineage (§4.8) |
-| `sim_tick(len) -> status` | Input: the closure of tick `world.tick + 1` (§15.3). Runs exactly one tick |
-| `sim_set_flags(flags)` | Bit 0 `NO_SLEEP` (tests), bit 1 `HISTORICAL` (event marking), bit 2 `PROFILE` (dev builds) |
-| `sim_blob_put(len) -> status` | Input: a 32-byte SHA-256 and the blob's bytes, for the next tick only (§15.3) |
-| `sim_supply_chunk(len) -> status` | Input: a `ChunkData` record (§15.9); ignored unless it answers a pending request |
-| `sim_pending_chunks() -> ptr` | `ChunkRequest` records issued since the last call; after `sim_load`, every pending request of the save (§5.18) |
-| `sim_extract(len) -> ptr` | Input: a view request (§15.4). Output: the packet's section directory and sections |
-| `sim_subscribe(len) -> status` / `sim_unsubscribe(len) -> status` | Input: subscription requests / `u32` ids (§15.5) |
-| `sim_query(len) -> ptr` | Input: a query. Output: its result record |
-| `sim_digest() -> ptr` | `u32 tick`, then `d` and `r` as two `u32` pairs (low word first) |
-| `sim_state_hash() -> ptr` | The full state hash and the hash of each section (§4.8), as `u32` pairs |
-| `sim_save() -> ptr` | The section directory and raw section bytes at the current tick boundary (§8.1) |
-| `sim_meta() -> ptr` | Tick, seed, each player's index, online flag, `last_seq` and input generation, `last_system_seq`: what the sequencer and the save header need |
-| `sim_load_report() -> ptr` | After `sim_load`: what the remap removed, as records (kind, name, count) |
-| `sim_last_error() -> ptr` | `u32 code, u32 len`, UTF-8 message |
-| `sim_memory_epoch() -> u32` | Increments whenever an exported column, the arena or the input buffer moves (§3.6) |
-| `sim_pool_dir() -> ptr` | The generated pool directory for the read views: `(u32 column, u32 ptr, u32 len)` triples |
-| `sim_allocs() -> ptr` | With `simcheck`: the counting allocator's totals (§2.5) |
+**One calling convention** (B1-r1 5). This table is normative; the generator emits the Rust signatures and the shell's typed wrappers from `schema/abi.yaml`, which holds it.
+- **Inputs.** The shell gets the input buffer from `sim_input(len)`, writes the request there and passes its length to the export that reads it. The buffer stays valid until the next call into the module.
+- **Status exports** return a `u32` status (below): 0 OK, otherwise an error whose code and message `sim_last_error` gives.
+- **Envelope exports** return 0 on failure, again with the error from `sim_last_error`, or an 8-byte-aligned pointer to an **envelope** `{u32 len, bytes[len]}` in the output arena. The envelope stays valid until the next call into the module other than `sim_memory_epoch` and `sim_last_error`.
+- **Declared exceptions:** `sim_abi_version` and `sim_memory_epoch` return plain values; `sim_input` returns a bare pointer to the input buffer (0 if memory cannot grow); `sim_last_error` returns an envelope in its own small buffer (`u32 code`, then a UTF-8 message), valid until the next failing call.
+- **Memory.** `sim_memory_epoch` and `sim_last_error` never move memory. Any other call may grow it, so the shell compares the epoch after each call and reacquires its views (§3.6).
+
+| Export | Input buffer | Result |
+|---|---|---|
+| `sim_abi_version() -> u32` | — | the ABI version, bumped on any change to this table |
+| `sim_schema_hash() -> ptr` | — | envelope: the 32-byte schema hash (§15.1) |
+| `sim_input(len) -> ptr` | — | the input buffer, at least `len` bytes (a declared exception) |
+| `sim_init(len) -> status` | `init`: `u32 protos_len`, `prototypes.bin`, `u32 flags` (as `sim_set_flags`), `u32 reserved` | loads `Protos` and installs the panic hook |
+| `sim_new_world(len) -> status` | one `new_world` record | creates the world at tick 0 with lineage r₀ (§4.8) |
+| `sim_load(len) -> status` | `load`: sections, remap tables and lineage (below) | loads a save or checkpoint (§8.1, §8.3) |
+| `sim_tick(len) -> status` | the closure of tick `world.tick + 1` (§15.3) | runs exactly one tick |
+| `sim_set_flags(flags: u32) -> status` | — | bit 0 `NO_SLEEP` (tests), bit 1 `HISTORICAL` (event marking), bit 2 `PROFILE` (dev builds); other bits `ERR_INPUT` |
+| `sim_blob_put(len) -> status` | `u8 sha256[32]`, then the blob's bytes | holds the blob for the next tick only (§15.3) |
+| `sim_supply_chunk(len) -> status` | one `ChunkData` record (§15.9) | ignored unless it answers a pending request |
+| `sim_pending_chunks() -> ptr` | — | envelope: `u32 count`, then the `ChunkRequest` records issued since the last call; after `sim_load`, every pending request of the save (§5.18) |
+| `sim_extract(len) -> ptr` | a view request (§15.4) | envelope: one **complete packet**, header included (§15.4) |
+| `sim_subscribe(len) -> status` | `u16 count`, then subscription requests (§15.5) | adds or replaces them |
+| `sim_unsubscribe(len) -> status` | `u16 count`, then `u32` ids | drops them; unknown ids are ignored |
+| `sim_query(len) -> status` | `u32 id`, then a query (§15.5) | starts it; `ERR_LIMIT` with 4 running |
+| `sim_query_step(units: u32) -> ptr` | — | envelope: `u32 count`, then per finished query `u32 id, u8 ok, u8 flags` (bit 0 `TRUNCATED`), `u16 reserved, u32 first_tick, u32 last_tick, u32 len`, then its result record padded to 4 |
+| `sim_query_cancel(id: u32) -> status` | — | drops the query; an unknown id is ignored |
+| `sim_digest() -> ptr` | — | envelope: `u32 tick`, then `d` and `r` as two `u32` pairs (low word first) |
+| `sim_state_hash() -> ptr` | — | envelope: the full state hash and each section's (below) |
+| `sim_save(len) -> ptr` | `u32 flags`: bit 0 `BAKE` (write every pristine chunk as modified, §4.4) | envelope: the sections at the current tick boundary and the lineage the save carries (below) |
+| `sim_meta() -> ptr` | — | envelope: one `sim_meta` record (below) |
+| `sim_load_report() -> ptr` | — | envelope: one `load_report` record (below); `ERR_ORDER` unless the last world call was `sim_load` |
+| `sim_last_error() -> ptr` | — | the error envelope (a declared exception) |
+| `sim_memory_epoch() -> u32` | — | increments whenever an exported column, the arena or the input buffer moves (§3.6) |
+| `sim_pool_dir() -> ptr` | — | envelope: the generated pool directory for the read views, `(u32 column, u32 ptr, u32 len)` triples |
+| `sim_allocs() -> ptr` | — | envelope: the counting allocator's totals (§2.5); `ERR_ORDER` without `simcheck` |
 
 **Records crossing the ABI** (all little-endian; "record encoding" is §8.1's field-id encoding, generated from the schema):
 - **`sim_init` input:** `u32 protos_len`, the bytes of `prototypes.bin`, then `u32 flags` (as `sim_set_flags`) and `u32 reserved`.
 - **`sim_new_world` input:** one `new_world` record (record encoding): seed, map settings, game settings and presets, as the New game screen (07 §17) sets them.
 - **`sim_load` input:** `u32 section_count`, then each section in the container's framing (§8.1) with codec 0 and `storedLength = rawLength`; then the remap tables, `u16 kind_count` and per kind `u16 kind, u32 count`, `count` × `u16 new_id` (`0xFFFF` = removed), or `kind_count = 0` when the prototypes hash matches; then the lineage, `u32 r_lo, u32 r_hi`.
-- **`sim_save` output:** `u32 section_count`, then each section in the container's framing with codec 0; the IO worker compresses each and rewrites its codec and stored length.
-- **`sim_meta` output:** one `sim_meta` record (record encoding): tick, seed, `last_system_seq`, and per player its index, online flag, `last_seq` and input generation.
+- **`sim_save` output:** `u32 section_count`, then each section in the container's framing with codec 0; then `u32 r_lo, u32 r_hi`, the lineage the save carries (r at the tick, or a baked save's new lineage). The IO worker compresses each section and rewrites its codec and stored length.
+- **`sim_meta` output:** one `sim_meta` record (record encoding): tick, seed, `last_system_seq`, the worldgen version, the digest lineage r, and per player its index, online flag, `last_seq` and input generation.
+- **`sim_load_report` output:** one `load_report` record (record encoding): whether the load started a new digest lineage and, if so, the new r (§4.8, §8.3); then the removed prototypes (the "removed" entries of the remap tables that the save used) as a list of `(u16 kind, str name, u32 count)`, ascending by kind and name.
 - **`sim_state_hash` output:** `u32 hash_lo, u32 hash_hi, u32 count`, then `count` × (`u32 section_id, u32 hash_lo, u32 hash_hi`).
 
-**Status codes:** 0 OK; 1 `ERR_FRAMING`; 2 `ERR_BLOB_MISSING`; 3 `ERR_LOAD_FORMAT` (corrupt, or a newer format); 4 `ERR_LOAD_SCHEMA` (a section the schema cannot read); 5 `ERR_PROTOS`; 6 `ERR_ORDER` (a call out of order, e.g. `sim_tick` before a world exists); 7 `ERR_INPUT` (a malformed request record). A trap is not a status: it ends the instance (§3.6).
+**Status codes:** 0 OK; 1 `ERR_FRAMING`; 2 `ERR_BLOB_MISSING`; 3 `ERR_LOAD_FORMAT` (corrupt, or a newer format); 4 `ERR_LOAD_SCHEMA` (a section the schema cannot read); 5 `ERR_PROTOS`; 6 `ERR_ORDER` (a call out of order, e.g. `sim_tick` before a world exists); 7 `ERR_INPUT` (a malformed request record); 8 `ERR_LIMIT` (a limit of §15.5); 9 `ERR_WORLDGEN` (a save from another worldgen version that was not baked, §8.3). A trap is not a status: it ends the instance (§3.6).
 
 **Imports** (module `env`): `host_log(level, ptr, len)`; `host_panic(ptr, len)`, called by the panic hook before the abort; `host_now() -> f64`, milliseconds, visible only to the profiling module (D13). Only `host_now` returns a value, and nothing that state depends on can see it (D15).
 
-**Call order:** `sim_init`, then `sim_new_world` or `sim_load`, then per tick: any `sim_blob_put` and `sim_supply_chunk`, `sim_tick`, `sim_pending_chunks`, and optionally `sim_extract`. Subscriptions, queries, `sim_save`, `sim_digest` and `sim_state_hash` are allowed between ticks.
+**Call order:** `sim_init`, then `sim_new_world` or `sim_load` (and after a load, `sim_load_report`), then per tick: any `sim_blob_put` and `sim_supply_chunk`, `sim_tick`, `sim_pending_chunks`, and optionally `sim_extract`. Subscriptions, query calls, `sim_save`, `sim_digest` and `sim_state_hash` are allowed between ticks; `sim_extract` and the query calls also while no tick runs (§3.3). A call out of this order fails with `ERR_ORDER`.
 
 ### 15.9 The worldgen contract
 
-`gen.wasm` exports `gen_abi_version`, `gen_schema_hash`, `gen_input`, `gen_init(len) -> ptr`, `gen_chunk(surface, cx, cy) -> ptr` and `gen_preview(len) -> ptr` (the map preview's colours, §5.18). It imports `host_log` and `host_panic`. Its generated types come from the `schema` crate, as the sim's do.
+`gen.wasm` exports `memory`, `gen_abi_version`, `gen_schema_hash`, `gen_input`, `gen_last_error`, `gen_init(len) -> ptr`, `gen_chunk(surface, cx, cy) -> ptr`, `gen_chart(surface, cx, cy) -> ptr` (a pristine chunk's 32 × 32 chart image in `CHART`'s record format, §5.19) and `gen_preview(len) -> ptr` (the map preview's colours, §5.18), with §15.8's calling convention, and `schema/abi.yaml` lists them too. It imports `host_log` and `host_panic`. Its generated types come from the `schema` crate, as the sim's do.
 
 - **`gen_init` input:** `u32 protos_len`, the bytes of `prototypes.bin`, then one `new_world` record (the same as `sim_new_world`'s). Output: `u32 world_hash_lo, u32 world_hash_hi`, the XXH64 of the seed, the map settings and `prototypes.bin`; the sim computes the same value at `sim_new_world` and `sim_load`.
 - **`ChunkRequest`** (16 bytes): `u16 surface, u16 reserved, i32 cx, i32 cy, u32 commit_tick`.
 - **`ChunkData`** is a schema record (the `schema` crate's `chunk_data`): the world hash, the chunk key and surface, `u8 tiles[1024]`, the climate values (θ, sunlight), and lists of resources (tile index, resource, amount), trees (position, species, leaf stage, variant), world objects, cliffs and town features, plus the decorative seed. The sim's own inline generation produces the same record, so `sim_supply_chunk` and inline commits share one path.
 - The pool belongs to one sim worker (§3.1). The shell sends each request to a worker (round-robin), passes the answer to `sim_supply_chunk`, and forgets requests whose commit tick has passed. `sim_supply_chunk` ignores an answer whose world hash is not its own, and a late answer: the sim has already generated the chunk inline at its commit tick (§5.18, D12).
 
-### 15.10 Fixtures and the fake sim
+### 15.10 Fixtures, the fake sim and the golden integration set
 
-So that the renderer, UI and audio can be built before the sim:
-- **The fake sim worker** (`src/simworker/fake.ts`, delivered with the schema) speaks the protocol of §3.2 and writes packets with the generated encoders: generated terrain, a grid of chests and machines with animated `DYN` records, belts with moving items as gap arrays, inserter hands, a walking character driven by `act` messages, events, and the `CHARACTER`, `INVENTORY`, `HUD` and `DEBUG` projections. `?sim=fake` keeps it available after integration.
-- **Packet fixtures** (`test/fixtures/packets/*.bin`), recorded from the real sim once it exists, pin the decoders.
-- **Codec fixtures** (§15.1) pin both languages' codecs, including the `new_world`, `sim_meta`, `ChunkData` and view-request records.
+So that the renderer, UI, audio and shell can be built before the sim, and the sim against known answers:
+- **The fake sim worker** (`src/simworker/fake.ts`, delivered with the schema) speaks the protocol of §3.2 and writes packets with the generated encoders: generated terrain, a grid of chests and machines with animated `DYN` records, belts with moving items as gap arrays, inserter hands, a walking character driven by `act` messages, events, and the `CHARACTER`, `INVENTORY`, `HUD`, `STATS` and `DEBUG` projections (B1-r1 21). It follows the replacement protocol (an unsolicited `FULL` packet after `bound`, state generations; §3.4) and gives the explicit errors of the capability manifest (§2.4). `?sim=fake` keeps it available after integration.
+- **Codec fixtures** (§15.1), generated and hand-written, pin both languages' codecs, including the `new_world`, `sim_meta`, `load_report`, `ChunkData` and view-request records and every ABI envelope (§15.8).
+- **The M0 golden integration set** (`test/golden/m0/`; B1-r1 1, 21) is frozen by the contract gate before any parallel package starts (§12):
+  - the M0 prototype set: its `prototypes.bin` and `prototypes.json`;
+  - a **start save** written with the generated TypeScript section writers: a bounded map of 3 × 3 chunks around the origin (map size, 07 §17), so it has negative chunk coordinates, with its tiles, a pond and a resource patch stored as modified chunks, a chest and one player, so no worldgen runs;
+  - a **closure log** of 600 ticks (§8.5) with every M0 action, a refusal of each M0 reason, a malformed and an `unsupported` action, a fenced held input, a `player_left` and a return, and a blob;
+  - the **expected per-tick digests**, and the expected canonical state at ticks 1, 2, 300 and 600;
+  - the **expected packets** for a fixed view request at ticks 0, 1 and 600, with every M0 section, and the expected record of every M0 projection and query;
+  - a **tiny atlas** of placeholder images in the sprite manifest's format (§15.7), so the renderer draws the expected packets before any art exists;
+  - **negative cases**: truncated and trailing closure logs and saves, a closure that fails each preflight check, a malformed record for every ABI input, a save from another worldgen version, a module with a stale schema hash.
+
+  The expected states, digests, packets and records come from a small **TypeScript reference model** of M0's rules (walking and collision, the chest, hand mining, the inventory transfers, hand crafting, the system actions, the canonical allocator) written from the spec and run on the generated writers and XXH64. The model exists only for this; its outputs are reviewed with the fixtures. The real sim must reproduce them bit for bit, natively and in WebAssembly. A disagreement is settled by the spec, and a change to the frozen set reopens the gate for the packages it touches.
+- **Packet fixtures** (`test/fixtures/packets/*.bin`), recorded from the real sim for later milestones' sections, pin the decoders beyond the golden set.
 
 ### 15.11 Ownership and tests
 
-Owners are M0's work packages, named by role (the manager assigns ids). *Schema* is the scaffold, schema, generator and data stage package that comes first; the others start once it has landed.
+Owners are M0's work packages, named by role (the manager assigns ids). *Schema* is the scaffold, schema, generator, data stage, fake sim and golden set package that comes first; the others start once its **contract gate** has passed (§12; B1-r1 1). The gate's parts are the schema's complete M0 layouts (§15.1, including `abi.yaml` and the `prototypes.json` layout), the generated code in both languages, the reviewed codec fixtures, the fake sim with `STATS`, the M0 capability manifest (§2.4) and the frozen golden integration set (§15.10). Each other package's first deliverable is to pass the golden set from its side.
 
 | Contract | Owner | Consumers | Pinned by |
 |---|---|---|---|
-| §15.1 schema and generator | schema | everyone | `schema-gen --check`; the hash handshake; codec fixtures |
+| The contract gate and the golden integration set (§12, §15.10) | schema | every M0 package | an independent review before the gate closes; each package's golden run in `ci` |
+| §2.4 capability manifest | schema (format, M0 entries) | every package | the data stage's closure check; Vitest and cargo tests that every excluded action, projection and query fails explicitly |
+| §15.1 schema and generator | schema | everyone | `schema-gen --check`; the hash handshake; the hash-mutation test; generated and hand-written codec fixtures |
 | §15.2 prototype data path | schema | sim, UI, renderer | the data stage's double run (D14); the expression cross-check; `Protos::load` on the committed data |
-| §15.3 actions and closures | schema (formats), sim (validation, references, fencing), shell (sequencer) | UI (encoder), net (MP) | D18(g) codec probes at every limit; R23–R27; fuzzed closures that must never trap |
-| §15.4 render packet | sim (writers), renderer (decoder) | renderer, audio | packet fixtures; a Vitest round trip; the renderer's gallery screenshots |
-| §15.5 projections and subscriptions | sim (writers), shell (table, generations), UI (decoders) | UI | Vitest: subscription, replacement, gone, stale generation; the D9 hash test |
+| §15.3 actions and closures | schema (formats, the admission function), sim (preflight and field validation, references, fencing; the `TestSequencer`), shell (sequencer) | UI (encoder), net (MP) | D18(g) codec probes at every limit; R23–R27; fuzzed closures that must never trap; the admission fixture shared by every sequencer |
+| §15.4 render packet | sim (writers), renderer (decoder) | renderer, audio | the golden set's packets; mirror equivalence (§10.4 #16); a Vitest round trip; the renderer's gallery screenshots |
+| §15.5 projections and subscriptions | sim (writers, limits, query steps), shell (generations, query scheduling), UI (decoders) | UI | Vitest: subscription, replacement, gone, stale generation, limits, cancellation; continuation equivalence (§10.4 #13) |
 | §15.6 events and audio | sim (writers), shell (historical flag), audio (consumer) | UI, audio | a scenario that asserts events for build, mine, craft and failure; a catch-up test that asserts no sound is scheduled |
 | §15.7 projection and manifest | renderer (projection), assets (manifest) | renderer | the projection calibration (§9.1); a manifest schema check in the asset build |
-| §15.8 ABI | sim (`simabi`), shell | shell | Vitest against a dev build; trap and memory-growth tests (§3.6) |
+| §15.8 ABI | schema (`abi.yaml`), sim (`simabi`), shell | shell | generated signatures and wrappers; Vitest against a dev build; trap and memory-growth tests (§3.6); the golden set's negative inputs |
 | §15.9 worldgen | sim (`worldgen`, `genabi`), shell | sim | D12 (no pool, 1 and 4 workers: same hashes) |
 | §3.2 worker messages | shell | UI, renderer, audio, IO | Vitest with the fake and the real worker |
 

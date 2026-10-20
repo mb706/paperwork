@@ -34,3 +34,6 @@ Next: codex reviews of A1/A2, then Phase B (an architecture revision that folds 
 ## Questions for the user (collect; ask at a natural checkpoint)
 - Multiplayer (A2 DESIGN §11): where to host the relay (VPS or Cloudflare); whether to store games on the server; the policy for a machine too slow for 60 UPS (drop it, or slow everyone down); remote cursors (a deviation from Factorio, off by default); starting items for new players; the player cap.
 - Older ones (DECISIONS §43): the runaway preset default (Contained or Wild); whether Terminal-linked universities may substitute for Researchers; the default r (1.71 or 1.2).
+
+## Follow-ups (not yet assigned)
+- 08 text: a player-facing message for refusing a save made with a different worldgen version (B1-r1).
