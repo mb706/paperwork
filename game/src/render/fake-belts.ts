@@ -1,0 +1,66 @@
+// A stand-in for `?sim=fake` only: the fake sim sends every belt's connection mask as 0 (EntityView.variant), which
+// would draw each belt as a lone piece with both caps. The real sim sends the masks (10 §15.4; C6's bit proposal,
+// pm/reports/C6.md deviation 8: bit 0 fed from behind, 1 from the left, 2 from the right, 3 the output connects).
+// Until then the dev page derives them from the neighbouring belts as Factorio connects them. Never used with the
+// real sim: the renderer does no gameplay arithmetic.
+
+import type { Lookups } from './lookups.ts';
+import { type ChunkView, EV, type Mirror } from './mirror.ts';
+import { DIR_X, DIR_Y } from './projection.ts';
+
+let seen = -1;
+let acc = 0;
+const fold = (c: ChunkView): void => {
+  // kept below 2³⁰: a larger number stored in a module variable is boxed
+  acc = (Math.imul(acc, 31) + c.entityCount + (c.versions[1] as number)) & 0x3fffffff;
+};
+/** A tile's key: a small integer for |x| < 16,384. */
+const key = (x: number, y: number): number => (x << 16) | (y & 0xffff);
+
+export function deriveBeltMasks(mirror: Mirror, look: Lookups): void {
+  // only when the chunk set or an entity list changed; the check runs for every packet and allocates nothing
+  acc = (mirror.chunks.size + Math.imul(mirror.epoch, 0x9e3779b1)) & 0x3fffffff;
+  mirror.chunks.forEach(fold);
+  if (acc === seen) return;
+  seen = acc;
+  const belts = new Map<number, number>();
+  for (const c of mirror.chunks.values()) {
+    const v = c.entityView;
+    for (let i = 0; i < c.entityCount; i++) {
+      const o = i * 24;
+      if (!look.isBelt[v.getUint16(o + EV.proto, true)]) continue;
+      const x = v.getInt32(o + EV.x2, true) >> 1;
+      const y = v.getInt32(o + EV.y2, true) >> 1;
+      belts.set(key(x, y), v.getUint8(o + EV.dir));
+    }
+  }
+  const at = (x: number, y: number) => belts.get(key(x, y));
+  const feeds = (x: number, y: number, tx: number, ty: number) => {
+    const d = at(x, y);
+    return (
+      d !== undefined &&
+      x + Math.round(DIR_X[d] as number) === tx &&
+      y + Math.round(DIR_Y[d] as number) === ty
+    );
+  };
+  for (const c of mirror.chunks.values()) {
+    const v = c.entityView;
+    for (let i = 0; i < c.entityCount; i++) {
+      const o = i * 24;
+      if (!look.isBelt[v.getUint16(o + EV.proto, true)]) continue;
+      const x = v.getInt32(o + EV.x2, true) >> 1;
+      const y = v.getInt32(o + EV.y2, true) >> 1;
+      const d = v.getUint8(o + EV.dir);
+      const fx = Math.round(DIR_X[d] as number);
+      const fy = Math.round(DIR_Y[d] as number);
+      // left of travel is (fy, −fx) in x east, y south; right is (−fy, fx)
+      let mask = 0;
+      if (feeds(x - fx, y - fy, x, y)) mask |= 1;
+      if (feeds(x + fy, y - fx, x, y)) mask |= 2;
+      if (feeds(x - fy, y + fx, x, y)) mask |= 4;
+      const ahead = at(x + fx, y + fy);
+      if (ahead !== undefined && ahead !== ((d + 8) & 15)) mask |= 8;
+      v.setUint8(o + EV.variant, mask);
+    }
+  }
+}

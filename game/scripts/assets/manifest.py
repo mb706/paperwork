@@ -11,7 +11,15 @@ half tiles (the footprint centre), of objects and movers in 1/256 tile, of resou
 Interpretations this file fixes where 10 §15.7 is silent (recorded in pm/reports/C6.md):
   * a part's `frame` axis takes its index from the set's clock wherever the part is: DYN.phase for entities,
     and for belts (whose base carries the frame axis) 10 §6.8's rule with the set's framesPerTile;
-  * a set without `base` (none today) draws nothing for it; an empty table entry draws the greybox;
+  * an impossible combination draws the greybox (10 §15.7: "An impossible combination holds an empty list; the
+    renderer then draws the greybox and logs once"). It is an empty entry of the picture a program draws first
+    (an entity's `base`, or `idle` when idle; an inserter's `platform`). The program then draws, with the same
+    view, the set `greybox/<prototype name>`: its `base` and `shadow`, every draw marked `fallback` with the
+    greybox's name. The renderer logs once per set. A name without a set falls back the same way;
+  * greybox sets are total (every direction value has a picture), and so are the pictures of resources,
+    objects and movers, which have no greybox: validation refuses an empty entry there, and an entity or
+    inserter set with impossible combinations but no greybox. A secondary part (shadow, light) may hold an empty
+    entry, which draws nothing;
   * a part P's shadow is the part `P_shadow`, except `base`, whose shadow is `shadow` (10 §15.7's example);
   * animated channels: an entity set with `animShadow` (10 §9.1, §15.7) has a `shadow` with a `frame` axis, and
     one with `animLight` (an emitter moves, §9.1 step 7) a `light` with a `frame` axis, each as long as the
@@ -146,9 +154,45 @@ def draws_for(man, part_name, frames, cam, ex, ey, extra=None):
 # Drawing programs (10 §15.7 "Drawing programs")
 # --------------------------------------------------------------------------------------------------------------
 
-def draw_entity(man, name, view, cam, tick=0, belt_speed=0):
-    """view: {x2, y2, dir, variant, dyn: {state, phase, light} or None}."""
-    s = man['sets'][name]
+def total(name, part, frames):
+    """The picture of a set with no greybox (a resource, object or mover): validation makes these tables total."""
+    if not frames:
+        raise ValueError(f'{name}.{part}: an empty entry, and this kind has no greybox to draw instead')
+    return frames
+
+
+def greybox_of(name):
+    """The greybox drawn for an entity set's impossible combinations: greybox/<prototype name>. (The renderer
+    takes the prototype's name; here the set's name stands for it, entity/<name> being the data's default.)"""
+    return 'greybox/' + name.split('/', 1)[1]
+
+
+def draw_greybox(man, greybox, view, cam):
+    """An impossible combination's picture (module docstring): the greybox's `base` and `shadow` with the same
+    view, each draw marked `fallback`. Greybox sets are total, so their own lookup is never empty."""
+    g = man['sets'].get(greybox)
+    if g is None:
+        raise KeyError(f'{greybox}: no greybox to draw for an impossible combination (validation requires one)')
+    values = dict(dir=view.get('dir', 0), mask=view.get('variant', 0), frame=0, light=0)
+    ex, ey = view['x2'] / 2, view['y2'] / 2
+    out = []
+    for part in ('base', 'shadow'):
+        if part not in g['parts']:
+            continue
+        frames = lookup(g['parts'][part], values, 0)
+        if part == 'base' and not frames:
+            raise ValueError(f'{greybox}: no picture for {values} (greybox sets are total)')
+        out.append(draws_for(man, part, frames, cam, ex, ey, dict(fallback=greybox)))
+    return out
+
+
+def draw_entity(man, name, view, cam, tick=0, belt_speed=0, greybox=None):
+    """view: {x2, y2, dir, variant, dyn: {state, phase, light} or None}. An impossible combination (an empty `base`
+    or, when idle, `idle` entry) or a name without a set draws `greybox` (default greybox_of(name))."""
+    gb = greybox or greybox_of(name)
+    s = man['sets'].get(name)
+    if s is None:
+        return draw_greybox(man, gb, view, cam)
     parts = s['parts']
     ex, ey = view['x2'] / 2, view['y2'] / 2
     dyn = view.get('dyn')
@@ -162,13 +206,16 @@ def draw_entity(man, name, view, cam, tick=0, belt_speed=0):
     values = dict(dir=view.get('dir', 0), mask=view.get('variant', 0), frame=phase, light=lit)
     working = dyn is not None and dyn['state'] == 1
     out = []
-    if working or 'idle' not in parts or dyn is None:
-        if 'base' in parts:
-            out.append(draws_for(man, 'base', lookup(parts['base'], values, fidx), cam, ex, ey))
+    first_part = 'base' if (working or 'idle' not in parts or dyn is None) else 'idle'
+    first = lookup(parts[first_part], values, fidx if first_part == 'base' else None) if first_part in parts else []
+    if not first:
+        if name.startswith('greybox/'):
+            raise ValueError(f'{name}: no picture for {values} (greybox sets are total)')
+        return draw_greybox(man, gb, view, cam)
+    out.append(draws_for(man, first_part, first, cam, ex, ey))
+    if first_part == 'base':
         for i, L in enumerate(parts.get('layers', [])):
             out.append(draws_for(man, f'layers[{i}]', lookup(L, values, fidx), cam, ex, ey))
-    else:
-        out.append(draws_for(man, 'idle', lookup(parts['idle'], values), cam, ex, ey))
     if 'light' in parts:
         alpha = (dyn['light'] / 255) if dyn else 0.0
         out.append(draws_for(man, 'light', lookup(parts['light'], values, fidx), cam, ex, ey,
@@ -178,16 +225,24 @@ def draw_entity(man, name, view, cam, tick=0, belt_speed=0):
     return out
 
 
-def draw_inserter(man, name, hands, cam):
-    """hands: {x2, y2, dir, theta, ext (tiles x 4,096), held (0xFFFF none)}: platform, arm, hand and shadows."""
-    s = man['sets'][name]
+def draw_inserter(man, name, hands, cam, greybox=None):
+    """hands: {x2, y2, dir, theta, ext (tiles x 4,096), held (0xFFFF none)}: platform, arm, hand and shadows. An
+    impossible direction (an empty `platform` entry) or a name without a set draws the greybox, with no arm."""
+    gb = greybox or greybox_of(name)
+    view = dict(x2=hands['x2'], y2=hands['y2'], dir=hands['dir'], variant=0, dyn=None)
+    s = man['sets'].get(name)
+    if s is None:
+        return draw_greybox(man, gb, view, cam)
     parts = s['parts']
+    platform = lookup(parts['platform'], dict(dir=hands['dir']))
+    if not platform:
+        return draw_greybox(man, gb, view, cam)
     S = scale(cam)
     ex, ey = hands['x2'] / 2, hands['y2'] / 2
     th = hands['theta'] / 65536
     r = hands['ext'] / 4096
     ang = 2 * math.pi * th
-    out = [draws_for(man, 'platform', lookup(parts['platform'], dict(dir=hands['dir'])), cam, ex, ey),
+    out = [draws_for(man, 'platform', platform, cam, ex, ey),
            draws_for(man, 'platform_shadow', lookup(parts['platform_shadow'], dict(dir=hands['dir'])), cam, ex, ey)]
     ax0, ay0 = (ex - cam['cx']) * S, (ey - cam['cy']) * S         # the anchor, device px from the canvas centre
     hand = 'hand_closed' if hands['held'] != 0xFFFF else 'hand_open'
@@ -226,7 +281,7 @@ def draw_object(man, name, obj, cam):
     h = pos_hash(obj['x'], obj['y'])
     values = dict(shape=h, stage=obj.get('variant', 0))
     ex, ey = obj['x'] / 256, obj['y'] / 256
-    out = [draws_for(man, 'base', lookup(parts['base'], values), cam, ex, ey)]
+    out = [draws_for(man, 'base', total(name, 'base', lookup(parts['base'], values)), cam, ex, ey)]
     if 'shadow' in parts:
         out.append(draws_for(man, 'shadow', lookup(parts['shadow'], values), cam, ex, ey))
     return out
@@ -238,7 +293,7 @@ def draw_resource(man, name, tile, cam):
     parts = s['parts']
     values = dict(shape=pos_hash(tile['tx'], tile['ty']), band=tile['band'])
     ex, ey = tile['tx'] + 0.5, tile['ty'] + 0.5
-    out = [draws_for(man, 'base', lookup(parts['base'], values), cam, ex, ey)]
+    out = [draws_for(man, 'base', total(name, 'base', lookup(parts['base'], values)), cam, ex, ey)]
     if 'shadow' in parts:
         out.append(draws_for(man, 'shadow', lookup(parts['shadow'], values), cam, ex, ey))
     return out
@@ -266,7 +321,7 @@ def draw_mover(man, name, mover, cam):
         f = int(math.floor(mover['seconds'] * p['fps'])) % n
     values = dict(orientation=mover['orientation'])
     ex, ey = mover['x'] / 256, mover['y'] / 256
-    out = [draws_for(man, clip, lookup(p, values, f), cam, ex, ey)]
+    out = [draws_for(man, clip, total(name, clip, lookup(p, values, f)), cam, ex, ey)]
     out.append(draws_for(man, clip + '_shadow', lookup(parts[clip + '_shadow'], values, f), cam, ex, ey))
     return out
 
@@ -371,6 +426,48 @@ def validate(man):
             errs += _entity_animation_errors(man, name, s)
         if kind == 'inserter':
             errs += _inserter_anchor_errors(man, name, s)
+        errs += _fallback_errors(man, name, s)
+    return errs
+
+
+def _primary_parts(s):
+    """The pictures a program draws first, whose empty entries are impossible combinations."""
+    kind, parts = s['kind'], s['parts']
+    if kind == 'entity':
+        return [p for p in ('base', 'idle') if p in parts]
+    if kind == 'inserter':
+        return ['platform']
+    if kind in ('resource', 'object'):
+        return ['base']
+    if kind == 'mover':
+        return [p for p in parts if not p.endswith('shadow')]
+    return [p for p in parts]
+
+
+def _fallback_errors(man, name, s):
+    """10 §15.7's fallback: an impossible combination draws the greybox, so an entity or inserter set with empty
+    entries needs its greybox, and the sets with nothing to fall back to (greyboxes, resources, objects, movers,
+    icons) must be total. An idle picture exists exactly where the working one does."""
+    errs = []
+    parts = s['parts']
+    fallback = s['kind'] in ('entity', 'inserter') and not name.startswith('greybox/')
+    for pname in _primary_parts(s):
+        p = parts.get(pname)
+        if p is None or isinstance(p, list):
+            continue
+        empty = sum(1 for e in p['table'] if not e)
+        if not empty:
+            continue
+        if not fallback:
+            what = 'greybox' if name.startswith('greybox/') else s['kind']
+            errs.append(f'{name}.{pname}: {empty} empty entries, but a {what} set has nothing to fall back to: it '
+                        f'must be total')
+        elif greybox_of(name) not in man['sets']:
+            errs.append(f'{name}.{pname}: {empty} impossible combinations, but no {greybox_of(name)} to draw for them')
+    b, i = parts.get('base'), parts.get('idle')
+    if b is not None and i is not None and not isinstance(b, list) and b['axes'] == i['axes'] and \
+            [bool(e) for e in b['table']] != [bool(e) for e in i['table']]:
+        errs.append(f'{name}: idle and base are drawn for different combinations')
     return errs
 
 

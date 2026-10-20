@@ -10,8 +10,12 @@
 // - The capture layer (I §1.5, BEND-1) keeps the browser's defaults off the game's keys: Tab, Space, Alt (down
 //   and up), Alt+letters and arrows, F1–F10, Ctrl+Z/Y/C/X/V/F, Backspace, Firefox's quick-find keys, Mouse4/5,
 //   the context menu, middle-click autoscroll and Ctrl+Wheel; Keyboard Lock in fullscreen where it exists.
-// - Deviation (small, recorded in pm/reports/C5.md): `show-info` (Alt alone) fires when Alt is released without
-//   any other input in between, so Alt+click, Alt+letter tools and Alt+Tab never toggle alt-mode.
+//   Tab and Space are captured only while the game has the focus (the page itself, I §1.5); on a focused button,
+//   field or slot of the GUI they keep their browser meaning (focus traversal, activation), and on a slot Enter is
+//   its left click and the arrows move between slots (C5-r1 17).
+// - Every control fires on its input's keydown, Alt alone (`show-info`) too, as in Factorio (I §2.2, §3.14).
+// - Keys that compose text (an IME's candidate selection: `isComposing`, keyCode 229, between compositionstart and
+//   compositionend) belong to the text field and never reach the game (C5-r1 18).
 //
 // The handlers take the DOM events structurally (KeyLike, PointerLike, WheelLike), so Vitest drives them in Node.
 import type { BindingTable, Match } from './bindings.ts';
@@ -54,6 +58,10 @@ interface ModsLike {
 export interface KeyLike extends ModsLike {
   code: string;
   repeat: boolean;
+  /** An IME composition is in progress (the key belongs to it). */
+  isComposing?: boolean;
+  /** 229 while an IME processes the key (Safari's committing Enter among them). */
+  keyCode?: number;
 }
 export interface PointerLike extends ModsLike {
   button: number;
@@ -122,6 +130,35 @@ const CTRL_CAPTURED = new Set([
   'Numpad0',
 ]);
 const NOT_TEXT = new Set(['checkbox', 'radio', 'button', 'range', 'color', 'submit', 'reset']);
+/** Keys a focused GUI control keeps (focus traversal and activation). */
+const NAVIGATION = new Set([
+  'Tab',
+  'Space',
+  'Enter',
+  'NumpadEnter',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown',
+  'ContextMenu',
+]);
+/** Captured only while a game runs and has the focus (the map and shoot keys, I §1.5). */
+const GAME_ONLY = new Set(['Tab', 'Space']);
+
+/** Whether a key event is part of an IME composition (C5-r1 18). */
+export const composing = (e: { isComposing?: boolean; keyCode?: number }): boolean =>
+  e.isComposing === true || e.keyCode === 229;
+
+/** The game has the focus: nothing, the page itself, or the world canvas (I §1.5). */
+export function gameFocus(el: Element | null | undefined): boolean {
+  if (!el) return true;
+  const tag = el.tagName;
+  return tag === 'BODY' || tag === 'HTML' || tag === 'CANVAS';
+}
 
 /** A text field: game controls are suspended while one has focus (I §1.3). */
 export function isTextField(el: Element | null | undefined): el is HTMLElement {
@@ -138,6 +175,10 @@ export interface InputCoreOptions {
   isGui?: (el: Element | null) => boolean;
   /** The focused element (default: `document.activeElement`). */
   focused?: () => Element | null;
+  /** A focused slot's keyboard use (Enter: its left-click controls; the arrows: the next slot). */
+  slotKey?: (el: Element, code: string, mods: number) => boolean;
+  /** Whether a game is shown (Tab and Space are the game's only then; in the menus they navigate). */
+  inGame?: () => boolean;
 }
 
 export class InputCore {
@@ -146,14 +187,16 @@ export class InputCore {
   private readonly mac: boolean;
   private readonly isGui: (el: Element | null) => boolean;
   private readonly focused: () => Element | null;
+  private readonly slotKey: (el: Element, code: string, mods: number) => boolean;
+  private readonly inGame: () => boolean;
   /** Physical inputs down now, with the hold control each started (or null). */
   private readonly down = new Map<string, string | null>();
   private wheelAcc = 0;
   private x = 0;
   private y = 0;
   private overEl: Element | null = null;
-  /** Alt alone: pressed, and no other input since (the alt-mode tap). */
-  private altTap = false;
+  /** Between compositionstart and compositionend. */
+  private composition = false;
   private readonly off: (() => void)[] = [];
   private enabled = true;
 
@@ -163,6 +206,8 @@ export class InputCore {
     this.mac = opts.mac ?? false;
     this.isGui = opts.isGui ?? (() => false);
     this.focused = opts.focused ?? (() => globalThis.document?.activeElement ?? null);
+    this.slotKey = opts.slotKey ?? (() => false);
+    this.inGame = opts.inGame ?? (() => true);
   }
 
   setTable(table: BindingTable): void {
@@ -208,10 +253,22 @@ export class InputCore {
     on('mouseup', (e) => {
       if (e.button === 3 || e.button === 4) e.preventDefault();
     });
+    // A button pressed with the mouse does not take the focus (the keyboard's Space and Enter stay the game's);
+    // fields and lists do. Tab reaches every control.
+    on('mousedown', (e) => {
+      const t = e.target as Element | null;
+      if (t?.closest?.('button') && !t.closest('select, input, textarea, label')) e.preventDefault();
+    });
     on('dragstart', (e) => {
       if (!isTextField(e.target as Element)) e.preventDefault();
     });
     on('blur', () => this.releaseAll(), {});
+    on('compositionstart', () => {
+      this.composition = true;
+    });
+    on('compositionend', () => {
+      this.composition = false;
+    });
     const doc = win.document;
     const vis = () => {
       if (doc.visibilityState === 'hidden') this.releaseAll();
@@ -236,7 +293,6 @@ export class InputCore {
     for (const [code, control] of this.down)
       if (control !== null) this.sink.release(control, { ...ev, code });
     this.down.clear();
-    this.altTap = false;
     this.wheelAcc = 0;
     this.sink.releaseAll();
   }
@@ -271,6 +327,8 @@ export class InputCore {
   }
 
   keydown(e: KeyLike): void {
+    // An IME's keys (candidate selection, its committing Enter) are the text field's alone.
+    if (this.composition || composing(e)) return;
     const { code, mods } = this.keyCode(e);
     const focused = this.focused();
     if (isTextField(focused)) {
@@ -283,17 +341,22 @@ export class InputCore {
       if (passes && !e.repeat && this.enabled && this.sink.textKey(code, mods, focused)) e.preventDefault();
       return;
     }
+    // A focused GUI control keeps the keys of keyboard navigation; a slot answers Enter and the arrows.
+    if (!gameFocus(focused) && focused && NAVIGATION.has(code)) {
+      if (this.enabled && !e.repeat && focused.closest('[data-slot]') && this.slotKey(focused, code, mods))
+        e.preventDefault();
+      return;
+    }
     const matches = this.table.match(code, mods);
     this.capture(e, code, mods, matches.length > 0);
     if (!this.enabled || e.repeat) return;
-    this.altTap = code === 'Alt' && mods === 0;
     if (this.down.has(code)) return;
-    // A lone modifier's press controls (show-info on Alt) wait for its release (the tap rule above).
-    this.pressInput(code, mods, code in MOD_BIT ? matches.filter((m) => m.control.hold) : matches, focused);
+    this.pressInput(code, mods, matches, focused);
   }
 
   private capture(e: KeyLike, code: string, mods: number, bound: boolean): void {
     if (code === 'F11' || code === 'F12') return; // fullscreen and devtools stay the browser's
+    if (GAME_ONLY.has(code) && mods === 0 && !this.inGame()) return; // the menus' focus traversal
     if (
       bound ||
       ALWAYS_CAPTURED.has(code) ||
@@ -310,13 +373,7 @@ export class InputCore {
     const held = this.down.get(code);
     this.down.delete(code);
     if (!this.enabled) return;
-    const ev = this.event(code, mods, this.focused());
-    if (held) this.sink.release(held, ev);
-    if (code === 'Alt' && this.altTap) {
-      this.altTap = false;
-      const taps = this.table.match('Alt', 0).filter((m) => !m.control.hold);
-      if (taps.length > 0) this.sink.press(taps, ev);
-    }
+    if (held) this.sink.release(held, this.event(code, mods, this.focused()));
   }
 
   pointerdown(e: PointerLike): void {
@@ -324,7 +381,6 @@ export class InputCore {
     this.y = e.clientY;
     this.overEl = e.target as Element | null;
     if (e.button === 1 || e.button === 3 || e.button === 4) e.preventDefault(); // autoscroll, X11 paste, history
-    this.altTap = false;
     if (!this.enabled) return;
     const code = `Mouse${e.button}`;
     if (this.down.has(code)) return;

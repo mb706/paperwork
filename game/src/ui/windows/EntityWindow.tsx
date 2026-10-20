@@ -10,6 +10,7 @@ import { CloseButton, TitleGroup, Window } from '../core/Window.tsx';
 import { t } from '../i18n/locale.ts';
 import { NONE_REF, serialRef } from '../input/slots.ts';
 import { NO_ITEM } from '../store/protos.ts';
+import { LAYER } from '../store/ui.ts';
 import { MainInventory } from './CharacterScreen.tsx';
 
 export function EntityWindow(props: { serial: number; proto: number }): JSX.Element {
@@ -24,6 +25,8 @@ export function EntityWindow(props: { serial: number; proto: number }): JSX.Elem
     <Window
       id="entity-container"
       testid="entity-window"
+      layer={LAYER.window}
+      onClose={() => s.ui.close()}
       header={
         <div class="title-columns">
           <TitleGroup title={t('window.character')} class="col-inventory" />
@@ -38,7 +41,7 @@ export function EntityWindow(props: { serial: number; proto: number }): JSX.Elem
           <MainInventory other={serialRef(props.serial)} />
         </div>
         <div class="panel pw-panel col-entity" data-testid="entity-inventory">
-          <div class="slot-grid">
+          <div class="slot-grid" data-slot-grid="">
             <For each={inv.slots}>
               {(slot, i) => (
                 <Slot
@@ -46,7 +49,9 @@ export function EntityWindow(props: { serial: number; proto: number }): JSX.Elem
                     kind: 'inventory',
                     owner: serialRef(props.serial),
                     inv: InventoryType.chest,
-                    index: i(),
+                    get index() {
+                      return i();
+                    },
                     other: NONE_REF,
                     key: () => slot.key,
                   }}

@@ -21,6 +21,7 @@ import {
   SHIFT,
   sameBinding,
 } from '../input/controls.ts';
+import { composing } from '../input/core.ts';
 import { bindingLabel, isMac } from '../input/keys.ts';
 import { controlName } from '../input/names.ts';
 
@@ -28,7 +29,7 @@ type Tab = 'interface' | 'graphics' | 'sound' | 'controls' | 'other';
 const TABS: Tab[] = ['interface', 'graphics', 'sound', 'controls', 'other'];
 const SCALES = [0, 75, 100, 125, 150, 175, 200];
 
-export function SettingsWindow(props: { onClose: () => void }): JSX.Element {
+export function SettingsWindow(props: { onClose: () => void; layer: number }): JSX.Element {
   const s = useServices();
   const [tab, setTab] = createSignal<Tab>('controls');
   const [table, setTable] = createSignal<BindingTable>(s.bindings());
@@ -43,6 +44,7 @@ export function SettingsWindow(props: { onClose: () => void }): JSX.Element {
       id="settings"
       title={t('window.settings')}
       onClose={props.onClose}
+      layer={props.layer}
       testid="window-settings"
       class="settings"
     >
@@ -117,7 +119,8 @@ function ControlsTab(props: { table: BindingTable; setTable: (b: BindingTable) =
     const mods = (ev: KeyboardEvent | MouseEvent) =>
       (ev.ctrlKey || (isMac() && ev.metaKey) ? CTRL : 0) | (ev.shiftKey ? SHIFT : 0) | (ev.altKey ? ALT : 0);
     if (e instanceof KeyboardEvent) {
-      if (e.type !== 'keydown') return;
+      // An IME's keys compose text; they are never a binding (C5-r1 18).
+      if (e.type !== 'keydown' || composing(e)) return;
       e.preventDefault();
       e.stopPropagation();
       if (e.code === 'Escape') {
@@ -142,6 +145,7 @@ function ControlsTab(props: { table: BindingTable; setTable: (b: BindingTable) =
     }
   };
   const loneUp = (e: KeyboardEvent) => {
+    if (composing(e)) return;
     const cap = capture();
     const lone = /^(Control|Shift|Alt)(Left|Right)$/.exec(e.code);
     if (!cap || !lone) return;

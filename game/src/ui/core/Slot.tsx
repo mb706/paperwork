@@ -2,7 +2,11 @@
 // typed face. States: hover, the hand marker on the stack's origin slot (I §3.2), red (not craftable by hand),
 // dimmed (none carried, nothing craftable), a progress bar (the crafting queue's head). Clicks are not handled
 // here: the slot registers what it is, and the input core resolves the binding (I §1.4, §3.8).
-import { type JSX, Show } from 'solid-js';
+//
+// Keyboard (C5-r1 17): a slot is a button named by its item and count for assistive technology; one slot per grid
+// is in the tab order (a roving tabindex, `input/slots.ts` moves it with the arrows), and Enter is its left click
+// (the input core resolves it, so the button's own click does nothing).
+import { type JSX, onMount, Show } from 'solid-js';
 import { formatCount } from '../i18n/locale.ts';
 import { registerSlot, type SlotRef } from '../input/slots.ts';
 import type { TipContent } from '../store/ui.ts';
@@ -32,6 +36,7 @@ export interface SlotProps {
 
 export function Slot(props: SlotProps): JSX.Element {
   const tip = useTip(() => props.tooltip?.() ?? null);
+  let el: HTMLButtonElement | undefined;
   const cls = () =>
     [
       'slot',
@@ -40,27 +45,43 @@ export function Slot(props: SlotProps): JSX.Element {
       props.dim ? 'slot-dim' : '',
       props.promised ? 'slot-promised' : '',
     ].join(' ');
+  const name = () => {
+    const n = props.count;
+    return n !== null && n !== undefined && n !== 0 && props.label
+      ? `${props.label} ${formatCount(n)}`
+      : (props.label ?? '');
+  };
+  // The first slot of its grid is the grid's tab stop.
+  onMount(() => {
+    if (el && el.parentElement?.querySelector(':scope > [data-slot]') === el) el.tabIndex = 0;
+  });
   return (
-    <div
+    <button
+      type="button"
       ref={(e) => {
+        el = e;
         if (props.slot) registerSlot(e, props.slot);
       }}
       class={cls()}
       data-slot=""
       data-testid={props.testid}
+      tabIndex={-1}
+      aria-label={name()}
       {...tip}
     >
       <Show when={props.icon}>
-        {(name) => <Icon name={name()} label={props.label ?? ''} class="slot-icon" />}
+        {(icon) => <Icon name={icon()} label={props.label ?? ''} class="slot-icon" />}
       </Show>
       <Show when={props.count !== null && props.count !== undefined && props.count !== 0}>
-        <span class="count">{formatCount(props.count as number)}</span>
+        <span class="count" aria-hidden="true">
+          {formatCount(props.count as number)}
+        </span>
       </Show>
       <Show when={props.progress !== null && props.progress !== undefined}>
         <span class="slot-progress">
           <span class="pw-progress-fill" style={{ width: `${Math.round((props.progress ?? 0) * 100)}%` }} />
         </span>
       </Show>
-    </div>
+    </button>
   );
 }

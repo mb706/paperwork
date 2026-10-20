@@ -8,21 +8,32 @@ import type { DomManifest, Protos } from '../store/protos.ts';
 import type { UiState } from '../store/ui.ts';
 import type { Selection } from '../world/select.ts';
 
-/** What the app provides for the menus and the game menu (src/app/session.ts implements it). */
+/** The menus' and the game menu's commands (session.ts implements them over the host). */
 export interface SessionApi {
   newGame(seed: number): void;
-  /** The saves the storage layer lists (newest first). */
+  /** The stored saves, newest first (§8.2). */
   listSaves(): Promise<SaveEntry[]>;
-  loadSave(id: string): void;
-  saveGame(): Promise<boolean>;
+  loadSave(name: string): void;
+  /**
+   * Saves the game under `name`. Resolves `ok` only once the IO worker has written, checked and published it, so
+   * it can be loaded (10 §8.2, §8.4); otherwise with the reason.
+   */
+  saveGame(name: string): Promise<{ ok: true } | { ok: false; message: string }>;
+  /** The name the save dialog suggests: the loaded save's, else the map's seed. */
+  suggestedName(): string;
   exitToMenu(): void;
   /** Single player pauses while the game menu is open (I §4.0). */
   setMenuPause(paused: boolean): void;
   /** Storage use for the main menu's footer (07 §18), or null when the browser does not say. */
   storage(): Promise<{ used: number; quota: number } | null>;
+  /** Whether this tab owns the saves (§8.2 "One tab at a time"); null until the IO worker knows. */
+  owner(): boolean | null;
+  /** *Take over* (07 §19.2): the other tab saves and drops to read-only. */
+  takeOver(): void;
 }
 
 export interface SaveEntry {
+  /** The save's name (its id in storage). */
   id: string;
   name: string;
   /** Game time in ticks. */
@@ -48,6 +59,8 @@ export interface UiServices {
   hasGui: (proto: number) => boolean;
   /** Current UI scale (I §4.0). */
   scale: () => number;
+  /** The viewport in CSS px. */
+  viewport: () => { w: number; h: number };
   /** The viewport, in GUI px after the UI scale, is too narrow for the flat character screen (I §4.4). */
   narrow: () => boolean;
   /** The UI scale setting in percent, 0 for automatic. */

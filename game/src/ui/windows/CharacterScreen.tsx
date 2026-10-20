@@ -14,7 +14,8 @@ import { t } from '../i18n/locale.ts';
 import { bindingLabel } from '../input/keys.ts';
 import { NONE_REF } from '../input/slots.ts';
 import { NO_ITEM } from '../store/protos.ts';
-import { craftableNow } from '../store/records.ts';
+import { craftableFrom } from '../store/records.ts';
+import { LAYER } from '../store/ui.ts';
 
 /** The player's main inventory as a grid of slots; `other` is the window's other inventory (I §3.8). */
 export function MainInventory(props: { other: EntityRef | null; testid?: string }): JSX.Element {
@@ -22,7 +23,7 @@ export function MainInventory(props: { other: EntityRef | null; testid?: string 
   const c = s.game.character;
   const hand = () => c.hand;
   return (
-    <div class="slot-grid" data-testid={props.testid ?? 'main-inventory'}>
+    <div class="slot-grid" data-slot-grid="" data-testid={props.testid ?? 'main-inventory'}>
       <For each={c.main}>
         {(slot, i) => {
           const isOrigin = () => hand().origin === i() && hand().count > 0 && slot.count === 0;
@@ -33,7 +34,9 @@ export function MainInventory(props: { other: EntityRef | null; testid?: string 
                 kind: 'inventory',
                 owner: NONE_REF,
                 inv: InventoryType.main,
-                index: i(),
+                get index() {
+                  return i();
+                },
                 get other() {
                   return props.other;
                 },
@@ -107,6 +110,8 @@ export function CharacterScreen(): JSX.Element {
     <Window
       id="character"
       testid="character-screen"
+      layer={LAYER.window}
+      onClose={() => s.ui.close()}
       header={
         <Show
           when={tabbed()}
@@ -182,17 +187,19 @@ export function CharacterScreen(): JSX.Element {
               )}
             </For>
           </div>
-          <div class="panel pw-panel recipe-panel" data-testid="recipe-grid">
+          <div class="panel pw-panel recipe-panel" data-slot-grid="" data-testid="recipe-grid">
             <For each={rows()}>
               {(row) => (
                 <div class="slot-grid recipe-row">
                   <For each={row.recipes}>
                     {(id) => {
                       const r = () => s.protos()?.recipe(id);
-                      const can = () => {
+                      // One lookup per ingredient in the shared per-item totals, recomputed only when they change
+                      // (C5-r1 13); the slot's DOM updates only when its own count does.
+                      const can = createMemo(() => {
                         const rec = r();
-                        return rec?.handcraft ? craftableNow(rec.ingredients, s.game.character.main) : 0;
-                      };
+                        return rec?.handcraft ? craftableFrom(rec.ingredients, s.game.totals()) : 0;
+                      });
                       return (
                         <Slot
                           slot={{ kind: 'recipe', recipe: id }}

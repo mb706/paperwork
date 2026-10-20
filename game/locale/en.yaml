@@ -30,7 +30,19 @@ menu:
   exit-to-main-menu: Exit to main menu
   unsaved-progress: Unsaved progress will be lost.
   exit: Exit
-  saved: Saved
+
+save:
+  save: Save
+  failed: The game was not saved. __1__
+
+# The saves' owner (07 §19.2, 10 §8.2 "One tab at a time").
+storage:
+  other-tab: The game is open in another tab.
+  take-over: Take over
+
+# Browser notices (08 §5.1 #30: at most two sentences, the second states the fix).
+notice:
+  trap: The simulation stopped at tick __1__. The last autosave is loading.
 
 new-game:
   title: New game

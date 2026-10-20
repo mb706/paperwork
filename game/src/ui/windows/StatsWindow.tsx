@@ -3,25 +3,25 @@
 // Production and Consumption halves, each a Canvas2D line graph of the series (the y axis auto-scaled) over a
 // list of rows: icon with the window's total as its badge, a bar relative to the top row, the rate per minute;
 // sorted by rate. M0's statistics are hand-mined and hand-crafted items (golden rule 26).
-import { createEffect, createMemo, createSignal, For, type JSX, on, onCleanup, Show } from 'solid-js';
+import { createComputed, createEffect, createSignal, For, type JSX, on, onCleanup, Show } from 'solid-js';
+import { createStore, reconcile } from 'solid-js/store';
 import { useServices } from '../core/context.ts';
 import { Icon } from '../core/Icon.tsx';
 import { useTip } from '../core/tip.ts';
 import { Window } from '../core/Window.tsx';
 import { formatCount, formatRate, t } from '../i18n/locale.ts';
-import { type HeldSeries, PRECISION_SECONDS, type StatsView, statId, statKind } from '../store/records.ts';
+import {
+  type HeldSeries,
+  PRECISION_SECONDS,
+  type StatRow as Row,
+  type StatsView,
+  statId,
+  statKind,
+  statRows,
+} from '../store/records.ts';
+import { LAYER } from '../store/ui.ts';
 
 const TABS = ['items', 'fluids', 'buildings', 'heat'] as const;
-/** Line colours: the Survey palette's inks and pigments (A3 §3), distinct under the colour filters. */
-const COLOURS = ['#b5352a', '#4f7a3c', '#5a8ac0', '#c47a4b', '#2b2723', '#e8b748', '#7d8790', '#8a5a9a'];
-
-interface Row {
-  key: number;
-  total: number;
-  rate: number;
-  colour: string;
-}
-
 export function StatsWindow(): JSX.Element {
   const s = useServices();
   const [precision, setPrecision] = createSignal(1);
@@ -29,24 +29,12 @@ export function StatsWindow(): JSX.Element {
   const watch = s.game.watchStats(precision(), tab());
   onCleanup(watch.dispose);
   createEffect(on([precision, tab], ([p, tb]) => watch.set(p, tb), { defer: true }));
-  const rows = (side: 'produced' | 'consumed') =>
-    createMemo<Row[]>(() => {
-      const v = watch.stats();
-      if (!v) return [];
-      const secs = PRECISION_SECONDS[v.precision] ?? null;
-      const minutes = secs === null ? Math.max(1, s.game.tick[0]() / 3600) : secs / 60;
-      const out: Row[] = [];
-      for (const [key, tot] of v.totals) {
-        const total = tot[side];
-        if (total <= 0) continue;
-        out.push({ key, total, rate: total / minutes, colour: '' });
-      }
-      out.sort((a, b) => b.rate - a.rate || a.key - b.key);
-      out.forEach((r, i) => {
-        r.colour = COLOURS[i % COLOURS.length] as string;
-      });
-      return out;
-    });
+  /** The rows of one half, reconciled by StatKey: a changed rate updates its row in place (C5-r1 15). */
+  const rows = (side: 'produced' | 'consumed') => {
+    const [list, setList] = createStore<Row[]>([]);
+    createComputed(() => setList(reconcile(statRows(watch.stats(), side, s.game.tick[0]()), { key: 'key' })));
+    return () => list;
+  };
   const produced = rows('produced');
   const consumed = rows('consumed');
   return (
@@ -54,6 +42,7 @@ export function StatsWindow(): JSX.Element {
       id="stats"
       title={t('window.production-statistics')}
       onClose={() => s.ui.close()}
+      layer={LAYER.window}
       testid="window-stats"
     >
       <div class="stats-precisions" data-testid="stats-precisions">

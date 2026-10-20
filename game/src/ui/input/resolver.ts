@@ -4,24 +4,33 @@
 // that applies: exactly one UI command or one sim action (encoded by the ActionEncoder) per input. M0's
 // skeleton covers the hand loop of I §5 M0: walking, mining (with drag-mining), building with drag lines, the
 // cursor (Q, rotate, pipette), I §3.8's slot table, fast transfers with sweeps, hand crafting and the queue, the
-// quickbar keys, alt-mode, windows (E confirms, Esc cancels, I §1.4), zoom and the dev speed keys.
+// quickbar keys, alt-mode, windows (E confirms, Esc cancels the top layer, I §1.4), zoom and the dev speed keys.
+//
+// - The GUI context is the pointer's (I §1.4 context 2): a slot control (`craft`, `pick-item`, `pipette` …) acts on
+//   the slot under the pointer whatever input it is bound to, so a keyboard rebinding works on slots too; a mouse
+//   input over the GUI never reaches the world under it, a key that is not a slot control does (WASD over a slot).
+// - World gestures (drag-building, dropping) pause while the pointer is over the GUI and resume from where it comes
+//   back, never filling in what the GUI covered.
+// - Held inputs (walking, mining, picking) are sent again when the sim fenced them (`release_inputs` raised the
+//   player's input generation, 10 §15.3, D22) and when the character appears in a new world, so a key still held
+//   keeps acting (11 §2.6).
 //
 // Actions outside the current capability manifest are still encoded and sent: the sim refuses them with the
 // developer reason `unsupported`, which shows nothing (10 §2.4, §15.6).
 import type { Action } from '../../shared/gen/actions.ts';
 import type { EntityRef, FinePos } from '../../shared/gen/types.ts';
 import { BuildMode, MiningTarget } from '../../shared/gen/types.ts';
+import type { WorldCamera } from '../../shared/world-view.ts';
 import type { GameStore } from '../store/game.ts';
 import { NO_ITEM, type Protos } from '../store/protos.ts';
 import type { UiState } from '../store/ui.ts';
-import type { WorldCamera } from '../world/camera.ts';
 import { inReach, type Selection, sameSelection } from '../world/select.ts';
 import type { Match } from './bindings.ts';
 import type { InputEvent, InputSink } from './core.ts';
 import type { ActionEncoder } from './encoder.ts';
 import { isGui, NONE_REF, type SlotRef, serialRef, slotAt } from './slots.ts';
 
-/** What the resolver needs from the world view (the renderer's camera and mirror once wired, 10 §3.4). */
+/** What the resolver needs from the world view (C4's WorldViewApi through mount.tsx, 10 §3.4). */
 export interface WorldInput {
   readonly camera: WorldCamera;
   /** Whether a world is loaded and shown. */
@@ -47,6 +56,8 @@ export interface Commands {
   focusSearch(): boolean;
   /** Whether an entity prototype has a GUI to open (I §4.6; M0: containers). */
   hasGui(proto: number): boolean;
+  /** F4 and F5 (I §4.21, dev builds): the world view's debug overlays and timings. */
+  debugKey?(control: 'debug-toggle-debug-settings' | 'debug-toggle-basic'): boolean;
   dev: boolean;
 }
 
@@ -73,11 +84,32 @@ const WALK_DIR: Record<string, number> = {
   '-1,-1': 14,
 };
 
+/** The controls a GUI slot answers (I §1.4's GUI column, §3.8, §3.9, §4.2, §3.13): they act on the slot. */
+export const SLOT_CONTROLS: ReadonlySet<string> = new Set([
+  'pick-item',
+  'cursor-split',
+  'stack-transfer',
+  'stack-split',
+  'inventory-transfer',
+  'inventory-split',
+  'toggle-filter',
+  'pipette',
+  'clear-cursor',
+  'craft',
+  'craft-5',
+  'craft-all',
+  'cancel-craft',
+  'cancel-craft-5',
+  'cancel-craft-all',
+]);
+
 export const fine = (v: number): number => Math.floor(v * 256 + 0.5);
 
 interface DragBuild {
   id: number;
   item: number;
+  /** The gesture's build mode (normal, ghost), kept for every step (I §3.4). */
+  mode: number;
   dir: number;
   w: number;
   h: number;
@@ -86,18 +118,25 @@ interface DragBuild {
   axis: 'x' | 'y' | null;
   placed: Set<string>;
   sent: boolean;
+  /** The pointer is over the GUI: no steps until it is back over the world (C5-r1 2). */
+  covered: boolean;
 }
 
 export class Resolver implements InputSink {
   private readonly h: ResolverHost;
+  /** Movement keys physically held. */
   private readonly held = { up: false, down: false, left: false, right: false };
+  /** The walking direction last sent (−1: stopped). */
   private walkDir = -1;
+  /** The mining target last sent, and whether the mine control is physically held. */
   private mining: Selection | null = null;
   private miningHeld = false;
   private drag: DragBuild | null = null;
   private dragIds = 0;
   private sweep: { split: boolean; done: Set<number> } | null = null;
   private dropping: { tile: string } | null = null;
+  /** `pick-items` physically held, and whether picking was sent. */
+  private pickHeld = false;
   private picking = false;
   private pointerX = 0;
   private pointerY = 0;
@@ -141,6 +180,7 @@ export class Resolver implements InputSink {
         this.sweep = null;
         return;
       case 'pick-items':
+        this.pickHeld = false;
         if (this.picking) this.send({ type: 'change_picking_state', input_gen: 0, picking: false });
         this.picking = false;
         return;
@@ -169,7 +209,7 @@ export class Resolver implements InputSink {
     this.refreshSelection();
   }
 
-  /** Re-picks the hover selection (pointer moves, and every packet while the world moves under it). */
+  /** Re-picks the hover selection (pointer moves, and every frame the world moves under it). */
   refreshSelection(): void {
     if (this.pointerEl && this.pointerEl.isConnected === false)
       this.pointerEl = document.elementFromPoint(this.pointerX, this.pointerY);
@@ -180,8 +220,11 @@ export class Resolver implements InputSink {
       this.h.world.setSelection(s);
       this.onSelectionChanged();
     }
-    if (this.drag) this.continueDrag();
-    if (this.dropping) this.continueDrop();
+    if (this.drag) {
+      if (over) this.continueDrag();
+      else this.drag.covered = true;
+    }
+    if (this.dropping && over) this.continueDrop();
   }
 
   releaseAll(): void {
@@ -195,8 +238,41 @@ export class Resolver implements InputSink {
     this.sweep = null;
     if (this.picking) this.send({ type: 'change_picking_state', input_gen: 0, picking: false });
     this.picking = false;
+    this.pickHeld = false;
     this.dropping = null;
     this.h.ui.tooltipNow[1](false);
+  }
+
+  /**
+   * A new world is shown (§3.4): what was sent belongs to the old one. Gestures end; the inputs still held are
+   * sent again when the character appears (`reassertHeld`).
+   */
+  newWorld(): void {
+    this.walkDir = -1;
+    this.mining = null;
+    this.picking = false;
+    this.drag = null;
+    this.sweep = null;
+    this.dropping = null;
+    this.selection = null;
+  }
+
+  /**
+   * Sends the held inputs again (10 §15.3, D22; 11 §2.6): after the sim fenced them (the character's input
+   * generation moved), or when the character appears. A key held since stays held in the new generation.
+   */
+  reassertHeld(): void {
+    if (!this.h.encoder.bound) return;
+    this.walkDir = -1;
+    this.updateWalking();
+    if (this.miningHeld) {
+      this.mining = null;
+      this.mine(this.selection);
+    }
+    if (this.pickHeld) {
+      this.picking = true;
+      this.send({ type: 'change_picking_state', input_gen: 0, picking: true });
+    }
   }
 
   textKey(code: string, mods: number, target: Element): boolean {
@@ -208,10 +284,18 @@ export class Resolver implements InputSink {
     }
     if (code === 'Enter' || code === 'NumpadEnter') {
       (target as HTMLElement).blur();
-      if (!target.matches('[data-search]')) this.h.ui.pressConfirm();
+      if (!target.matches('[data-search]')) this.h.ui.confirmTop();
       return true;
     }
     if (code === 'KeyF' && mods === 1) return this.h.commands.focusSearch();
+    return false;
+  }
+
+  /** The keyboard's slot activation (C5-r1 17): Enter on a focused slot is the pointer's control on it. */
+  activateSlot(el: Element, controls: string[]): boolean {
+    const slot = slotAt(el);
+    if (!slot || this.modal || !this.inGame) return false;
+    for (const c of controls) if (SLOT_CONTROLS.has(c) && this.applySlot(c, slot)) return true;
     return false;
   }
 
@@ -234,13 +318,17 @@ export class Resolver implements InputSink {
     return this.h.game.character.hand;
   }
 
+  private get handHolds(): boolean {
+    return this.hand.count > 0 || this.hand.ghost;
+  }
+
   private handPlaceable(): number | undefined {
     const hand = this.hand;
     if (hand.count <= 0 || hand.ghost) return undefined;
     return this.h.protos.places(hand.key);
   }
 
-  private send(a: Action): number {
+  private send(a: Action): boolean {
     return this.h.encoder.send(a);
   }
 
@@ -262,7 +350,7 @@ export class Resolver implements InputSink {
       case 'toggle-menu':
         return this.escape();
       case 'confirm-gui':
-        return this.confirm();
+        return ui.confirmTop();
       case 'open-character-gui':
         if (!this.inGame || this.modal || ui.window[0]() !== null) return false;
         ui.open({ kind: 'character' });
@@ -270,11 +358,12 @@ export class Resolver implements InputSink {
     }
     if (this.modal || !this.inGame) return false;
 
-    const slot = e.code.startsWith('Mouse') || e.code === 'KeyQ' ? slotAt(this.pointerEl) : null;
     const mouse = e.code.startsWith('Mouse') || e.code.startsWith('Wheel');
+    // The GUI context (I §1.4): the pointer's slot answers the slot controls, whatever input they are bound to.
+    const slot = slotAt(this.pointerEl);
+    if (slot && SLOT_CONTROLS.has(control)) return this.applySlot(control, slot);
     const target = mouse ? e.target : this.pointerEl;
-    if (slot) return this.applySlot(control, slot);
-    if (mouse && isGui(target)) return false; // a panel's own buttons act on click
+    if (mouse && isGui(target)) return false; // a panel's own buttons act on click; nothing under the GUI
     const world = this.overWorld(target);
     const sel = world ? this.h.world.pickAt(this.pointerX, this.pointerY) : null;
 
@@ -308,7 +397,7 @@ export class Resolver implements InputSink {
         this.send({ type: 'copy_entity_settings', source: serialRef(sel.serial) });
         return true;
       case 'clear-cursor':
-        if (this.hand.count <= 0 && !this.hand.ghost) return false;
+        if (!this.handHolds) return false;
         this.send({ type: 'clear_cursor' });
         return true;
       case 'pipette':
@@ -326,6 +415,7 @@ export class Resolver implements InputSink {
         });
         return true;
       case 'pick-items':
+        this.pickHeld = true;
         this.picking = true;
         this.send({ type: 'change_picking_state', input_gen: 0, picking: true });
         return true;
@@ -351,6 +441,9 @@ export class Resolver implements InputSink {
       case 'debug-reset-zoom-2x':
         this.h.world.setZoom(2);
         return true;
+      case 'debug-toggle-debug-settings':
+      case 'debug-toggle-basic':
+        return this.h.commands.dev && (this.h.commands.debugKey?.(control) ?? false);
       case 'production-statistics':
         ui.toggle({ kind: 'stats' });
         return true;
@@ -417,58 +510,28 @@ export class Resolver implements InputSink {
     return false;
   }
 
-  /** Esc (I §1.4): a dialog cancels; a window closes; otherwise the game menu opens or closes (it pauses). */
+  /**
+   * Esc (I §1.4): the top layer cancels (a dialog, a page over the game menu, the game menu, a window); with none,
+   * the game menu opens (it pauses single player).
+   */
   private escape(): boolean {
     const ui = this.h.ui;
-    const dialog = ui.dialog[0]();
-    if (dialog) {
-      ui.dialog[1](null);
-      return true;
-    }
-    if (ui.screen[0]() === 'menu') {
-      if (ui.menuPage[0]() === 'main') return false;
-      ui.menuPage[1]('main');
-      return true;
-    }
+    if (ui.cancelTop()) return true;
     if (!this.inGame) return false;
-    if (ui.gameMenu[0]()) {
-      ui.gameMenu[1](false);
-      return true;
-    }
-    if (ui.window[0]() !== null) {
-      ui.close();
-      return true;
-    }
     ui.gameMenu[1](true);
     return true;
-  }
-
-  /**
-   * E with a window open (I §1.4, FFF-362): the dialog's confirm; else the newest green button on screen (Play,
-   * Confirm, the game menu's Continue); else the window closes.
-   */
-  private confirm(): boolean {
-    const ui = this.h.ui;
-    const dialog = ui.dialog[0]();
-    if (dialog) {
-      ui.dialog[1](null);
-      dialog.onConfirm();
-      return true;
-    }
-    if (ui.screen[0]() === 'menu') return ui.menuPage[0]() !== 'main' && ui.pressConfirm();
-    if (!this.inGame) return false;
-    if (ui.gameMenu[0]() || ui.window[0]() !== null) {
-      if (ui.pressConfirm()) return true;
-      if (ui.gameMenu[0]()) ui.gameMenu[1](false);
-      else ui.close();
-      return true;
-    }
-    return false;
   }
 
   // ------------------------------------------------------------------------------------------ GUI slots (I §3.8)
 
   private applySlot(control: string, s: SlotRef): boolean {
+    // Q (I §3.2, §3.13): an item in the hand goes back, over any slot; an empty hand pipettes the slot's item.
+    if (control === 'clear-cursor') {
+      if (!this.handHolds) return false;
+      this.send({ type: 'clear_cursor' });
+      return true;
+    }
+    if (control === 'pipette') return !this.handHolds && this.pipetteItem(this.slotItem(s));
     switch (s.kind) {
       case 'inventory': {
         const slot = { owner: s.owner, inv: s.inv, slot: s.index };
@@ -493,12 +556,6 @@ export class Resolver implements InputSink {
             this.send({ type: 'set_filter', slot, item: handKey !== NO_ITEM ? handKey : s.key() });
             return true;
           }
-          case 'pipette':
-            return this.pipetteItem(s.key());
-          case 'clear-cursor':
-            if (this.hand.count <= 0 && !this.hand.ghost) return false;
-            this.send({ type: 'clear_cursor' });
-            return true;
         }
         return false;
       }
@@ -510,10 +567,6 @@ export class Resolver implements InputSink {
             count: control === 'craft' ? 1 : control === 'craft-5' ? 5 : 0,
           });
           return true;
-        }
-        if (control === 'pipette') {
-          const product = this.h.protos.recipe(s.recipe)?.products[0];
-          return product?.kind === 'item' ? this.pipetteItem(product.id * 8) : false;
         }
         return false;
       case 'queue':
@@ -542,8 +595,22 @@ export class Resolver implements InputSink {
           this.send({ type: 'quick_bar_set_slot', slot: s.index, item });
           return true;
         }
-        if (control === 'pipette') return linked !== NO_ITEM && this.pipetteItem(linked);
         return false;
+      }
+    }
+  }
+
+  /** The item a slot shows (I §3.13: a GUI slot, recipe, crafting slot or quickbar slot pipettes that item). */
+  private slotItem(s: SlotRef): number {
+    switch (s.kind) {
+      case 'inventory':
+      case 'quickbar':
+        return s.key();
+      case 'recipe':
+      case 'queue': {
+        const recipe = s.kind === 'recipe' ? s.recipe : this.h.game.character.queue[s.index]?.recipe;
+        const product = recipe === undefined ? undefined : this.h.protos.recipe(recipe)?.products[0];
+        return product?.kind === 'item' ? product.id * 8 : NO_ITEM;
       }
     }
   }
@@ -555,8 +622,8 @@ export class Resolver implements InputSink {
     const y = (this.held.down ? 1 : 0) - (this.held.up ? 1 : 0);
     const dir = x === 0 && y === 0 ? -1 : (WALK_DIR[`${x},${y}`] ?? -1);
     if (dir === this.walkDir) return;
-    this.walkDir = dir;
     if (!this.h.encoder.bound) return;
+    this.walkDir = dir;
     if (dir < 0) this.send({ type: 'stop_walking', input_gen: 0 });
     else this.send({ type: 'start_walking', input_gen: 0, dir });
   }
@@ -613,7 +680,7 @@ export class Resolver implements InputSink {
   }
 
   private pipette(sel: Selection | null): boolean {
-    if (this.hand.count > 0 || this.hand.ghost) return false;
+    if (this.handHolds) return false;
     if (sel?.kind !== 'entity') return false;
     const item = this.h.protos.entity(sel.proto)?.item;
     if (item === null || item === undefined) return false;
@@ -639,15 +706,34 @@ export class Resolver implements InputSink {
     return true;
   }
 
-  /** The held placeable's footprint under the cursor (tiles), for the build preview; null when none applies. */
-  preview(): { x0: number; y0: number; x1: number; y1: number } | null {
+  /**
+   * The held placeable under the cursor (I §3.3): its footprint in tiles and how it would build, for the preview;
+   * null when none applies (nothing placeable in the hand, the pointer over the GUI).
+   */
+  preview(): {
+    proto: number;
+    item: number;
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+    ghost: boolean;
+  } | null {
     const proto = this.handPlaceable();
     if (proto === undefined || !this.overWorld(this.pointerEl)) return null;
     const dir = this.h.protos.entity(proto)?.rotatable ? this.buildDir : NORTH;
     const w = this.cursorWorld();
     const p = this.placement(proto, dir, w.x, w.y);
     const [sw, sh] = this.h.protos.size(proto, dir);
-    return { x0: p.x2 / 2 - sw / 2, y0: p.y2 / 2 - sh / 2, x1: p.x2 / 2 + sw / 2, y1: p.y2 / 2 + sh / 2 };
+    return {
+      proto,
+      item: this.hand.key,
+      x0: p.x2 / 2 - sw / 2,
+      y0: p.y2 / 2 - sh / 2,
+      x1: p.x2 / 2 + sw / 2,
+      y1: p.y2 / 2 + sh / 2,
+      ghost: this.drag?.mode === BuildMode.ghost,
+    };
   }
 
   /** Where the held entity would stand: odd footprints centre on the tile, even ones snap to corners (I §3.3). */
@@ -678,6 +764,7 @@ export class Resolver implements InputSink {
     this.drag = {
       id: ++this.dragIds,
       item: this.hand.key,
+      mode,
       dir,
       w: fw,
       h: fh,
@@ -686,18 +773,19 @@ export class Resolver implements InputSink {
       axis: null,
       placed: new Set(),
       sent: false,
+      covered: false,
     };
-    this.place(pos, mode);
+    this.place(pos);
     return true;
   }
 
-  private place(pos: { x2: number; y2: number }, mode: number = BuildMode.normal): void {
+  private place(pos: { x2: number; y2: number }): void {
     const d = this.drag;
     if (!d) return;
+    d.last = pos;
     const k = `${pos.x2},${pos.y2}`;
     if (d.placed.has(k)) return;
     d.placed.add(k);
-    d.last = pos;
     d.sent = true;
     this.send({
       type: 'build',
@@ -705,13 +793,16 @@ export class Resolver implements InputSink {
       pos,
       dir: d.dir,
       flip: false,
-      mode,
+      mode: d.mode,
       flags: 1, // smart belt building, the Interface default (I §4.20); client-only (§7.6)
       drag_id: d.id,
     });
   }
 
-  /** Drag-building (I §3.4): locked to the first movement's axis, adjacent steps of the footprint. */
+  /**
+   * Drag-building (I §3.4): locked to the first movement's axis, adjacent steps of the footprint. Coming back
+   * from over the GUI, the line goes on from where the pointer is, without the steps the GUI covered.
+   */
   private continueDrag(): void {
     const d = this.drag;
     if (!d) return;
@@ -722,17 +813,29 @@ export class Resolver implements InputSink {
     if (d.axis === null) {
       const dx = Math.abs(cur.x2 - d.start.x2);
       const dy = Math.abs(cur.y2 - d.start.y2);
-      if (dx < 2 * d.w && dy < 2 * d.h) return;
+      if (dx < 2 * d.w && dy < 2 * d.h) {
+        d.covered = false;
+        return;
+      }
       d.axis = dx / d.w >= dy / d.h ? 'x' : 'y';
     }
-    const stepLen = d.axis === 'x' ? 2 * d.w : 2 * d.h;
-    const from = d.axis === 'x' ? d.last.x2 : d.last.y2;
-    const to = d.axis === 'x' ? cur.x2 : cur.y2;
+    const x = d.axis === 'x';
+    const stepLen = x ? 2 * d.w : 2 * d.h;
+    const origin = x ? d.start.x2 : d.start.y2;
+    const to = x ? cur.x2 : cur.y2;
+    if (d.covered) {
+      // Back over the world: the step nearest the pointer on the line's grid, alone.
+      d.covered = false;
+      const v = origin + Math.round((to - origin) / stepLen) * stepLen;
+      this.place(x ? { x2: v, y2: d.start.y2 } : { x2: d.start.x2, y2: v });
+      return;
+    }
+    const from = x ? d.last.x2 : d.last.y2;
     const n = Math.trunc((to - from) / stepLen);
     const sign = n < 0 ? -1 : 1;
     for (let i = 1; i <= Math.abs(n); i++) {
       const v = from + sign * i * stepLen;
-      this.place(d.axis === 'x' ? { x2: v, y2: d.start.y2 } : { x2: d.start.x2, y2: v });
+      this.place(x ? { x2: v, y2: d.start.y2 } : { x2: d.start.x2, y2: v });
     }
   }
 

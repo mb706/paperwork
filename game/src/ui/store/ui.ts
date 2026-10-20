@@ -2,6 +2,11 @@
 // of it enters the sim. Window rules (I §4.0): one main window at a time; opening another replaces it and pushes
 // the old one onto the browse history (Alt+← / Alt+→); small dialogs stack modally on top; windows remember their
 // position per window type; E confirms, Esc cancels.
+//
+// Layers (I §1.4, §4.0; C5-r1 6): every window that E and Esc act on registers a layer with its stacking rank and
+// its cancel (the [X]); its green buttons register into it. Esc cancels the top layer, E presses the top layer's
+// newest enabled green button (or closes a layer that has none), so a page opened over the game menu (Settings)
+// goes back to the menu, and a dialog over a window answers before the window does.
 import { createSignal } from 'solid-js';
 
 export type Screen = 'menu' | 'loading' | 'game';
@@ -46,6 +51,18 @@ export interface TooltipState {
   content: () => TipContent | null;
 }
 
+/** Stacking ranks of the layers (higher is on top). */
+export const LAYER = { menuPage: 5, window: 10, gameMenu: 20, gameMenuPage: 21, dialog: 30 } as const;
+
+/** A window E and Esc act on (I §1.4). */
+export interface Layer {
+  readonly z: number;
+  /** Esc, the [X] button. */
+  cancel(): void;
+  /** The layer's green buttons, oldest first; `press` returns false while the button is disabled. */
+  readonly confirms: { press: () => boolean }[];
+}
+
 export const sameWindow = (a: MainWindow | null, b: MainWindow | null): boolean =>
   a === b ||
   (a !== null &&
@@ -86,23 +103,46 @@ export class UiState {
   }
   private readonly back: MainWindow[] = [];
   private readonly forward: MainWindow[] = [];
-  /** The green buttons on screen, newest last: E presses the newest enabled one (I §1.4). */
-  private readonly confirms: { press: () => boolean }[] = [];
+  private readonly layers: Layer[] = [];
 
-  /** Registers a green button; `press` returns false while it is disabled. Returns the unregister function. */
-  addConfirm(press: () => boolean): () => void {
-    const entry = { press };
-    this.confirms.push(entry);
-    return () => {
-      const i = this.confirms.indexOf(entry);
-      if (i >= 0) this.confirms.splice(i, 1);
+  /** Registers a layer (a window E and Esc act on); returns it and the function that removes it. */
+  pushLayer(z: number, cancel: () => void): { layer: Layer; remove: () => void } {
+    const layer: Layer = { z, cancel, confirms: [] };
+    this.layers.push(layer);
+    return {
+      layer,
+      remove: () => {
+        const i = this.layers.indexOf(layer);
+        if (i >= 0) this.layers.splice(i, 1);
+      },
     };
   }
 
-  /** Presses the newest enabled green button; false when there is none. */
-  pressConfirm(): boolean {
-    for (let i = this.confirms.length - 1; i >= 0; i--) if (this.confirms[i]?.press()) return true;
-    return false;
+  /** The top layer: the highest rank, the newest among equals. */
+  topLayer(): Layer | null {
+    let top: Layer | null = null;
+    for (const l of this.layers) if (!top || l.z >= top.z) top = l;
+    return top;
+  }
+
+  /** Esc (I §1.4): the top layer cancels; false when there is none. */
+  cancelTop(): boolean {
+    const l = this.topLayer();
+    if (!l) return false;
+    l.cancel();
+    return true;
+  }
+
+  /**
+   * E (I §1.4, FFF-362): the top layer's green button (the newest enabled one; nothing while they are all disabled),
+   * else the layer closes; false when there is no layer.
+   */
+  confirmTop(): boolean {
+    const l = this.topLayer();
+    if (!l) return false;
+    if (l.confirms.length === 0) l.cancel();
+    else for (let i = l.confirms.length - 1; i >= 0; i--) if (l.confirms[i]?.press()) break;
+    return true;
   }
 
   /** Opens a main window (closing the current one into the browse history), or brings it back if open. */

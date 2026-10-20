@@ -1,13 +1,13 @@
 // The action encoder (10 §7.5, §15.3; I §8.2): the resolver's sim actions, encoded with the generated encoder and
-// sent to the sequencer port as `act` messages. The main thread is the only allocator of its player's seqs
-// (§3.2): when a world is bound, nextSeq = max(loaded, accepted, pending) + 1; a single-player replacement
-// discards what was pending for the old world; the counter never moves backwards within a world. Actions of one
-// event (a WASD change, a sweep step) leave together, in one message with consecutive seqs, at the end of the
-// current task: no frame of latency is added.
+// handed to the host (`act`), which allocates their seqs (§3.2: nextSeq = max(loaded, accepted, pending) + 1; a
+// single-player replacement discards what was pending for the old world). Actions of one event (a WASD change, a
+// sweep step) leave together, in one message with consecutive seqs, at the end of the current task: no frame of
+// latency is added. With no world shown, actions are dropped.
 import { type Action, actionBytes } from '../../shared/gen/actions.ts';
 
-export interface ActPort {
-  act(firstSeq: number, actions: ArrayBuffer): void;
+/** Where actions go (the host's `act`): returns the first action's seq. */
+export interface ActSink {
+  act(actions: Uint8Array): number;
 }
 
 export interface SentAction {
@@ -20,46 +20,39 @@ export interface SentAction {
 const LOG_MAX = 1024;
 
 export class ActionEncoder {
-  private port: ActPort | null = null;
-  private nextSeq = 1;
-  private queue: { seq: number; bytes: Uint8Array; action: Action }[] = [];
+  private sink: ActSink | null = null;
+  private queue: { bytes: Uint8Array; action: Action }[] = [];
   private scheduled = false;
   /** The last actions sent, newest last (tests and the dev log read it). */
   readonly log: SentAction[] = [];
 
-  /** Binds a world (`bound`'s lastSeq for this player); with null, actions are dropped until the next bind. */
-  bind(port: ActPort | null, loadedSeq = 0, accepted = 0): void {
+  /** A world is shown (the host), or none (null): queued actions of the old world are dropped. */
+  bind(sink: ActSink | null): void {
     this.queue = [];
-    this.port = port;
-    // A fresh world: nothing of the old one is pending (single player discards it, §3.2).
-    this.nextSeq = Math.max(loadedSeq, accepted) + 1;
+    this.sink = sink;
   }
 
   get bound(): boolean {
-    return this.port !== null;
+    return this.sink !== null;
   }
 
-  /** Queues an action for this task's `act` message; returns its seq, or 0 when no world is bound. */
-  send(action: Action): number {
-    if (!this.port) return 0;
-    const seq = this.nextSeq++;
-    this.queue.push({ seq, bytes: actionBytes(action), action });
+  /** Queues an action for this task's `act` message; false when no world is shown. */
+  send(action: Action): boolean {
+    if (!this.sink) return false;
+    this.queue.push({ bytes: actionBytes(action), action });
     if (!this.scheduled) {
       this.scheduled = true;
       queueMicrotask(() => this.flush());
     }
-    return seq;
+    return true;
   }
 
   /** Posts the queued actions now. */
   flush(): void {
     this.scheduled = false;
     const q = this.queue;
-    if (q.length === 0 || !this.port) {
-      this.queue = [];
-      return;
-    }
     this.queue = [];
+    if (q.length === 0 || !this.sink) return;
     let len = 0;
     for (const x of q) len += x.bytes.length;
     const out = new Uint8Array(len);
@@ -68,11 +61,16 @@ export class ActionEncoder {
       out.set(x.bytes, at);
       at += x.bytes.length;
     }
-    const now = performance.now();
-    for (const x of q) {
-      this.log.push({ seq: x.seq, action: x.action, at: now });
-      if (this.log.length > LOG_MAX) this.log.shift();
+    let first: number;
+    try {
+      first = this.sink.act(out);
+    } catch {
+      return; // the world went between the input and the end of the task
     }
-    this.port.act((q[0] as { seq: number }).seq, out.buffer);
+    const now = performance.now();
+    q.forEach((x, i) => {
+      this.log.push({ seq: first + i, action: x.action, at: now });
+      if (this.log.length > LOG_MAX) this.log.shift();
+    });
   }
 }

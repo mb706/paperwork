@@ -4,9 +4,11 @@ export type {
   DomManifest,
   SaveEntry,
   SessionApi,
-  SimPort,
   UiHandle,
+  UiHost,
+  UiHostEvents,
   UiOptions,
   UiTestHooks,
+  WorldViewApi,
 } from './mount.tsx';
-export { mountUi } from './mount.tsx';
+export { characterFacts, mountUi } from './mount.tsx';

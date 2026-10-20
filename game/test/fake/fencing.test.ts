@@ -85,4 +85,56 @@ describe('input fencing in the fake (§15.3, D22)', () => {
     expect(p0(h).mining).toBe(null);
     expect(events(h).filter((e) => e.payload.type === 'action_failed')).toEqual([]);
   });
+
+  it('player_left marks the player offline: its stamped actions are refused, nothing moves (GATE-r3 #3)', async () => {
+    const h = await started();
+    const x = p0(h).x;
+    h.sim.injectSystem({ type: 'player_left', player: 0 });
+    await h.step(1);
+    expect(p0(h).online).toBe(false);
+    expect(p0(h).inputGen).toBe(1);
+    expect(events(h).some((e) => e.payload.type === 'player_left' && e.header.player === 0)).toBe(true);
+    await h.act(1, { type: 'start_walking', input_gen: 0, dir: 4 }); // seq 1, stamped with generation 1
+    await h.step(2);
+    const refused = events(h).filter((e) => e.payload.type === 'action_failed');
+    expect(refused.map((e) => [e.header.seq, (e.payload as { reason: number }).reason])).toEqual([[1, 3]]);
+    expect(p0(h).x).toBe(x);
+    expect(p0(h).lastSeq).toBe(1);
+    expect(fenced(h)).toEqual([]);
+  });
+
+  it('player_joined brings the same character back; joining while online changes nothing', async () => {
+    const h = await started();
+    const serial = p0(h).serial;
+    h.sim.injectSystem({ type: 'player_joined', player: 0, flags: 0 });
+    await h.step(1);
+    expect(events(h).filter((e) => e.payload.type === 'player_joined')).toEqual([]);
+    h.sim.injectSystem({ type: 'player_left', player: 0 });
+    await h.step(1);
+    h.sim.injectSystem({ type: 'player_joined', player: 0, flags: 1 });
+    await h.step(1);
+    expect(p0(h).online).toBe(true);
+    expect(p0(h).serial).toBe(serial);
+    expect(events(h).filter((e) => e.payload.type === 'player_joined').length).toBe(1);
+    const x = p0(h).x;
+    await h.act(1, { type: 'start_walking', input_gen: 0, dir: 4 });
+    await h.step(1);
+    expect(p0(h).x).toBeGreaterThan(x);
+  });
+
+  it('player_left returns a hand that fits to the main inventory, and a new index gets a character', async () => {
+    const h = await started();
+    await h.act(1, { type: 'cursor_transfer', slot: { owner: { a: 0, b: 0, tag: 0 }, inv: 1, slot: 0 } });
+    await h.step(1);
+    expect(p0(h).hand.count).toBeGreaterThan(0);
+    h.sim.injectSystem({ type: 'player_left', player: 0 });
+    await h.step(1);
+    expect(p0(h).hand.count).toBe(0);
+    h.sim.injectSystem({ type: 'player_joined', player: 7, flags: 0 });
+    await h.step(1);
+    const w = (h.sim as unknown as { world: FakeWorld }).world;
+    const c7 = w.chars.find((c) => c.player === 7);
+    expect(c7?.online).toBe(true);
+    expect(events(h).some((e) => e.payload.type === 'player_joined' && e.header.player === 7)).toBe(true);
+  });
 });

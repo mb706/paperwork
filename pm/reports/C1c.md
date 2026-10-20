@@ -731,3 +731,41 @@ Also in this value bump, as README edits:
 - the audio paragraph no longer names the deleted sound fixture.
 
 `npm run ci`: green in 44.3 s.
+
+## Integration: GATE-r2 #2's fixture atlas
+
+C6's greybox fallback (merge 1e86703) regenerated the fixture atlas: three greyboxes and an impossible-inserter
+case, with the same file names and format. **Golden version 7 is a mechanical bump**: only the atlas's five
+`external` hashes changed; every `m0/` file is unchanged. `test/golden` passes 47 of 47 tests. `npm run ci` fails
+only `cargo fmt --check`, on C2's uncommitted `crates/det/src/piecewise.rs` (work in progress, not mine).
+
+## GATE-r3 response
+
+**#3 regression (major): leaving and joining in the fake. Fixed.** The fake's system actions now follow the
+reference model's `applySystem` (§15.3; README rules 8–9):
+- `player_joined` brings an offline character back, or creates a new one (`FakeWorld.join`); joining while online
+  changes nothing.
+- `player_left` releases held inputs, marks the player offline, returns the hand only if all of it fits (origin
+  slot first) and emits `player_left`.
+- `release_inputs` only releases.
+- Player actions are now checked for presence before fencing: an offline player's action consumes its seq and is
+  refused with `player_not_present`. An index without a character is refused the same way, as in the model,
+  instead of being dropped silently.
+- Three regression tests in `test/fake/fencing.test.ts`: an action after a departure is refused and moves nothing;
+  a return restores the same character, which then walks; a hand that fits returns on leaving; a new index gets a
+  character. All 29 fake tests pass.
+
+**#4 (minor): the bump baseline's schema hash. Fixed.**
+- Classification no longer trusts `MANIFEST.json`'s `schemaHash`, which the ledger digest does not cover.
+- `reviewedSchemaHash()` reads the schema hash from the header of the baseline's frozen `protos/prototypes.bin`.
+  It takes those bytes from the working copy or from the reviewed commit, and only if their SHA-256 is the
+  baseline's authenticated table entry.
+- `bumpProblems()` uses that hash:
+  - a manifest whose `schemaHash` disagrees with it is refused;
+  - only an authenticated move counts as a schema change;
+  - with no authenticated bytes at hand, nothing counts as moved.
+- The test covers the reviewer's bypass: a doctored `schemaHash` plus a changed `digests.txt` is refused as a value
+  bump.
+
+No golden file or contract input changed, so no bump. `test/golden`: 47 of 47 tests pass. The model reproduces all
+466 files.

@@ -76,6 +76,47 @@ export function applyStats(prev: StatsView | null, p: Projection & { kind: 'STAT
   return { precision: p.precision, tab: p.tab, totals, series };
 }
 
+/** Line colours: the Survey palette's inks and pigments (A3 §3), distinct under the colour filters. */
+export const COLOURS = [
+  '#b5352a',
+  '#4f7a3c',
+  '#5a8ac0',
+  '#c47a4b',
+  '#2b2723',
+  '#e8b748',
+  '#7d8790',
+  '#8a5a9a',
+];
+
+/** A row of the statistics window: a key's total over the window and its rate per minute. */
+export interface StatRow {
+  key: number;
+  total: number;
+  rate: number;
+  colour: string;
+}
+
+/**
+ * One half's rows, sorted by rate: per minute over the precision's window, or for All over the game's whole
+ * length so far (`tick` ticks; nothing when no time has passed, C5-r1 20).
+ */
+export function statRows(v: StatsView | null, side: 'produced' | 'consumed', tick: number): StatRow[] {
+  if (!v) return [];
+  const secs = PRECISION_SECONDS[v.precision] ?? null;
+  const minutes = secs === null ? tick / 3600 : secs / 60;
+  const out: StatRow[] = [];
+  for (const [key, tot] of v.totals) {
+    const total = tot[side];
+    if (total <= 0) continue;
+    out.push({ key, total, rate: minutes > 0 ? total / minutes : 0, colour: '' });
+  }
+  out.sort((a, b) => b.rate - a.rate || a.key - b.key);
+  out.forEach((r, i) => {
+    r.colour = COLOURS[i % COLOURS.length] as string;
+  });
+  return out;
+}
+
 /** StatKey (§5.20): (StatKind << 24) | id. */
 export const statKind = (key: number): number => key >>> 24;
 export const statId = (key: number): number => key & 0xffffff;
@@ -121,6 +162,27 @@ export function countOf(slots: readonly SlotView[], key: number): number {
   let n = 0;
   for (const s of slots) if (s.key === key) n += s.count;
   return n;
+}
+
+/** Per item key, how many the slots hold (one pass; the crafting panel's counts read it, C5-r1 13). */
+export function totalsOf(slots: readonly SlotView[]): Map<number, number> {
+  const m = new Map<number, number>();
+  for (const s of slots) if (s.count > 0) m.set(s.key, (m.get(s.key) ?? 0) + s.count);
+  return m;
+}
+
+/** How many crafts the item totals afford from a recipe's direct ingredients (as `craftableNow`). */
+export function craftableFrom(
+  ingredients: readonly { kind: string; id: number; amount: number }[],
+  totals: ReadonlyMap<number, number>,
+): number {
+  let can = Number.POSITIVE_INFINITY;
+  for (const ing of ingredients) {
+    if (ing.kind !== 'item' || ing.amount <= 0) return 0;
+    const k = Math.floor((totals.get(ing.id * 8) ?? 0) / ing.amount);
+    if (k < can) can = k;
+  }
+  return can === Number.POSITIVE_INFINITY ? 0 : can;
 }
 
 /**

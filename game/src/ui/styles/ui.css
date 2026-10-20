@@ -37,12 +37,13 @@ select {
   user-select: text;
 }
 
-#world {
+/* The world overlay (selection brackets, the build preview): over C4's world canvas, under the DOM UI. */
+.world-overlay {
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100vh;
-  touch-action: none;
+  pointer-events: none;
   display: block;
 }
 
@@ -322,6 +323,23 @@ button {
   position: relative;
   width: 40px;
   height: 40px;
+}
+
+/* A slot is a button (keyboard and assistive technology): without the browser's own button face. */
+:where(button.slot) {
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  appearance: none;
+  cursor: default;
+}
+
+/* Keyboard focus (C5-r1 17): a visible ring on whatever the keyboard reached, never on mouse clicks. */
+:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 1px;
 }
 
 .slot.pw-slot:hover {
@@ -949,11 +967,17 @@ button {
 
 .save-row {
   display: grid;
-  grid-template-columns: 1fr 90px 170px;
+  grid-template-columns: minmax(160px, 1fr) 80px 150px;
   gap: 10px;
   text-align: left;
   padding: 3px 4px;
   border: 0;
+  white-space: nowrap;
+}
+
+.save-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .save-row.header {
@@ -1157,4 +1181,31 @@ button {
 /* The menu's paper: the fibre only faintly, so the wordmark and the frame carry the page. */
 .main-menu > .menu-fibre {
   opacity: 0.22;
+}
+
+/* The saves' owner (07 §19.2): another tab has them; [Take over]. */
+.storage-notice {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  z-index: 45;
+}
+
+.notice-line.error {
+  color: var(--red);
+  margin: 6px 0 0;
+}
+
+.save-panel .field-row input {
+  min-width: 240px;
+}
+
+/* A window bigger than the viewport sits at its top left and its body scrolls (C5-r1 19). */
+.window-body {
+  overflow: auto;
 }

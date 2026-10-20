@@ -108,13 +108,70 @@
   for the packages it touches. The tiny atlas is C6's fixture `test/fixtures/sprites/` (frozen in `MANIFEST.json`'s
   `external`; its `prototypesHash` must be the golden build's): after `npm run data`, regenerate it with
   `gamedev-python scripts/assets/fixture.py`, then bump.
-- **Fake sim (C1c, 10 §15.10):** `npm run dev`, then New game on `/`: dev builds run worlds on `src/simworker/fake.ts`
-  in a worker (`?sim=fake` forces it, `?sim=real` picks the shell) on the M1 prototype build, which the dev server builds
-  into `.cache/data/m1/` and serves at `/data/fake/` (its `AUDIO_WORKING` uses the build's sound ids, from
-  `data/engine/sounds.yaml`). Its M0 interactions follow the reference model's rules (`src/simworker/fake/rules.ts`),
-  and `save` answers `saved`. It speaks `src/shared/protocol.ts` (§3.2) and sends every section and M0 projection.
-  `?fakeDay=N` shortens the day; `?test=1` stops the clock and `window.__game.step(n)` runs ticks. Tests run it
-  in-process (`test/fake/harness.ts`); `node test/fake/snapshot.ts out.png [ticks]` draws its packet stream.
+- **Fake sim (C1c, 10 §15.10):** `npm run dev`, then `/?sim=fake` (dev builds only) runs `src/simworker/fake.ts` in a
+  worker on the M1 prototype build, which the dev server builds into `.cache/data/m1/` and serves at `/data/fake/`
+  (its `AUDIO_WORKING` uses the build's sound ids, from `data/engine/sounds.yaml`). Its M0 interactions follow the
+  reference model's rules (`src/simworker/fake/rules.ts`), and `save` answers `saved`.
+  It speaks `src/shared/protocol.ts` (§3.2) and sends every section and M0 projection. WASD walks; `?fakeDay=N`
+  shortens the day; `?test=1` pauses it, and `window.__fake.step(n)`, `.act(action)` and `.status()` drive it. Tests
+  run it in-process (`test/fake/harness.ts`); `node test/fake/snapshot.ts out.png [ticks]` draws its packet stream.
+
+## The simulation (`game/crates/`; C2)
+- **Crates:** `det` (libm wrappers, `powi`, `fmax`/`fmin`, piecewise tables, the expression interpreter, XXH64),
+  `worldgen` (v0: simplex noise ported bit for bit from simplex-noise 4.0.3, terrain, water, ore spots, starting
+  patches), `sim` (the World, saves, digests, the scheduler, the rules in `rules/`, statistics, pristine chunks and
+  inline commits in `regen.rs`, the boundary in `extract.rs` (packets), `project.rs` (the M0 projections) and
+  `query.rs`, the D18 harness, the scenario DSL and the §10.6 bench scenarios in `testkit/`), `simabi`/`genabi`
+  (sim.wasm, gen.wasm), `simtool` (the native host). `sim::SimContext` is the module behind the ABI; outputs are
+  the envelopes' payloads. Dev builds (`simcheck`): `debug_dump(0xFFFFFFFF)` panics (the shell's dev panic), and
+  `PROFILE` times the 16 phases through the host clock (`DEBUG.phase_us`).
+- **Rules follow the golden model** (`test/golden/model/rules.ts` and its README's numbered rules): when changing a
+  rule, port it from there and cite "rule n"; a refusal changes nothing (`SimContext::set_check_refusals` verifies).
+- **ABI feature:** `simabi`/`genabi` export the full §15.8/§15.9 tables with the cargo feature `full-abi`, on by
+  default since the Shell's loaders landed (C3-r1); `--no-default-features` builds the M0 scaffold (ABI 0).
+- **Tests:** `cargo test -p sim --features simcheck` (`tests/core/`: the golden set — every digest, state, event,
+  packet, projection and query, every ABI trace; churn, the harness, the scheduler, the §2.5 allocation gates on
+  the bench scenarios; `tests/rules/`: R23–R29 and the M0 scenarios, each with D18 a–c and a recorded session in
+  `test/logs/` that `replay` replays; `UPDATE_SCENARIO_LOGS=1` rewrites them after review). `npx vitest run
+  test/sim-wasm test/worldgen` runs the same golden set, sessions and worldgen chunks in WebAssembly (and the
+  module's zero-allocation steady state), and pins the simplex port to the npm package. Scenario DSL:
+  `sim::testkit::{Scenario, TestSequencer}` (`act`, `act_at`, `system`, `run`, `events`, `check_equivalence`).
+- **simtool** (`cargo build --release -p simtool`, run from `game/`): `hash <save|sections>`; `replay <save> <log>`
+  or `replay <bug bundle dir>` (checks the start hash and every recorded digest, names a trap's tick; `--to`,
+  `--trace`, `--state-out`); `trace` (`tick d slice r` like the golden `digests.txt`); `bench [--quick]
+  [--scenario m0-walk|m0-chests-10k|m0-codec|m0-load-30k]` (§10.6's method and thresholds, × 2.4 on this host;
+  appends `bench/history.jsonl`; pin with `taskset -c 0-15`). `--protos` defaults to `public/data/prototypes.bin`.
+- **Build times** (pinned `taskset -c 0-15`): a sim edit rebuilds the `ntest` tests in ≈ 1–6 s (incremental, no
+  LTO) and runs them in ≈ 7 s; the `wasmdev` modules in ≈ 3.5 s; clippy in ≈ 2 s; release simtool (fat LTO) ≈ 25 s.
+
+## The worker shell (`game/src/{simworker,genworker,ioworker}`, `src/app/`; C3, 10 §3, §8, §15.8–§15.9)
+- **Sim worker:** `simworker/shell.ts` around sim.wasm: the handshake (`module.ts`: ABI, `sim_schema_hash`, the
+  build manifest, prototypes.bin's SHA-256; the M0 scaffold, ABI 0, is refused), the `MemoryLease` (`lease.ts`),
+  the `LocalSequencer` (`sequencer.ts`, with `src/shared/admission.ts` and its fixture
+  `test/fixtures/admission/cases.txt`; blobs verified synchronously at intake, `src/shared/sha256.ts`), clock
+  generations, pooled packets, queries, the closure log (based on the last autosave, an exact pinned version) and
+  digest ring, replay, the closure port (multiplayer, with a handover tick for background swaps), saves through
+  the IO worker, trap bundles. Its steady-state tick path allocates nothing (`test/shell/steady.test.ts`). A
+  module without extraction (C2b's: ERR_ORDER) runs without packets; a world's first is header-only.
+  Protocol additions are marked (C3) in `src/shared/protocol.ts`; the IO and worldgen protocols are
+  `src/shared/{io,gen}-protocol.ts`.
+- **Saves (IO worker):** every save is a new version, written and checked, then published in one IndexedDB
+  transaction (`storage.ts`); writes need the saves' ownership (`ownership.ts`: Web Locks, an owner epoch checked
+  at every commit, *Take over* over a BroadcastChannel; §8.2 "One tab at a time"). Bug bundles are assembled there.
+- **Main thread:** `src/app/main.ts` is the composition root: `createApp` (`app.ts`) builds the one `SimHost`
+  (`sim-host.ts`), the IO worker and the page's lifecycle; the renderer, UI and audio attach to the App there,
+  one line each (`app.host.on('packet' | 'generation' | 'storage' …)`), never a second host. SimHost allocates
+  state generations and runs the world-replacement protocol (a fresh worker per world, the swap, re-sent view and
+  subscriptions; every failed phase rejects), seqs, saves and autosave, pause reasons (`user`, `hidden`, `menu`,
+  `storage`), `step(n)` (answered by `stepped`), and trap recovery from the last autosave. `src/app/inline.ts`
+  runs workers in-process (`?sim=inline`, the Node tests). `window.__game` (`src/dev/game-hooks.ts`) drives it in
+  dev builds or with `?dev=1`.
+- **Tests:** `npx vitest run test/shell` runs the shell on the stub modules (`test/stubs/`, a Rust workspace built
+  on demand into `target/stubs/`, with the M0 scaffold as a stale cache serves it; `debug_dump` ids from
+  0xFFFF0000 are its test commands), on the golden reference model behind the ABI (`test/helpers/model-module.ts`),
+  and on the real sim.wasm and gen.wasm (`real.test.ts`); `review-r1.test.ts` holds one test per codex C3-r1
+  finding. The browser bench is `/src/dev/shell.html` (`e2e/shell.spec.ts`, @smoke). Several worktrees share this
+  host: give Playwright free ports with `PW_PORT` and `PW_RELEASE_PORT` (defaults 5191, 5193).
 
 ## Assets (`npm run assets`; C6, 10 §9, the *Survey* look of `design/art/DIRECTION.md`)
 - **Sources** (committed): `game/assets/blender/` (`lib/` style, materials, parts, rig, contract; `entities/`,
@@ -185,27 +242,92 @@
 - **Rules:** the worklet's `process()` never allocates. Keep native nodes few: beside an AudioWorklet each one renders
   on its thread (≈ 0.1 % of a host core per GainNode), so rooms, reverbs and bus faders live in the bank.
 
+## Renderer (`game/src/render/`, `game/src/assets/`; M0 by C4, 10 §6, §9.7–§9.8)
+- **See it:** `npm run dev`, then `/` (the App: `main.ts` attaches the renderer, `attach-renderer.ts`), or `/?sim=fake`
+  (the fake sim's factory, following player 0). `?test=1` renders on demand, `?render=none` draws nothing (the view
+  model, camera and picking still work), `?deny=bc7,astc` forces the format fallbacks. The gallery
+  `/src/dev/gallery.html?scene=golden|golden-real|transitions|survey|single|bench[&night=1&zoom=…&x=…&y=…&clean=1]`
+  draws the golden packets with the tiny atlas, C6's preview scene (`survey`: the M0 art, a lit keypunch for the
+  light pass) and §6.12's frame-cost scenes. Real atlases need `npm run assets` (`public/atlases/`, gitignored;
+  without them the world is not drawn, quietly). Stand-in input until the UI owns it: wheel zoom (×1.1 per notch,
+  0.3–3×), F9 / Shift+F9 1× / 2×, F4 the debug overlays, F5 the timings HUD (it turns the frame timings on).
+- **The UI's boundary (C4-r1 12):** `src/shared/world-view.ts` is the contract: `WorldViewApi` with `camera` (the
+  camera the last frame was drawn with, CSS px of the canvas: `toWorld`, `toScreen`, `visible`), `pickAt(px, py)`
+  (entity by selection box and priority, else resource, else tile; null outside the held chunks), `model` (the
+  read-only view model: chunks by `chunkId`, DYN/HANDS/MOVERS records in their wire layouts), `zoomBy`, `setZoom`,
+  `follow`, `setHovered` (→ the view request's hovered_serial), `onFrame`, `ready()` (core art uploaded) and
+  `devInput.detach()`. `attachRenderer(app, { devInput, onCoreError, onArtNotice })` (src/app/attach-renderer.ts)
+  returns it: C3's App owns lifecycle and worlds (the world view follows `app.host`'s packets and generations and
+  sends view requests through `app.host.setView`); the UI owns input and calls the API; it never imports render/.
+- **Structure:** `manifest.ts` compiles sprites.json v2 into typed tables; `programs.ts` holds §15.7's drawing programs
+  (the TypeScript twin of `scripts/assets/manifest.py`); `mirror.ts` is the view model (packets in, held-set eviction,
+  snapshots, an epoch per world); `bounds.ts` the sets' conservative bounds (culling); `scene.ts` builds a frame (the
+  ground sublayers in order, the counting sort, belt items expanded and culled in one pass, smoke, ghosts, debug)
+  into streams; `renderer.ts` runs the passes (terrain → ground → shadows hatched → objects → high → lights → the one
+  grade pass with the cyanotype LUT → overlays) and accounts for every GPU byte; `pick.ts` picks; `gl/` is the thin
+  GL layer (batcher, textures with the page → layer table and per-layer LOD texture, terrain caches that grow and
+  evict, shaders); `style.ts` holds Survey's constants. `app/world-view.ts` wires renderer, asset worker and loader
+  (and `window.__render`: `frame`, `camera`, `ready`, `settled`, `stats`, `world`, `loseContext`).
+- **Assets at run time:** `src/assets/worker.ts` (fetch by priority, SHA-256, Basis transcoding, a 64 MB cache) with
+  the vendored stock Basis Universal 2.50 transcoder (`worker/basis/`, Apache-2.0); `loader.ts` turns the manifest
+  into requests and hands levels to the renderer (≤ 2 ms of uploads per frame). Every allocation of the arrays is an
+  upload epoch: a restored context or a lower mode (`stepDown`, over budget) renegotiates formats and levels, and
+  older replies are dropped. Readiness is core's only; four failures of a core file raise the error with Retry. The
+  stock transcoder cannot make EAC R11 from ETC1S, so shadows fall back BC4 → R8.
+- **Tests:** `npx vitest run test/render` (the 65 sprite cases, golden packets into draw lists, mirror equivalence
+  against the fake, belts, projection fixtures `test/fixtures/projection/` made by its `make.py`, terrain data, memory,
+  the asset queue and transcoding; `review-r1.test.ts` holds one test per codex C4-r1 finding, the GL side on a
+  recording WebGL2 stub, `gl-stub.ts`); `npx playwright test e2e/render.spec.ts --project chrome` (@smoke: golden
+  packets at 1×/0.3×, dpr 1/2, pixel-exact placement at even and odd sizes, the Survey smoke screenshots; @render:
+  night, fallbacks, context loss, the fake factory, F4/F5, odd heights, picking, readiness);
+  `taskset -c 0-7 npx playwright test e2e/render-bench.spec.ts --project chrome` (@bench: main-thread ms per frame
+  plus a tick's packet against §6.12 × 2.4, and bytes allocated per frame). Give Playwright free ports
+  (`PW_PORT`, `PW_RELEASE_PORT`). Screenshots land in `test-results/dev/`: Read them.
+- **Rules:** the frame path allocates nothing in steady state. Beyond the obvious (no closures, arrays, iterators or
+  strings per frame), V8 boxes every non-integer double passed to a call it does not inline, every number outside
+  ±2³⁰ returned or used as a Map key, and every double object field passed on: so doubles travel in typed blocks (the
+  SpriteSink's `args`, the programs' `AT`, the batcher's `QUAD`), the mirror keys chunks by `chunkId` (a small integer,
+  not the wire's chunk_key), hashes are written into arrays (`posHashInto`), and constant uniforms are set once per
+  program. Measure with the bench (V8's sampling heap profiler, collected objects included); a heap that does not
+  grow proves nothing. The frame reads no clock unless `renderer.timing` is on. No string lookups per frame; sprite
+  placement only through `projection.ts`/the programs; every sprite and chunk is chosen by its conservative bounds,
+  never its anchor; pages are premultiplied UNORM (never sRGB formats); half-resolution targets use the sprite
+  shader's one transform (`uFullH`), so odd sizes stay aligned; in headless Chrome `gl.finish()` does not wait, so
+  benchmarks drain the GPU with a 1×1 `readPixels`; any WebGL canvas here logs four "GPU stall due to ReadPixels"
+  compositor warnings, which `e2e/console.ts` ignores.
+
 ## UI and input (`game/src/ui/`; M0 by C5; 10 §7, I §1–§4, 07)
-- **Run:** `npm run dev`, open `/`: the main menu (07 §18) → New game → the game on the fake sim. E character screen,
-  P production statistics, Esc game menu, LMB on a chest opens it; WASD, RMB mining, LMB building with drag lines,
-  Q, number keys, Alt-tap alt-mode; Settings → Controls rebinds (two columns, conflicts listed). Until the renderer is
-  wired, `src/ui/world/plate.ts` draws a flat stand-in of the world (`?render=none` turns it off).
+- **Run:** `npm run dev`, open `/`: the main menu (07 §18) → New game → the game on the real sim (the App's SimHost,
+  C4's renderer). E character screen, P production statistics, Esc game menu (Save game, Load game, Settings), LMB on a
+  chest opens it; WASD, RMB mining, LMB building with drag lines, Q, number keys, Alt alt-mode; Settings → Controls
+  rebinds (two columns, conflicts listed). Saves go through the IO worker (OPFS or IndexedDB) and load back.
+- **Wiring:** `src/app/attach-ui.ts` (`mountUi(app, world)`, one line in `main.ts`) mounts it on the App's host and
+  C4's world view; `src/ui/host.ts` holds the structural types the UI uses of both (ui/ imports only shared/). The
+  session (`src/ui/session.ts`) starts, loads, saves and leaves worlds through the host; a new state generation empties
+  everything derived from the old world. The world is the world view's: camera, `pickAt`, the view model
+  (`world/select.ts` reads it), `setHovered`; the UI draws only the selection brackets and the build preview
+  (`world/overlay.ts`, a Canvas2D layer under the DOM).
 - **Where:** `input/` (the action map with Factorio's defaults `controls.ts`, the live table and settings shape
   `bindings.ts`, the event core and capture layer `core.ts`, the context resolver `resolver.ts`, the action encoder
-  `encoder.ts`), `store/` (projection records → Solid stores, subscriptions by sub_id, UI state), `core/` (Window,
-  Slot, Tooltip, Icon in the Survey skin), `hud/`, `windows/`, `menu/`, `world/` (camera, the input's mirror slice,
-  hover selection), `mount.tsx` (wiring); the page and the worker session are `src/app/main.ts` and `session.ts`.
-- **Strings:** only from `game/locale/en.yaml` (UI) and prototypes.json `strings` (data names); `test/ui/locale.test.ts`
-  fails on a missing key, on a key of `localeKeys` without a string, and on "!", ellipses or "you".
+  `encoder.ts`, slot descriptors and keyboard grid navigation `slots.ts`), `store/` (projection records → Solid stores,
+  subscriptions by sub_id, UI state with E/Esc layers), `core/` (Window, Slot, Tooltip, Icon in the Survey skin),
+  `hud/`, `windows/`, `menu/`, `world/`, `mount.tsx` (wiring).
+- **Strings:** only from `game/locale/en.yaml` (UI) and prototypes.json `strings` (data names). Every locale key has
+  its source in `game/locale/en.sources.yaml` (08, text.yaml, 07, I, the schema's comments, Factorio's own labels for
+  08 §5.1's Factorio surfaces, or `proposal`: wording awaiting the text owner); `test/ui/locale.test.ts` checks each
+  cited string against its source, and fails on a key without one, on "!", ellipses or "you".
 - **Rules:** slot clicks never act in their own handlers: a slot registers what it is (`input/slots.ts`) and the input
-  core resolves the binding, so every control stays rebindable. No layout reads in the frame loop. Pure UI state never
-  enters the sim. A green button is what E presses (`ui.addConfirm`).
-- **Test hooks** (dev builds): `window.__ui.state()`, `.sent()` (the encoded actions with seqs), `.toScreen(x, y)`,
+  core resolves the binding (also for keys), so every control stays rebindable. Windows that E and Esc act on register a
+  layer (`store/ui.ts`); green buttons register into their layer. No layout reads in the frame loop or on content
+  updates (tooltips are sized by a ResizeObserver). Pure UI state never enters the sim.
+- **Test hooks** (dev builds): `window.__game.ui.state()`, `.sent()` (the encoded actions with seqs), `.toScreen(x, y)`,
   `.entities()`, `.character()`, `.perf()`; `window.__game.step(n)`. Client settings live in localStorage
   (`paperwork.settings`).
-- **Tests:** `npx vitest run src/ui test/ui` (bindings, resolution through the real core, golden projections and
-  traces, the locale); `npx playwright test e2e/ui.spec.ts` (the input layer against the fake sim, both browsers);
-  `npx playwright test e2e/perf.spec.ts --project=chrome` (UI ms per frame, window opening, input latency).
+- **Tests:** `npx vitest run src/ui test/ui` (bindings, resolution through the real core, the session and generations
+  on a fake host, golden projections and traces, the locale and its sources; `test/ui/review-r1.test.ts` holds one
+  test per codex C5-r1 finding); `npx playwright test e2e/ui.spec.ts e2e/game.spec.ts` (the input layer and the M0
+  flow on the real sim, both browsers); `npx playwright test e2e/perf.spec.ts --project=chrome` (UI ms per frame,
+  window opening, input latency).
 
 ## Showing the game to the user
 - Dev server on `127.0.0.1:<high port>`; the user tunnels in: `ssh -L 5173:127.0.0.1:5173 cpuserver10`.

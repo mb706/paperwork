@@ -1,0 +1,184 @@
+[
+  {
+    "name": "remap-removes-a-chest-with-a-missing-block",
+    "call": "sim_load",
+    "input": "remap-removes-a-chest-with-a-missing-block.bin",
+    "expect": "err_load_format",
+    "why": "finding 1: the reference is checked before the remap follows it"
+  },
+  {
+    "name": "remap-removes-the-chests",
+    "call": "sim_load",
+    "input": "remap-removes-the-chests.bin",
+    "expect": "ok",
+    "why": "finding 1: a valid removal still loads, its blocks cleared"
+  },
+  {
+    "name": "chest-x2-i32-max",
+    "call": "sim_load",
+    "input": "chest-x2-i32-max.bin",
+    "expect": "err_load_format",
+    "why": "finding 2: a centre whose footprint overflows i32 (a trap natively, accepted wrapped in release)"
+  },
+  {
+    "name": "chest-x2-aliases-a-chunk",
+    "call": "sim_load",
+    "input": "chest-x2-aliases-a-chunk.bin",
+    "expect": "err_load_format",
+    "why": "finding 2: tile 36 + 2^21 is outside the chunk-key range and aliased chunk 1"
+  },
+  {
+    "name": "chest-outside-the-map",
+    "call": "sim_load",
+    "input": "chest-outside-the-map.bin",
+    "expect": "err_load_format",
+    "why": "finding 2: tile 60 lies in a generated chunk but outside the 96-wide map"
+  },
+  {
+    "name": "player-position-infinite",
+    "call": "sim_load",
+    "input": "player-position-infinite.bin",
+    "expect": "err_load_format",
+    "why": "finding 2: a position must be finite and inside the chunk range"
+  },
+  {
+    "name": "worldgen-request-in-the-past",
+    "call": "sim_load",
+    "input": "worldgen-request-in-the-past.bin",
+    "expect": "err_load_format",
+    "why": "finding 2: a request committing at or before the save's tick"
+  },
+  {
+    "name": "swapped-inventories",
+    "call": "sim_load",
+    "input": "swapped-inventories.bin",
+    "expect": "err_load_format",
+    "why": "finding 4: the player's 80 slots in a 32-slot block and a chest in a 128-slot one"
+  },
+  {
+    "name": "items-past-the-inventory-size",
+    "call": "sim_load",
+    "input": "items-past-the-inventory-size.bin",
+    "expect": "err_load_format",
+    "why": "finding 4: slot 100 of the player's 80"
+  },
+  {
+    "name": "stack-over-its-stack-size",
+    "call": "sim_load",
+    "input": "stack-over-its-stack-size.bin",
+    "expect": "err_load_format",
+    "why": "finding 4: 101 iron plates in one slot (a stack is 100)"
+  },
+  {
+    "name": "limit-bar-past-the-size",
+    "call": "sim_load",
+    "input": "limit-bar-past-the-size.bin",
+    "expect": "err_load_format",
+    "why": "finding 4: a bar at 100 on 80 slots (inside the 128-slot block)"
+  },
+  {
+    "name": "hand-origin-past-the-size",
+    "call": "sim_load",
+    "input": "hand-origin-past-the-size.bin",
+    "expect": "err_load_format",
+    "why": "finding 4: a hand whose origin slot is 100 of 80"
+  },
+  {
+    "name": "c2b-queue-recipe-out-of-range",
+    "call": "sim_load",
+    "input": "c2b-queue-recipe-out-of-range.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 3: a queued recipe the prototypes lack (it trapped at the next tick)"
+  },
+  {
+    "name": "c2b-queue-count-zero",
+    "call": "sim_load",
+    "input": "c2b-queue-count-zero.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 3: a queue entry with no units left"
+  },
+  {
+    "name": "c2b-queue-progress-behind-the-head",
+    "call": "sim_load",
+    "input": "c2b-queue-progress-behind-the-head.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 3: only the head of a queue is under way"
+  },
+  {
+    "name": "c2b-queue-progress-negative",
+    "call": "sim_load",
+    "input": "c2b-queue-progress-negative.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 3: progress below 0"
+  },
+  {
+    "name": "c2b-mining-a-world-object",
+    "call": "sim_load",
+    "input": "c2b-mining-a-world-object.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 3: a mining state M0 does not support (it reached unreachable!)"
+  },
+  {
+    "name": "c2b-walking-direction-odd",
+    "call": "sim_load",
+    "input": "c2b-walking-direction-odd.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 3: walking in a direction start_walking refuses"
+  },
+  {
+    "name": "c2b-chunk-tile-unknown",
+    "call": "sim_load",
+    "input": "c2b-chunk-tile-unknown.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 3: a tile id the prototypes lack (walking indexed past the table)"
+  },
+  {
+    "name": "c2b-chunk-resource-empty",
+    "call": "sim_load",
+    "input": "c2b-chunk-resource-empty.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 3: a resource with no ore left (mining underflowed it)"
+  },
+  {
+    "name": "c2b-chunk-unknown-tree",
+    "call": "sim_load",
+    "input": "c2b-chunk-unknown-tree.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 3: a tree of a species the prototypes lack"
+  },
+  {
+    "name": "c2b-pending-generated-chunk",
+    "call": "sim_load",
+    "input": "c2b-pending-generated-chunk.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 3: a request for a generated chunk (its commit failed an assertion)"
+  },
+  {
+    "name": "c2b-pending-missing-surface",
+    "call": "sim_load",
+    "input": "c2b-pending-missing-surface.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 3: a request on a surface the world lacks"
+  },
+  {
+    "name": "c2b-pending-nine-at-one-tick",
+    "call": "sim_load",
+    "input": "c2b-pending-nine-at-one-tick.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 3: nine requests commit in one tick (at most 8)"
+  },
+  {
+    "name": "c2b-resource-settings-unbounded",
+    "call": "sim_load",
+    "input": "c2b-resource-settings-unbounded.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 4: a resource size of 1e30 (a chunk's work had no bound)"
+  },
+  {
+    "name": "c2b-water-scale-infinite",
+    "call": "sim_load",
+    "input": "c2b-water-scale-infinite.bin",
+    "expect": "err_load_format",
+    "why": "C2b-r1 finding 4: a multiplier that is not finite"
+  }
+]

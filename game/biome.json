@@ -16,6 +16,7 @@
       "!**/test-results",
       "!**/playwright-report",
       "!test/golden/m0",
+      "!src/assets/worker/basis",
       "!package-lock.json"
     ]
   },

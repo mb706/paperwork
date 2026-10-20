@@ -2,7 +2,13 @@
 // names through the data's locale keys, icons through the sprite manifest's DOM sheets (§9.3, §15.7), the
 // crafting panel's layout from item groups, subgroups and order strings (I §4.4, §7.2), and the selection and
 // collision boxes the resolver needs. Nothing here is a rule of the game; the sim validates every action.
-import type { JsonEntity, JsonItem, JsonRecipe, PrototypesJson } from '../../shared/gen/protos.ts';
+import {
+  type JsonEntity,
+  type JsonItem,
+  type JsonRecipe,
+  type PrototypesJson,
+  readPrototypesBin,
+} from '../../shared/gen/protos.ts';
 import { dataString } from '../i18n/locale.ts';
 
 /** The character's numbers the UI uses for reach hints (prototypes.bin's character row; I §3.1). */
@@ -13,6 +19,23 @@ export interface CharacterFacts {
 }
 
 export const DEFAULT_CHARACTER: CharacterFacts = { reach: 10, build: 10, resourceReach: 2.7 };
+
+/** The character's reach and build distances from prototypes.bin (I §3.1), or undefined without them. */
+export function characterFacts(json: PrototypesJson, bin: Uint8Array | null): CharacterFacts | undefined {
+  const id = json.entity.findIndex((e) => e.type === 'character');
+  if (!bin || id < 0) return undefined;
+  try {
+    const row = readPrototypesBin(bin, undefined, []).entity[id];
+    if (!row) return undefined;
+    return {
+      reach: row.reach_distance || DEFAULT_CHARACTER.reach,
+      build: row.build_distance || DEFAULT_CHARACTER.build,
+      resourceReach: row.resource_reach_distance || DEFAULT_CHARACTER.resourceReach,
+    };
+  } catch {
+    return undefined;
+  }
+}
 
 export interface IconRef {
   /** The sheet group (sprite manifest `dom.icons`), e.g. 'core'. */
@@ -117,6 +140,17 @@ export class Protos {
   entityDescription(id: number): string {
     const e = this.json.entity[id];
     return e ? dataString(e.localeDescription) : '';
+  }
+
+  /** A tile's display name (a refusal's "Cannot build on X"). */
+  tileName(id: number): string {
+    const tl = this.json.tile[id];
+    return tl ? dataString(tl.localeName, tl.name) : '';
+  }
+
+  /** Whether nothing can be built on a tile (water, the map's edge; the build preview's hint, I §3.3). */
+  tileBlocks(id: number): boolean {
+    return this.json.tile[id]?.buildable === false;
   }
 
   resourceName(id: number): string {

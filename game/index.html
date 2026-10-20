@@ -6,7 +6,8 @@
     <title>Paperwork</title>
     <link rel="icon" href="data:," />
     <style>
-      /* Before the skin loads: Survey's paper and ink (A3 §3.1), so the first paint is the menu's paper. */
+      /* Before the skin loads: Survey's paper and ink (A3 §3.1), so the first paint is the menu's paper. The world
+         view (C4) puts its canvas first in the body, under the UI's root. */
       html,
       body {
         margin: 0;
@@ -20,16 +21,17 @@
     </style>
   </head>
   <body>
-    <canvas id="world"></canvas>
     <div id="ui"></div>
-    <!-- Diagnostics for the smoke tests (the module probe and the data stage's outputs); not shown. -->
+    <!-- Diagnostics for the smoke tests (the build, the data stage's outputs, the world, the saves); not shown. -->
     <dl class="app-status">
       <dt>simulation</dt>
       <dd data-testid="sim-status">loading sim.wasm</dd>
       <dt>prototypes</dt>
       <dd data-testid="data-status">loading prototypes.json</dd>
       <dt>build</dt>
-      <dd data-testid="build-status-probe">loading build-manifest.json</dd>
+      <dd data-testid="build-status">loading build-manifest.json</dd>
+      <dt>saves</dt>
+      <dd data-testid="storage-status">opening the IO worker</dd>
     </dl>
     <script type="module" src="/src/app/main.ts"></script>
   </body>

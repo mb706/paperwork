@@ -2,64 +2,112 @@
 // sections separated by rules; at most 356 px wide; beside the anchor, flipped away from the screen edges (10 px
 // border). Item tooltips (§4.8.1) and recipe tooltips (§4.8.2: ingredients, missing ones red, crafting time,
 // products when more than one, "Craftable now"), and the hotkey hints of the live binding table (I §1.6).
-import { createEffect, For, type JSX, Match, Show, Switch } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  type JSX,
+  Match,
+  onCleanup,
+  Show,
+  Switch,
+} from 'solid-js';
 import { formatDuration, t } from '../i18n/locale.ts';
-import { countOf, craftableNow } from '../store/records.ts';
+import { craftableFrom } from '../store/records.ts';
 import { useServices } from './context.ts';
 import { Icon } from './Icon.tsx';
 
 const EDGE = 10;
 
+/**
+ * Where a tooltip goes (GUI px): right of its anchor, flipped left at the screen's right edge, kept 10 px inside
+ * the viewport. `anchor` is in viewport px (measured on hover), `size` in GUI px.
+ */
+export function placeTooltip(
+  anchor: { x: number; y: number; w: number; h: number },
+  size: { w: number; h: number },
+  viewport: { w: number; h: number },
+  scale: number,
+): { x: number; y: number } {
+  const vw = viewport.w / scale;
+  const vh = viewport.h / scale;
+  const ax = anchor.x / scale;
+  const ay = anchor.y / scale;
+  let x = ax + anchor.w / scale + 6;
+  if (x + size.w > vw - EDGE) x = ax - size.w - 6;
+  if (x < EDGE) x = EDGE;
+  let y = ay;
+  if (y + size.h > vh - EDGE) y = vh - EDGE - size.h;
+  if (y < EDGE) y = EDGE;
+  return { x, y };
+}
+
 export function Tooltip(): JSX.Element {
   const s = useServices();
   let el: HTMLDivElement | undefined;
+  let ro: ResizeObserver | null = null;
   const anchor = () => s.ui.tooltip[0]();
   /** The content, followed while the tooltip is open (a slot that empties closes it). */
   const tip = () => anchor()?.content() ?? null;
-  // Placed after it renders, once per anchor and content (a layout read on show, never in the frame loop).
+  const open = createMemo(() => tip() !== null);
+  /** The tooltip's size, from a ResizeObserver: content updates (a queue's time left) never read layout. */
+  const [size, setSize] = createSignal<{ w: number; h: number } | null>(null, {
+    equals: (a, b) => a === b || (a !== null && b !== null && a.w === b.w && a.h === b.h),
+  });
+  onCleanup(() => ro?.disconnect());
+  // Placed when the anchor or the size changes; content updates alone do not move it (C5-r1 14).
   createEffect(() => {
     const a = anchor();
-    const tp = tip();
-    if (!a || !tp || !el) return;
-    const scale = s.scale();
-    el.style.visibility = 'hidden';
-    const r = el.getBoundingClientRect();
-    let x = a.x + a.w + 6;
-    if (x + r.width > window.innerWidth - EDGE) x = a.x - r.width - 6;
-    if (x < EDGE) x = EDGE;
-    let y = a.y;
-    if (y + r.height > window.innerHeight - EDGE) y = window.innerHeight - EDGE - r.height;
-    if (y < EDGE) y = EDGE;
-    el.style.left = `${x / scale}px`;
-    el.style.top = `${y / scale}px`;
+    const sz = size();
+    if (!a || !sz || !el) return;
+    const p = placeTooltip(a, sz, s.viewport(), s.scale());
+    el.style.left = `${p.x}px`;
+    el.style.top = `${p.y}px`;
     el.style.visibility = 'visible';
   });
+  const attach = (e: HTMLDivElement) => {
+    el = e;
+    setSize(null);
+    ro?.disconnect();
+    if (typeof ResizeObserver === 'undefined') {
+      queueMicrotask(() => setSize({ w: e.offsetWidth, h: e.offsetHeight }));
+      return;
+    }
+    // The observer reports after layout; its offset sizes are then clean (GUI px, before the UI scale's zoom).
+    ro = new ResizeObserver(() => setSize({ w: e.offsetWidth, h: e.offsetHeight }));
+    ro.observe(e);
+  };
   return (
-    <Show when={tip()}>
-      {(tp) => (
-        <div ref={el} class="tooltip pw-tooltip" style={{ visibility: 'hidden' }} data-testid="tooltip">
-          <Switch>
-            <Match when={tp().kind === 'item'}>
-              <ItemTip itemKey={tp().id} />
-            </Match>
-            <Match when={tp().kind === 'recipe'}>
-              <RecipeTip recipe={tp().id} />
-            </Match>
-            <Match when={tp().kind === 'queue'}>
-              <RecipeTip recipe={tp().id} queue />
-            </Match>
-            <Match when={tp().kind === 'text'}>
-              <div class="tip-title">{tp().text}</div>
-            </Match>
-            <Match when={tp().kind === 'label'}>
-              <div class="tip-label">{tp().text}</div>
-            </Match>
-          </Switch>
-          <Show when={tp().hint}>
-            <div class="tip-hint">{tp().hint}</div>
-          </Show>
-        </div>
-      )}
+    <Show when={open()}>
+      <div ref={attach} class="tooltip pw-tooltip" style={{ visibility: 'hidden' }} data-testid="tooltip">
+        <Show when={tip()} keyed={false}>
+          {(tp) => (
+            <>
+              <Switch>
+                <Match when={tp().kind === 'item'}>
+                  <ItemTip itemKey={tp().id} />
+                </Match>
+                <Match when={tp().kind === 'recipe'}>
+                  <RecipeTip recipe={tp().id} />
+                </Match>
+                <Match when={tp().kind === 'queue'}>
+                  <RecipeTip recipe={tp().id} queue />
+                </Match>
+                <Match when={tp().kind === 'text'}>
+                  <div class="tip-title">{tp().text}</div>
+                </Match>
+                <Match when={tp().kind === 'label'}>
+                  <div class="tip-label">{tp().text}</div>
+                </Match>
+              </Switch>
+              <Show when={tp().hint}>
+                <div class="tip-hint">{tp().hint}</div>
+              </Show>
+            </>
+          )}
+        </Show>
+      </div>
     </Show>
   );
 }
@@ -84,7 +132,7 @@ function ItemTip(props: { itemKey: number }): JSX.Element {
 function RecipeTip(props: { recipe: number; queue?: boolean }): JSX.Element {
   const s = useServices();
   const r = () => s.protos()?.recipe(props.recipe);
-  const main = () => s.game.character.main;
+  const totals = () => s.game.totals();
   const name = (kind: string, id: number) =>
     kind === 'item' ? (s.protos()?.itemName(id * 8) ?? '') : (s.protos()?.json.fluid[id]?.name ?? '');
   const icon = (kind: string, id: number) =>
@@ -102,7 +150,8 @@ function RecipeTip(props: { recipe: number; queue?: boolean }): JSX.Element {
               <div
                 class="tip-ingredient"
                 classList={{
-                  missing: !props.queue && ing.kind === 'item' && countOf(main(), ing.id * 8) < ing.amount,
+                  missing:
+                    !props.queue && ing.kind === 'item' && (totals().get(ing.id * 8) ?? 0) < ing.amount,
                 }}
               >
                 <Icon name={icon(ing.kind, ing.id)} size={16} label={name(ing.kind, ing.id)} />
@@ -131,7 +180,9 @@ function RecipeTip(props: { recipe: number; queue?: boolean }): JSX.Element {
             <div class="tip-line missing">{t('tooltip.not-handcraftable')}</div>
           </Show>
           <Show when={!props.queue && rec().handcraft}>
-            <div class="tip-line">{t('tooltip.craftable-now', craftableNow(rec().ingredients, main()))}</div>
+            <div class="tip-line">
+              {t('tooltip.craftable-now', craftableFrom(rec().ingredients, totals()))}
+            </div>
           </Show>
           <Show when={rec().products[0]?.kind === 'item'}>
             <hr class="tip-rule" />

@@ -1,0 +1,25 @@
+**Three Major and three Minor findings remain. No Critical findings remain.**
+
+1. **Major — Slice serialization is not consistently canonical (r1 #6).** [slices.ts:263](/home/mewse/browsergame/game/test/golden/model/slices.ts:263) hashes members in pool-row order without sorting by `(section, key)`. Pool reuse can place serial 3603 before serial 3; both belong to shard 3, producing different bytes from §4.8 and README rule 41. The current golden world misses this collision. **Fix:** sort members before serialization and freeze a vector covering reused rows with colliding shards, including free rows.
+
+2. **Major — Sprite cases contradict §15.7’s fallback rule.** [cases.json:453](/home/mewse/browsergame/game/test/fixtures/sprites/cases.json:453) expects no draws for the invalid belt direction; [cases.json:1696](/home/mewse/browsergame/game/test/fixtures/sprites/cases.json:1696) similarly leaves the invalid signal without its base. §15.7 requires a greybox for impossible combinations. [manifest.py:167](/home/mewse/browsergame/game/scripts/assets/manifest.py:167) passes empty lookup results through, so its checks approve these expectations. C4 cannot follow both the spec and these cases. **Fix:** provide the affected greybox sets, implement fallback selection and regenerate the cases and frozen external hashes.
+
+3. **Major — The fake ignores input fencing.** [fake.ts:351](/home/mewse/browsergame/game/src/simworker/fake.ts:351) applies decoded actions without comparing `input_gen` with the character’s generation. Reproduced through the protocol: with generation 0, `start_walking(input_gen=123)` advances x from 0.5 to 0.65 and emits no `input_fenced`. This contradicts the real contract and allows incorrect C5 action encoding to pass against the fake. **Fix:** consume the sequence, check the generation before applying held-input actions, emit `input_fenced` and preserve action state; test stale starts, stops and mining begins.
+
+4. **Minor — Mechanical-bump protection remains bypassable (r1 #15).** [main.ts:254](/home/mewse/browsergame/game/test/golden/build/main.ts:254) compares against the working manifest, which standalone `--write` overwrites. Consequently, the documented regenerate/review/bump sequence permits changed rules to receive `kind=mechanical approval=-`. An entirely in-memory filesystem probe reproduced this acceptance. **Fix:** classify against an immutable manifest associated with the latest ledger entry or reviewed commit; retain that baseline across regeneration.
+
+5. **Minor — ABI trace outputs are mislabeled as complete envelopes.** [README.md:71](/home/mewse/browsergame/game/test/golden/README.md:71) promises exact envelope bytes, but [module.ts:241](/home/mewse/browsergame/game/test/golden/model/module.ts:241) emits the payload alone. For example, the digest fixture is 20 bytes; §15.8’s complete envelope requires a four-byte length prefix, totaling 24. **Fix:** explicitly define `out` as the unwrapped payload and document wrapper validation, or freeze complete envelopes.
+
+6. **Minor — C2’s brief specifies the obsolete ABI version.** [C2-sim.md:74](/home/mewse/browsergame/pm/wp/C2-sim.md:74) requires `schema::ABI_VERSION` 1, while the delivered sim ABI is 2 and the generator ABI remains 1. **Fix:** reference the generated `ABI_VERSION` and `GEN_ABI_VERSION` separately.
+
+The other round-one fixes are present in executable code and reproducible fixtures: manual insertion bypasses the chest bar; absent-player watermarks survive load/join; partial inventory operations no longer masquerade as refusals; CHARACTER sources and subscription replacement limits are corrected; capacity, packet-transition and ABI cases were added; emitted references resolve; chest interactions and save completion work; STATS filtering and cumulative totals are implemented.
+
+The rejected crafting-count finding is supported by Factorio’s [`begin_crafting` contract](https://lua-api.factorio.com/latest/classes/LuaControl.html#begin_crafting), which returns the count actually started, and the design now agrees. Cancellation overflow remains an explicit, manager-recorded M0 exception: refusal is frozen; spilling is deferred to M1.
+
+The v4/v5 bumps themselves introduce no unexplained state or digest changes. The atlas’s `prototypesHash` equals both current and golden `prototypes.bin`: `db6d64a6…397be49`. Rolling digests and lineage are pinned over 3,600 ticks, subject to finding 1.
+
+Validation: all **463 golden files reproduce**, **97 focused TypeScript tests pass**, **11 existing Rust fixture/ABI tests pass**, and the read-only atlas checks return no errors. Full CI could not complete under the read-only environment. No files changed.
+
+C2 and C3 have the required artifacts, with the corrections above. C4’s fixture contradiction and C5’s misleading fake behavior prevent unconditional clearance of all four packages.
+
+GATE: FAIL

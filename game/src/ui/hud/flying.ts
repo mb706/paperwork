@@ -2,7 +2,7 @@
 // `flying_text_ttl` = 80 ticks (1.33 s), an item icon before the text where there is one, errors in the warning
 // colour. A new line at the spot of older ones pushes them up, so lines never overlap. Positions are projected
 // through the camera every frame with transforms only (no layout reads, §7.3 step 5).
-import type { WorldCamera } from '../world/camera.ts';
+import type { WorldCamera } from '../../shared/world-view.ts';
 
 export const FLYING_TTL_MS = (80 * 1000) / 60;
 const RISE_TILES = 1.2;

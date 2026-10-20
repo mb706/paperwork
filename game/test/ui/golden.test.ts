@@ -158,7 +158,14 @@ function traceRecords(trace: string): UiRecord[][] {
 
 describe('routing the golden traces by sub_id (§15.5)', () => {
   it('packet-transitions: a chest window goes gone when the chest is mined; a replacement keeps counting', () => {
-    const subs = new Subscriptions();
+    // The host allocates ids from 1 (SimHost); the routing drops a gone subscription from it too.
+    let next = 1;
+    const dropped: number[] = [];
+    const subs = new Subscriptions({
+      subscribe: () => next++,
+      resubscribe: () => {},
+      unsubscribe: (ids) => dropped.push(...ids),
+    });
     const seen = new Map<number, string[]>();
     const log = (id: number) => (o: RecordOutcome, r: UiRecord) => {
       const list = seen.get(id) ?? [];
@@ -176,6 +183,7 @@ describe('routing the golden traces by sub_id (§15.5)', () => {
     expect(seen.get(11)?.at(-1)).toMatch(/^gone:/);
     expect(subs.has(10)).toBe(false);
     expect(subs.has(11)).toBe(false);
+    expect(dropped).toEqual(expect.arrayContaining([10, 11])); // the host stops sending them to new worlds
     const one = seen.get(1) ?? [];
     const firstHud = one.findIndex((x) => x.endsWith('HUD'));
     expect(firstHud).toBeGreaterThan(0);

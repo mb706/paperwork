@@ -1,78 +1,78 @@
 // The UI layer's entry (10 §7): mounts the Solid shell over the world canvas and wires the input core, the
-// resolver, the action encoder, the projection stores and the M0 world stand-in. The app (src/app/) owns the sim
-// worker and hands this module decoded packets and a port; the UI never reads simulation state directly (§7.3).
+// resolver, the action encoder, the projection stores and the world overlay to the App (src/app/attach-ui.ts hands
+// in its host and C4's world view, as the structural types of ./host.ts). The UI never reads simulation state
+// directly (§7.3): it sees the host's packets (UI records and events), and the world through the world view's
+// camera, picking and view model.
 //
-//   const ui = mountUi({ root, canvas, protos, dom, build, session, character });
-//   ui.loading(0.2);                          // a world is starting
-//   ui.bound(port, player, lastSeq);          // `bound`: actions and subscriptions flow (§3.2 seq rule)
-//   ui.packet(decodePacket(bytes), events);   // every packet of the current state generation
-//   ui.unbound();                             // the world is gone (back to the menu)
+//   const ui = mountUi({ root, host: app.host, world, protos, dom, build });
+//   // the main menu starts worlds through the host; ui.test is `__game.ui` in dev builds
 import { createEffect, createSignal, Match, on, onCleanup, Show, Switch } from 'solid-js';
 import { render } from 'solid-js/web';
-import { EVENT_STALE_TICKS, type EventHeader, type EventPayload, readEvents } from '../shared/gen/events.ts';
-import type { Packet, ViewRequest } from '../shared/gen/packet.ts';
-import { readUiRecords } from '../shared/gen/projections.ts';
+import type { EventHeader, EventPayload } from '../shared/gen/events.ts';
 import type { PrototypesJson } from '../shared/gen/protos.ts';
-import { Services, type SessionApi, type UiServices } from './core/context.ts';
+import { Services, type UiServices } from './core/context.ts';
 import { Tooltip } from './core/Tooltip.tsx';
+import type { UiHost, WorldViewApi } from './host.ts';
 import { CursorStack } from './hud/CursorStack.tsx';
 import { FlyingTexts } from './hud/flying.ts';
 import { Hud } from './hud/Hud.tsx';
-import { dataString, formatCount, setDataStrings, t } from './i18n/locale.ts';
+import { formatCount, setDataStrings, t } from './i18n/locale.ts';
 import { BindingTable } from './input/bindings.ts';
 import { InputCore } from './input/core.ts';
-import { ActionEncoder, type ActPort } from './input/encoder.ts';
+import { ActionEncoder } from './input/encoder.ts';
 import { loadKeyboardLayout, setMac } from './input/keys.ts';
-import { Resolver } from './input/resolver.ts';
-import { isGui } from './input/slots.ts';
-import { DialogLayer, GameMenu, Loading } from './menu/GameMenu.tsx';
+import { type Commands, Resolver } from './input/resolver.ts';
+import { gridMove, isGui } from './input/slots.ts';
+import { DialogLayer, GameMenu, Loading, StorageNotice } from './menu/GameMenu.tsx';
 import { MainMenu } from './menu/MainMenu.tsx';
+import { applyPacket } from './packets.ts';
+import { GameSession, LOCAL_PLAYER } from './session.ts';
 import { autoScale, loadSettings, saveSettings } from './settings.ts';
 import { GameStore } from './store/game.ts';
 import { type CharacterFacts, type DomManifest, Protos } from './store/protos.ts';
-import type { SubPort } from './store/subs.ts';
 import { UiState } from './store/ui.ts';
 import { CharacterScreen } from './windows/CharacterScreen.tsx';
 import { EntityWindow } from './windows/EntityWindow.tsx';
 import { StatsWindow } from './windows/StatsWindow.tsx';
-import { FollowCamera } from './world/camera.ts';
-import { Mirror } from './world/mirror.ts';
-import { Plate } from './world/plate.ts';
-import { pick, type Selection, sameSelection } from './world/select.ts';
+import { type Preview, WorldOverlay } from './world/overlay.ts';
+import {
+  dist2,
+  footprintFree,
+  modelEntities,
+  modelEntity,
+  modelTile,
+  type PreviewState,
+  type Selection,
+  sameSelection,
+} from './world/select.ts';
 
 export type { SaveEntry, SessionApi } from './core/context.ts';
+export type { UiHost, UiHostEvents, WorldViewApi } from './host.ts';
 export type { CharacterFacts, DomManifest } from './store/protos.ts';
-
-/** The world's port as the UI uses it: actions, subscriptions and the view request (§3.2). */
-export interface SimPort extends ActPort, SubPort {
-  view(v: ViewRequest): void;
-}
+export { characterFacts } from './store/protos.ts';
 
 export interface UiOptions {
+  /** The UI's root, over the world canvas. */
   root: HTMLElement;
-  /** The world canvas under the DOM (the renderer's; the M0 stand-in plate draws on it when `plate`). */
-  canvas: HTMLCanvasElement;
+  /** The App's simulation host (C3's SimHost). */
+  host: UiHost;
+  /** The App's world view (C4's renderer): camera, picking, the view model. */
+  world: WorldViewApi;
   build: { build: string; buildHash: string; dev: boolean };
-  session: SessionApi;
+  /** The page's prototype build (prototypes.json). */
+  protos: PrototypesJson;
+  character?: CharacterFacts | undefined;
   /** The sprite manifest's DOM part (icons, the skin), when the asset build has run. */
   dom: DomManifest | null;
-  /** Draw the stand-in plate (no renderer yet). */
-  plate: boolean;
-  /** Pauses, speeds and steps (sequencer control, S14): single player and dev keys. */
-  control?: (op: 'pause' | 'resume' | { speed: number } | { step: number }) => void;
   /** The UI sound hook (the audio module's `ui(name)`). */
   sound?: (name: string) => void;
+  /** F4 and F5 (I §4.21, dev builds): the world view's debug overlays and timings. */
+  debugKey?: Commands['debugKey'];
 }
 
 export interface UiHandle {
-  /** The prototypes of the world about to run (the M1 build in fake mode). */
-  setPrototypes(json: PrototypesJson, character?: CharacterFacts): void;
-  loading(progress: number): void;
-  bound(port: SimPort, player: number, lastSeq: number): void;
-  packet(p: Packet): void;
-  unbound(): void;
-  notice(text: string | null): void;
-  /** Test hooks (`window.__ui` in dev builds). */
+  readonly session: GameSession;
+  /** Test hooks (`__game.ui` in dev builds). */
   readonly test: UiTestHooks;
   dispose(): void;
 }
@@ -90,8 +90,11 @@ export interface UiTestHooks {
     selection: Selection | null;
     camera: { x: number; y: number; zoom: number };
     flying: string[];
+    messages: string[];
     problems: string[];
     applyMs: number;
+    gen: number;
+    present: boolean;
   };
   /** Viewport px of a world position (tests click entities through the real input layer). */
   toScreen(x: number, y: number): { x: number; y: number };
@@ -110,26 +113,19 @@ export function mountUi(o: UiOptions): UiHandle {
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   setMac(mac);
   void loadKeyboardLayout();
+  setDataStrings(o.protos.strings);
   const ui = new UiState();
-  const game = new GameStore();
+  const game = new GameStore(o.host);
   const encoder = new ActionEncoder();
-  const camera = new FollowCamera();
-  const mirror = new Mirror();
-  const [protos, setProtos] = createSignal<Protos | null>(null);
+  const protos = new Protos(o.protos, o.dom, o.character);
+  const world = o.world;
   const [bindings, setBindingsSignal] = createSignal(new BindingTable(settings.keybindings));
   const [selection, setSelection] = createSignal<Selection | null>(null, { equals: sameSelection });
   const [scaleSetting, setScaleSetting] = createSignal(settings.interface.uiScale);
   const [viewport, setViewport] = createSignal({ w: window.innerWidth, h: window.innerHeight });
   const scale = () => (scaleSetting() > 0 ? scaleSetting() / 100 : autoScale(viewport().h));
-  let port: SimPort | null = null;
-  let player = 0;
-  let characterSerial = 0;
-  let viewSeq = 0;
-  let lastView = '';
-  let worldTick = 0;
   let paused = false;
   let speed = 1;
-  const plate = o.plate ? new Plate(o.canvas, protos) : null;
 
   const persist = () =>
     saveSettings({
@@ -138,41 +134,19 @@ export function mountUi(o: UiOptions): UiHandle {
       interface: { uiScale: scaleSetting() },
     });
 
-  const hasGui = (proto: number) => protos()?.entity(proto)?.type === 'chest';
+  const hasGui = (proto: number) => protos.entity(proto)?.type === 'chest';
 
-  const services: UiServices = {
-    protos,
-    dom: o.dom,
-    game,
-    ui,
-    bindings,
-    setBindings: (b) => {
-      setBindingsSignal(b);
-      core.setTable(b);
-      persist();
-    },
-    encoder,
-    session: o.session,
-    selection,
-    build: o.build,
-    hasGui,
-    scale,
-    narrow: () => viewport().w / scale() < FLAT_MIN_WIDTH,
-    uiScaleSetting: scaleSetting,
-    setUiScaleSetting: (v) => {
-      setScaleSetting(v);
-      persist();
-    },
-    setInputEnabled: (on) => core.setEnabled(on),
-    sound: (name) => o.sound?.(name),
-  };
+  // The layers under the UI's root: the world overlay (selection brackets, the build preview), then the shell.
+  const overlay = new WorldOverlay(o.root);
+  const shell = document.createElement('div');
+  shell.className = 'ui-shell';
+  o.root.append(shell);
 
   const flying = new FlyingTexts(o.root, (key) => {
-    const p = protos();
-    const name = p?.itemByKey(key)?.icon;
-    if (!p || !name || !p.hasIcon(name)) return null;
-    const ref = p.icon(name);
-    const url = ref ? p.sheet(ref.group, 64) : null;
+    const name = protos.itemByKey(key)?.icon;
+    if (!name || !protos.hasIcon(name)) return null;
+    const ref = protos.icon(name);
+    const url = ref ? protos.sheet(ref.group, 64) : null;
     if (!ref || !url) return null;
     const el = document.createElement('span');
     el.className = 'icon flying-icon';
@@ -181,47 +155,39 @@ export function mountUi(o: UiOptions): UiHandle {
     return el;
   });
 
-  const characterPos = (): { x: number; y: number } | null => {
-    const m = characterSerial ? mirror.mover(characterSerial) : undefined;
-    return m ? { x: m.x / 256, y: m.y / 256 } : null;
-  };
-
   const resolver = new Resolver({
     ui,
     game,
-    get protos() {
-      return protos() as Protos;
-    },
+    protos,
     encoder,
     world: {
-      camera,
-      active: () => port !== null && protos() !== null,
-      pickAt: (x, y) => {
-        const p = protos();
-        if (!p || port === null) return null;
-        const w = camera.toWorld(x, y);
-        return pick(mirror, p, w.x, w.y);
+      camera: world.camera,
+      active: () => session.gen !== 0 && world.active(),
+      pickAt: (x, y) => (session.gen !== 0 ? world.pickAt(x, y) : null),
+      character: () => world.character(),
+      zoomBy: (n) => world.zoomBy(n),
+      setZoom: (z) => world.setZoom(z),
+      setSelection: (s) => {
+        setSelection(s);
+        // The hovered entity is the view request's hovered_serial, which drives the HOVER projection (§15.4).
+        world.setHovered(s?.kind === 'entity' ? s.serial : 0);
       },
-      character: characterPos,
-      zoomBy: (n) => camera.zoomBy(n),
-      setZoom: (z) => camera.setZoom(z),
-      setSelection: (s) => setSelection(s),
     },
     commands: {
       refuse: (key, x, y) => {
-        const w = camera.toWorld(x, y);
+        const w = world.camera.toWorld(x, y);
         flying.add(t(key), w.x, w.y, { error: true });
         o.sound?.('error');
       },
       togglePause: () => {
         paused = !paused;
-        o.control?.(paused ? 'pause' : 'resume');
+        o.host.control(paused ? 'pause' : 'resume');
       },
       speed: (f) => {
         speed = f === null ? 1 : Math.min(64, Math.max(1 / 64, speed * f));
-        o.control?.({ speed });
+        o.host.control({ speed });
       },
-      stepOnce: () => o.control?.({ step: 1 }),
+      stepOnce: () => o.host.control({ step: 1 }),
       uiScale: (step) => {
         if (step === null) setScaleSetting(0);
         else {
@@ -244,102 +210,175 @@ export function mountUi(o: UiOptions): UiHandle {
         return false;
       },
       hasGui,
+      ...(o.debugKey ? { debugKey: o.debugKey } : {}),
       dev: o.build.dev,
     },
   });
-  const core = new InputCore(bindings(), resolver, { mac, isGui });
+  const core = new InputCore(bindings(), resolver, {
+    mac,
+    isGui,
+    inGame: () => ui.screen[0]() === 'game',
+    // A focused slot (C5-r1 17): Enter is its left click (with the held modifiers), the context-menu key its right
+    // click, the arrows move to the next slot.
+    slotKey: (el, code, mods) => {
+      if (code === 'Enter' || code === 'NumpadEnter' || code === 'Space' || code === 'ContextMenu') {
+        const button = code === 'ContextMenu' ? 'Mouse2' : 'Mouse0';
+        return resolver.activateSlot(
+          el,
+          bindings()
+            .match(button, mods)
+            .map((m) => m.control.id),
+        );
+      }
+      return gridMove(el, code);
+    },
+  });
   core.attach(window);
+
+  const session = new GameSession({
+    host: o.host,
+    ui,
+    game,
+    encoder,
+    onGeneration: () => {
+      // Everything derived from the old world goes (§3.4); the world view emptied its model already.
+      resolver.newWorld();
+      flying.clear();
+      setSelection(null);
+      overlay.clear();
+      world.follow(LOCAL_PLAYER);
+    },
+    onLeave: () => {
+      resolver.newWorld();
+      flying.clear();
+      setSelection(null);
+      overlay.clear();
+    },
+  });
+  // The character appeared (a join, a load) or its held inputs were fenced: what is still held is sent again.
+  game.onCharacter = () => resolver.reassertHeld();
+
+  const services: UiServices = {
+    protos: () => protos,
+    dom: o.dom,
+    game,
+    ui,
+    bindings,
+    setBindings: (b) => {
+      setBindingsSignal(b);
+      core.setTable(b);
+      persist();
+    },
+    encoder,
+    session,
+    selection,
+    build: o.build,
+    hasGui,
+    scale,
+    viewport,
+    narrow: () => viewport().w / scale() < FLAT_MIN_WIDTH,
+    uiScaleSetting: scaleSetting,
+    setUiScaleSetting: (v) => {
+      setScaleSetting(v);
+      persist();
+    },
+    setInputEnabled: (on) => core.setEnabled(on),
+    sound: (name) => o.sound?.(name),
+  };
 
   // ---------------------------------------------------------------------------------------- the frame loop
 
   let raf = 0;
-  let lastMirror = -1;
-  let lastCam = '';
-  let lastPlate = '';
+  /** What the overlay and the selection were last computed from (numbers only: the loop allocates nothing). */
+  const last = { cx: Number.NaN, cy: Number.NaN, zoom: 0, w: 0, h: 0, packets: -1, epoch: -1 };
+  let lastPreview: Preview | null = null;
+  let lastSel: Selection | null = null;
+  let previewKey = '';
+  let previewState: PreviewState = 'buildable';
   /** The last 600 packet applications and frames, in ms (the UI budget, 10 §7.3 step 6 and §11). */
   const perf = { packet: [] as number[], frame: [] as number[] };
   const record = (list: number[], ms: number) => {
     list.push(ms);
     if (list.length > 600) list.shift();
   };
+  /** The held placeable's preview (I §3.3): its tint from the view model, recomputed when it or the world moves. */
+  const preview = (): Preview | null => {
+    const pv = resolver.preview();
+    if (!pv) return null;
+    const box = { x0: pv.x0, y0: pv.y0, x1: pv.x1, y1: pv.y1 };
+    const key = `${pv.x0},${pv.y0},${pv.x1},${pv.y1},${pv.ghost},${world.model.packets}`;
+    if (key !== previewKey) {
+      previewKey = key;
+      const c = world.character();
+      const reach = protos.character.build;
+      previewState = pv.ghost
+        ? 'ghost'
+        : !footprintFree(world.model, protos, box)
+          ? 'blocked'
+          : c && dist2(c.x, c.y, box) > reach * reach
+            ? 'too-far'
+            : 'buildable';
+    }
+    return { box, state: previewState, item: pv.item };
+  };
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
+    if (ui.screen[0]() !== 'game' || session.gen === 0) return;
     const t0 = performance.now();
-    let plateMs = 0;
-    const pos = characterPos();
-    if (pos) camera.follow(pos.x, pos.y);
-    const camKey = `${camera.cx},${camera.cy},${camera.zoom}`;
-    const moved = camKey !== lastCam || mirror.version !== lastMirror;
+    const cam = world.camera;
+    const m = world.model;
+    const moved =
+      cam.cx !== last.cx ||
+      cam.cy !== last.cy ||
+      cam.zoom !== last.zoom ||
+      cam.width !== last.w ||
+      cam.height !== last.h ||
+      m.packets !== last.packets ||
+      m.epoch !== last.epoch;
     if (moved) {
-      lastCam = camKey;
-      lastMirror = mirror.version;
+      last.cx = cam.cx;
+      last.cy = cam.cy;
+      last.zoom = cam.zoom;
+      last.w = cam.width;
+      last.h = cam.height;
+      last.packets = m.packets;
+      last.epoch = m.epoch;
       resolver.refreshSelection();
-      sendView();
     }
-    if (plate && ui.screen[0]() === 'game') {
-      const preview = resolver.preview();
-      const sel = selection();
-      const key = `${preview ? `${preview.x0},${preview.y0}` : ''}|${sel?.kind === 'entity' ? sel.serial : sel ? `${sel.kind}` : ''}`;
-      if (moved || key !== lastPlate) {
-        lastPlate = key;
-        const p0 = performance.now();
-        plate.draw(mirror, camera, sel, characterSerial, preview);
-        plateMs = performance.now() - p0;
-      }
+    const pv = preview();
+    const sel = selection();
+    const previewMoved =
+      pv?.box.x0 !== lastPreview?.box.x0 ||
+      pv?.box.y0 !== lastPreview?.box.y0 ||
+      pv?.state !== lastPreview?.state ||
+      (pv === null) !== (lastPreview === null);
+    if (moved || previewMoved || sel !== lastSel) {
+      lastPreview = pv;
+      lastSel = sel;
+      overlay.draw(cam, protos, sel, pv);
     }
-    flying.frame(camera, now, scale());
-    // The UI's own frame work (the stand-in plate is the renderer's job, so it is left out; §7.3 step 6).
-    record(perf.frame, performance.now() - t0 - plateMs);
+    flying.frame(cam, now, scale());
+    record(perf.frame, performance.now() - t0);
   };
   raf = requestAnimationFrame(frame);
 
   const resize = () => {
     setViewport({ w: window.innerWidth, h: window.innerHeight });
-    camera.setViewport(0, 0, window.innerWidth, window.innerHeight);
-    plate?.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio || 1);
-    lastCam = '';
+    overlay.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio || 1);
+    last.w = 0; // the overlay was cleared: draw it again
   };
   window.addEventListener('resize', resize);
   resize();
 
-  function sendView(): void {
-    if (!port) return;
-    const v = camera.visible();
-    const sel = selection();
-    const hovered = sel?.kind === 'entity' ? sel.serial : 0;
-    const flags = (1 << 3) | (ui.altMode[0]() ? 1 << 4 : 0);
-    const key = `${v.x0},${v.y0},${v.x1},${v.y1},${camera.zoom.toFixed(3)},${hovered},${flags}`;
-    if (key === lastView) return;
-    lastView = key;
-    viewSeq += 1;
-    const req: ViewRequest = {
-      view_seq: viewSeq,
-      surface: 0,
-      flags,
-      ...v,
-      zoom: camera.zoom,
-      hovered_serial: hovered,
-      audio_half_range: Math.min(64, (v.x1 - v.x0) / 2),
-      chart_x0: 0,
-      chart_y0: 0,
-      chart_x1: 0,
-      chart_y1: 0,
-    };
-    mirror.sentView(req);
-    port.view(req);
-  }
-
-  // ---------------------------------------------------------------------------------------- events
+  // ---------------------------------------------------------------------------------------- packets and events
 
   const flyingFor = (h: EventHeader, e: EventPayload): void => {
-    const p = protos();
-    if (!p) return;
     if (e.type === 'flying_text') {
       // Flying text is the acting player's own (Factorio's local flying text); others' stays theirs.
-      if (h.player !== player && h.player !== 0xffff) return;
+      if (h.player !== LOCAL_PLAYER && h.player !== 0xffff) return;
       const x = e.pos.x / 256;
       const y = e.pos.y / 256;
-      const name = p.itemName(e.item);
+      const name = protos.itemName(e.item);
       if (e.text === 1) {
         const n = `${e.count > 0 ? '+' : ''}${formatCount(e.count)}`;
         const text =
@@ -348,7 +387,7 @@ export function mountUi(o: UiOptions): UiHandle {
             : t('flying.item-delta', n, name);
         flying.add(text, x, y, { item: e.item });
       } else {
-        const key = p.json.localeKeys.FlyingText.find((k) => k.value === e.text)?.key;
+        const key = protos.json.localeKeys.FlyingText.find((k) => k.value === e.text)?.key;
         if (!key) return;
         if (e.text === 4) {
           // "Cannot insert X. Inventory is full." is the bottom-left message (I §3.7–§3.9, Factorio 2.0.77).
@@ -356,28 +395,39 @@ export function mountUi(o: UiOptions): UiHandle {
         } else if (e.text === 5) {
           // "Cannot put away the X. …" is flying text at the mouse cursor (I §3.2).
           const ptr = core.pointer();
-          const at = camera.toWorld(ptr.x, ptr.y);
+          const at = world.camera.toWorld(ptr.x, ptr.y);
           flying.add(t(key, name), at.x, at.y, { error: true });
         } else flying.add(t(key, name), x, y);
       }
-    } else if (e.type === 'action_failed' && h.player === player) {
+    } else if (e.type === 'action_failed' && h.player === LOCAL_PLAYER) {
       if (DEV_REASONS.has(e.reason)) return;
-      const key = p.json.localeKeys.FailReason.find((k) => k.value === e.reason)?.key;
+      const key = protos.json.localeKeys.FailReason.find((k) => k.value === e.reason)?.key;
       if (!key) return;
       let arg = '';
       if (e.reason === 20) {
-        const ent = mirror.entity(e.serial);
+        const ent = modelEntity(world.model, e.serial);
         arg = ent
-          ? p.entityName(ent.proto)
-          : p.entityName(p.json.entity.findIndex((x) => x.type === 'character'));
+          ? protos.entityName(ent.proto)
+          : protos.entityName(protos.json.entity.findIndex((x) => x.type === 'character'));
       } else if (e.reason === 21) {
-        const tile = mirror.tileAt(Math.floor(e.pos.x / 256), Math.floor(e.pos.y / 256));
-        const tl = tile === null ? undefined : p.json.tile[tile];
-        arg = tl ? dataString(tl.localeName, tl.name) : '';
+        const tile = modelTile(world.model, Math.floor(e.pos.x / 256), Math.floor(e.pos.y / 256));
+        arg = tile === null ? '' : protos.tileName(tile);
       }
       flying.add(t(key, arg), e.pos.x / 256, e.pos.y / 256, { error: true });
+      o.sound?.('error');
     } else if (e.type === 'entity_mined') ui.forgetEntity(e.serial);
   };
+
+  const offPacket = o.host.on('packet', (bytes) => {
+    const t0 = performance.now();
+    applyPacket(bytes, {
+      game,
+      player: LOCAL_PLAYER,
+      reassertHeld: () => resolver.reassertHeld(),
+      present: flyingFor,
+    });
+    record(perf.packet, performance.now() - t0);
+  });
 
   // ---------------------------------------------------------------------------------------- mount
 
@@ -396,6 +446,7 @@ export function mountUi(o: UiOptions): UiHandle {
               <Hud />
               <Windows />
               <GameMenu />
+              <StorageNotice />
             </Match>
           </Switch>
           <DialogLayer />
@@ -404,7 +455,7 @@ export function mountUi(o: UiOptions): UiHandle {
         </div>
       </Services.Provider>
     ),
-    o.root,
+    shell,
   );
 
   function Windows() {
@@ -444,60 +495,7 @@ export function mountUi(o: UiOptions): UiHandle {
   }
 
   const handle: UiHandle = {
-    setPrototypes(json, character) {
-      setDataStrings(json.strings);
-      setProtos(new Protos(json, o.dom, character));
-    },
-    loading(progress) {
-      ui.resetGame();
-      ui.screen[1]('loading');
-      ui.loadingProgress[1](progress);
-    },
-    bound(p, playerIndex, lastSeq) {
-      port = p;
-      player = playerIndex;
-      paused = false;
-      speed = 1;
-      lastView = '';
-      mirror.clear();
-      encoder.bind(p, lastSeq);
-      game.subs.attach(p);
-      game.startGame(playerIndex);
-    },
-    packet(p) {
-      const t0 = performance.now();
-      mirror.apply(p);
-      worldTick = p.header.tick;
-      for (const s of p.sections) {
-        if (s.name === 'UI') game.applyUi(readUiRecords(s.bytes, s.count));
-        else if (s.name === 'EVENTS') {
-          for (const { header, payload } of readEvents(s.bytes, s.count)) {
-            if ((header.flags & 1) !== 0 || header.tick + EVENT_STALE_TICKS < worldTick) continue;
-            flyingFor(header, payload);
-          }
-        }
-      }
-      if (game.character.present && game.character.serial !== characterSerial)
-        characterSerial = game.character.serial;
-      if (ui.screen[0]() === 'loading' && game.character.present) ui.screen[1]('game');
-      game.lastApplyMs = performance.now() - t0;
-      record(perf.packet, game.lastApplyMs);
-    },
-    unbound() {
-      port = null;
-      encoder.bind(null);
-      game.subs.attach(null);
-      game.endGame();
-      mirror.clear();
-      flying.clear();
-      characterSerial = 0;
-      ui.resetGame();
-      ui.screen[1]('menu');
-      ui.menuPage[1]('main');
-    },
-    notice(text) {
-      ui.notice[1](text);
-    },
+    session,
     test: {
       sent: () => encoder.log.map((x) => ({ seq: x.seq, type: x.action.type, action: x.action, at: x.at })),
       state: () => {
@@ -512,29 +510,31 @@ export function mountUi(o: UiOptions): UiHandle {
           main: c.main.map((s) => ({ key: s.key, count: s.count })),
           queue: c.queue.map((q) => ({ recipe: q.recipe, count: q.count })),
           selection: selection(),
-          camera: { x: camera.cx, y: camera.cy, zoom: camera.zoom },
+          camera: { x: world.camera.cx, y: world.camera.cy, zoom: world.camera.zoom },
           flying: [...o.root.querySelectorAll('.flying span')].map((x) => x.textContent ?? ''),
+          messages: ui.messages[0]().map((m) => m.text),
           problems: [...game.subs.problems],
           applyMs: game.lastApplyMs,
+          gen: session.gen,
+          present: c.present,
         };
       },
-      toScreen: (x, y) => camera.toScreen(x, y),
-      entities: () => {
-        const p = protos();
-        return [...mirror.entities()].map((e) => ({
+      toScreen: (x, y) => world.camera.toScreen(x, y),
+      entities: () =>
+        [...modelEntities(world.model)].map((e) => ({
           serial: e.serial,
           proto: e.proto,
-          name: p?.json.entity[e.proto]?.name ?? '',
+          name: protos.json.entity[e.proto]?.name ?? '',
           x: e.x2 / 2,
           y: e.y2 / 2,
-        }));
-      },
-      character: characterPos,
+        })),
+      character: () => world.character(),
       perf: () => ({ packet: [...perf.packet], frame: [...perf.frame] }),
     },
     dispose() {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
+      offPacket();
       core.detach();
       dispose();
     },

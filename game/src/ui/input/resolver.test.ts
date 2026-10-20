@@ -1,212 +1,20 @@
 // Input resolution (I §1.3–§1.5, §3; 10 §7.5): DOM-shaped events through the real InputCore and Resolver,
 // asserting on the sim actions the encoder sends and on the UI state. No DOM: elements are stand-ins that answer
 // `closest()` for slots and GUI panels, as the real ones do.
-import { beforeEach, describe, expect, it } from 'vitest';
-import { type Action, decodeAction } from '../../shared/gen/actions.ts';
-import type { PrototypesJson } from '../../shared/gen/protos.ts';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { chestAt, element, key, mountLayers, mouse, Rig, WORLD } from '../../../test/ui/rig.ts';
 import { InventoryType } from '../../shared/gen/types.ts';
-import type { GameStore } from '../store/game.ts';
-import { Protos } from '../store/protos.ts';
-import { UiState } from '../store/ui.ts';
-import { FollowCamera } from '../world/camera.ts';
-import type { Selection } from '../world/select.ts';
-import { BindingTable } from './bindings.ts';
 import { bind } from './controls.ts';
-import { InputCore, type KeyLike, type PointerLike, type WheelLike } from './core.ts';
-import { ActionEncoder } from './encoder.ts';
-import { Resolver } from './resolver.ts';
+import type { WheelLike } from './core.ts';
 import { NONE_REF, registerSlot, type SlotRef, serialRef } from './slots.ts';
 
-// ---------------------------------------------------------------------------------------------- fixtures
-
-const protosJson = {
-  item: [
-    { name: 'iron-chest', icon: 'item/iron-chest', places: 0, stack: 50, group: 0, subgroup: 0, order: 'a' },
-    {
-      name: 'iron-plate',
-      icon: 'item/iron-plate',
-      places: null,
-      stack: 100,
-      group: 0,
-      subgroup: 0,
-      order: 'b',
-    },
-  ],
-  entity: [
-    {
-      name: 'iron-chest',
-      type: 'chest',
-      item: 0,
-      size: [1, 1],
-      rotatable: false,
-      selectionBox: [-0.5, -0.5, 0.5, 0.5],
-      collisionBox: [-0.35, -0.35, 0.35, 0.35],
-      selectionPriority: 50,
-    },
-  ],
-  recipe: [],
-  groups: [],
-  subgroups: [],
-  resource: [{ name: 'iron-ore-patch', kind: 'solid' }],
-  tile: [],
-  fluid: [],
-  strings: {},
-  localeKeys: { AlertType: [], FailReason: [], FlyingText: [], Status: [] },
-} as unknown as PrototypesJson;
-
-interface FakeEl {
-  tagName: string;
-  isConnected: boolean;
-  closest(sel: string): FakeEl | null;
-}
-const element = (kind: 'world' | 'gui' | 'slot' | 'text'): FakeEl => {
-  const el: FakeEl = {
-    tagName: kind === 'text' ? 'INPUT' : 'DIV',
-    isConnected: true,
-    closest: (sel) =>
-      (sel === '[data-slot]' && kind === 'slot') ||
-      (sel === '[data-gui]' && (kind === 'gui' || kind === 'slot'))
-        ? el
-        : null,
-  };
-  return el;
-};
-
-const key = (code: string, mods: Partial<KeyLike> = {}): KeyLike & { prevented: boolean } => {
-  const e = {
-    code,
-    repeat: false,
-    ctrlKey: false,
-    shiftKey: false,
-    altKey: false,
-    metaKey: false,
-    prevented: false,
-    preventDefault() {
-      e.prevented = true;
-    },
-    ...mods,
-  };
-  return e;
-};
-const mouse = (
-  button: number,
-  target: FakeEl,
-  x = 100,
-  y = 100,
-  mods: Partial<PointerLike> = {},
-): PointerLike => ({
-  button,
-  clientX: x,
-  clientY: y,
-  target: target as unknown as EventTarget,
-  ctrlKey: false,
-  shiftKey: false,
-  altKey: false,
-  metaKey: false,
-  preventDefault() {},
-  ...mods,
-});
-
-class Rig {
-  ui = new UiState();
-  protos = new Protos(protosJson, null);
-  camera = new FollowCamera();
-  hand = { key: 0xffff, count: 0, origin: -1, ghost: false };
-  character = {
-    hand: this.hand,
-    quickbarPage: 0,
-    main: [] as { key: number; count: number; filter: number }[],
-  };
-  sent: Action[] = [];
-  encoder = new ActionEncoder();
-  /** What the world shows at each pointer x (tests place selections by x). */
-  world = new Map<number, Selection>();
-  focused: FakeEl | null = null;
-  resolver: Resolver;
-  core: InputCore;
-  table = new BindingTable();
-  constructor() {
-    this.camera.setViewport(0, 0, 800, 600);
-    this.encoder.bind(
-      {
-        act: (first, buf) => {
-          const v = new DataView(buf);
-          let at = 0;
-          while (at < buf.byteLength) {
-            const type = v.getUint16(at, true);
-            const len = v.getUint16(at + 2, true);
-            this.sent.push(decodeAction(type, new Uint8Array(buf, at + 4, len)));
-            at += 4 + len;
-          }
-          expect(first).toBeGreaterThan(0);
-        },
-      },
-      0,
-    );
-    this.ui.screen[1]('game');
-    this.resolver = new Resolver({
-      ui: this.ui,
-      game: { character: this.character } as unknown as GameStore,
-      protos: this.protos,
-      encoder: this.encoder,
-      world: {
-        camera: this.camera,
-        active: () => true,
-        pickAt: (x) => this.world.get(x) ?? { kind: 'tile', tx: 0, ty: 0 },
-        character: () => ({ x: 0, y: 0 }),
-        zoomBy: (n) => this.camera.zoomBy(n),
-        setZoom: (z) => this.camera.setZoom(z),
-        setSelection: () => {},
-      },
-      commands: {
-        refuse: () => {},
-        togglePause: () => {},
-        speed: () => {},
-        stepOnce: () => {},
-        uiScale: () => {},
-        focusSearch: () => false,
-        hasGui: (proto) => proto === 0,
-        dev: true,
-      },
-    });
-    this.core = new InputCore(this.table, this.resolver, {
-      isGui: (el) => el?.closest('[data-gui]') != null,
-      focused: () => this.focused as unknown as Element,
-    });
-  }
-  /** The actions sent since the last call (flushes the encoder's queue first). */
-  take(): Action[] {
-    this.encoder.flush();
-    const out = this.sent;
-    this.sent = [];
-    return out;
-  }
-  tap(code: string, mods: Partial<KeyLike> = {}): void {
-    this.core.keydown(key(code, mods));
-    this.core.keyup(key(code, mods));
-  }
-  click(button: number, target: FakeEl, x = 100, mods: Partial<PointerLike> = {}): void {
-    this.core.pointermove(mouse(button, target, x, 100, mods));
-    this.core.pointerdown(mouse(button, target, x, 100, mods));
-    this.core.pointerup(mouse(button, target, x, 100, mods));
-  }
-}
-
-const WORLD = element('world');
-const chestAt = (serial: number): Selection & { kind: 'entity' } => ({
-  kind: 'entity',
-  serial,
-  proto: 0,
-  x2: 1,
-  y2: 1,
-  dir: 0,
-  flags: 0,
-});
-
 let r: Rig;
+let unmount: () => void;
 beforeEach(() => {
   r = new Rig();
+  unmount = mountLayers(r.ui);
 });
+afterEach(() => unmount());
 
 // ---------------------------------------------------------------------------------------------- tests
 
@@ -462,17 +270,15 @@ describe('windows and menus (I §1.4: E confirms, Esc cancels)', () => {
 });
 
 describe('alt-mode, quickbar, zoom', () => {
-  it('toggles alt-mode on an Alt tap, not on Alt+click or Alt+letter (deviation in the report)', () => {
+  it('toggles alt-mode on Alt going down, as Factorio does, and never on its auto-repeat (I §2.2, §3.14)', () => {
+    r.core.keydown(key('AltLeft', { altKey: true }));
+    expect(r.ui.altMode[0]()).toBe(true);
+    r.core.keydown(key('AltLeft', { altKey: true, repeat: true }));
+    expect(r.ui.altMode[0]()).toBe(true);
+    r.core.keyup(key('AltLeft'));
+    expect(r.ui.altMode[0]()).toBe(true);
     r.tap('AltLeft', { altKey: true });
-    expect(r.ui.altMode[0]()).toBe(true);
-    r.core.keydown(key('AltLeft', { altKey: true }));
-    r.core.pointerdown(mouse(0, WORLD, 100, 100, { altKey: true }));
-    r.core.keyup(key('AltLeft'));
-    expect(r.ui.altMode[0]()).toBe(true);
-    r.core.keydown(key('AltLeft', { altKey: true }));
-    r.core.keydown(key('KeyX', { altKey: true }));
-    r.core.keyup(key('AltLeft'));
-    expect(r.ui.altMode[0]()).toBe(true);
+    expect(r.ui.altMode[0]()).toBe(false);
   });
 
   it('sends the quickbar keys and pages (I §2.6)', () => {

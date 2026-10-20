@@ -50,7 +50,7 @@ function Quickbar(): JSX.Element {
   const total = (key: number) =>
     countOf(c.main, key) + (c.hand.key === key && !c.hand.ghost ? c.hand.count : 0);
   return (
-    <div class="quickbar pw-frame" data-gui="" data-testid="quickbar">
+    <div class="quickbar pw-frame" data-gui="" data-slot-grid="" data-testid="quickbar">
       <For each={[0, 1]}>
         {(row) => {
           const page = () => (c.quickbarPage + row) % 10;
@@ -70,9 +70,17 @@ function Quickbar(): JSX.Element {
                     const index = () => page() * 10 + i;
                     const key = () => c.quickbar[index()] ?? NO_ITEM;
                     const n = () => (key() === NO_ITEM ? 0 : total(key()));
+                    // The descriptor reads the page when used: Shift+1…0 changes it under the same element.
+                    const ref = {
+                      kind: 'quickbar' as const,
+                      get index() {
+                        return index();
+                      },
+                      key,
+                    };
                     return (
                       <Slot
-                        slot={{ kind: 'quickbar', index: index(), key }}
+                        slot={ref}
                         icon={key() === NO_ITEM ? null : (s.protos()?.itemIcon(key()) ?? null)}
                         label={key() === NO_ITEM ? '' : (s.protos()?.itemName(key()) ?? '')}
                         count={n() > 0 ? n() : null}
@@ -165,11 +173,16 @@ function CraftingQueue(): JSX.Element {
   return (
     <Show when={c.queue.length > 0}>
       <div class="crafting-queue pw-frame" data-gui="" data-testid="crafting-queue">
-        <div class="slot-grid">
+        <div class="slot-grid" data-slot-grid="">
           <For each={c.queue}>
             {(e, i) => (
               <Slot
-                slot={{ kind: 'queue', index: i() }}
+                slot={{
+                  kind: 'queue',
+                  get index() {
+                    return i();
+                  },
+                }}
                 icon={s.protos()?.recipe(e.recipe)?.icon ?? 'fx/missing'}
                 label={s.protos()?.recipeName(e.recipe) ?? ''}
                 count={e.count}
@@ -196,7 +209,7 @@ function DockedInfo(): JSX.Element {
   const sel = () => s.selection();
   /** The hover record, once it names the selected entity (HOVER, sub_id 0). */
   const live = () => {
-    const h = s.game.hover[0]();
+    const h = s.game.hover();
     const x = sel();
     return x?.kind === 'entity' && h && h.serial === x.serial ? h : null;
   };

@@ -1,151 +1,34 @@
-// The page's entry (10 §3.1, §7; UI wiring by C5): loads the build manifest and the sprite manifest's DOM part
-// (the Survey skin, fonts and icon sheets, 10 §9.3), mounts the UI over the world canvas, and runs worlds through
-// the session (session.ts). The main thread compiles sim.wasm once (§2.3) and proves it instantiates in a worker
-// (the scaffold's probe, kept until the shell runs worlds); dev builds play on the fake sim (`?sim=fake`, the
-// default until then; `?sim=real` selects the shell).
-//
-// Query parameters: `?test=1` stops the clock (`window.__game.step(n)` runs ticks, 10 §3.3); `?render=none`
-// leaves the world canvas blank (no stand-in plate). `window.__ui` exposes the UI's test hooks in dev builds.
-import simWasmUrl from 'virtual:sim-wasm';
-import '../ui/styles/ui.css';
-import { type DomManifest, mountUi, type UiHandle } from '../ui/index.ts';
-import { type Backend, Session } from './session.ts';
-
-interface Manifest {
-  build: string;
-  buildHash: string;
-  dev: boolean;
-  [key: string]: unknown;
-}
-
-declare global {
-  interface Window {
-    __ui?: UiHandle['test'] & { session: Session };
-    __game?: { step(n: number): void; tick(): number; packets(): number };
-  }
-}
-
-function show(id: string, text: string): void {
-  const el = document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
-  if (el) el.textContent = text;
-}
-
-/** The diagnostics line's counts (developer text, not the canon's). */
-const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-async function json<T>(url: string): Promise<T> {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
-  return (await r.json()) as T;
-}
-
-/** The sprite manifest's DOM part, and the skin's stylesheet linked into the page (10 §9.3). */
-async function loadSkin(): Promise<DomManifest | null> {
-  try {
-    const m = await json<{ dom?: DomManifest }>('/atlases/sprites.json');
-    const dom = m.dom ?? null;
-    if (dom?.ui.css) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = `/${dom.ui.css}`;
-      const loaded = new Promise<void>((resolve) => {
-        link.onload = () => resolve();
-        link.onerror = () => resolve();
-      });
-      document.head.appendChild(link);
-      await loaded;
-      await document.fonts.ready;
-    }
-    return dom;
-  } catch {
-    return null; // no asset build: the UI draws with fallback colours and stand-in icons
-  }
-}
-
-let compiled: Promise<WebAssembly.Module> | null = null;
-const compileSim = () => {
-  compiled ??= WebAssembly.compileStreaming(fetch(simWasmUrl));
-  return compiled;
-};
-
-/** The scaffold's probe: the module compiles here and instantiates in a fresh sim worker (§2.3, §3.1). */
-async function probe(): Promise<void> {
-  const module = await compileSim();
-  const worker = new Worker(new URL('./workers/sim.ts', import.meta.url), { type: 'module', name: 'sim' });
-  const abi = await new Promise<number>((resolve, reject) => {
-    worker.addEventListener('message', (e: MessageEvent<{ t: string; abi?: number; message?: string }>) => {
-      if (e.data.t === 'ready' && typeof e.data.abi === 'number') resolve(e.data.abi);
-      else reject(new Error(e.data.message ?? 'the sim worker failed'));
-    });
-    worker.addEventListener('error', (e) => reject(new Error(e.message)));
-    worker.postMessage({ t: 'boot', module });
-  });
-  worker.terminate();
-  show('sim-status', `sim.wasm ABI ${abi}, instantiated in the sim worker`);
-}
+// The page's composition root (10 §3.1, §9.7; C3-r1 16). `createApp` (app.ts) builds what runs worlds: the
+// compiled modules, the IO worker, the one SimHost with the page's lifecycle, and `window.__game`. The other
+// packages attach to that App here, one line each, and never create a second host:
+//   - the renderer (C4): `attachRenderer(app)` (attach-renderer.ts): `app.host.on('packet' | 'generation')`,
+//     `app.host.setView(…)`; it returns the world view the UI attaches to (src/shared/world-view.ts);
+//   - the UI (C5): `mountUi(app, world)` (attach-ui.ts): the menu starts worlds (`app.host.newGame`, `loadSave`,
+//     `exit`), pauses under menus (`app.host.setMenuPause`), offers *Take over* (`app.host.takeOver`,
+//     `on('storage')`), and owns input (the world view's stand-ins detach);
+//   - audio (C7): `attachAudio(app)`: `app.host.on('packet' | 'generation')`.
+// Packets go to every `packet` listener in turn, and back to the worker once all have returned (§15.4).
+// `?sim=fake` (dev builds) runs the fake sim's page instead (10 §15.10).
+import { createApp, show } from './app.ts';
+import { attachRenderer } from './attach-renderer.ts';
+import { mountUi } from './attach-ui.ts';
 
 async function main(): Promise<void> {
-  const params = new URLSearchParams(location.search);
-  const [manifest, protos, dom] = await Promise.all([
-    json<Manifest>('/data/build-manifest.json'),
-    json<{
-      build: string;
-      item: unknown[];
-      recipe: unknown[];
-      entity: unknown[];
-      resource: unknown[];
-      tile: unknown[];
-    }>('/data/prototypes.json'),
-    loadSkin(),
-  ]);
-  show(
-    'data-status',
-    `${protos.build}: ${count(protos.item.length, 'item', 'items')}, ${count(protos.recipe.length, 'recipe', 'recipes')}, ` +
-      `${count(protos.entity.length, 'entity', 'entities')}, ${count(protos.resource.length, 'resource', 'resources')}, ` +
-      `${count(protos.tile.length, 'tile', 'tiles')}`,
-  );
-  const sim = params.get('sim');
-  const backend: Backend = sim === 'real' ? 'real' : sim === 'fake' || import.meta.env.DEV ? 'fake' : 'real';
-  const session = new Session({
-    backend,
-    test: params.get('test') === '1',
-    fakeDay: Number(params.get('fakeDay') ?? 0) || 0,
-    build: manifest,
-    module: () => compileSim().catch(() => null),
-  });
-  const root = document.getElementById('ui') as HTMLElement;
-  const canvas = document.getElementById('world') as HTMLCanvasElement;
-  const ui = mountUi({
-    root,
-    canvas,
-    build: { build: manifest.build, buildHash: manifest.buildHash, dev: manifest.dev },
-    session,
-    dom,
-    plate: params.get('render') !== 'none',
-    control: (op) => session.control(op),
-  });
-  session.attach(ui);
-  if (import.meta.env.DEV || params.get('dev') === '1') {
-    window.__ui = Object.assign(ui.test, { session });
-    window.__game = {
-      step: (n) => session.step(n),
-      tick: () => session.tick,
-      packets: () => session.packets,
-    };
-  }
-  show(
-    'build-status-probe',
-    `${manifest.build}${manifest.dev ? ' (dev)' : ''} · ${manifest.buildHash.slice(0, 12)}`,
-  );
-  await probe();
+  const app = await createApp(new URLSearchParams(location.search));
+  // ── Extension points: attach here, in this order ────────────────────────────────────────────────────────
+  const world = await attachRenderer(app); // C4
+  // attachAudio(app);    // C7
+  await mountUi(app, world); // C5
 }
 
+const fake = import.meta.env.DEV && new URLSearchParams(location.search).get('sim') === 'fake';
+const start = fake ? () => import('./fake-mode.ts').then((m) => m.runFake(show)) : main;
 // A page that is leaving aborts its fetches; that is not a failure worth an error.
 let leaving = false;
 addEventListener('pagehide', () => {
   leaving = true;
 });
-main().catch((e: unknown) => {
+start().catch((e: unknown) => {
   show('sim-status', `failed: ${e instanceof Error ? e.message : String(e)}`);
   if (!leaving) console.error(e);
 });
