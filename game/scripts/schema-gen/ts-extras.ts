@@ -6,6 +6,7 @@ import { sortedEntries } from '../lib/canonical.ts';
 import type { Capabilities } from './capabilities.ts';
 import { type Decl, type MessageDecl, pascal, type Schema, type StructDecl, upperSnake } from './model.ts';
 import { type TsMod, type TsOut, tsStr } from './ts.ts';
+import { jsonHelpers, jsonValidator } from './ts-json.ts';
 import { tsProtos } from './ts-protos.ts';
 import { tsState } from './ts-state.ts';
 
@@ -188,6 +189,8 @@ export class PreflightError extends Error {
 
 /** One action of a closure that passed the preflight, in execution order. */
 export interface ClosureAction {
+  /** The offset of the action's frame (\`u16 type, u16 len\`) in the closure. */
+  at: number;
   player: number;
   seq: number;
   system: boolean;
@@ -198,23 +201,19 @@ export interface ClosureAction {
 const le16 = (b: Uint8Array, at: number): number => (b[at] as number) | ((b[at + 1] as number) << 8);
 const le32 = (b: Uint8Array, at: number): number =>
   ((b[at] as number) | ((b[at + 1] as number) << 8) | ((b[at + 2] as number) << 16) | ((b[at + 3] as number) << 24)) >>> 0;
+const framing = (at: number, reason: string) => new PreflightError('framing', at, reason);
 
 /**
- * The preflight (§15.3, B1-r1 9), as the Rust module runs it: checks the whole closure of tick \`tick\` with
- * temporary watermarks and changes nothing. \`lastSeq[p]\` is player p's saved last_seq (0 without state).
- * Returns the batch and action counts; throws PreflightError with the same reasons as the Rust preflight.
+ * The framing rules of the preflight (§15.3 rules 1–3) over a closure stamped \`tick\`, as the Rust module's
+ * \`walk\`: \`batch\` sees each batch after these checks and may throw; \`action\` sees each action.
  */
-export function preflight(
+function walk(
   closure: Uint8Array,
   tick: number,
-  lastSeq: readonly number[],
-  lastSystemSeq: number,
-  hasBlob: (sha256: Uint8Array) => boolean,
+  batch: (at: number, system: boolean, player: number, first: number, count: number) => void,
+  action: (at: number, a: ClosureAction) => void,
 ): { batches: number; actions: number } {
-  const framing = (at: number, reason: string) => new PreflightError('framing', at, reason);
   if (closure.length > CLOSURE_MAX) throw framing(0, 'closure larger than CLOSURE_MAX');
-  const marks = Array.from({ length: PLAYERS }, (_, i) => lastSeq[i] ?? 0);
-  let systemMark = lastSystemSeq;
   let batches = 0;
   let count = 0;
   let at = 0;
@@ -233,36 +232,75 @@ export function preflight(
     if (n === 0) throw framing(at, 'empty batch');
     const system = (flags & 1) !== 0;
     if (system !== (player === 0xffff) || (!system && player >= PLAYERS)) throw framing(at, 'batch player out of range');
-    const mark = system ? systemMark : (marks[player] as number);
-    if (first <= mark) throw framing(at, 'seqs do not rise (D21)');
-    const last = first + n - 1;
-    if (last > 0xffffffff) throw framing(at, 'seq range passes u32::MAX');
-    if (system) systemMark = last;
-    else marks[player] = last;
+    batch(at, system, player, first, n);
     batches++;
     at += 16;
+    let seq = first;
     for (let i = 0; i < n; i++) {
       if (closure.length - at < 4) throw framing(at, 'truncated action header');
       const type = le16(closure, at);
       const len = le16(closure, at + 2);
       if (closure.length - at - 4 < len) throw framing(at, 'action payload runs past the closure');
       if (type >= SYSTEM_TYPE_MIN !== system) throw framing(at, 'system action outside a system batch, or the reverse');
-      let a: Action | null = null;
-      try {
-        a = decodeAction(type, closure.subarray(at + 4, at + 4 + len));
-      } catch {
-        a = null;
-      }
-      const blob = a ? actionBlob(a) : null;
-      if (blob && !hasBlob(blob)) throw new PreflightError('blob_missing', at, 'a named blob was not supplied');
+      action(at, { at, player, seq, system, type, payload: closure.subarray(at + 4, at + 4 + len) });
       count++;
+      seq = (seq + 1) >>> 0;
       at += 4 + len;
     }
   }
   return { batches, actions: count };
 }
 
-/** The actions of a closure that passed the preflight, in execution order (§15.3). */
+/**
+ * The preflight's framing rules alone (rules 1–3), for a closure stamped \`tick\`: what a closure log's reader
+ * checks of each record (§8.5, C1b-r1 finding 5). Throws PreflightError ('framing').
+ */
+export function checkFraming(closure: Uint8Array, tick: number): { batches: number; actions: number } {
+  return walk(closure, tick, () => {}, () => {});
+}
+
+/**
+ * The preflight (§15.3, B1-r1 9), as the Rust module runs it: checks the whole closure of tick \`tick\` with
+ * temporary watermarks and changes nothing. \`lastSeq[p]\` is player p's saved last_seq (0 without state).
+ * Returns the batch and action counts; throws PreflightError with the same reasons as the Rust preflight.
+ */
+export function preflight(
+  closure: Uint8Array,
+  tick: number,
+  lastSeq: readonly number[],
+  lastSystemSeq: number,
+  hasBlob: (sha256: Uint8Array) => boolean,
+): { batches: number; actions: number } {
+  const marks = Array.from({ length: PLAYERS }, (_, i) => lastSeq[i] ?? 0);
+  let systemMark = lastSystemSeq;
+  return walk(
+    closure,
+    tick,
+    (at, system, player, first, n) => {
+      const mark = system ? systemMark : (marks[player] as number);
+      if (first <= mark) throw framing(at, 'seqs do not rise (D21)');
+      const last = first + n - 1;
+      if (last > 0xffffffff) throw framing(at, 'seq range passes u32::MAX');
+      if (system) systemMark = last;
+      else marks[player] = last;
+    },
+    (at, a) => {
+      let act: Action | null = null;
+      try {
+        act = decodeAction(a.type, a.payload);
+      } catch {
+        act = null;
+      }
+      const blob = act ? actionBlob(act) : null;
+      if (blob && !hasBlob(blob)) throw new PreflightError('blob_missing', at, 'a named blob was not supplied');
+    },
+  );
+}
+
+/**
+ * The actions of a closure that passed the preflight or \`checkFraming\`, in execution order (§15.3). On any
+ * other closure it stops early.
+ */
 export function closureActions(closure: Uint8Array): ClosureAction[] {
   const out: ClosureAction[] = [];
   let at = 0;
@@ -272,10 +310,12 @@ export function closureActions(closure: Uint8Array): ClosureAction[] {
     let seq = le32(closure, at + 8);
     const n = le16(closure, at + 12);
     at += 16;
+    if (n === 0) break;
     for (let i = 0; i < n && at + 4 <= closure.length; i++) {
       const type = le16(closure, at);
       const len = le16(closure, at + 2);
-      out.push({ player, seq, system, type, payload: closure.subarray(at + 4, at + 4 + len) });
+      if (at + 4 + len > closure.length) return out;
+      out.push({ at, player, seq, system, type, payload: closure.subarray(at + 4, at + 4 + len) });
       at += 4 + len;
       seq = (seq + 1) >>> 0;
     }
@@ -652,22 +692,21 @@ export function readUiRecords(bytes: Uint8Array, count: number): ${o.t(decl(s, '
 // ------------------------------------------------------------------------------------------- container
 
 function container(s: Schema, o: TsOut): void {
-  o.rt('Reader', 'Writer', 'DecodeError', 'EncodeError', 'cmpBytes');
+  o.rt('Reader', 'Writer', 'DecodeError', 'EncodeError', 'cmpBytes', 'sameBytes', 'utf8', 'fromUtf8');
   const sv = s.save;
   const clh = decl(s, 'ClosureLogHeader');
   const cr = decl(s, 'ClosureRecord');
   const lb = decl(s, 'LogBlob');
   const fr = decl(s, 'SectionFrame');
-  const json = sv.header;
-  const jt = (t: string) =>
-    t === 'number'
-      ? 'number'
-      : t === 'string' || t === 'hex32' || t === 'hex16'
-        ? 'string'
-        : t === 'array'
-          ? 'unknown[]'
-          : 'Record<string, unknown>';
   o.rt('utf8');
+  const headerValidator = jsonValidator(sv.header.types, sv.header.root, {
+    prefix: 'SaveHeader',
+    rootName: 'SaveHeader',
+    rootDoc:
+      "The save container's header (§8.1; sections.yaml save_header): metadata outside the state hash.",
+    validator: 'validateSaveHeader',
+    label: 'save header',
+  });
   o.push(`/** The save container (§8.1). */
 export const SAVE_MAGIC = ${tsStr(sv.magic)};
 export const SAVE_FORMAT_VERSION = ${sv.formatVersion};
@@ -676,33 +715,8 @@ export const CLOSURE_LOG_MAGIC = ${sv.closureLog.magic};
 export const CLOSURE_LOG_FORMAT_VERSION = ${sv.closureLog.formatVersion};
 
 /** The container header (§8.1): UTF-8 JSON with sorted keys, outside the state hash. */
-export interface SaveHeader {
-${json.map(([k, v]) => `${v.doc ? `  /** ${v.doc} */\n` : ''}  ${k}: ${jt(v.json)};`).join('\n')}
-}
-
-const HEADER_KEYS = [${json.map(([k]) => tsStr(k)).join(', ')}] as const;
-const HEADER_TYPES: Readonly<Record<string, string>> = { ${json.map(([k, v]) => `${k}: ${tsStr(v.json)}`).join(', ')} };
-
-/** Checks a decoded header's keys and types; returns it typed. */
-export function validateSaveHeader(x: unknown): SaveHeader {
-  if (typeof x !== 'object' || x === null || Array.isArray(x)) throw new Error('save header: not an object');
-  const o = x as Record<string, unknown>;
-  for (const k of Object.keys(o)) if (!(HEADER_KEYS as readonly string[]).includes(k)) throw new Error(\`save header: unknown key \${k}\`);
-  for (const k of HEADER_KEYS) {
-    const v = o[k];
-    const t = HEADER_TYPES[k];
-    const ok =
-      t === 'number' ? typeof v === 'number' && Number.isFinite(v)
-      : t === 'string' ? typeof v === 'string'
-      : t === 'hex32' ? typeof v === 'string' && /^[0-9a-f]{64}$/.test(v)
-      : t === 'hex16' ? typeof v === 'string' && /^[0-9a-f]{16}$/.test(v)
-      : t === 'array' ? Array.isArray(v)
-      : typeof v === 'object' && v !== null && !Array.isArray(v);
-    if (!ok) throw new Error(\`save header: \${k} is not a \${t}\`);
-  }
-  return o as unknown as SaveHeader;
-}
-
+${jsonHelpers(headerValidator)}
+${headerValidator}
 /** JSON with keys sorted at every level (the header's canonical text). */
 function sortedJson(v: unknown): string {
   if (Array.isArray(v)) return \`[\${v.map(sortedJson).join(',')}]\`;
@@ -739,11 +753,19 @@ export function writeSaveContainer(header: SaveHeader, frames: readonly ${o.t(fr
 export function readSaveContainer(bytes: Uint8Array): { header: SaveHeader; frames: ${o.t(fr)}[] } {
   const r = new Reader(bytes);
   const magic = r.take(8, 'SaveContainer.magic');
-  if (new TextDecoder().decode(magic) !== SAVE_MAGIC) throw new DecodeError('bad_magic', 'SaveContainer.magic', 0);
+  if (!sameBytes(magic, utf8(SAVE_MAGIC))) throw new DecodeError('bad_magic', 'SaveContainer.magic', 0);
   if (r.u32('SaveContainer.format_version') !== SAVE_FORMAT_VERSION) throw new DecodeError('bad_version', 'SaveContainer.format_version', 8);
   const n = r.u32('SaveContainer.header_length');
   if ((16 + n) % 8 !== 0) throw new DecodeError('not_canonical', 'SaveContainer.header_length', 12);
-  const header = validateSaveHeader(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(r.take(n, 'SaveContainer.header'))));
+  const text = fromUtf8(r.take(n, 'SaveContainer.header'));
+  if (text === null) throw new DecodeError('bad_utf8', 'SaveContainer.header', 16);
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new DecodeError('not_canonical', 'SaveContainer.header', 16);
+  }
+  const header = validateSaveHeader(json);
   const frames: ${o.t(fr)}[] = [];
   let last = -1;
   while (!r.isEmpty) {
@@ -766,12 +788,13 @@ export interface ClosureLog {
 }
 
 /**
- * Parses and checks a closure log, as the Rust \`ClosureLog::parse\` does: every region consumes exactly its
- * declared bytes, records rise strictly within (start_tick, end_tick] and are not empty, the digest range
- * lies in the tick range, blobs are sorted by hash without duplicates (and every blob an action names is
- * present, which \`hasBlob\` checks when given).
+ * Parses and checks a closure log as the Rust \`ClosureLog::parse\` does (§8.5), with the same errors: every
+ * region consumes exactly its declared bytes; records rise strictly within (start_tick, end_tick], are not
+ * empty, and pass the preflight's framing rules for their tick (\`bad_framing\` at the failing batch or
+ * action); the digest range lies in the tick range; blobs are sorted by hash without duplicates; every blob
+ * an action names is present (\`bad_ref\` at that action).
  */
-export function parseClosureLog(bytes: Uint8Array, blobNamed?: (closure: Uint8Array) => Uint8Array[]): ClosureLog {
+export function parseClosureLog(bytes: Uint8Array): ClosureLog {
   const r = new Reader(bytes);
   const header = ${o.c(clh)}.read(r, 'ClosureLogHeader');
   if (header.magic !== CLOSURE_LOG_MAGIC) throw new DecodeError('bad_magic', 'ClosureLogHeader.magic', 0);
@@ -779,13 +802,21 @@ export function parseClosureLog(bytes: Uint8Array, blobNamed?: (closure: Uint8Ar
   if (header.end_tick < header.start_tick) throw new DecodeError('range', 'ClosureLogHeader.end_tick', 12);
   const rec = r.sub(header.record_bytes, 'ClosureLog.records');
   const records: ${o.t(cr)}[] = [];
+  const closuresAt: number[] = [];
   let last = header.start_tick;
   for (let i = 0; i < header.record_count; i++) {
     const at = rec.pos;
     const x = ${o.c(cr)}.read(rec);
     if (x.tick <= last || x.tick > header.end_tick) throw new DecodeError('unsorted', 'ClosureRecord.tick', at);
+    try {
+      ${o.imp('actions', 'checkFraming')}(x.closure, x.tick);
+    } catch (e) {
+      if (e instanceof ${o.imp('actions', 'PreflightError')}) throw new DecodeError('bad_framing', 'ClosureRecord.closure', at + 8 + e.at);
+      throw e;
+    }
     last = x.tick;
     records.push(x);
+    closuresAt.push(at + 8);
   }
   rec.finish('ClosureLog.records');
   const hasDigests = (header.flags & 1) !== 0;
@@ -810,10 +841,19 @@ export function parseClosureLog(bytes: Uint8Array, blobNamed?: (closure: Uint8Ar
   }
   bl.finish('ClosureLog.blobs');
   r.finish('ClosureLog');
-  if (blobNamed)
-    for (const x of records)
-      for (const h of blobNamed(x.closure))
-        if (!blobs.some((b) => cmpBytes(b.sha256.bytes, h) === 0)) throw new DecodeError('bad_ref', 'ClosureLog.blobs', r.pos);
+  records.forEach((x, i) => {
+    for (const a of ${o.imp('actions', 'closureActions')}(x.closure)) {
+      let act: ReturnType<typeof ${o.imp('actions', 'decodeAction')}> | null = null;
+      try {
+        act = decodeAction(a.type, a.payload);
+      } catch {
+        act = null;
+      }
+      const h = act ? ${o.imp('actions', 'actionBlob')}(act) : null;
+      if (h && !blobs.some((b) => cmpBytes(b.sha256.bytes, h) === 0))
+        throw new DecodeError('bad_ref', 'ClosureLog.blobs', (closuresAt[i] as number) + a.at);
+    }
+  });
   return { header, records, digests, blobs };
 }
 
@@ -926,7 +966,7 @@ class ModuleCalls {
     const b = this.envelope(p);
     const r = new Reader(b);
     const code = r.u32('ErrorEnvelope.code');
-    return new SimError(code, new TextDecoder().decode(r.rest()));
+    return new SimError(code, new TextDecoder('utf-8', { ignoreBOM: true }).decode(r.rest()));
   }
   protected status(code: number): void {
     if (code !== 0) throw this.lastError();

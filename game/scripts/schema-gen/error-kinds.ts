@@ -24,6 +24,10 @@ export const ERROR_KINDS: readonly (readonly [string, string])[] = [
   ['inconsistent', 'A flag and the field it announces disagree.'],
   ['schema_mismatch', 'A saved column or record whose type this schema cannot read (ERR_LOAD_SCHEMA).'],
   ['not_canonical', 'Bytes that decode but are not the canonical encoding (a free row off its defaults).'],
+  [
+    'bad_framing',
+    "A closure inside a closure log that breaks the preflight's framing rules 1–3 (§15.3, §8.5).",
+  ],
 ];
 
 /** Rust's variant name: `bad_enum` → `BadEnum`. */

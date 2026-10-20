@@ -3,7 +3,6 @@
 // and validator.
 import { canonicalJson } from '../lib/canonical.ts';
 import {
-  type JsonType,
   type ProtoColumn,
   type ProtoTableDef,
   pascal,
@@ -15,6 +14,7 @@ import {
 import { isU8 } from './rust.ts';
 import { protoColumns } from './rust-protos.ts';
 import { type TsOut, tsStr, tsType } from './ts.ts';
+import { jsonHelpers, jsonValidator } from './ts-json.ts';
 
 const ID_KIND: Record<string, string> = {
   ItemId: 'item',
@@ -28,63 +28,8 @@ const ID_KIND: Record<string, string> = {
   SignalId: 'signal',
 };
 
-function jsonTs(t: JsonType): string {
-  switch (t.k) {
-    case 'string':
-    case 'hex32':
-      return 'string';
-    case 'number':
-    case 'integer':
-      return 'number';
-    case 'boolean':
-      return 'boolean';
-    case 'named':
-      return `Json${t.name}`;
-    case 'array':
-      return `${jsonTs(t.of as JsonType)}[]`;
-    case 'nullable':
-      return `${jsonTs(t.of as JsonType)} | null`;
-    case 'map':
-      return `Record<string, ${jsonTs(t.of as JsonType)}>`;
-    case 'object':
-      return `{ ${(t.fields ?? []).map(([k, v]) => `${k}: ${jsonTs(v)}`).join('; ')} }`;
-  }
-}
-
-/** Statements that check value `v` at JSON path `path` against `t`, one per line, indented by `ind`. */
-function jsonCheck(t: JsonType, v: string, path: string, ind = '  '): string {
-  const deeper = `${ind}  `;
-  switch (t.k) {
-    case 'string':
-      return `if (typeof ${v} !== 'string') bad(${path}, 'a string');`;
-    case 'hex32':
-      return `if (typeof ${v} !== 'string' || !/^[0-9a-f]{64}$/.test(${v})) bad(${path}, '64 hex digits');`;
-    case 'number':
-      return `if (typeof ${v} !== 'number' || !Number.isFinite(${v})) bad(${path}, 'a number');`;
-    case 'integer':
-      return `if (!Number.isInteger(${v})) bad(${path}, 'an integer');`;
-    case 'boolean':
-      return `if (typeof ${v} !== 'boolean') bad(${path}, 'a boolean');`;
-    case 'named':
-      return `check${t.name}(${v}, ${path});`;
-    case 'array':
-      return `if (!Array.isArray(${v})) bad(${path}, 'an array');\n${ind}else\n${deeper}(${v} as unknown[]).forEach((x, i) => {\n${deeper}  ${jsonCheck(t.of as JsonType, 'x', `\`\${${path}}[\${i}]\``, `${deeper}  `)}\n${deeper}});`;
-    case 'nullable':
-      return `if (${v} !== null) {\n${deeper}${jsonCheck(t.of as JsonType, v, path, deeper)}\n${ind}}`;
-    case 'map':
-      return `if (typeof ${v} !== 'object' || ${v} === null || Array.isArray(${v})) bad(${path}, 'a mapping');\n${ind}else\n${deeper}for (const [k, x] of Object.entries(${v} as object)) {\n${deeper}  ${jsonCheck(t.of as JsonType, 'x', `\`\${${path}}.\${k}\``, `${deeper}  `)}\n${deeper}}`;
-    case 'object': {
-      const fields = (t.fields ?? []).map(
-        ([k, x]) =>
-          `${deeper}${jsonCheck(x, /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k) ? `o.${k}` : `o[${tsStr(k)}]`, `\`\${${path}}.${k}\``, deeper)}`,
-      );
-      return `checkObject(${v}, ${path}, [${(t.fields ?? []).map(([k]) => tsStr(k)).join(', ')}]);\n${ind}{\n${deeper}const o = ${v} as Record<string, unknown>;\n${fields.join('\n')}\n${ind}}`;
-    }
-  }
-}
-
 export function tsProtos(s: Schema, o: TsOut): void {
-  o.rt('Reader', 'Writer', 'DecodeError', 'EncodeError');
+  o.rt('Reader', 'Writer', 'DecodeError', 'EncodeError', 'sameBytes', 'utf8');
   const p = s.protos;
   const frame = s.decls.get('SectionFrame') as never;
   const header = s.decls.get('ProtosHeader') as never;
@@ -378,7 +323,7 @@ export function readPrototypesBin(
 ): ProtosRead {
   const r = new Reader(bytes);
   const h = ${o.c(header)}.read(r, 'ProtosHeader');
-  if (new TextDecoder().decode(h.magic) !== PROTOS_MAGIC) throw new DecodeError('bad_magic', 'ProtosHeader.magic', 0);
+  if (!sameBytes(h.magic, utf8(PROTOS_MAGIC))) throw new DecodeError('bad_magic', 'ProtosHeader.magic', 0);
   if (h.format_version !== PROTOS_FORMAT_VERSION) throw new DecodeError('bad_version', 'ProtosHeader.format_version', 8);
   if (schemaHash && !h.schema_hash.bytes.every((b, i) => b === schemaHash[i])) throw new DecodeError('schema_mismatch', 'ProtosHeader.schema_hash', 12);
   if (h.data_version !== PROTOS_DATA_VERSION) throw new DecodeError('bad_version', 'ProtosHeader.data_version', 44);
@@ -430,7 +375,7 @@ ${p.tables.map((t) => `  rows[${kinds.find((k) => k.name === t.kind)?.value}] = 
     const out: Reader[] = [];
     for (const c of cols) {
       const len = rd.u8(c.name);
-      if (new TextDecoder().decode(rd.take(len, c.name)) !== c.name) throw rd.err('schema_mismatch', c.name);
+      if (!sameBytes(rd.take(len, c.name), utf8(c.name))) throw rd.err('schema_mismatch', c.name);
       if (rd.u8(c.name) !== c.code) throw rd.err('schema_mismatch', c.name);
       rd.zeros(1, c.name);
       const off = rd.u32(c.name);
@@ -583,31 +528,23 @@ ${kinds
 }
 `);
   // prototypes.json.
-  const types = p.json.types;
+  const validator = jsonValidator(p.json.types, p.json.root, {
+    prefix: 'Json',
+    rootName: 'PrototypesJson',
+    rootDoc: 'prototypes.json (§15.2): what the UI and the renderer read.',
+    validator: 'checkPrototypesJson',
+    label: 'prototypes.json',
+  });
   parts.push(`/** prototypes.json's format version (§15.2). */
 export const PROTOTYPES_JSON_VERSION = ${p.json.formatVersion};
 
-${types.map(([k, t]) => `export type Json${k} = ${jsonTs(t)};`).join('\n')}
-
-/** prototypes.json (§15.2): what the UI and the renderer read. */
-export type PrototypesJson = ${jsonTs(p.json.root)};
-
-const bad = (path: string, what: string): never => {
-  throw new Error(\`prototypes.json: \${path} is not \${what}\`);
-};
-const checkObject = (v: unknown, path: string, keys: readonly string[]): void => {
-  if (typeof v !== 'object' || v === null || Array.isArray(v)) bad(path, 'an object');
-  const have = Object.keys(v as object);
-  for (const k of have) if (!keys.includes(k)) bad(\`\${path}.\${k}\`, 'a known key');
-  for (const k of keys) if (!have.includes(k)) bad(\`\${path}.\${k}\`, 'present');
-};
-${types.map(([k, t]) => `function check${k}(v: unknown, path: string): void {\n  ${jsonCheck(t, 'v', 'path')}\n}`).join('\n')}
-
-/** Checks a parsed prototypes.json against its schema (every key present, no unknown key, every type). */
+${jsonHelpers(validator)}
+${validator}
+/** Checks a parsed prototypes.json against its schema and its format version (§15.2). */
 export function validatePrototypesJson(x: unknown): PrototypesJson {
-  ${jsonCheck(p.json.root, 'x', "'$'")}
-  const v = x as PrototypesJson;
-  if (v.formatVersion !== PROTOTYPES_JSON_VERSION) bad('$.formatVersion', \`\${PROTOTYPES_JSON_VERSION}\`);
+  const v = checkPrototypesJson(x);
+  if (v.formatVersion !== PROTOTYPES_JSON_VERSION)
+    throw new Error(\`prototypes.json: $.formatVersion is not \${PROTOTYPES_JSON_VERSION}\`);
   return v;
 }
 `);

@@ -459,6 +459,8 @@ fn columns<const N: usize>(
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ${tn} {
 ${fieldsDecl}
+    /// The number of rows, kept apart from the columns: a table may have none (C1b-r1 finding 9).
+    row_count: usize,
 }
 
 impl ${tn} {
@@ -467,7 +469,7 @@ impl ${tn} {
 
     /// The number of rows (dense ids).
     pub fn len(&self) -> usize {
-        ${t.columns.length > 0 ? `self.${rsIdent((t.columns[0] as ProtoColumn).name)}.${t.columns[0]?.ty.k === 'list' ? 'rows()' : 'len()'}` : '0'}
+        self.row_count
     }
 
     pub fn is_empty(&self) -> bool {
@@ -479,7 +481,7 @@ impl ${tn} {
         if rows != cx.rows(${pk}::${enumVariant(t.kind)}) {
             return Err(DecodeError { kind: ErrorKind::BadCount, field: ${rsStr(tname)}, at: base });
         }
-        let mut t = Self::default();
+        let mut t = ${t.columns.length ? 'Self { row_count: rows, ..Self::default() }' : 'Self { row_count: rows }'};
         ${reads.join('\n        ') || 'let _ = (cols, &mut t);'}
         Ok(t)
     }

@@ -12,6 +12,9 @@ export function rustFixtures(s: Schema, o: RsOut): void {
   const names: string[] = [];
   const trips: string[] = [];
   const decodes: string[] = [];
+  const lenients: string[] = [];
+  const tableTrips: string[] = [];
+  const tableDecodes: string[] = [];
   for (const name of s.names) {
     const d = s.decls.get(name) as Decl;
     if (d.kind !== 'struct' && d.kind !== 'message' && d.kind !== 'record') continue;
@@ -27,6 +30,30 @@ export function rustFixtures(s: Schema, o: RsOut): void {
     } else {
       trips.push(`        ${n} => record(bytes, ${t}::decode_exact, ${t}::encode, ${t}::dump),`);
       decodes.push(`        ${n} => ${t}::decode_exact(bytes, true).map(|_| ()),`);
+      lenients.push(
+        `        ${n} => ${t}::decode_exact(bytes, false).map(|v| dumped(&v, ${t}::dump)).map_err(fail),`,
+      );
+    }
+  }
+  // Tables (state.yaml): handle columns read their serials as handles, and write them back the same.
+  for (const name of s.names) {
+    const d = s.decls.get(name) as Decl;
+    if (d.kind !== 'table') continue;
+    const t = o.t(d);
+    const n = rsStr(d.name);
+    const handles = d.fields.some((f) => f.saved && f.ty.k === 'id' && f.ty.d.name === 'EntityHandle');
+    if (handles) {
+      const h = o.t(s.decls.get('EntityHandle') as Decl);
+      const sr = o.t(s.decls.get('Serial') as Decl);
+      tableDecodes.push(`        ${n} => ${t}::load(bytes, &mut |s| Some(${h}(s.0))).map(|_| ()),`);
+      tableTrips.push(
+        `        ${n} => ${t}::load(bytes, &mut |s| Some(${h}(s.0))).map_err(fail).and_then(|t| { let mut out = Vec::new(); t.save(&mut Writer::new(&mut out), &|h| ${sr}(h.0)).map_err(fail)?; same(&out, bytes)?; Ok(format!("rows={}", t.rows())) }),`,
+      );
+    } else {
+      tableDecodes.push(`        ${n} => ${t}::load(bytes).map(|_| ()),`);
+      tableTrips.push(
+        `        ${n} => ${t}::load(bytes).map_err(fail).and_then(|t| { let mut out = Vec::new(); t.save(&mut Writer::new(&mut out)).map_err(fail)?; same(&out, bytes)?; Ok(format!("rows={}", t.rows())) }),`,
+      );
     }
   }
   o.push(`/// Every struct, message and record of the schema, by name: the types the fixtures and probes name.
@@ -207,6 +234,31 @@ pub fn decode_action_framed(bytes: &[u8]) -> Result<schema::Action<'_>, DecodeEr
     }
     let ty = u16::from_le_bytes([bytes[0], bytes[1]]);
     schema::Action::decode(ty, &bytes[4..])
+}
+
+/// Decodes a record leniently (§8.3: unknown field ids skipped, missing fields at their defaults) and dumps
+/// it. None for a name that is not a record.
+pub fn lenient_dump(name: &str, bytes: &[u8]) -> Option<Result<String, String>> {
+    Some(match name {
+${lenients.join('\n')}
+        _ => return None,
+    })
+}
+
+/// Loads a column table (state.yaml), saves it again (which must give the same bytes) and says its rows.
+pub fn round_trip_table(name: &str, bytes: &[u8]) -> Option<Result<String, String>> {
+    Some(match name {
+${tableTrips.join('\n')}
+        _ => return None,
+    })
+}
+
+/// Loads a column table, for the refusals.
+pub fn decode_table(name: &str, bytes: &[u8]) -> Option<Result<(), DecodeError>> {
+    Some(match name {
+${tableDecodes.join('\n')}
+        _ => return None,
+    })
 }
 
 /// Round-trips a framed action: decode, re-encode framed (which must give the same bytes), dump.

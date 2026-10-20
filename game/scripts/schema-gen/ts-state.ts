@@ -119,7 +119,7 @@ export function decode${fn}(data: Uint8Array): ${rt}[] {
   void cmpArrayUnused;
 
   // Tables: rows, codecs and views (pools.ts).
-  pools.rt('Reader', 'Writer', 'DecodeError', 'EncodeError');
+  pools.rt('Reader', 'Writer', 'DecodeError', 'EncodeError', 'fromUtf8');
   const tparts: string[] = [];
   const allViews: { id: number; table: TableDecl; f: Field }[] = [];
   for (const name of s.names) {
@@ -166,6 +166,8 @@ ${allViews.map((v) => `  { id: ${v.id}, table: ${tsStr(v.table.name)}, column: $
     const isHandle = (f: Field) => f.ty.k === 'id' && f.ty.d.name === 'EntityHandle';
     const rowT = `${tn}Row`;
     const views = d.fields.filter((f) => f.view);
+    const kept = d.fields.filter((f) => f.keep).map((f) => f.name);
+    const keepNote = kept.length ? ` (except ${kept.join(', ')}, which survive a free)` : '';
     tparts.push(`/** A saved row of ${d.name} (§4.5)${saved.some(isHandle) ? "; handle columns hold the referenced entity's serial, as saves store them" : ''}. */
 export interface ${rowT} {
 ${saved.map((f) => `  ${f.name}: ${tsType(pools, f.ty)};`).join('\n')}
@@ -181,21 +183,37 @@ export function default${rowT}(): ${rowT} {
   return { ${saved.map((f) => `${f.name}: ${tsDefault(pools, f, f.ty)}`).join(', ')} };
 }
 
+/** The most rows ${d.name} may hold (state.yaml \`max_rows\`). */
+export const ${tn.toUpperCase()}_MAX_ROWS = ${d.maxRows};
+
+/**
+ * The first free row of ${d.name}, in row order, with a saved column off its default${keepNote}, as
+ * [index in ${tn.toUpperCase()}_COLUMNS, row], or null: such rows are not canonical (§4.5).
+ */
+export function firstNoncanonical${tn}(rows: readonly ${rowT}[]): [number, number] | null {
+  const def = default${rowT}();
+  for (const [i, row] of rows.entries()) {
+    if (row.${d.live} !== def.${d.live}) continue;
+${saved
+  .map((f, k) => ({ f, k }))
+  .filter(({ f }) => !f.keep)
+  .map(({ f, k }) => `    if (row.${f.name} !== def.${f.name}) return [${k}, i];`)
+  .join('\n')}
+  }
+  return null;
+}
+
 /**
  * Writes ${d.name}'s column table (§8.1): \`u32 rows, u16 fields, u16 reserved\`, the directory, then each saved
  * column at the next multiple of 8. A row is live when \`${d.live}\` is not zero; free rows must hold the
- * defaults${
-   d.fields.some((f) => f.keep)
-     ? ` (except ${d.fields
-         .filter((f) => f.keep)
-         .map((f) => f.name)
-         .join(', ')}, which survive a free)`
-     : ''
- }.
+ * defaults${keepNote} (else \`not_canonical\`), and there are at most ${tn.toUpperCase()}_MAX_ROWS rows.
  */
 export function encode${tn}(rows: readonly ${rowT}[]): Uint8Array {
-  const w = new Writer();
   const cols = ${tn.toUpperCase()}_COLUMNS;
+  if (rows.length > ${tn.toUpperCase()}_MAX_ROWS) throw new EncodeError('too_long', ${tsStr(d.name)});
+  const bad = firstNoncanonical${tn}(rows);
+  if (bad) throw new EncodeError('not_canonical', \`${d.name}.\${(cols[bad[0]] as { name: string }).name}\`);
+  const w = new Writer();
   w.u32(rows.length, ${tsStr(d.name)});
   w.u16(cols.length, ${tsStr(d.name)});
   w.u16(0, ${tsStr(`${d.name}.reserved`)});
@@ -215,16 +233,23 @@ ${saved.map((f) => `  w.pad(0, 8);\n  for (const row of rows) ${writeCol(pools, 
   return w.finish();
 }
 
-/** Reads ${d.name}'s column table: columns by name, defaults for missing ones, refusing type mismatches. */
+/**
+ * Reads ${d.name}'s column table as the Rust \`load\` does, with the same errors: at most
+ * ${tn.toUpperCase()}_MAX_ROWS rows (\`too_long\`); columns by name, defaults for missing ones, except
+ * \`${d.live}\`, which a table with rows must carry (\`missing_field\`); type or length mismatches refused
+ * (\`schema_mismatch\`); free rows at their defaults (\`not_canonical\` at the first other value).
+ */
 export function decode${tn}(data: Uint8Array): ${rowT}[] {
   const r = new Reader(data);
   const n = r.u32(${tsStr(d.name)});
   const k = r.u16(${tsStr(d.name)});
   r.zeros(2, ${tsStr(`${d.name}.reserved`)});
+  if (n > ${tn.toUpperCase()}_MAX_ROWS) throw new DecodeError('too_long', ${tsStr(d.name)}, 0);
   const dir = new Map<string, { code: number; off: number; bytes: number; at: number }>();
   for (let i = 0; i < k; i++) {
     const at = r.pos;
-    const name = new TextDecoder().decode(r.take(r.u8(${tsStr(d.name)}), ${tsStr(d.name)}));
+    const name = fromUtf8(r.take(r.u8(${tsStr(d.name)}), ${tsStr(d.name)}));
+    if (name === null) throw new DecodeError('bad_utf8', ${tsStr(d.name)}, at + 1);
     const c = r.u8(${tsStr(d.name)});
     r.zeros(1, ${tsStr(`${d.name}.reserved`)});
     const off = r.u32(${tsStr(d.name)});
@@ -233,15 +258,29 @@ export function decode${tn}(data: Uint8Array): ${rowT}[] {
     if (dir.has(name)) throw new DecodeError('field_order', ${tsStr(d.name)}, at);
     dir.set(name, { code: c, off, bytes, at });
   }
-  const rows: ${rowT}[] = Array.from({ length: n }, () => default${rowT}());
-  for (const c of ${tn.toUpperCase()}_COLUMNS) {
+  if (n > 0 && !dir.has(${tsStr(d.live)})) throw new DecodeError('missing_field', ${tsStr(`${d.name}.${d.live}`)}, 0);
+  const cols = ${tn.toUpperCase()}_COLUMNS;
+  const colAt = cols.map(() => 0);
+  for (const [i, c] of cols.entries()) {
     const e = dir.get(c.name);
     if (!e) continue;
     if (e.code !== c.code || e.bytes !== n * c.width) throw new DecodeError('schema_mismatch', c.name, e.at);
+    colAt[i] = e.off;
+  }
+  const rows: ${rowT}[] = Array.from({ length: n }, () => default${rowT}());
+  for (const c of cols) {
+    const e = dir.get(c.name);
+    if (!e) continue;
     const cr = new Reader(data.subarray(e.off, e.off + e.bytes), e.off);
     switch (c.name) {
 ${saved.map((f) => `      case ${tsStr(f.name)}: for (const row of rows) row.${f.name} = ${readCol(pools, f, d)}; break;`).join('\n')}
     }
+  }
+  const bad = firstNoncanonical${tn}(rows);
+  if (bad) {
+    const [i, row] = bad;
+    const c = cols[i] as { name: string; width: number };
+    throw new DecodeError('not_canonical', \`${d.name}.\${c.name}\`, (colAt[i] as number) + row * c.width);
   }
   return rows;
 }

@@ -12,8 +12,8 @@
 mod generated;
 
 use generated::{
-    NAMES, decode_action_framed, decode_by_name, fnv1a32, from_hex, parse_fixture_entries, parse_probes,
-    round_trip, round_trip_action, verdict,
+    NAMES, decode_action_framed, decode_by_name, decode_table, fnv1a32, from_hex, lenient_dump,
+    parse_fixture_entries, parse_probes, round_trip, round_trip_action, round_trip_table, verdict,
 };
 use std::collections::BTreeSet;
 use std::fs;
@@ -152,9 +152,13 @@ fn parse_hex_file(file: &str, text: &str) -> Vec<HexCase> {
                     flush(&mut cur, &mut hex);
                     cur = Some(start("@action", String::new()));
                 }
-                "@event" => {
+                "@event" | "@closure_log" => {
                     flush(&mut cur, &mut hex);
-                    cur = Some(start("@event", String::new()));
+                    cur = Some(start(word, String::new()));
+                }
+                "@table" | "@lenient" => {
+                    flush(&mut cur, &mut hex);
+                    cur = Some(start(word, rest));
                 }
                 "@closure" => {
                     flush(&mut cur, &mut hex);
@@ -241,6 +245,16 @@ fn round_trip_event(bytes: &[u8]) -> Result<String, String> {
     Ok(d.out)
 }
 
+/// A closure log through ClosureLog::parse: `ok records=N digests=M blobs=K`, or the refusal.
+fn closure_log_verdict(bytes: &[u8]) -> String {
+    match schema::container::ClosureLog::parse(bytes) {
+        Ok(l) => {
+            format!("ok records={} digests={} blobs={}", l.records.len(), l.digests.len(), l.blobs.len())
+        }
+        Err(e) => verdict::<()>(&Err(e)),
+    }
+}
+
 /// An expected refusal matches a verdict exactly, or by its kind when it names only the kind.
 fn refusal_matches(want: &str, got: &str) -> bool {
     if want.contains(' ') { got == want } else { got.split(' ').next() == Some(want) }
@@ -264,8 +278,17 @@ fn hand_written_fixtures_decode_to_their_dumps() {
         for c in parse_hex_file(&name, &text) {
             count += 1;
             let at = format!("{}:{} {}", c.file, c.line, c.target);
-            if c.target == "@closure" {
-                let got = closure_verdict(&c.params, &c.bytes);
+            if c.target == "@closure" || c.target == "@closure_log" || c.target == "@table" {
+                let got = match c.target.as_str() {
+                    "@closure" => closure_verdict(&c.params, &c.bytes),
+                    "@closure_log" => closure_log_verdict(&c.bytes),
+                    _ => match round_trip_table(&c.params, &c.bytes) {
+                        None => "no such table".to_owned(),
+                        Some(Ok(rows)) => format!("ok {rows}"),
+                        Some(Err(_)) => decode_table(&c.params, &c.bytes)
+                            .map_or_else(|| "no such table".to_owned(), |r| verdict(&r)),
+                    },
+                };
                 let ok = match &c.expect {
                     Expect::Ok(want) => got == *want,
                     Expect::Error(want) => refusal_matches(want, &got),
@@ -273,6 +296,18 @@ fn hand_written_fixtures_decode_to_their_dumps() {
                 };
                 if !ok {
                     failures.push(format!("{at}: got `{got}`"));
+                }
+                continue;
+            }
+            if c.target == "@lenient" {
+                let got =
+                    lenient_dump(&c.params, &c.bytes).unwrap_or_else(|| Err("no such record".to_owned()));
+                match (&c.expect, got) {
+                    (Expect::Dump(want), Ok(dump)) if *want == dump => {}
+                    (Expect::Dump(want), Ok(dump)) => {
+                        failures.push(format!("{at}: dump differs:\n--- want\n{want}--- got\n{dump}"));
+                    }
+                    (_, got) => failures.push(format!("{at}: got {got:?}")),
                 }
                 continue;
             }

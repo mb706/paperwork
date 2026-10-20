@@ -65,7 +65,7 @@ events:
       id: 2
       doc: >-
         "+3 Iron plate (57)". `total` is the acting player's main-inventory count of the item after the change, or
-        -1 when the text shows none (C1b deviation from §15.6, which has no total: I §3.7 and §3.8 show it)
+        -1 when the text shows none (§15.6, after C1b decision 2: I §3.7 and §3.8 show it)
       fields:
         - text: FlyingText
         - item: ItemKey

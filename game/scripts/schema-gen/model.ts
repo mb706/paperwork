@@ -187,6 +187,8 @@ export interface TableDecl extends DeclBase {
   fields: Field[];
   section: string;
   live: string;
+  /** The most rows a table may hold: readers refuse more before allocating (C1b-r1 finding 4). */
+  maxRows: number;
 }
 export type Decl = IdDecl | EnumDecl | FlagsDecl | StructDecl | MessageDecl | RecordDecl | TableDecl;
 
@@ -285,13 +287,25 @@ export interface ProtoTableDef {
   kind: string;
   columns: ProtoColumn[];
 }
+/**
+ * A JSON type (protos.yaml \`json\`, sections.yaml \`save_header\`). String syntax: \`string\`, \`string(min..max)\`
+ * (UTF-8 bytes), \`integer\`, \`integer(lo..hi)\`, \`number\` (finite), \`boolean\`, \`hex16\`, \`hex32\` (lowercase hex
+ * digits), \`color\` (\`#rrggbb\`, lowercase), \`isotime\` (UTC, \`YYYY-MM-DDTHH:MM:SS[.mmm]Z\`), a named type, \`T?\`
+ * (or null), \`T[]\` / \`T[N]\` (an array, at most N items) followed by \`unique\` or \`ascending <field>\`,
+ * \`{T}\` (a mapping), and \`record:<name>\`: a record's JSON form (an object with its fields in camelCase; ints,
+ * ids, enums and flags as integers in range, floats as numbers, lists as arrays). A YAML mapping is an object
+ * type with exactly those keys.
+ */
 export interface JsonType {
   k:
     | 'string'
     | 'number'
     | 'integer'
     | 'boolean'
+    | 'hex16'
     | 'hex32'
+    | 'color'
+    | 'isotime'
     | 'named'
     | 'array'
     | 'nullable'
@@ -300,6 +314,19 @@ export interface JsonType {
   name?: string;
   of?: JsonType;
   fields?: [string, JsonType][];
+  /** string: UTF-8 bytes; integer: value; array: items. */
+  min?: number;
+  max?: number;
+  /** integer: the allowed values (an enum's). */
+  oneOf?: number[];
+  /** integer: the allowed bits (a flag set's). */
+  mask?: number;
+  /** array: no two items equal. */
+  unique?: boolean;
+  /** array of objects: strictly ascending by this field. */
+  ascending?: string;
+  /** object: the record it is the JSON form of. */
+  record?: string;
 }
 export interface RegistryDef {
   name: string;
@@ -328,7 +355,8 @@ export interface Schema {
     sections: SaveSectionDef[];
     reserved: { name: string; id: number }[];
     closureLog: { magic: number; formatVersion: number };
-    header: [string, { json: string; doc?: string }][];
+    /** The container header's JSON schema (sections.yaml \`save_header\`). */
+    header: { types: [string, JsonType][]; root: JsonType };
   };
   abi: { exports: ExportDef[]; imports: ImportDef[] };
   protos: {
@@ -704,7 +732,7 @@ function resolveDecl(ctx: Ctx, name: string): Decl {
       break;
     }
     case 'table': {
-      checkKeys(src, at, s, ['fields', 'doc', 'section', 'live']);
+      checkKeys(src, at, s, ['fields', 'doc', 'section', 'live', 'max_rows']);
       const fields = resolveFields(
         ctx,
         src,
@@ -717,9 +745,11 @@ function resolveDecl(ctx: Ctx, name: string): Decl {
           fail(src, [...at, 'fields'], `column ${f.name} must be a scalar, id, enum or flags`);
       }
       if (typeof s.section !== 'string') fail(src, [...at, 'section'], 'a table names its save section');
-      if (typeof s.live !== 'string' || !fields.some((f) => f.name === s.live))
-        fail(src, [...at, 'live'], 'live must name a column (a row is live when it is not zero)');
-      d = { ...base, kind: 'table', fields, section: s.section, live: s.live };
+      if (typeof s.live !== 'string' || !fields.some((f) => f.name === s.live && f.saved))
+        fail(src, [...at, 'live'], 'live must name a saved column (a row is live when it is not zero)');
+      const maxRows = intOf(src, [...at, 'max_rows'], s.max_rows, 'max_rows');
+      if (maxRows < 1 || maxRows > 0x7fffffff) fail(src, [...at, 'max_rows'], 'max_rows is 1 to 2^31 − 1');
+      d = { ...base, kind: 'table', fields, section: s.section, live: s.live, maxRows };
       break;
     }
   }
@@ -1464,9 +1494,24 @@ export function buildSchema(sources: Map<SchemaFile, Source>): Schema {
     if (!saveSections.some((s) => s.table === t)) throw new Error(`table ${t.name} has no save section`);
   const cont = asObject(secFile, ['container'], F.sections.container);
   const clog = asObject(secFile, ['closure_log'], F.sections.closure_log);
-  const header = sortedEntries(asObject(secFile, ['save_header'], F.sections.save_header)).map(
-    ([k, v]) => [k, v as { json: string; doc?: string }] as [string, { json: string; doc?: string }],
+  const header = jsonSchema(
+    secFile,
+    ['save_header'],
+    asObject(secFile, ['save_header'], F.sections.save_header),
+    ctx.decls,
   );
+  {
+    // NameTables names exactly the prototype kinds (ProtoKind's values), and nameTables is one.
+    const kinds = (ctx.decls.get('ProtoKind') as EnumDecl | undefined)?.values.map((x) => x.name) ?? [];
+    const nt = header.types.find(([k]) => k === 'NameTables')?.[1];
+    const keys = nt?.fields?.map(([k]) => k) ?? [];
+    if (nt && [...keys].sort().join(',') !== [...kinds].sort().join(','))
+      fail(
+        secFile,
+        ['save_header', 'types', 'NameTables'],
+        `NameTables must have exactly ProtoKind's names: ${kinds.join(', ')}`,
+      );
+  }
 
   // ABI.
   const abiFile = S('abi');
@@ -1572,18 +1617,7 @@ export function buildSchema(sources: Map<SchemaFile, Source>): Schema {
     };
   });
   const jsonO = asObject(protoFile, ['json'], F.protos.json);
-  const jsonTypes = sortedEntries(asObject(protoFile, ['json', 'types'], jsonO.types)).map(
-    ([k, v]) => [k, jsonType(protoFile, ['json', 'types', k], v)] as [string, JsonType],
-  );
-  const jsonRoot = jsonType(protoFile, ['json', 'root'], jsonO.root);
-  const known = new Set(jsonTypes.map(([k]) => k));
-  const checkJson = (t: JsonType, path: Path): void => {
-    if (t.k === 'named' && !known.has(t.name as string)) fail(protoFile, path, `unknown JSON type ${t.name}`);
-    if (t.of) checkJson(t.of, path);
-    for (const [, f] of t.fields ?? []) checkJson(f, path);
-  };
-  checkJson(jsonRoot, ['json', 'root']);
-  for (const [k, t] of jsonTypes) checkJson(t, ['json', 'types', k]);
+  const { types: jsonTypes, root: jsonRoot } = jsonSchema(protoFile, ['json'], jsonO, ctx.decls);
 
   const wellKnown = singles(S('registries'), ['well_known'], F.registries.well_known).map(
     ({ name, value, at }) => {
@@ -1714,23 +1748,134 @@ function checkAlign4(src: Source, at: Path, d: Decl): void {
   }
 }
 
-function jsonType(src: Source, at: Path, v: unknown): JsonType {
+/** A JSON schema block: \`types\` (named types) and \`root\`; every named type must exist, and an
+ * \`ascending\` field must be an integer or string field of the array's object items. */
+function jsonSchema(
+  src: Source,
+  at: Path,
+  o: { [k: string]: unknown },
+  decls: ReadonlyMap<string, Decl>,
+): { types: [string, JsonType][]; root: JsonType } {
+  const types = sortedEntries(asObject(src, [...at, 'types'], o.types ?? {})).map(
+    ([k, v]) => [k, jsonType(src, [...at, 'types', k], v, decls)] as [string, JsonType],
+  );
+  const root = jsonType(src, [...at, 'root'], o.root, decls);
+  const byName = new Map(types);
+  const resolve = (t: JsonType): JsonType => (t.k === 'named' ? (byName.get(t.name as string) ?? t) : t);
+  const check = (t: JsonType, path: Path): void => {
+    if (t.k === 'named' && !byName.has(t.name as string)) fail(src, path, `unknown JSON type ${t.name}`);
+    if (t.ascending !== undefined) {
+      const item = resolve(t.of as JsonType);
+      const f = item.fields?.find(([k]) => k === t.ascending)?.[1];
+      if (!f || (f.k !== 'integer' && f.k !== 'string'))
+        fail(src, path, `ascending ${t.ascending}: the items need an integer or string field of that name`);
+    }
+    if (t.of) check(t.of, path);
+    for (const [k, f] of t.fields ?? []) check(f, [...path, k]);
+  };
+  check(root, [...at, 'root']);
+  for (const [k, t] of types) check(t, [...at, 'types', k]);
+  return { types, root };
+}
+
+function jsonType(src: Source, at: Path, v: unknown, decls: ReadonlyMap<string, Decl>): JsonType {
   if (typeof v === 'string') {
-    let t = v.trim();
-    if (t.endsWith('?')) return { k: 'nullable', of: jsonType(src, at, t.slice(0, -1)) };
-    if (t.endsWith('[]')) return { k: 'array', of: jsonType(src, at, t.slice(0, -2)) };
-    const m = /^\{(.+)\}$/.exec(t);
-    if (m) return { k: 'map', of: jsonType(src, at, m[1] as string) };
-    t = t.trim();
-    if (['string', 'number', 'integer', 'boolean', 'hex32'].includes(t)) return { k: t as JsonType['k'] };
-    if (!/^[A-Z][A-Za-z0-9]*$/.test(t)) fail(src, at, `bad JSON type ${t}`);
-    return { k: 'named', name: t };
+    const [expr, ...mods] = v.trim().split(/\s+/);
+    const t = jsonExpr(src, at, expr as string, decls);
+    for (let i = 0; i < mods.length; i++) {
+      const m = mods[i];
+      if (t.k !== 'array') fail(src, at, `${m} applies only to arrays`);
+      if (m === 'unique') t.unique = true;
+      else if (m === 'ascending') {
+        const f = mods[++i];
+        if (f === undefined) fail(src, at, '`ascending` needs a field');
+        t.ascending = f;
+      } else fail(src, at, `unknown JSON array modifier ${m}`);
+    }
+    return t;
   }
   const o = asObject(src, at, v);
   return {
     k: 'object',
-    fields: sortedEntries(o).map(([k, x]) => [k, jsonType(src, [...at, k], x)] as [string, JsonType]),
+    fields: sortedEntries(o).map(([k, x]) => [k, jsonType(src, [...at, k], x, decls)] as [string, JsonType]),
   };
+}
+
+const JSON_SCALARS = ['string', 'number', 'integer', 'boolean', 'hex16', 'hex32', 'color', 'isotime'];
+
+function jsonExpr(src: Source, at: Path, e: string, decls: ReadonlyMap<string, Decl>): JsonType {
+  if (e.endsWith('?')) return { k: 'nullable', of: jsonExpr(src, at, e.slice(0, -1), decls) };
+  let m = /^(.+)\[(\d*)\]$/.exec(e);
+  if (m) {
+    const t: JsonType = { k: 'array', of: jsonExpr(src, at, m[1] as string, decls) };
+    if (m[2]) t.max = Number(m[2]);
+    return t;
+  }
+  m = /^\{(.+)\}$/.exec(e);
+  if (m) return { k: 'map', of: jsonExpr(src, at, m[1] as string, decls) };
+  m = /^(string|integer)\((-?\d+)\.\.(-?\d+)\)$/.exec(e);
+  if (m) {
+    const [lo, hi] = [Number(m[2]), Number(m[3])];
+    if (!Number.isSafeInteger(lo) || !Number.isSafeInteger(hi) || lo > hi) fail(src, at, `bad range in ${e}`);
+    return { k: m[1] as 'string' | 'integer', min: lo, max: hi };
+  }
+  if (JSON_SCALARS.includes(e)) return { k: e as JsonType['k'] };
+  m = /^record:([a-z_][a-z0-9_]*)$/.exec(e);
+  if (m) {
+    const d = decls.get(m[1] as string);
+    if (d?.kind !== 'record') fail(src, at, `${m[1]} is not a record`);
+    return recordJson(src, at, d, decls);
+  }
+  if (!/^[A-Z][A-Za-z0-9]*$/.test(e)) fail(src, at, `bad JSON type ${e}`);
+  return { k: 'named', name: e };
+}
+
+const camel = (n: string) => n.replace(/_([a-z0-9])/g, (_m, c: string) => c.toUpperCase());
+const SAFE = 9007199254740991;
+
+/** A record's JSON form: its fields in declaration order, keys in camelCase. */
+function recordJson(src: Source, at: Path, d: RecordDecl, decls: ReadonlyMap<string, Decl>): JsonType {
+  return {
+    k: 'object',
+    record: d.name,
+    fields: d.fields.map((f) => [camel(f.name), tyJson(src, at, f.ty, f, decls)] as [string, JsonType]),
+  };
+}
+
+function tyJson(src: Source, at: Path, t: Ty, f: Field | null, decls: ReadonlyMap<string, Decl>): JsonType {
+  const intRangeOf = (s: Scalar): JsonType => {
+    const [lo, hi] = intRange(s as IntScalar);
+    return { k: 'integer', min: Math.max(Number(lo), -SAFE), max: Math.min(Number(hi), SAFE) };
+  };
+  switch (t.k) {
+    case 'scalar':
+      if (t.s === 'bool') return { k: 'boolean' };
+      if (isFloat(t.s)) return { k: 'number' };
+      return intRangeOf(t.s);
+    case 'id':
+      return intRangeOf(t.d.base);
+    case 'enum':
+      return { k: 'integer', oneOf: t.d.values.map((x) => x.value) };
+    case 'flags':
+      return { k: 'integer', min: 0, mask: t.d.bits.reduce((a, b) => a + pow2(b.bit), 0) };
+    case 'str':
+      return { k: 'string', min: 0, max: t.max };
+    case 'list':
+      return { k: 'array', of: tyJson(src, at, t.of, null, decls), max: t.max };
+    case 'array':
+      return { k: 'array', of: tyJson(src, at, t.of, null, decls), min: t.n, max: t.n };
+    case 'record':
+      return recordJson(src, at, t.d, decls);
+    case 'struct':
+      return {
+        k: 'object',
+        fields: valueFields(t.d.fields).map(
+          (x) => [camel(x.name), tyJson(src, at, x.ty, x, decls)] as [string, JsonType],
+        ),
+      };
+    default:
+      return fail(src, at, `${f ? `field ${f.name}: ` : ''}a ${t.k} has no JSON form`);
+  }
 }
 
 /** state.yaml's attribute rules (§15.1 "Field attributes", D20). */

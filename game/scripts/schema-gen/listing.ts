@@ -52,6 +52,21 @@ export function tyText(t: Ty): string {
   }
 }
 
+const DV = new DataView(new ArrayBuffer(8));
+
+/** A default as the listing spells it: floats by their IEEE bits, so 0 and −0 differ (C1b-r1 finding 7). */
+function defaultText(f: Field): string {
+  const s = scalarOf(f.ty);
+  const v = f.default;
+  if (typeof v !== 'number' || (s !== 'f32' && s !== 'f64')) return String(v);
+  if (s === 'f32') {
+    DV.setFloat32(0, v, true);
+    return `f32:${DV.getUint32(0, true).toString(16).padStart(8, '0')}`;
+  }
+  DV.setFloat64(0, v, true);
+  return `f64:${DV.getBigUint64(0, true).toString(16).padStart(16, '0')}`;
+}
+
 function fieldLine(f: Field): string {
   const parts = [`  ${f.name}`];
   if (f.id !== undefined) parts.push(`#${f.id}`);
@@ -68,7 +83,7 @@ function fieldLine(f: Field): string {
   if (f.derived) parts.push(`derived=${f.derived}`);
   if (f.presentation) parts.push('presentation');
   if (f.order) parts.push(`order=${f.order}`);
-  if (f.default !== undefined) parts.push(`default=${f.default}`);
+  if (f.default !== undefined) parts.push(`default=${defaultText(f)}`);
   if (f.wraps) parts.push('wraps');
   if (f.since !== undefined) parts.push(`since=${f.since}`);
   if (f.view) parts.push('view');
@@ -83,7 +98,7 @@ function messageLine(d: MessageDecl): string {
   return `fixed=${d.fixed ?? '-'} prefix=${d.prefix} min=${d.minSize} max=${d.maxSize ?? '-'}${d.padTo ? ` pad_to=${d.padTo}` : ''}`;
 }
 
-function declLines(d: Decl): string[] {
+export function declLines(d: Decl): string[] {
   switch (d.kind) {
     case 'id':
       return [`id ${d.name} ${d.base}${d.none !== undefined ? ` none=${d.none}` : ''}`];
@@ -104,24 +119,38 @@ function declLines(d: Decl): string[] {
     case 'record':
       return [`record ${d.name}`, ...d.fields.map(fieldLine)];
     case 'table':
-      return [`table ${d.name} section=${d.section} live=${d.live}`, ...d.fields.map(fieldLine)];
+      return [
+        `table ${d.name} section=${d.section} live=${d.live} max_rows=${d.maxRows}`,
+        ...d.fields.map(fieldLine),
+      ];
   }
 }
 
 function jsonText(t: JsonType): string {
+  const range = t.min !== undefined || t.max !== undefined ? `(${t.min ?? ''}..${t.max ?? ''})` : '';
+  const extra = [
+    t.oneOf ? `oneof(${t.oneOf.join(',')})` : '',
+    t.mask !== undefined ? `mask(${t.mask})` : '',
+    t.unique ? 'unique' : '',
+    t.ascending ? `ascending(${t.ascending})` : '',
+    t.record ? `record(${t.record})` : '',
+  ]
+    .filter((x) => x !== '')
+    .join(' ');
+  const tail = `${range}${extra ? `<${extra}>` : ''}`;
   switch (t.k) {
     case 'named':
       return t.name as string;
     case 'array':
-      return `${jsonText(t.of as JsonType)}[]`;
+      return `${jsonText(t.of as JsonType)}[]${tail}`;
     case 'nullable':
       return `${jsonText(t.of as JsonType)}?`;
     case 'map':
       return `{${jsonText(t.of as JsonType)}}`;
     case 'object':
-      return `{${(t.fields ?? []).map(([k, v]) => `${k}:${jsonText(v)}`).join(',')}}`;
+      return `{${(t.fields ?? []).map(([k, v]) => `${k}:${jsonText(v)}`).join(',')}}${tail}`;
     default:
-      return t.k;
+      return `${t.k}${tail}`;
   }
 }
 
@@ -195,7 +224,8 @@ export function listing(s: Schema): string {
   }
   for (const r of sv.reserved) out.push(`save_section_reserved ${r.name} id=${r.id}`);
   out.push(`closure_log magic=${sv.closureLog.magic} format=${sv.closureLog.formatVersion}`);
-  out.push(`save_header ${sv.header.map(([k, x]) => `${k}:${x.json}`).join(' ')}`);
+  out.push(`save_header root=${jsonText(sv.header.root)}`);
+  for (const [k, t] of sv.header.types) out.push(`save_header_type ${k}=${jsonText(t)}`);
   for (const e of s.abi.exports)
     out.push(
       `export ${e.module} ${e.name} ${e.kind}(${e.params.map((p) => `${p.name}:${tyText(p.ty)}`).join(',')})${e.returns ? `->${e.returns}` : ''} in=${e.input ?? '-'} out=${e.output ?? '-'}`,

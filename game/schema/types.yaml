@@ -292,7 +292,7 @@ enums:
       base: u8
       doc: >-
         Production-statistics time ranges (I §4.12, 07 §11): 5 s, 1 m, 10 m, 1 h, 10 h, 50 h, 250 h, 1000 h, All.
-        §15.5 says "p0 precision (0–9)"; there are nine, so 0–8 (C1b decision)
+        §15.5: p0 is 0–8, the nine ranges (C1b decision 4)
       values:
         - s5: 0
         - m1: 1

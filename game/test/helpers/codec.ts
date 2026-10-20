@@ -11,6 +11,7 @@ import {
   preflight,
 } from '../../src/shared/gen/actions.ts';
 import { DecodeError, Dump, Reader, Writer } from '../../src/shared/gen/codec.ts';
+import { parseClosureLog } from '../../src/shared/gen/container.ts';
 import {
   dumpEvent,
   type EventHeader,
@@ -19,7 +20,7 @@ import {
   readEvent,
   writeEvent,
 } from '../../src/shared/gen/events.ts';
-import { CODECS } from '../../src/shared/gen/samples.ts';
+import { CODECS, TABLES } from '../../src/shared/gen/samples.ts';
 
 const VARIANTS = ['zero', 'mixed', 'max'] as const;
 
@@ -198,9 +199,12 @@ export function parseHexFile(file: string, text: string): HexCase[] {
       } else if (word === '@action') {
         flush();
         cur = start('@action');
-      } else if (word === '@event') {
+      } else if (word === '@event' || word === '@closure_log') {
         flush();
-        cur = start('@event');
+        cur = start(word);
+      } else if (word === '@table' || word === '@lenient') {
+        flush();
+        cur = start(word, rest);
       } else if (word === '@closure') {
         flush();
         cur = start('@closure', rest);
@@ -250,6 +254,41 @@ export function closureVerdict(params: string, bytes: Uint8Array): string {
     if (e instanceof PreflightError) return `${e.code} @${e.at}`;
     throw e;
   }
+}
+
+/** A closure log through parseClosureLog: `ok records=N digests=M blobs=K`, or the refusal. */
+export function closureLogVerdict(bytes: Uint8Array): string {
+  try {
+    const l = parseClosureLog(bytes);
+    return `ok records=${l.records.length} digests=${l.digests.length} blobs=${l.blobs.length}`;
+  } catch (e) {
+    if (e instanceof DecodeError) return `${e.kind} ${e.field} @${e.at}`;
+    throw e;
+  }
+}
+
+/** A column table decoded, encoded again (same bytes): `ok rows=N`, or the refusal. */
+export function tableVerdict(name: string, bytes: Uint8Array): string {
+  const t = TABLES[name];
+  if (!t) return 'no such table';
+  try {
+    const rows = t.decode(bytes);
+    const diff = sameBytes(t.encode(rows), bytes);
+    if (diff) return diff;
+    return `ok rows=${rows.length}`;
+  } catch (e) {
+    if (e instanceof DecodeError) return `${e.kind} ${e.field} @${e.at}`;
+    throw e;
+  }
+}
+
+/** A record decoded leniently (§8.3) and dumped. */
+export function lenientDump(name: string, bytes: Uint8Array): string {
+  const c = CODECS[name];
+  if (!c?.lenient) throw new Error(`no such record ${name}`);
+  const d = new Dump();
+  c.dump(d, c.lenient(bytes));
+  return d.out;
 }
 
 /** An expected refusal matches a verdict exactly, or by its kind when it names only the kind. */

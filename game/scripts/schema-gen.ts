@@ -16,6 +16,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type CommentStyle, GENERATED_DIRS, parseHeader, withHeader } from './lib/generated.ts';
 import { checkCapabilities, loadCapabilities } from './schema-gen/capabilities.ts';
+import { COMPAT_PATH, checkCompat, ledgerText, parseLedger } from './schema-gen/compat.ts';
 import { codecFixtures } from './schema-gen/fixtures.ts';
 import { listing, schemaHash } from './schema-gen/listing.ts';
 import { loadSchema } from './schema-gen/load.ts';
@@ -73,7 +74,12 @@ export const FIXTURE_PATHS = {
   records: 'test/fixtures/codec/records.bin',
   probes: 'test/fixtures/codec/probes.txt',
 } as const;
-const FIXTURES: readonly string[] = [FIXTURE_PATHS.actions, FIXTURE_PATHS.records, FIXTURE_PATHS.probes];
+const FIXTURES: readonly string[] = [
+  FIXTURE_PATHS.actions,
+  FIXTURE_PATHS.records,
+  FIXTURE_PATHS.probes,
+  COMPAT_PATH,
+];
 
 export interface Generated {
   hash: string;
@@ -123,6 +129,15 @@ export function generate(schema: Schema = loadSchema(SCHEMA_DIR)): Generated {
       path: f.path,
       bytes: enc.encode(header(f.text, f.path.endsWith('.txt') ? '#' : '//')),
     });
+  // The compatibility ledger (C1b-r1 finding 8): refuse what breaks it, record what is new.
+  const compatAbs = join(ROOT, COMPAT_PATH);
+  const compat = checkCompat(
+    schema,
+    parseLedger(existsSync(compatAbs) ? readFileSync(compatAbs, 'utf8') : null),
+  );
+  if (compat.problems.length > 0)
+    throw new Error(`the schema breaks ${COMPAT_PATH}:\n  ${compat.problems.join('\n  ')}`);
+  files.push({ path: COMPAT_PATH, bytes: enc.encode(ledgerText(compat.next)) });
   const fx = codecFixtures(schema);
   files.push({ path: FIXTURE_PATHS.actions, bytes: fx.actions });
   files.push({ path: FIXTURE_PATHS.records, bytes: fx.records });

@@ -1114,7 +1114,7 @@ export function emitDecl(o: RsOut, d: Decl): void {
 
 /** A pool or the entity table (§4.5): SoA columns, lowest-free-slot allocation, the column-table codec. */
 export function emitTable(o: RsOut, d: TableDecl): void {
-  o.rt('Reader', 'Writer', 'DResult', 'EResult', 'ErrorKind', 'Fixed');
+  o.rt('Reader', 'Writer', 'DResult', 'EResult', 'ErrorKind', 'Fixed', 'enc_err');
   const name = typeName(d);
   const live = d.fields.find((f) => f.name === d.live) as Field;
   const saved = d.fields.filter((f) => f.saved);
@@ -1167,12 +1167,11 @@ export function emitTable(o: RsOut, d: TableDecl): void {
         .join('\n        ')
     : '';
   const freeCheck = saved
-    .filter((f) => !f.keep)
-    .map(
-      (f) =>
-        `if self.${col(f)}[i] != ${rsDefault(o, f, f.ty, true)} { return Err(${rsStr(`${d.name}.${f.name}`)}); }`,
-    )
+    .map((f, k) => ({ f, k }))
+    .filter(({ f }) => !f.keep)
+    .map(({ f, k }) => `if self.${col(f)}[i] != ${rsDefault(o, f, f.ty, true)} { return Some((${k}, i)); }`)
     .join(' ');
+  const savedPaths = saved.map((f) => rsStr(`${d.name}.${f.name}`)).join(', ');
   const viewCols = d.fields.filter((f) => f.view);
   const handleParamS = handles.length ? `, serial_of: &dyn Fn(${handleT}) -> ${serialT}` : '';
   const handleParamL = handles.length ? `, handle_of: &mut dyn FnMut(${serialT}) -> Option<${handleT}>` : '';
@@ -1188,6 +1187,10 @@ ${cols}
 impl ${name} {
     /// The saved columns, in declaration order: name, §8.1 type code, width in bytes.
     pub const SAVED_COLUMNS: [(&'static str, u8, usize); ${saved.length}] = [${savedDir}];
+    /// The saved columns' paths in errors, in the same order.
+    pub const SAVED_PATHS: [&'static str; ${saved.length}] = [${savedPaths}];
+    /// The most rows the table may hold (state.yaml \`max_rows\`).
+    pub const MAX_ROWS: usize = ${d.maxRows};
 
     pub fn new() -> Self {
         Self::default()
@@ -1202,15 +1205,18 @@ impl ${name} {
         self.live.get(slot as usize / 32).is_some_and(|w| w & (1 << (slot % 32)) != 0)
     }
 
-    /// Allocates the lowest free slot (canonical, so no free list is saved, D8) and returns it; its columns
-    /// hold their defaults. The caller sets \`${d.live}\` to make it live.
-    pub fn alloc(&mut self) -> u32 {
+    /// Allocates the lowest free slot (canonical, so no free list is saved, D8) and returns it, or None when
+    /// all MAX_ROWS are live; its columns hold their defaults. The caller sets \`${d.live}\` to make it live.
+    pub fn alloc(&mut self) -> Option<u32> {
         let rows = self.rows();
         let mut slot = self.first_free;
         while slot < rows && self.is_live(slot) {
             slot += 1;
         }
         if slot == rows {
+            if rows as usize >= Self::MAX_ROWS {
+                return None;
+            }
             ${defaults}
         }
         let word = slot as usize / 32;
@@ -1219,7 +1225,7 @@ impl ${name} {
         }
         self.live[word] |= 1 << (slot % 32);
         self.first_free = slot + 1;
-        slot
+        Some(slot)
     }
 
     /// Frees a slot: every column returns to its default${d.fields.some((f) => f.keep) ? ' except the kept ones' : ''} (§4.5).
@@ -1240,19 +1246,23 @@ impl ${name} {
         ${nan || 'None'}${nan ? '\n        None' : ''}
     }
 
-    /// The first free row whose saved columns are off their defaults, which loading refuses (§4.5).
-    pub fn check_free_rows(&self) -> Result<(), &'static str> {
+    /// The first free row, in row order, with a saved column off its default${d.fields.some((f) => f.keep) ? ' (kept columns aside)' : ''}, as
+    /// (index in SAVED_COLUMNS, row): such a table is not canonical, so it neither saves nor loads (§4.5).
+    pub fn first_noncanonical(&self) -> Option<(usize, usize)> {
         for i in 0..self.${col(live)}.len() {
             if self.is_live(i as u32) {
                 continue;
             }
             ${freeCheck}
         }
-        Ok(())
+        None
     }
 
     /// Writes the column table (§8.1): rows, the directory, then each saved column 8-aligned.${handles.length ? ' Handles are written as serials (§4.5).' : ''}
     pub fn save(&self, w: &mut Writer<'_>${handleParamS}) -> EResult {
+        if let Some((k, _)) = self.first_noncanonical() {
+            return Err(enc_err(ErrorKind::NotCanonical, Self::SAVED_PATHS[k]));
+        }
         let base = w.pos();
         let rows = self.${col(live)}.len();
         w.u32(rows as u32);
@@ -1277,14 +1287,19 @@ impl ${name} {
         Ok(())
     }
 
-    /// Reads a column table: columns match by name; a column the save lacks takes its default (\`since\`,
-    /// §8.3), one the schema lacks is skipped, and a type that differs is refused (\`schema_mismatch\`).
-    /// Free rows must hold their defaults.
+    /// Reads a column table: at most MAX_ROWS rows (else \`too_long\`); columns match by name; a column the
+    /// save lacks takes its default (\`since\`, §8.3), except \`${d.live}\`, which a table with rows must carry
+    /// (else \`missing_field\`); one the schema lacks is skipped; a type or length that differs is refused
+    /// (\`schema_mismatch\`). Free rows must hold their defaults (else \`not_canonical\` at the first such
+    /// value, in row order). Nothing is allocated for rows before the live column proves they exist.
     pub fn load(data: &[u8]${handleParamL}) -> DResult<Self> {
         let mut r = Reader::new(data);
         let rows = r.u32(${rsStr(d.name)})? as usize;
         let n = usize::from(r.u16(${rsStr(d.name)})?);
         r.zeros(2, ${rsStr(`${d.name}.reserved`)})?;
+        if rows > Self::MAX_ROWS {
+            return Err(r.err_at(0, ErrorKind::TooLong, ${rsStr(d.name)}));
+        }
         let mut dir: Vec<(&[u8], u8, usize, usize, usize)> = Vec::with_capacity(n);
         for _ in 0..n {
             let at = r.pos();
@@ -1302,15 +1317,26 @@ impl ${name} {
             }
             dir.push((name, code, off, bytes, at));
         }
-        let mut t = Self::default();
-        for (cname, code, width) in Self::SAVED_COLUMNS {
+        if rows > 0 && !dir.iter().any(|x| x.0 == ${rsStr(d.live)}.as_bytes()) {
+            return Err(r.err_at(0, ErrorKind::MissingField, ${rsStr(`${d.name}.${d.live}`)}));
+        }
+        // The directory first: every column the schema knows must have its type and rows × width bytes.
+        let mut col_at: [Option<(usize, usize)>; ${saved.length}] = [None; ${saved.length}];
+        for (k, (cname, code, width)) in Self::SAVED_COLUMNS.into_iter().enumerate() {
             let Some(&(_, have, off, bytes, at)) = dir.iter().find(|x| x.0 == cname.as_bytes()) else {
                 continue;
             };
-            if have != code || bytes != rows * width {
+            if have != code || rows.checked_mul(width) != Some(bytes) {
                 return Err(r.err_at(at, ErrorKind::SchemaMismatch, cname));
             }
-            let mut c = Reader::new(&data[off..off + bytes]);
+            col_at[k] = Some((off, bytes));
+        }
+        let mut t = Self::default();
+        for (k, (cname, _, _)) in Self::SAVED_COLUMNS.into_iter().enumerate() {
+            let Some((off, bytes)) = col_at[k] else {
+                continue;
+            };
+            let mut c = Reader::with_base(&data[off..off + bytes], off);
             match cname {
                 ${saved.map((f) => `${rsStr(f.name)} => { ${readCol(f)} }`).join('\n                ')}
                 _ => {}
@@ -1330,8 +1356,9 @@ impl ${name} {
             }
         }
         t.first_free = 0;
-        if let Err(field) = t.check_free_rows() {
-            return Err(r.err(ErrorKind::NotCanonical, field));
+        if let Some((k, i)) = t.first_noncanonical() {
+            let at = col_at[k].map_or(0, |(off, _)| off) + i * Self::SAVED_COLUMNS[k].2;
+            return Err(r.err_at(at, ErrorKind::NotCanonical, Self::SAVED_PATHS[k]));
         }
         Ok(t)
     }

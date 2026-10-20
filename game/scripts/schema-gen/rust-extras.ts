@@ -200,6 +200,8 @@ pub struct ClosureSummary {
 /// One action of a closure that passed the preflight, in execution order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ClosureAction<'a> {
+    /// The offset of the action's frame (\`u16 type, u16 len\`) in the closure.
+    pub at: usize,
     pub player: ${pi},
     pub seq: u32,
     pub system: bool,
@@ -219,29 +221,22 @@ fn le32(b: &[u8], at: usize) -> u32 {
     u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]])
 }
 
-/// The preflight (§15.3, B1-r1 9): checks the whole closure of tick \`tick\` with temporary watermarks, and
-/// changes nothing. \`last_seq[p]\` is player p's saved last_seq (0 for a player without state);
-/// \`has_blob\` says whether a blob was supplied (sim_blob_put). Every structural rule:
-/// 1. the closure is at most CLOSURE_MAX bytes and its batches consume exactly its bytes;
-/// 2. every batch has this ACTION_SCHEMA_VERSION, only the SYSTEM flag, a zero reserved field, this tick,
-///    a count of at least 1, and a player 0–31 (0xFFFF exactly when SYSTEM);
-/// 3. every action's header and payload lie inside the closure, and its type id is from 0xFF00 exactly
-///    when the batch is a system batch;
-/// 4. seqs rise (D21): each batch's first seq is above its player's watermark, and first + count − 1 does
-///    not pass u32::MAX;
-/// 5. every blob named by an action that decodes has been supplied.
-pub fn preflight(
-    closure: &[u8],
+/// The framing rules of the preflight (§15.3 rules 1–3) over a closure stamped \`tick\`: the closure is at
+/// most CLOSURE_MAX bytes and its batches consume exactly its bytes; every batch has this
+/// ACTION_SCHEMA_VERSION, only the SYSTEM flag, a zero reserved field, this tick, a count of at least 1,
+/// and a player 0–31 (0xFFFF exactly when SYSTEM); every action's header and payload lie inside the
+/// closure, and its type id is from 0xFF00 exactly when the batch is a system batch. \`batch\` sees each
+/// batch (offset, system, player, first seq, count) after these checks and may refuse it; \`action\` sees
+/// each action (offset, action) and may refuse it.
+fn walk<'a>(
+    closure: &'a [u8],
     tick: u32,
-    last_seq: &[u32; PLAYERS],
-    last_system_seq: u32,
-    has_blob: &dyn Fn(&[u8; 32]) -> bool,
+    mut batch: impl FnMut(usize, bool, u16, u32, u16) -> Result<(), PreflightError>,
+    mut action: impl FnMut(usize, ClosureAction<'a>) -> Result<(), PreflightError>,
 ) -> Result<ClosureSummary, PreflightError> {
     if closure.len() > CLOSURE_MAX {
         return Err(framing(0, "closure larger than CLOSURE_MAX"));
     }
-    let mut marks = *last_seq;
-    let mut system_mark = last_system_seq;
     let mut sum = ClosureSummary::default();
     let mut at = 0usize;
     while at < closure.len() {
@@ -271,16 +266,10 @@ pub fn preflight(
         if system != (player == 0xFFFF) || (!system && usize::from(player) >= PLAYERS) {
             return Err(framing(at, "batch player out of range"));
         }
-        let mark = if system { &mut system_mark } else { &mut marks[usize::from(player)] };
-        if first <= *mark {
-            return Err(framing(at, "seqs do not rise (D21)"));
-        }
-        let Some(last) = first.checked_add(u32::from(count) - 1) else {
-            return Err(framing(at, "seq range passes u32::MAX"));
-        };
-        *mark = last;
+        batch(at, system, player, first, count)?;
         sum.batches += 1;
         at += 16;
+        let mut seq = first;
         for _ in 0..count {
             if closure.len() - at < 4 {
                 return Err(framing(at, "truncated action header"));
@@ -294,21 +283,67 @@ pub fn preflight(
                 return Err(framing(at, "system action outside a system batch, or the reverse"));
             }
             let payload = &closure[at + 4..at + 4 + len];
-            if let Ok(a) = Action::decode(ty, payload) {
-                if let Some(h) = a.blob() {
-                    if !has_blob(&h) {
-                        return Err(PreflightError::BlobMissing { at });
-                    }
-                }
-            }
+            action(at, ClosureAction { at, player: ${pi}(player), seq, system, ty, payload })?;
             sum.actions += 1;
+            seq = seq.wrapping_add(1);
             at += 4 + len;
         }
     }
     Ok(sum)
 }
 
-/// Iterates the actions of a closure that passed the preflight, in execution order (§15.3).
+/// The preflight's framing rules alone (rules 1–3, see \`walk\`), for a closure stamped \`tick\`: what a closure
+/// log's reader checks of each record before it walks the actions (§8.5, C1b-r1 finding 5). A closure that
+/// passes may be walked with ClosureIter.
+pub fn check_framing(closure: &[u8], tick: u32) -> Result<ClosureSummary, PreflightError> {
+    walk(closure, tick, |_, _, _, _, _| Ok(()), |_, _| Ok(()))
+}
+
+/// The preflight (§15.3, B1-r1 9): checks the whole closure of tick \`tick\` with temporary watermarks, and
+/// changes nothing. \`last_seq[p]\` is player p's saved last_seq (0 for a player without state);
+/// \`has_blob\` says whether a blob was supplied (sim_blob_put). Every structural rule:
+/// 1–3. the framing rules (\`walk\`);
+/// 4. seqs rise (D21): each batch's first seq is above its player's watermark, and first + count − 1 does
+///    not pass u32::MAX;
+/// 5. every blob named by an action that decodes has been supplied.
+pub fn preflight(
+    closure: &[u8],
+    tick: u32,
+    last_seq: &[u32; PLAYERS],
+    last_system_seq: u32,
+    has_blob: &dyn Fn(&[u8; 32]) -> bool,
+) -> Result<ClosureSummary, PreflightError> {
+    let mut marks = *last_seq;
+    let mut system_mark = last_system_seq;
+    walk(
+        closure,
+        tick,
+        |at, system, player, first, count| {
+            let mark = if system { &mut system_mark } else { &mut marks[usize::from(player)] };
+            if first <= *mark {
+                return Err(framing(at, "seqs do not rise (D21)"));
+            }
+            let Some(last) = first.checked_add(u32::from(count) - 1) else {
+                return Err(framing(at, "seq range passes u32::MAX"));
+            };
+            *mark = last;
+            Ok(())
+        },
+        |at, a| {
+            if let Ok(act) = Action::decode(a.ty, a.payload) {
+                if let Some(h) = act.blob() {
+                    if !has_blob(&h) {
+                        return Err(PreflightError::BlobMissing { at });
+                    }
+                }
+            }
+            Ok(())
+        },
+    )
+}
+
+/// Iterates the actions of a closure that passed the preflight or \`check_framing\`, in execution order
+/// (§15.3). On any other closure it stops early, but never panics.
 #[derive(Clone, Debug)]
 pub struct ClosureIter<'a> {
     closure: &'a [u8],
@@ -338,6 +373,11 @@ impl<'a> Iterator for ClosureIter<'a> {
             self.seq = le32(b, self.at + 8);
             self.left = le16(b, self.at + 12);
             self.at += 16;
+            if self.left == 0 {
+                // An empty batch breaks rule 2: a closure that passed the framing has none.
+                self.at = b.len();
+                return None;
+            }
         }
         if self.at + 4 > b.len() {
             return None;
@@ -345,7 +385,7 @@ impl<'a> Iterator for ClosureIter<'a> {
         let ty = le16(b, self.at);
         let len = usize::from(le16(b, self.at + 2));
         let payload = b.get(self.at + 4..self.at + 4 + len)?;
-        let item = ClosureAction { player: self.player, seq: self.seq, system: self.system, ty, payload };
+        let item = ClosureAction { at: self.at, player: self.player, seq: self.seq, system: self.system, ty, payload };
         self.at += 4 + len;
         self.seq = self.seq.wrapping_add(1);
         self.left -= 1;
@@ -752,6 +792,10 @@ ${sv.sections.map((x) => `            Self::${enumVariant(x.name.toLowerCase())}
     }
 }
 
+/// The smallest encoded ClosureRecord (tick, length, one byte) and LogBlob (hash, length): capacity bounds.
+const RECORD_MIN: usize = 9;
+const BLOB_MIN: usize = 36;
+
 /// A parsed closure log (§8.5), borrowing its bytes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClosureLog<'a> {
@@ -763,9 +807,12 @@ pub struct ClosureLog<'a> {
 }
 
 impl<'a> ClosureLog<'a> {
-    /// Parses and checks a closure log: every region consumes exactly its declared bytes, records rise
-    /// strictly within (start_tick, end_tick] and are not empty, the digest range lies in the tick range,
-    /// blobs are sorted by hash without duplicates, and every blob an action names is present (§8.5).
+    /// Parses and checks a closure log (§8.5): every region consumes exactly its declared bytes; records rise
+    /// strictly within (start_tick, end_tick], are not empty, and each passes the preflight's framing rules
+    /// for its tick (\`check_framing\`; else \`bad_framing\` at the failing batch or action); the digest range
+    /// lies in the tick range; blobs are sorted by hash without duplicates; every blob an action names is
+    /// present (else \`bad_ref\` at that action). Counts are checked against the bytes before anything is
+    /// allocated for them (C1b-r1 findings 3–5).
     pub fn parse(bytes: &'a [u8]) -> DResult<Self> {
         let mut r = Reader::new(bytes);
         let header = ${clh}::read(&mut r, "ClosureLogHeader")?;
@@ -779,7 +826,9 @@ impl<'a> ClosureLog<'a> {
             return Err(r.err_at(12, ErrorKind::Range, "ClosureLogHeader.end_tick"));
         }
         let mut rec = r.sub(header.record_bytes as usize, "ClosureLog.records")?;
-        let mut records = Vec::with_capacity(header.record_count as usize);
+        // At most one record per RECORD_MIN bytes, whatever record_count claims.
+        let mut records = Vec::with_capacity((header.record_count as usize).min(rec.remaining() / RECORD_MIN));
+        let mut closures_at = Vec::with_capacity(records.capacity());
         let mut last = header.start_tick;
         for _ in 0..header.record_count {
             let at = rec.pos();
@@ -787,8 +836,14 @@ impl<'a> ClosureLog<'a> {
             if x.tick <= last || x.tick > header.end_tick {
                 return Err(rec.err_at(at, ErrorKind::Unsorted, "ClosureRecord.tick"));
             }
+            if let Err(crate::PreflightError::Framing { at: k, .. } | crate::PreflightError::BlobMissing { at: k }) =
+                crate::check_framing(x.closure, x.tick.0)
+            {
+                return Err(rec.err_at(at + 8 + k, ErrorKind::BadFraming, "ClosureRecord.closure"));
+            }
             last = x.tick;
             records.push(x);
+            closures_at.push(at + 8);
         }
         rec.finish("ClosureLog.records")?;
         let has_digests = header.flags.contains(crate::ClosureLogFlags::HAS_DIGESTS);
@@ -804,12 +859,12 @@ impl<'a> ClosureLog<'a> {
         }
         let n = (header.digest_count as usize).checked_mul(8).ok_or_else(|| r.err(ErrorKind::Truncated, "ClosureLog.digests"))?;
         let mut dg = r.sub(n, "ClosureLog.digests")?;
-        let mut digests = Vec::with_capacity(header.digest_count as usize);
+        let mut digests = Vec::with_capacity(dg.remaining() / 8);
         for _ in 0..header.digest_count {
             digests.push(dg.u64("ClosureLog.digests")?);
         }
         let mut bl = r.sub(header.blob_bytes as usize, "ClosureLog.blobs")?;
-        let mut blobs: Vec<${lb}<'a>> = Vec::with_capacity(header.blob_count as usize);
+        let mut blobs: Vec<${lb}<'a>> = Vec::with_capacity((header.blob_count as usize).min(bl.remaining() / BLOB_MIN));
         for _ in 0..header.blob_count {
             let at = bl.pos();
             let x = ${lb}::decode(&mut bl)?;
@@ -820,12 +875,12 @@ impl<'a> ClosureLog<'a> {
         }
         bl.finish("ClosureLog.blobs")?;
         r.finish("ClosureLog")?;
-        for x in &records {
+        for (x, &base) in records.iter().zip(&closures_at) {
             for a in crate::ClosureIter::new(x.closure) {
                 if let Ok(act) = crate::Action::decode(a.ty, a.payload) {
                     if let Some(h) = act.blob() {
                         if blobs.binary_search_by(|b| b.sha256.bytes.cmp(&h)).is_err() {
-                            return Err(r.err(ErrorKind::BadRef, "ClosureLog.blobs"));
+                            return Err(r.err_at(base + a.at, ErrorKind::BadRef, "ClosureLog.blobs"));
                         }
                     }
                 }

@@ -16,10 +16,12 @@ import { type Action, actionBytes } from '../../src/shared/gen/actions.ts';
 import { Dump } from '../../src/shared/gen/codec.ts';
 import { CODECS, SAMPLES } from '../../src/shared/gen/samples.ts';
 import {
+  closureLogVerdict,
   closureVerdict,
   decodeFramed,
   type Entry,
   fnv1a32,
+  lenientDump,
   parseEntries,
   parseHexFile,
   parseProbes,
@@ -28,6 +30,7 @@ import {
   roundTrip,
   roundTripAction,
   roundTripEvent,
+  tableVerdict,
   verdictOf,
 } from '../helpers/codec.ts';
 import { GAME } from '../helpers/paths.ts';
@@ -137,8 +140,23 @@ describe('hand-written fixtures (spec/*.hex)', () => {
       for (const c of parseHexFile(f, readFileSync(join(dir, f), 'utf8'))) {
         count++;
         const where = `${c.file}:${c.line} ${c.target}`;
-        if (c.target === '@closure') {
-          const got = closureVerdict(c.params, c.bytes);
+        if (c.target === '@lenient') {
+          try {
+            const got = lenientDump(c.params, c.bytes);
+            if ('dump' in c.expect && got !== c.expect.dump)
+              failures.push(`${where}: dump differs:\n--- want\n${c.expect.dump}--- got\n${got}`);
+          } catch (e) {
+            failures.push(`${where}: ${(e as Error).message}`);
+          }
+          continue;
+        }
+        if (c.target === '@closure' || c.target === '@closure_log' || c.target === '@table') {
+          const got =
+            c.target === '@closure'
+              ? closureVerdict(c.params, c.bytes)
+              : c.target === '@closure_log'
+                ? closureLogVerdict(c.bytes)
+                : tableVerdict(c.params, c.bytes);
           const ok =
             'ok' in c.expect
               ? got === c.expect.ok

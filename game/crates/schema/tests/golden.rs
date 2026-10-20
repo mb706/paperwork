@@ -194,3 +194,32 @@ fn closure_log_bin() {
     cut.pop();
     assert!(ClosureLog::parse(&cut).is_err());
 }
+
+#[test]
+fn protos_signal_bin() {
+    // A column-less table with one row keeps its row count (C1b-r1 finding 9); names keep a leading U+FEFF
+    // (finding 1). The file has a zero schema hash: put this build's in.
+    let mut bytes = golden("protos-signal.bin");
+    bytes[12..44].copy_from_slice(&schema::SCHEMA_HASH);
+    let p = schema::protos::Protos::load(&bytes).expect("loads");
+    assert_eq!(p.signal.len(), 1);
+    assert!(!p.signal.is_empty());
+    assert_eq!(p.names.signal, ["\u{feff}signal-a"]);
+    assert_eq!(p.item.len(), 0);
+}
+
+#[test]
+fn closure_iter_never_panics_on_malformed_framing() {
+    // C1b-r1 finding 5: a batch of count 0, then a framed clear_cursor. The iterator stops; check_framing
+    // names the batch.
+    let bad = [0x01, 0, 0, 0, 0x01, 0, 0, 0, 0x01, 0, 0, 0, 0, 0, 0, 0, 0x29, 0, 0, 0];
+    assert_eq!(schema::ClosureIter::new(&bad).count(), 0);
+    assert_eq!(
+        schema::check_framing(&bad, 1),
+        Err(schema::PreflightError::Framing { at: 0, reason: "empty batch" })
+    );
+    // A payload that runs past the end: the iterator stops there too.
+    let past = [0x01, 0, 0, 0, 0x01, 0, 0, 0, 0x01, 0, 0, 0, 0x01, 0, 0, 0, 0x29, 0, 0x05, 0, 0, 0];
+    assert_eq!(schema::ClosureIter::new(&past).count(), 0);
+    assert!(schema::check_framing(&past, 1).is_err());
+}

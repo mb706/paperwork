@@ -133,18 +133,22 @@ Details every consumer must match:
 Column tables (`tables:` in `state.yaml`, §8.1) are saved column by column: u32 rows, u16 column count,
 u16 zero; per saved column u8 name length, name, u8 type code (`TypeCode`), u8 zero, u32 offset, u32 byte
 length; then each column's rows at its offset, 8-aligned from the table's start. An entity handle is
-saved as its entity's serial; a free row holds the defaults, except `keep` columns.
+saved as its entity's serial. Readers refuse, in this order: more rows than `max_rows` (`too_long @0`), a
+bad directory entry, a table with rows but no live column (`missing_field <table>.<live> @0`), a column of
+another type or length (`schema_mismatch`), a bad value, and a free row (live column 0) whose saved column
+is off its default, `keep` columns aside (`not_canonical` at the first such value, in row order). Writers
+refuse a free row off its defaults too.
 
 ## Recipes
 
 **Add a field to an action, event, packet or projection record.** Append it (or use a `reserved` slot of
-the same width), run `npm run gen`, raise the file's `version` (`ACTION_SCHEMA_VERSION`,
-`PACKET_VERSION`) if a built client could meet the new layout, and fill the field in the Rust writer or
-the TS encoder. The hash changes by itself.
+the same width), raise the file's `version` (`ACTION_SCHEMA_VERSION`, `PACKET_VERSION`), run `npm run gen`,
+and fill the field in the Rust writer or the TS encoder. The hash changes by itself; the compatibility
+ledger refuses the change until the version is raised (below).
 
 **Add a field to a saved record.** Give it the next unused `id`, `since: <schema_version>` and, when not
-zero, a `default`; raise `schema_version` in `types.yaml`. Old saves load with the default (lenient read).
-Never reuse or renumber an id.
+zero, a `default`; raise `schema_version` in `types.yaml` and set the section's `version` in
+`sections.yaml` to it. Old saves load with the default (lenient read). Never reuse or renumber an id.
 
 **Add an action.** Pick the next id in its area (see the comment in `actions.yaml`):
 ```yaml
@@ -170,25 +174,42 @@ it, so treat it as a layout change.
 ## Versions and the hash
 
 `SCHEMA_HASH` is the SHA-256 of `src/shared/gen/layout.txt`, the canonical listing of the resolved
-layouts: every declaration, field order, offset, width, field id, enum value, limit, default, attribute,
-id table and version (docs and comments excluded). It is a Rust and TS constant, the `prototypes.bin`
-header carries it, and the shell compares it at the handshake (`sim_schema_hash`). Any layout change
-changes it (`scripts/schema-gen/hash.test.ts` checks one edit of every kind); a doc change does not.
+layouts: every declaration, field order, offset, width, field id, enum value, limit, default (floats by
+their IEEE bits), attribute, id table, JSON shape (`prototypes.json`, the save header) and version (docs and
+comments excluded). It is a Rust and TS constant, the `prototypes.bin` header carries it, and the shell
+compares it at the handshake (`sim_schema_hash`). Any layout change changes it
+(`scripts/schema-gen/hash.test.ts` checks one edit of every kind); a doc change does not.
 
-The versions are for compatibility across builds, which the hash cannot express: `schema_version` (saves;
-`since` refers to it), `ACTION_SCHEMA_VERSION` (`actions.yaml`, every batch header), `PACKET_VERSION`
-(`packet.yaml`), `ABI_VERSION` / `GEN_ABI_VERSION` / `PROTOCOL_VERSION` (`abi.yaml`) and the
-`prototypes.bin` format (`protos.yaml`). Raise the one whose layout you change.
+The versions are for compatibility across builds, which the hash cannot express, and **`schema/compat.yaml`**
+enforces them. The ledger records, per version domain, the fingerprint of each version's layout (its part of
+the listing) and every id ever assigned. `npm run gen` refuses:
+- a layout change whose domain's version was not raised: `action` (`actions.yaml` version,
+  ACTION_SCHEMA_VERSION), `packet` (`packet.yaml` version; packets, events and UI records), `abi` and `gen_abi`
+  (`abi.yaml`), `protos` and `protos_json` (`protos.yaml`), `container` and `closure_log` (`sections.yaml`),
+  and `schema` (`types.yaml` schema_version: any save section);
+- a save section whose layout changed while its `version` did not become the new `schema_version`;
+- a version that goes down (PROTOCOL_VERSION too), and an id reused for another name, even a removed one.
+
+It then appends what is new; commit the ledger with the change (`--check` fails until it is). Never delete
+an entry. A deliberate rename is the one hand edit: change the name under its id.
+
+The save header (`sections.yaml` `save_header`) is a JSON schema with protos.yaml's type syntax (model.ts
+`JsonType`): ranges (`integer(0..31)`, `string(1..64)` in UTF-8 bytes), `color`, `isotime`, `hex16`, arrays
+with a maximum and `unique` or `ascending <field>`, and `record:<name>`, a record's JSON form (its fields in
+camelCase). `validateSaveHeader` refuses everything else.
 
 ## Using the generated code
 
-TypeScript: every struct, message and record has a `<Name>Codec` (`read`/`write`, `encode`/`decode`,
-`dump`, `defaults`; structs also `SIZE`, `OFFSET` and unchecked `get` accessors); enums and flags are
-`const` objects (`Direction.east`); `u64` is a `bigint`.
+TypeScript: every struct, message and record has a `<Name>Codec` with `read`/`write` (on a Reader or
+Writer), `encode`/`decode` (a whole buffer, exactly; records take `strict`), `dump` and `defaults`; structs
+also have `SIZE`, `OFFSET` and unchecked `get` accessors. Enums and flags are `const` objects
+(`Direction.east`); enums with player-facing text have `LOCALE_KEYS`; `u64` is a `bigint`. Tables have
+`encode<Name>`/`decode<Name>` (`pools.ts`). `test/codec/readme.test.ts` runs these examples.
 ```ts
-const bytes = actionBytes({ type: 'build', item, pos: { x2: 4, y2: 6 }, dir: Direction.east, ... });
-const packet = decodePacket(buffer);               // header, directory and section views, all checked
-const v = EntityViewCodec.decode(slice);           // throws DecodeError(kind, field, at)
+const build = actionBytes({ type: 'build', item: 2 << 3, pos: { x2: 4, y2: 6 }, dir: Direction.east,
+  flip: false, mode: BuildMode.normal, flags: 0, drag_id: 0 });   // u16 type, u16 len, payload
+const view = EntityViewCodec.decode(EntityViewCodec.encode(EntityViewCodec.defaults()));
+const packet = decodePacket(bytes);    // header, directory and sections, all checked; throws DecodeError
 ```
 Rust: `Fixed` (`SIZE`, `read`, `write`) for structs, `Packed<'a>` for messages (borrowing, zero-copy
 `List`/`MsgList` views), owned types for records (`decode(r, strict)`, `encode`).
@@ -210,9 +231,9 @@ interpreter independent of the emitted code); a new type is covered without furt
 - `probes.txt`: every limit, and a refusal just past it: `<kind>:<type> <name> <verdict> <hex>`, where the
   verdict is `ok` or `<error kind> <field> @<offset>`. Both languages must give each verdict exactly.
 - `spec/*.hex`: hand-written cases, derived from this README and the YAML alone.
-- `golden/`: whole messages the TypeScript side writes (a closure, a five-section packet, a closure log),
-  which Rust must preflight and decode, write byte for byte (the packet) and parse
-  (`crates/schema/tests/golden.rs`). After a deliberate format change:
+- `golden/`: whole messages the TypeScript side writes (a closure, a five-section packet, a closure log, a
+  prototypes.bin with a column-less table), which Rust must preflight and decode, write byte for byte (the
+  packet), parse and load (`crates/schema/tests/golden.rs`). After a deliberate format change:
   `UPDATE_GOLDEN=1 npx vitest run test/codec/golden.test.ts`.
 - `../protos/m0.bin`: the M0 build's `prototypes.bin` (`npm run data` writes it), which
   `crates/schema/tests/protos_load.rs` loads with `Protos::load` and corrupts in every refused way.
@@ -246,6 +267,9 @@ tag=1
 ```
 `@event` decodes one EVENTS record with the event readers (`read_event`, `readEvent`), which check `len`
 against the type; its dump is the header's fields under `header.`, then the payload's (`type=<name>` first).
+`@lenient <record>` decodes a record leniently (§8.3) and dumps it, defaults included. `@table <name>` loads a
+column table, saves it again (the same bytes) and expects `@ok rows=N` or a refusal. `@closure_log` parses a
+closure log (§8.5) and expects `@ok records=N digests=M blobs=K` or a refusal.
 In `@closure`, several `last_seq` pairs are separated by commas, and a case may have no hex (the empty
 closure).
 A directive line may end in a ` # comment`. An action's error offsets count from its payload. `@closure`
@@ -255,9 +279,12 @@ the system watermark, `blobs` the SHA-256s supplied (comma-separated hex). Both
 
 ## What the checks enforce
 
-- `schema-gen --check` (in `npm run check`): every output and fixture is byte-identical to a fresh
-  generation, and no file in a generated directory names schema-gen without being generated. Generation is
-  deterministic (no clocks, no unordered iteration; check-arch bans them in the generator).
+- `schema-gen --check` (in `npm run check`): every output, fixture and the compatibility ledger is
+  byte-identical to a fresh generation, and no file in a generated directory names schema-gen without being
+  generated. Generation is deterministic (no clocks, no unordered iteration; check-arch bans them in the
+  generator).
+- The compatibility ledger (`schema/compat.yaml`, above): no layout change without its version, no version
+  going down, no id reused.
 - `check-arch`: the generated directories (`src/shared/gen/`, `crates/schema/src/`, `crates/sim/src/gen/`)
   hold only the generators' outputs, each with a header naming its generator, the current `SCHEMA_HASH`
   and its own content hash, so a hand edit fails.

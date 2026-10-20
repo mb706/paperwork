@@ -520,6 +520,19 @@ ${accessors(o, d.fields)}${d.check === 'entity_ref' ? `\n  /** Tag 0 has a and b
     ${checkW}
     ${writes.join('\n    ')}
   },
+  /** The value's ${d.size} bytes. */
+  encode(v: ${name}): Uint8Array {
+    const w = new Writer();
+    ${name}Codec.write(w, v);
+    return w.finish();
+  },
+  /** Decodes a value that fills \`bytes\` exactly. */
+  decode(bytes: Uint8Array): ${name} {
+    const r = new Reader(bytes);
+    const v = ${name}Codec.read(r, ${tsStr(name)});
+    r.finish(${tsStr(name)});
+    return v;
+  },
   ${compareFn(o, d.fields, name)}
   dump(d: Dump, v: ${name}, prefix = ''): void {
     ${dumpBody(o, d.fields)}
@@ -729,7 +742,10 @@ export function tsDefault(o: TsOut, f: Field | null, t: Ty): string {
   if (dv !== undefined) {
     if (typeof dv === 'boolean') return String(dv);
     const s = scalarOf(t);
-    return s && isWide(s) ? `${dv}n` : `${dv}`;
+    if (s && isWide(s)) return `${dv}n`;
+    // Floats exactly as Rust's from_bits: −0 stays −0, an f32 default is rounded to f32 (C1b-r1 finding 7).
+    const x = s === 'f32' ? Math.fround(Number(dv)) : Number(dv);
+    return Object.is(x, -0) ? '-0' : String(x);
   }
   switch (t.k) {
     case 'scalar':

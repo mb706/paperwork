@@ -100,8 +100,8 @@ sections:
   - RNG: {id: 10, version: 1, encoding: records, record: rng_state, key: [stream], hashed: true, shard: {pieces: {base: 1801, step: 1}}}
   - PLAYERS: {id: 11, version: 1, encoding: records, record: player, key: [index], hashed: true, shard: player}
   - STATS: {id: 13, version: 1, encoding: records, record: stat, key: [key], hashed: true, shard: key}
-  # C1b decision (§8.1 sorts by commit tick, surface, cx, cy; §5.18 commits a tick's chunks in ascending
-  # (surface, cy, cx)): the key follows §5.18, so the saved order is the order the commits run in.
+  # §8.1 (C1b decision 6): by commit tick, then surface, cy, cx, the order §5.18 commits a tick's chunks in,
+  # so the saved order is the execution order.
   - WORLDGEN_PENDING: {id: 16, version: 1, encoding: records, record: worldgen_request, key: [commit_tick, surface, cy, cx], hashed: true, shard: chunk}
   - GENERATED: {id: 17, version: 1, encoding: records, record: generated_chunk, key: [surface, key], hashed: true, shard: chunk}
   - POOL_CONTAINER: {id: 32, version: 1, encoding: table, table: container, hashed: true, shard: serial, header_shard: 3002}
@@ -150,22 +150,46 @@ structs:
         - blob_bytes: u32
         - reserved: u32
 
-# The container header (§8.1): UTF-8 JSON, keys sorted, outside the state hash. Rust never reads it; the
-# generator emits its TypeScript type and validator.
+# The container header (§8.1): UTF-8 JSON (no BOM), keys sorted at every level, padded with spaces so that
+# headerLength is a multiple of 8. Metadata outside the state hash: Rust never reads it, the IO worker writes
+# and validates it (src/shared/gen/container.ts: SaveHeader, validateSaveHeader). Every key is required and
+# no other key is allowed, at every level. The JSON type syntax is protos.yaml's (`json`; model.ts JsonType);
+# `record:<name>` is a record's JSON form, so the settings copies follow their records exactly, and the
+# resolved shapes are part of SCHEMA_HASH (C1b-r1 finding 6).
 save_header:
-  format_version: {json: number, doc: "the container's format version"}
-  game_version: {json: string}
-  build_hash: {json: hex32}
-  protocol_version: {json: number}
-  schema_hash: {json: hex32}
-  prototypes_hash: {json: hex32}
-  tick: {json: number}
-  seed: {json: number}
-  map_settings: {json: object, doc: "a copy of GLOBALS' map settings, for the load screen"}
-  world_settings: {json: object}
-  play_time_ticks: {json: number}
-  saved_at: {json: string, doc: "the wall-clock save time, ISO 8601"}
-  thumbnail_section: {json: number, doc: "THUMBNAIL's id, or 0 without one"}
-  name_tables: {json: object, doc: "per ProtoKind name (item, fluid, …), the prototype names in id order (§8.3)"}
-  roster: {json: array, doc: "[{index, name, colour}] (§4.4: names are not world state)"}
-  lineage: {json: hex16, doc: "the digest lineage r at the save's tick (§4.8), 16 hex digits"}
+  types:
+    # One player of the roster (§4.4, 11 §6.5): names and colours are not world state. `color` is the
+    # player's colour as #rrggbb (lowercase hex); the name is what the player chose (1–64 UTF-8 bytes).
+    RosterEntry:
+      index: "integer(0..31)"
+      name: "string(1..64)"
+      color: color
+    # The prototype names of every kind, in id order (§8.3: the loader remaps by name): one key per
+    # ProtoKind, each a list of distinct names of 1–255 UTF-8 bytes (the NAMES section's limits).
+    NameTables:
+      item: "string(1..255)[65535] unique"
+      fluid: "string(1..255)[65535] unique"
+      recipe: "string(1..255)[65535] unique"
+      entity: "string(1..255)[65535] unique"
+      technology: "string(1..255)[65535] unique"
+      resource: "string(1..255)[65535] unique"
+      tile: "string(1..255)[255] unique"
+      world_object: "string(1..255)[65535] unique"
+      signal: "string(1..255)[65535] unique"
+  root:
+    formatVersion: "integer(2..2)"                # the container's format_version (above)
+    gameVersion: "string(1..64)"                  # the build's version string, as the title screen shows it
+    buildHash: hex32
+    protocolVersion: "integer(0..4294967295)"
+    schemaHash: hex32
+    prototypesHash: hex32
+    tick: "integer(0..4294967295)"
+    seed: "integer(0..4294967295)"
+    mapSettings: "record:map_settings"            # copies of GLOBALS' settings, for the load screen (§8.1)
+    worldSettings: "record:world_settings"
+    playTimeTicks: "integer(0..9007199254740991)"
+    savedAt: isotime                              # the wall-clock save time, UTC
+    thumbnailSection: "integer(0..4294967295)"    # THUMBNAIL's id, or 0 without one
+    nameTables: NameTables
+    roster: "RosterEntry[32] ascending index"     # at most one entry per player index, ascending
+    lineage: hex16                                # the digest lineage r at the save's tick (§4.8)

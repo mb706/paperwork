@@ -36,6 +36,7 @@ import {
   readUiRecords,
   UiStatus,
 } from '../../src/shared/gen/projections.ts';
+import { readPrototypesBin, writePrototypesBin } from '../../src/shared/gen/protos.ts';
 import {
   AlertType,
   BuildMode,
@@ -243,7 +244,50 @@ function closureLog(): Uint8Array {
   });
 }
 
+// ------------------------------------------------------------------------------------------- prototypes.bin
+
+/**
+ * A prototypes.bin with every table empty but the signal table, which has no columns and one row (C1b-r1
+ * finding 9), named with a leading U+FEFF (finding 1). Written with a zero schema hash: the Rust test puts
+ * its own SCHEMA_HASH in before loading, so the file outlives schema changes that keep the format.
+ */
+function protosSignal(): Uint8Array {
+  return writePrototypesBin({
+    schemaHash: new Uint8Array(32),
+    item: [],
+    fluid: [],
+    recipe: [],
+    entity: [],
+    technology: [],
+    resource: [],
+    tile: [],
+    world_object: [],
+    signal: [{}],
+    meta: { start: { inventory: [] }, contents: { meta: ['start.inventory'], omitted: [] } },
+    expr: new Uint8Array(0),
+    names: {
+      item: [],
+      fluid: [],
+      recipe: [],
+      entity: [],
+      technology: [],
+      resource: [],
+      tile: [],
+      world_object: [],
+      signal: ['\uFEFFsignal-a'],
+    },
+  });
+}
+
 describe('golden composite fixtures', () => {
+  it('protos-signal.bin: a column-less table with a row, and a name that starts with U+FEFF', () => {
+    const bytes = protosSignal();
+    expect(golden('protos-signal.bin', bytes)).toEqual(bytes);
+    const p = readPrototypesBin(bytes);
+    expect(p.signal).toHaveLength(1);
+    expect(p.names.signal).toEqual(['\uFEFFsignal-a']);
+  });
+
   it('closure.bin: the closure of tick 7', () => {
     const bytes = closure();
     expect(golden('closure.bin', bytes)).toEqual(bytes);

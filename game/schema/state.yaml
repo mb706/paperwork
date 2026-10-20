@@ -24,6 +24,7 @@ tables:
       doc: "One row per building (§4.5), lowest free slot first; a row is live when its serial is not 0"
       section: ENTITY_TABLE
       live: serial
+      max_rows: 4194304     # 2^22: an EntityHandle's slot bits (§4.3)
       fields:
         - proto: {type: EntityId, saved: true, view: true}
         - kind: {type: PoolKind, saved: true, view: true}
@@ -44,6 +45,7 @@ tables:
       doc: "Chests (§4.5): their inventory is one slot-heap block"
       section: POOL_CONTAINER
       live: entity
+      max_rows: 4194304     # at most one row per entity-table slot
       fields:
         - entity: {type: EntityHandle, saved: true, view: true, doc: "saved as the entity's serial"}
         - inv: {type: InvRef, saved: true, view: true, default: 0xFFFFFFFF}

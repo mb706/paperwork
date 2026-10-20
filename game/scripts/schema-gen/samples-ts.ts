@@ -1,6 +1,15 @@
 // The TypeScript side of the codec fixtures (src/shared/gen/samples.ts, tests only): every sample value as
 // a literal, and encode, decode and dump by type name, for the round-trip fixtures and the limit probes.
-import { type Decl, isFloat, isWide, type Schema, scalarOf, type Ty, valueFields } from './model.ts';
+import {
+  type Decl,
+  isFloat,
+  isWide,
+  type Schema,
+  scalarOf,
+  type Ty,
+  typeName,
+  valueFields,
+} from './model.ts';
 import { samples, type Value } from './samples.ts';
 import { type TsOut, tsKey, tsStr } from './ts.ts';
 
@@ -88,8 +97,17 @@ export function tsSamples(s: Schema, o: TsOut): void {
       );
     else if (d.kind === 'record')
       codecs.push(
-        `  ${tsKey(d.name)}: { encode: (v) => ${o.c(d)}.encode(v as never), decode: (b) => ${o.c(d)}.decode(b, true), dump: (d, v) => ${o.c(d)}.dump(d, v as never, '') },`,
+        `  ${tsKey(d.name)}: { encode: (v) => ${o.c(d)}.encode(v as never), decode: (b) => ${o.c(d)}.decode(b, true), lenient: (b) => ${o.c(d)}.decode(b, false), dump: (d, v) => ${o.c(d)}.dump(d, v as never, '') },`,
       );
+  }
+  const tables: string[] = [];
+  for (const name of s.names) {
+    const d = s.decls.get(name) as Decl;
+    if (d.kind !== 'table') continue;
+    const tn = typeName(d);
+    tables.push(
+      `  ${tsKey(d.name)}: { decode: (b) => ${o.imp('pools', `decode${tn}`)}(b), encode: (rows) => ${o.imp('pools', `encode${tn}`)}(rows as never) },`,
+    );
   }
   void scalarOf;
   o.push(`/** One sample: its type, its variant, whether it is an action payload, and its value. */
@@ -105,9 +123,14 @@ export const SAMPLES: readonly SampleCase[] = [
 ${cases.join('\n')}
 ];
 
-/** Encode, decode (whole values; records strictly) and dump by type name. */
-export const CODECS: Readonly<Record<string, { encode(v: unknown): Uint8Array; decode(b: Uint8Array): unknown; dump(d: Dump, v: unknown): void }>> = {
+/** Encode, decode (whole values; records strictly, and leniently by \`lenient\`) and dump by type name. */
+export const CODECS: Readonly<Record<string, { encode(v: unknown): Uint8Array; decode(b: Uint8Array): unknown; lenient?(b: Uint8Array): unknown; dump(d: Dump, v: unknown): void }>> = {
 ${codecs.join('\n')}
+};
+
+/** The column tables (state.yaml) by name: decode and encode. */
+export const TABLES: Readonly<Record<string, { decode(b: Uint8Array): unknown[]; encode(rows: unknown[]): Uint8Array }>> = {
+${tables.join('\n')}
 };
 `);
 }

@@ -1,0 +1,229 @@
+# Regression fixtures for codex's review C1b-r1: each case fails on the code before its fix in at least one
+# language. Layouts as in game/schema/README.md; the bytes were assembled by a throwaway script from the
+# README's rules and checked by hand against the comments.
+
+# ---- finding 1: a leading U+FEFF is a character (TypeScript's TextDecoder used to strip it) ------------------
+# console_command (122) with text "\uFEFFx": u16 len 4, EF BB BF 78. The dump line holds U+FEFF before the x.
+@action
+7a 00 06 00  04 00 ef bb bf 78
+@dump
+type=console_command
+text="﻿x"
+
+# The same with a BOM-only text.
+@action
+7a 00 05 00  03 00 ef bb bf
+@dump
+type=console_command
+text="﻿"
+
+# A record's string: removed_proto {kind 3 (entity), name "\uFEFFa", count 5}.
+@type removed_proto
+1d 00 00 00                       // record length 29
+01 00 01 00 00 00 03              // #1 kind, len 1: entity
+02 00 06 00 00 00 04 00 ef bb bf 61   // #2 name, len 6: str "\uFEFFa"
+03 00 04 00 00 00 05 00 00 00     // #3 count, len 4: 5
+@dump
+kind=3
+name="﻿a"
+count=5
+
+# A message's string: InspectField {section 0, type 1 (u8), name "\uFEFFn", value empty}.
+@type InspectField
+00 00 00 00  01  00  04 00 ef bb bf 6e  00 00
+@dump
+section=0
+type=1
+name="﻿n"
+value=hex:
+
+# ---- finding 2: free pool rows are canonical in both languages ------------------------------------------------
+# container: rows 2, columns entity (u32 serial) at 40 and inv (u32) at 48. Row 0 is live (serial 5, block 0);
+# row 1 is free, so inv must be its default 0xFFFFFFFF.
+@table container
+020000000200000006656e7469747903
+00280000000800000003696e76030030
+00000008000000000500000000000000
+00000000ffffffff
+@ok rows=2
+
+# The same with the free row's inv at 0: refused at that value (48 + 4).
+@table container
+020000000200000006656e7469747903
+00280000000800000003696e76030030
+00000008000000000500000000000000
+0000000000000000
+@error not_canonical container.inv @52
+
+# entity_table: 14 saved columns, 2 rows. Row 0 is live (serial 7); row 1 is free and keeps gen 5, which
+# survives a free (`keep`).
+@table entity_table
+020000000e0000000570726f746f0200
+f000000004000000046b696e640100f8
+00000002000000077375726661636501
+00000100000200000003646972010008
+0100000200000004666c697001001001
+000002000000077175616c6974790100
+1801000002000000086275696c745f62
+79010020010000020000000278320700
+28010000080000000279320700300100
+000800000009706f6f6c5f736c6f7403
+00380100000800000005666c61677303
+0040010000080000000673657269616c
+030048010000080000000367656e0200
+50010000040000000a6275696c745f74
+69636b03005801000008000000000000
+00000000000000000101000000000000
+00000000000000000400000000000000
+00000000000000000000000000000000
+10000000000000000500000000000000
+f9ffffff000000000000000000000000
+00000000000000000700000000000000
+03000500000000006400000000000000
+@ok rows=2
+
+# The same with the free row's proto at 3: refused at that value (the proto column at 240, row 1).
+@table entity_table
+020000000e0000000570726f746f0200
+f000000004000000046b696e640100f8
+00000002000000077375726661636501
+00000100000200000003646972010008
+0100000200000004666c697001001001
+000002000000077175616c6974790100
+1801000002000000086275696c745f62
+79010020010000020000000278320700
+28010000080000000279320700300100
+000800000009706f6f6c5f736c6f7403
+00380100000800000005666c61677303
+0040010000080000000673657269616c
+030048010000080000000367656e0200
+50010000040000000a6275696c745f74
+69636b03005801000008000000000000
+00000300000000000101000000000000
+00000000000000000400000000000000
+00000000000000000000000000000000
+10000000000000000500000000000000
+f9ffffff000000000000000000000000
+00000000000000000700000000000000
+03000500000000006400000000000000
+@error not_canonical entity_table.proto @242
+
+# ---- finding 4: counts are checked before anything is allocated ----------------------------------------------
+# A table header claiming 2^32 − 1 rows and no columns: over max_rows (4,194,304).
+@table container
+ff ff ff ff  00 00  00 00
+@error too_long container @0
+
+# 16 rows and no columns: a table with rows must carry its live column.
+@table entity_table
+10 00 00 00  00 00  00 00
+@error missing_field entity_table.serial @0
+
+# A closure-log header (116 bytes) claiming 2^32 − 1 records in 0 record bytes.
+@closure_log
+5057434c020001000600000009000000
+abababababababababababababababab
+abababababababababababababababab
+cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+8877665544332211ffffffff00000000
+00000000000000000000000000000000
+00000000
+@error truncated
+
+# …and 2^32 − 1 blobs in 0 blob bytes.
+@closure_log
+5057434c020001000600000009000000
+abababababababababababababababab
+abababababababababababababababab
+cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+88776655443322110000000000000000
+0000000000000000ffffffff00000000
+00000000
+@error truncated
+
+# ---- finding 3: a closure log's blob references are checked by every reader ------------------------------------
+# One record (tick 7): player 0 places a blueprint (143) named by blob 00 01 … 1f, and the blob table is empty.
+@closure_log
+5057434c020001000600000009000000
+abababababababababababababababab
+abababababababababababababababab
+cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+88776655443322110100000049000000
+00000000000000000000000000000000
+00000000070000004100000001000000
+0700000001000000010000008f002d00
+04000000060000000000000001000102
+030405060708090a0b0c0d0e0f101112
+131415161718191a1b1c1d1e1f
+@error bad_ref ClosureLog.blobs @140
+
+# The same log with the blob (3 bytes "abc").
+@closure_log
+5057434c020001000600000009000000
+abababababababababababababababab
+abababababababababababababababab
+cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+88776655443322110100000049000000
+00000000000000000100000027000000
+00000000070000004100000001000000
+0700000001000000010000008f002d00
+04000000060000000000000001000102
+030405060708090a0b0c0d0e0f101112
+131415161718191a1b1c1d1e1f000102
+030405060708090a0b0c0d0e0f101112
+131415161718191a1b1c1d1e1f030000
+00616263
+@ok records=1 digests=0 blobs=1
+
+# ---- finding 5: a log's closures pass the preflight's framing rules before their actions are walked ----------
+# The review's closure: a batch of count 0, then a framed clear_cursor (41).
+@closure_log
+5057434c020001000000000001000000
+abababababababababababababababab
+abababababababababababababababab
+cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+8877665544332211010000001c000000
+00000000000000000000000000000000
+00000000010000001400000001000000
+01000000010000000000000029000000
+@error bad_framing ClosureRecord.closure @124
+
+# A clear_cursor whose payload (len 5) runs past the closure.
+@closure_log
+5057434c020001000000000001000000
+abababababababababababababababab
+abababababababababababababababab
+cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+8877665544332211010000001e000000
+00000000000000000000000000000000
+00000000010000001600000001000000
+01000000010000000100000029000500
+0000
+@error bad_framing ClosureRecord.closure @140
+
+# ---- finding 7: lenient reads give the declared defaults, bit for bit, in both languages ----------------------
+# map_settings with no fields at all: every field at its default.
+@lenient map_settings
+00 00 00 00
+@dump
+width=0
+height=0
+starting_area=f64:3ff0000000000000
+resources.len=0
+water_scale=f64:3ff0000000000000
+water_coverage=f64:3ff0000000000000
+trees_frequency=f64:3ff0000000000000
+trees_size=f64:3ff0000000000000
+cliffs_frequency=f64:3ff0000000000000
+cliffs_continuity=f64:3ff0000000000000
+towns_frequency=f64:3ff0000000000000
+towns_size=f64:3ff0000000000000
+archives_size=f64:3ff0000000000000
+archives_richness=f64:3ff0000000000000
+exchanges_richness=f64:3ff0000000000000

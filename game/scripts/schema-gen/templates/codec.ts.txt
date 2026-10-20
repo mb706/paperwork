@@ -33,12 +33,28 @@ export class EncodeError extends Error {
   }
 }
 
-const UTF8 = new TextDecoder('utf-8', { fatal: true });
+// Strict UTF-8, and a leading U+FEFF is a character like any other: TextDecoder strips it by default,
+// which would decode `EF BB BF 78` to "x" where Rust gives "\uFEFFx" (C1b-r1 finding 1).
+const UTF8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 const TEXT = new TextEncoder();
 
 /** The UTF-8 bytes of a string. */
 export function utf8(s: string): Uint8Array {
   return TEXT.encode(s);
+}
+
+/** Decodes UTF-8 exactly as Rust's \`str::from_utf8\` does (invalid bytes throw; a BOM is kept), or null. */
+export function fromUtf8(b: Uint8Array): string | null {
+  try {
+    return UTF8.decode(b);
+  } catch {
+    return null;
+  }
+}
+
+/** Whether two byte strings are equal. */
+export function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((x, i) => x === b[i]);
 }
 
 /** A little-endian reader over bytes. */

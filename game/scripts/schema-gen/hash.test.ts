@@ -5,9 +5,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { GAME } from '../../test/helpers/paths.ts';
+import { loadCapabilities } from './capabilities.ts';
 import { listing, schemaHash } from './listing.ts';
 import { schemaFromTexts } from './load.ts';
 import { buildSchema, SCHEMA_FILES, type SchemaFile } from './model.ts';
+import { emitTsFiles } from './ts-modules.ts';
 import { parseSource, type Source } from './yaml.ts';
 
 const BASE = Object.fromEntries(
@@ -158,6 +160,13 @@ const LAYOUT: [string, Edit[]][] = [
   ['a proto column', [['protos', '- stack_size: {type: u32,', '- stack_size: {type: u16,']]],
   ['the prototypes format', [['protos', 'format_version: 1       #', 'format_version: 2       #']]],
   ['a registry id', [['registries', '- artillery-range: 19', '- artillery-range: 45']]],
+  ['a table row limit', [['state', 'max_rows: 4194304     # 2^22', 'max_rows: 4194303     # 2^22']]],
+  [
+    'a save-header limit',
+    [['sections', 'roster: "RosterEntry[32] ascending index"', 'roster: "RosterEntry[31] ascending index"']],
+  ],
+  ['a save-header string length', [['sections', 'name: "string(1..64)"', 'name: "string(1..63)"']]],
+  ['an enum locale prefix', [['types', '      locale: alert\n', '      locale: alerts\n']]],
 ];
 
 // Documentation and style: the listing leaves them out.
@@ -181,6 +190,26 @@ const COSMETIC: [string, Edit[]][] = [
 ];
 
 describe('SCHEMA_HASH', () => {
+  it('tells a float default of 0 from one of −0 (C1b-r1 finding 7)', () => {
+    const at = '- starting_area: {id: 3, type: f64, default: 1}';
+    const zero = hashWith([['abi', at, '- starting_area: {id: 3, type: f64, default: 0.0}']]);
+    const negative = hashWith([['abi', at, '- starting_area: {id: 3, type: f64, default: -0.0}']]);
+    expect(zero).not.toBe(negative);
+    // …and the TypeScript defaults keep −0, as Rust's from_bits does.
+    const texts = {
+      ...BASE,
+      abi: BASE.abi.replace(at, '- starting_area: {id: 3, type: f64, default: -0.0}'),
+    };
+    const s = schemaFromTexts(texts);
+    const abi = emitTsFiles(
+      s,
+      loadCapabilities(join(GAME, 'data', 'engine', 'capabilities.yaml')),
+      'x',
+      '',
+    ).find((f) => f.path === 'src/shared/gen/abi.ts');
+    expect(abi?.text).toContain('starting_area: -0,');
+  });
+
   it('is the SHA-256 of the committed listing', () => {
     expect(readFileSync(join(GAME, 'src', 'shared', 'gen', 'layout.txt'), 'utf8')).toContain(
       listing(schemaFromTexts(BASE)),

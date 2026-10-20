@@ -357,7 +357,7 @@ class RefReader {
   }
 }
 
-const UTF8 = new TextDecoder('utf-8', { fatal: true });
+const UTF8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 
 /** Decodes a value of type `t` as the generated decoders do. `owned`: record context. */
 function decodeTy(
