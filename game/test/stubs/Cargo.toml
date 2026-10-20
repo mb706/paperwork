@@ -1,0 +1,26 @@
+# The worker shell's stub modules (pm/wp/C3-shell.md; test fixtures): a stub sim.wasm and a stub gen.wasm that
+# implement the generated ABI traits (schema::SimAbi, schema::GenAbi, 10 §15.8–§15.9) trivially, so the shell's
+# instantiation, handshake, memory leases, framing, traps and worker plumbing are tested against real
+# WebAssembly instances beside the real modules. Their own workspace, outside the game's (as test/clippy-bans
+# is); test/helpers/stubs.ts builds them into target/stubs/.
+[workspace]
+resolver = "3"
+members = ["stubsim", "stubgen"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+schema = { path = "../../crates/schema" }
+
+# Fast to build; panics abort (a trap), as in the release modules (10 §3.6).
+[profile.release]
+opt-level = 1
+lto = false
+codegen-units = 16
+incremental = true
+panic = "abort"
+debug = false
+overflow-checks = true
