@@ -2226,7 +2226,7 @@ Floats are stored as their IEEE bits (there is no NaN in state, D6); strings as 
 - **`GENERATED`**: every generated chunk per surface, sorted by key, with its κ, θ and sunlight; chunks in it but not in `CHUNKS` are pristine and regenerate lazily (§4.4).
 - **`TIMERS`**: every timer that does work as `(dueTick, entitySerial, eventCode, owner)`, sorted in that order (D3 c); timers name entities by serial at runtime too (§4.6). Wake timers are derived.
 - **`RNG`**: the states of every xoshiro stream (§4.3). Counter-based draws need no state.
-- **`WORLDGEN_PENDING`**: every requested chunk as `(surface, cx, cy, commitTick)`, sorted by commit tick, then surface, cx, cy (D8, §5.18). The data in flight is not saved: a loaded world regenerates it.
+- **`WORLDGEN_PENDING`**: every requested chunk as `(surface, cx, cy, commitTick)`, sorted by commit tick, then surface, cy, cx, which is the order §5.18 commits a tick's chunks in, so the saved order is the execution order (D8, §5.18; C1b decision 6). The data in flight is not saved: a loaded world regenerates it.
 
 **Derived, rebuilt on load and never saved:**
 - the topology of transport lines, fluid segments, data networks, electric, circuit and logistic networks and rail blocks, with their canonical ranks (§4.6); link clusters. What they hold is saved (in `NETWORKS`): belt items and gaps per lane in canonical order from each line's front, keyed by the line's identity `(entity serial, belt index, lane)` (§5.3); each fluid segment's amount and temperature keyed by its lowest member serial; each circuit network's output frame of the last tick; each train's motion, path, reservations and schedule position. A load rebuilds the topology and then refills it;
@@ -3918,7 +3918,7 @@ The UI never reads simulation state directly. Open windows **subscribe** to proj
 | 4 | `ENTITY_PANEL` | entity serial | prototype, status, recipe, progress, crafts per second now, energy satisfaction, buffer and draw, productivity bar, modules, every inventory's slots inline, fluid boxes, and a kind-specific tail (staff, throttle, resources remaining …) | yes (chests) |
 | 5 | `HOVER` | entity serial (the view request's `hovered_serial` uses `sub_id` 0) | the tooltip's live values for the entity's kind | yes |
 | 6 | `RESEARCH` | — | queue (tech, level, progress, byline), and a state table for the technology screen (tech, state, level, progress) | |
-| 7 | `STATS` | `p0` precision (0–9), `p1` tab; tail: up to 256 keys | per key: produced and consumed totals over the precision's window and, when `p2` bit 0 is set (for at most 32 keys), the 300-point series of each: whole in the first record after subscribing or after a parameter change, then only the points appended since the previous record (`u16 from, u16 count`; B1-r1 15) | yes (hand-mined and hand-crafted items) |
+| 7 | `STATS` | `p0` precision (0–8: the nine ranges), `p1` tab; tail: up to 256 keys | per key: produced and consumed totals over the precision's window and, when `p2` bit 0 is set (for at most 24 keys, so that the series fit the 64 KiB record cap; C1b decisions 3–4), the 300-point series of each: whole in the first record after subscribing or after a parameter change, then only the points appended since the previous record (`u16 from, u16 count`; B1-r1 15) | yes (hand-mined and hand-crafted items) |
 | 8 | `ELECTRIC` | a pole's serial | satisfaction by class, production and consumption by prototype, accumulator charge, series | |
 | 9 | `WORLD` | — | the World window's values (W_own, W_pub, Y_pub, j, σ, Field, Literature …) | |
 | 10 | `DEBUG` | — | per-system active counts, pool sizes, linear-memory bytes, per-phase µs (dev builds), this tick's digests | yes |
@@ -3941,7 +3941,7 @@ Kinds (ids append-only): 1 `rates` (entities or an area; §5.20's rate calculato
 | Id | Type | Payload | Typical use |
 |---|---|---|---|
 | 1 | `action_failed` | `u16 reason` (`FailReason`, a schema enum whose values map to 08's strings in `locale/en.yaml`, except the developer reasons `malformed` (§15.3) and `unsupported` (§2.4), which have no string), `u16 reserved, FinePos pos, u32 serial` | flying text and the error sound; tells the latency state which prediction failed (11 §3.5). A developer reason shows nothing and plays nothing; the shell logs it |
-| 2 | `flying_text` | `u16 text` (`FlyingText`, likewise mapped to 08), `u16 item, i32 count, FinePos pos` | "+3 Iron plate", "Swapped" |
+| 2 | `flying_text` | `u16 text` (`FlyingText`, likewise mapped to 08), `u16 item, i32 count, i32 total, FinePos pos` (`total` is the new inventory count, −1 for none; C1b decision 2) | "+3 Iron plate (57)", "Swapped" |
 | 3 | `entity_built` | `u32 serial, u16 proto, u8 dir, u8 flags` (bit 0 ghost), `TilePos2 pos` | build sound by size; prediction reconciliation |
 | 4 | `entity_mined` | `u32 serial, u16 proto, u16 reserved, TilePos2 pos` | mine sound by material |
 | 5 | `entity_rotated` | `u32 serial, u8 dir, u8 reserved, u16 reserved, TilePos2 pos` | rotate sound |
