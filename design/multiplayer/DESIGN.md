@@ -1,5 +1,7 @@
 # Multiplayer architecture
 
+> **Superseded.** This is the A2 study as written. The binding version is `design/spec/11-multiplayer.md` (chapter 11), with the engine seams and rules D1–D23 in `design/spec/10-architecture.md` §3–§4. This file is not kept in sync.
+
 *WP A2, 2026-10-20. A proposal for the Phase B architecture revision: it is not yet part of the spec. Binding inputs: `CLAUDE.md`, `pm/README.md`, `design/spec/10-architecture.md` (cited as **10 §x**), `07-ui.md` (**07 §x**), `round1/I-ui-controls.md` (**I §x**) and `DECISIONS.md`. Evidence: a proof of concept in `poc/` with its measurements in `poc/results/` (§12), and the web sources in Appendix A, cited as [n].*
 
 **The user's constraints, restated.** Friends and colleagues build one factory together, two to eight players. Clients are trusted. The server that hosts the website may relay, sequence and store, but it does not run the simulation. Syncing must work well. Peer-to-peer UDP is out, because the firewall at the user's site blocks a whole machine for that kind of traffic. Any fallback must be invisible to players.
