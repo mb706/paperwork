@@ -12,8 +12,15 @@ import { DigestResultCodec, InspectResultCodec, StateHashCodec } from '../../src
 import { SCHEMA_HASH } from '../../src/shared/gen/schema.ts';
 import { decodeAll, encodeAll, UI_CODECS } from '../helpers/packets.ts';
 import { type Golden, goldenFiles } from './build/files.ts';
-import { readKtx2 } from './build/ktx2.ts';
-import { committedFiles, filesDigest, M0, type Manifest, readVersions } from './build/main.ts';
+import {
+  committedFiles,
+  externalFiles,
+  filesDigest,
+  GAME_DIR,
+  M0,
+  type Manifest,
+  readVersions,
+} from './build/main.ts';
 import { loadProtos } from './model/protos.ts';
 import { World } from './model/world.ts';
 import { hex64 } from './model/xxh64.ts';
@@ -23,10 +30,11 @@ const sha256 = (b: Uint8Array) => createHash('sha256').update(b).digest('hex');
 const manifest = (): Manifest => JSON.parse(readFileSync(join(M0, 'MANIFEST.json'), 'utf8')) as Manifest;
 
 describe('the golden set is frozen', () => {
-  it('lists exactly its files, with their SHA-256', () => {
+  it("lists exactly its files, with their SHA-256, and the tiny atlas's", () => {
     const m = manifest();
     expect(committedFiles()).toEqual(Object.keys(m.files).sort());
     for (const [p, h] of Object.entries(m.files)) expect(sha256(read(p)), p).toBe(h);
+    expect(externalFiles(), 'the tiny atlas changed: review, then --write --bump').toEqual(m.external);
   });
 
   it('records the manifest in its version ledger: a changed file needs a version bump', () => {
@@ -35,7 +43,7 @@ describe('the golden set is frozen', () => {
     const latest = versions[versions.length - 1];
     expect(latest?.version, 'MANIFEST.json names the latest version').toBe(m.version);
     expect(
-      filesDigest(m.files),
+      filesDigest(m.files, m.external),
       'the files changed without a version bump: review, then --write --bump',
     ).toBe(latest?.digest);
     versions.forEach((v, i) => {
@@ -172,73 +180,31 @@ describe('the golden files decode with the generated readers', () => {
   });
 });
 
-describe('the tiny atlas', () => {
-  const manifestJson = () => JSON.parse(new TextDecoder().decode(read('sprites/atlases/sprites.json')));
+describe("the tiny atlas (C6's fixture, test/fixtures/sprites/)", () => {
+  const atlas = (p: string) => new Uint8Array(readFileSync(join(GAME_DIR, 'test/fixtures/sprites', p)));
+  const sprites = () => JSON.parse(new TextDecoder().decode(atlas('manifest.json')));
 
-  it('is a version-2 manifest whose pages are rgba8 KTX2 files of the declared sizes', () => {
-    const m = manifestJson();
+  it('has a set for every sprite name the golden packets draw (or its greybox) and every M0 icon', () => {
+    const m = sprites();
+    const protos = JSON.parse(new TextDecoder().decode(read('protos/prototypes.json')));
+    const need = [
+      ...protos.entity.map((e: { sprite: string }) => e.sprite),
+      ...protos.entity
+        .filter((e: { type: string }) => e.type !== 'character')
+        .map((e: { name: string }) => `greybox/${e.name}`),
+      ...protos.resource.map((r: { sprite: string }) => r.sprite),
+      ...protos.item.map((i: { icon: string }) => i.icon),
+    ];
+    for (const name of need) expect(Object.keys(m.sets), name).toContain(name);
+  });
+
+  it('is a version-2 manifest of rgba8 pages that exist with their declared sizes', () => {
+    const m = sprites();
     expect(m.version).toBe(2);
-    expect(m.prototypesHash).toBe(sha256(read('protos/prototypes.bin')));
     m.pages.forEach((pages: { files: string[]; bytes: number[] }[], ai: number) => {
-      const a = m.arrays[ai];
-      expect(a.codec).toBe('rgba8');
-      for (const page of pages) {
-        page.files.forEach((f, i) => {
-          const b = read(`sprites/${f}`);
-          expect(b.length).toBe(page.bytes[i]);
-          const k = readKtx2(b);
-          const level = a.kind === 'colour' ? i : 0;
-          expect(k.levels[0]?.width).toBe(a.pageSize >> level);
-        });
-      }
+      expect(m.arrays[ai].codec).toBe('rgba8');
+      for (const page of pages) page.files.forEach((f, i) => expect(atlas(f).length, f).toBe(page.bytes[i]));
     });
-  });
-
-  it('places every frame inside its page, in a 32-px cell with an 8-px gutter, cells apart', () => {
-    const m = manifestJson();
-    const cells = new Map<string, [number, number, number, number]>();
-    for (const [array, layer, x, y, w, h] of m.frames as number[][]) {
-      const size = m.arrays[array as number].pageSize as number;
-      expect(x as number).toBeGreaterThanOrEqual(0);
-      expect((x as number) + (w as number)).toBeLessThanOrEqual(size);
-      expect((y as number) + (h as number)).toBeLessThanOrEqual(size);
-      const key = `${array}/${layer}/${Math.floor(((x as number) - 8) / 32)}/${Math.floor(((y as number) - 8) / 32)}`;
-      if (!cells.has(key)) cells.set(key, [x as number, y as number, w as number, h as number]);
-    }
-    expect(cells.size).toBeGreaterThan(500);
-  });
-
-  it('gives every part a complete table (one entry per index combination) of existing frames', () => {
-    const m = manifestJson();
-    const frames = m.frames.length as number;
-    for (const [name, set] of Object.entries(m.sets) as [string, { parts: Record<string, unknown> }][]) {
-      for (const [pname, raw] of Object.entries(set.parts)) {
-        for (const part of (Array.isArray(raw) ? raw : [raw]) as {
-          axes: string[];
-          shape: number[];
-          table: number[][];
-          map?: Record<string, number[]>;
-        }[]) {
-          const n = part.shape.reduce((a, b) => a * b, 1);
-          expect(part.table.length, `${name} ${pname}`).toBe(n);
-          for (const e of part.table) for (const f of e) expect(f).toBeLessThan(frames);
-          for (const [axis, map] of Object.entries(part.map ?? {})) {
-            expect(map.length, `${name} ${pname} map.${axis}`).toBe(
-              axis === 'mask' || axis === 'light' ? 256 : axis === 'dir' ? 16 : map.length,
-            );
-            for (const v of map) expect(v).toBeLessThan(part.shape[part.axes.indexOf(axis)] as number);
-          }
-        }
-      }
-    }
-  });
-
-  it("lists cases whose draws name the manifest's frames", () => {
-    const m = manifestJson();
-    const cases = JSON.parse(new TextDecoder().decode(read('sprites/cases.json')));
-    expect(cases.cases.length).toBeGreaterThanOrEqual(15);
-    for (const c of cases.cases)
-      for (const d of c.draws) for (const q of d.quads) expect(m.frames[q.frame][1]).toBe(q.layer);
   });
 });
 

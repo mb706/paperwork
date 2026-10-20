@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="28" viewBox="0 0 32 28" data-slice="6 6 4 6" data-repeat="stretch">
+  <title>tab</title>
+  <desc>Tab, not selected.</desc>
+  <path d="M0.5 27.5 V3 Q0.5 0.5 3 0.5 H29 Q31.5 0.5 31.5 3 V27.5 Z" fill="#dcc690" stroke="#6f5a36" stroke-width="1"/>
+  <path d="M2 26 V3.5 Q2 2 3.5 2 H28" fill="none" stroke="#e6d3a2" stroke-width="1"/>
+</svg>

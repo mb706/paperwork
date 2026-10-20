@@ -1,0 +1,2224 @@
+{
+  "cases": [
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [257, 258, 259, 260],
+          "part": "base",
+          "passes": ["colour", "colour", "colour", "colour"],
+          "quads": [
+            [0.0, -144.0, 64.0, 32.0],
+            [0.0, -80.0, 64.0, 32.0],
+            [0.0, -112.0, 16.0, 32.0],
+            [48.0, -112.0, 16.0, 32.0]
+          ],
+          "uvs": [
+            [0.003906, 0.003906, 0.066406, 0.035156],
+            [0.003906, 0.066406, 0.066406, 0.097656],
+            [0.003906, 0.035156, 0.019531, 0.066406],
+            [0.050781, 0.035156, 0.066406, 0.066406]
+          ]
+        },
+        {
+          "frames": [266],
+          "part": "layers[0]",
+          "passes": ["colour"],
+          "quads": [[16.0, -112.0, 32.0, 32.0]],
+          "uvs": [[0.339844, 0.105469, 0.371094, 0.136719]]
+        },
+        {
+          "alpha": 0.784314,
+          "frames": [279],
+          "part": "light",
+          "passes": ["light"],
+          "quads": [[0.0, -112.0, 64.0, 64.0]],
+          "uvs": [[0.015625, 0.015625, 0.078125, 0.078125]]
+        },
+        {
+          "frames": [278],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[16.0, -88.0, 80.0, 48.0]],
+          "uvs": [[0.003906, 0.003906, 0.042969, 0.027344]]
+        }
+      ],
+      "input": {
+        "dir": 0,
+        "dyn": { "light": 200, "phase": 20480, "state": 1 },
+        "variant": 0,
+        "x2": 2,
+        "y2": -4
+      },
+      "name": "furnace working, frame from phase, camera 0",
+      "program": "entity",
+      "set": "entity/stone-furnace"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [257, 258, 259, 260],
+          "part": "base",
+          "passes": ["colour", "colour", "colour", "colour"],
+          "quads": [
+            [208.0, -768.0, 128.0, 64.0],
+            [208.0, -640.0, 128.0, 64.0],
+            [208.0, -704.0, 32.0, 64.0],
+            [304.0, -704.0, 32.0, 64.0]
+          ],
+          "uvs": [
+            [0.003906, 0.003906, 0.066406, 0.035156],
+            [0.003906, 0.066406, 0.066406, 0.097656],
+            [0.003906, 0.035156, 0.019531, 0.066406],
+            [0.050781, 0.035156, 0.066406, 0.066406]
+          ]
+        },
+        {
+          "frames": [266],
+          "part": "layers[0]",
+          "passes": ["colour"],
+          "quads": [[240.0, -704.0, 64.0, 64.0]],
+          "uvs": [[0.339844, 0.105469, 0.371094, 0.136719]]
+        },
+        {
+          "alpha": 0.784314,
+          "frames": [279],
+          "part": "light",
+          "passes": ["light"],
+          "quads": [[208.0, -704.0, 128.0, 128.0]],
+          "uvs": [[0.015625, 0.015625, 0.078125, 0.078125]]
+        },
+        {
+          "frames": [278],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[240.0, -656.0, 160.0, 96.0]],
+          "uvs": [[0.003906, 0.003906, 0.042969, 0.027344]]
+        }
+      ],
+      "input": {
+        "dir": 0,
+        "dyn": { "light": 200, "phase": 20480, "state": 1 },
+        "variant": 0,
+        "x2": 2,
+        "y2": -4
+      },
+      "name": "furnace working, frame from phase, camera 1",
+      "program": "entity",
+      "set": "entity/stone-furnace"
+    },
+    {
+      "camera": { "cx": 100.5, "cy": -40.25, "dpr": 1.0, "zoom": 0.5 },
+      "expect": [
+        {
+          "frames": [257, 258, 259, 260],
+          "part": "base",
+          "passes": ["colour", "colour", "colour", "colour"],
+          "quads": [
+            [-1608.0, 572.0, 32.0, 16.0],
+            [-1608.0, 604.0, 32.0, 16.0],
+            [-1608.0, 588.0, 8.0, 16.0],
+            [-1584.0, 588.0, 8.0, 16.0]
+          ],
+          "uvs": [
+            [0.003906, 0.003906, 0.066406, 0.035156],
+            [0.003906, 0.066406, 0.066406, 0.097656],
+            [0.003906, 0.035156, 0.019531, 0.066406],
+            [0.050781, 0.035156, 0.066406, 0.066406]
+          ]
+        },
+        {
+          "frames": [266],
+          "part": "layers[0]",
+          "passes": ["colour"],
+          "quads": [[-1600.0, 588.0, 16.0, 16.0]],
+          "uvs": [[0.339844, 0.105469, 0.371094, 0.136719]]
+        },
+        {
+          "alpha": 0.784314,
+          "frames": [279],
+          "part": "light",
+          "passes": ["light"],
+          "quads": [[-1608.0, 588.0, 32.0, 32.0]],
+          "uvs": [[0.015625, 0.015625, 0.078125, 0.078125]]
+        },
+        {
+          "frames": [278],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[-1600.0, 600.0, 40.0, 24.0]],
+          "uvs": [[0.003906, 0.003906, 0.042969, 0.027344]]
+        }
+      ],
+      "input": {
+        "dir": 0,
+        "dyn": { "light": 200, "phase": 20480, "state": 1 },
+        "variant": 0,
+        "x2": 2,
+        "y2": -4
+      },
+      "name": "furnace working, frame from phase, camera 2",
+      "program": "entity",
+      "set": "entity/stone-furnace"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 3.0 },
+      "expect": [
+        {
+          "frames": [257, 258, 259, 260],
+          "part": "base",
+          "passes": ["colour", "colour", "colour", "colour"],
+          "quads": [
+            [0.0, -432.0, 192.0, 96.0],
+            [0.0, -240.0, 192.0, 96.0],
+            [0.0, -336.0, 48.0, 96.0],
+            [144.0, -336.0, 48.0, 96.0]
+          ],
+          "uvs": [
+            [0.003906, 0.003906, 0.066406, 0.035156],
+            [0.003906, 0.066406, 0.066406, 0.097656],
+            [0.003906, 0.035156, 0.019531, 0.066406],
+            [0.050781, 0.035156, 0.066406, 0.066406]
+          ]
+        },
+        {
+          "frames": [266],
+          "part": "layers[0]",
+          "passes": ["colour"],
+          "quads": [[48.0, -336.0, 96.0, 96.0]],
+          "uvs": [[0.339844, 0.105469, 0.371094, 0.136719]]
+        },
+        {
+          "alpha": 0.784314,
+          "frames": [279],
+          "part": "light",
+          "passes": ["light"],
+          "quads": [[0.0, -336.0, 192.0, 192.0]],
+          "uvs": [[0.015625, 0.015625, 0.078125, 0.078125]]
+        },
+        {
+          "frames": [278],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[48.0, -264.0, 240.0, 144.0]],
+          "uvs": [[0.003906, 0.003906, 0.042969, 0.027344]]
+        }
+      ],
+      "input": {
+        "dir": 0,
+        "dyn": { "light": 200, "phase": 20480, "state": 1 },
+        "variant": 0,
+        "x2": 2,
+        "y2": -4
+      },
+      "name": "furnace working, frame from phase, camera 3",
+      "program": "entity",
+      "set": "entity/stone-furnace"
+    },
+    {
+      "camera": { "cx": -1000.0, "cy": -1000.0, "dpr": 2.0, "zoom": 2.0 },
+      "expect": [
+        {
+          "frames": [257, 258, 259, 260],
+          "part": "base",
+          "passes": ["colour", "colour", "colour", "colour"],
+          "quads": [
+            [128000.0, 127424.0, 256.0, 128.0],
+            [128000.0, 127680.0, 256.0, 128.0],
+            [128000.0, 127552.0, 64.0, 128.0],
+            [128192.0, 127552.0, 64.0, 128.0]
+          ],
+          "uvs": [
+            [0.003906, 0.003906, 0.066406, 0.035156],
+            [0.003906, 0.066406, 0.066406, 0.097656],
+            [0.003906, 0.035156, 0.019531, 0.066406],
+            [0.050781, 0.035156, 0.066406, 0.066406]
+          ]
+        },
+        {
+          "frames": [266],
+          "part": "layers[0]",
+          "passes": ["colour"],
+          "quads": [[128064.0, 127552.0, 128.0, 128.0]],
+          "uvs": [[0.339844, 0.105469, 0.371094, 0.136719]]
+        },
+        {
+          "alpha": 0.784314,
+          "frames": [279],
+          "part": "light",
+          "passes": ["light"],
+          "quads": [[128000.0, 127552.0, 256.0, 256.0]],
+          "uvs": [[0.015625, 0.015625, 0.078125, 0.078125]]
+        },
+        {
+          "frames": [278],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[128064.0, 127648.0, 320.0, 192.0]],
+          "uvs": [[0.003906, 0.003906, 0.042969, 0.027344]]
+        }
+      ],
+      "input": {
+        "dir": 0,
+        "dyn": { "light": 200, "phase": 20480, "state": 1 },
+        "variant": 0,
+        "x2": 2,
+        "y2": -4
+      },
+      "name": "furnace working, frame from phase, camera 4",
+      "program": "entity",
+      "set": "entity/stone-furnace"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [277],
+          "part": "idle",
+          "passes": ["colour"],
+          "quads": [[-128.0, 48.0, 64.0, 96.0]],
+          "uvs": [[0.074219, 0.003906, 0.136719, 0.097656]]
+        },
+        {
+          "alpha": 0.0,
+          "frames": [279],
+          "part": "light",
+          "passes": ["light"],
+          "quads": [[-128.0, 80.0, 64.0, 64.0]],
+          "uvs": [[0.015625, 0.015625, 0.078125, 0.078125]]
+        },
+        {
+          "frames": [278],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[-112.0, 104.0, 80.0, 48.0]],
+          "uvs": [[0.003906, 0.003906, 0.042969, 0.027344]]
+        }
+      ],
+      "input": {
+        "dir": 4,
+        "dyn": { "light": 0, "phase": 40000, "state": 0 },
+        "variant": 0,
+        "x2": -6,
+        "y2": 8
+      },
+      "name": "furnace idle (state 0) draws idle, the light at 0",
+      "program": "entity",
+      "set": "entity/stone-furnace"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [257, 258, 259, 260],
+          "part": "base",
+          "passes": ["colour", "colour", "colour", "colour"],
+          "quads": [
+            [-80.0, -928.0, 128.0, 64.0],
+            [-80.0, -800.0, 128.0, 64.0],
+            [-80.0, -864.0, 32.0, 64.0],
+            [16.0, -864.0, 32.0, 64.0]
+          ],
+          "uvs": [
+            [0.003906, 0.003906, 0.066406, 0.035156],
+            [0.003906, 0.066406, 0.066406, 0.097656],
+            [0.003906, 0.035156, 0.019531, 0.066406],
+            [0.050781, 0.035156, 0.066406, 0.066406]
+          ]
+        },
+        {
+          "frames": [261],
+          "part": "layers[0]",
+          "passes": ["colour"],
+          "quads": [[-48.0, -864.0, 64.0, 64.0]],
+          "uvs": [[0.144531, 0.105469, 0.175781, 0.136719]]
+        },
+        {
+          "alpha": 0.0,
+          "frames": [279],
+          "part": "light",
+          "passes": ["light"],
+          "quads": [[-80.0, -864.0, 128.0, 128.0]],
+          "uvs": [[0.015625, 0.015625, 0.078125, 0.078125]]
+        },
+        {
+          "frames": [278],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[-48.0, -816.0, 160.0, 96.0]],
+          "uvs": [[0.003906, 0.003906, 0.042969, 0.027344]]
+        }
+      ],
+      "input": { "dir": 8, "dyn": null, "variant": 0, "x2": -7, "y2": -9 },
+      "name": "furnace without DYN: base and layer frame 0",
+      "program": "entity",
+      "set": "entity/stone-furnace"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [280],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[96.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.769531, 0.105469, 0.800781, 0.136719]]
+        },
+        {
+          "frames": [320],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[96.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.605469, 0.066406, 0.621094, 0.082031]]
+        }
+      ],
+      "input": { "beltSpeed": 8, "dir": 0, "dyn": null, "tick": 0, "variant": 9, "x2": 7, "y2": -3 },
+      "name": "belt dir 0 mask 9 tick 0",
+      "program": "entity",
+      "set": "entity/transport-belt"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [290, 292],
+          "part": "base",
+          "passes": ["colour", "colour"],
+          "quads": [[96.0, -64.0, 32.0, 32.0], [96.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.160156, 0.175781, 0.191406, 0.207031], [0.472656, 0.175781, 0.503906, 0.207031]]
+        },
+        {
+          "frames": [323],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[96.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.722656, 0.066406, 0.738281, 0.082031]]
+        }
+      ],
+      "input": { "beltSpeed": 8, "dir": 4, "dyn": null, "tick": 3, "variant": 1, "x2": 7, "y2": -3 },
+      "name": "belt dir 4 mask 1 tick 3",
+      "program": "entity",
+      "set": "entity/transport-belt"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [307],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[96.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.667969, 0.175781, 0.699219, 0.207031]]
+        },
+        {
+          "frames": [327],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[96.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.863281, 0.066406, 0.878906, 0.082031]]
+        }
+      ],
+      "input": { "beltSpeed": 8, "dir": 8, "dyn": null, "tick": 5, "variant": 10, "x2": 7, "y2": -3 },
+      "name": "belt dir 8 mask 10 tick 5",
+      "program": "entity",
+      "set": "entity/transport-belt"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [319, 315],
+          "part": "base",
+          "passes": ["colour", "colour"],
+          "quads": [[96.0, -64.0, 32.0, 32.0], [96.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.160156, 0.214844, 0.191406, 0.246094], [0.316406, 0.214844, 0.347656, 0.246094]]
+        },
+        {
+          "frames": [331],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[96.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.003906, 0.097656, 0.019531, 0.113281]]
+        }
+      ],
+      "input": { "beltSpeed": 8, "dir": 12, "dyn": null, "tick": 7, "variant": 4, "x2": 7, "y2": -3 },
+      "name": "belt dir 12 mask 4 tick 7",
+      "program": "entity",
+      "set": "entity/transport-belt"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        { "frames": [], "part": "base", "passes": [], "quads": [], "uvs": [] },
+        { "frames": [], "part": "shadow", "passes": [], "quads": [], "uvs": [] }
+      ],
+      "input": { "beltSpeed": 8, "dir": 2, "dyn": null, "tick": 1, "variant": 9, "x2": 7, "y2": -3 },
+      "name": "belt dir 2 mask 9 tick 1",
+      "program": "entity",
+      "set": "entity/transport-belt"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [290, 291, 292],
+          "part": "base",
+          "passes": ["colour", "colour", "colour"],
+          "quads": [[96.0, -64.0, 32.0, 32.0], [96.0, -64.0, 32.0, 32.0], [96.0, -64.0, 32.0, 32.0]],
+          "uvs": [
+            [0.160156, 0.175781, 0.191406, 0.207031],
+            [0.394531, 0.175781, 0.425781, 0.207031],
+            [0.472656, 0.175781, 0.503906, 0.207031]
+          ]
+        },
+        {
+          "frames": [323],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[96.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.722656, 0.066406, 0.738281, 0.082031]]
+        }
+      ],
+      "input": { "beltSpeed": 8, "dir": 4, "dyn": null, "tick": 2, "variant": 0, "x2": 7, "y2": -3 },
+      "name": "belt dir 4 mask 0 tick 2",
+      "program": "entity",
+      "set": "entity/transport-belt"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [280, 282],
+          "part": "base",
+          "passes": ["colour", "colour"],
+          "quads": [[96.0, -64.0, 32.0, 32.0], [96.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.769531, 0.105469, 0.800781, 0.136719], [0.082031, 0.175781, 0.113281, 0.207031]]
+        },
+        {
+          "frames": [320],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[96.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.605469, 0.066406, 0.621094, 0.082031]]
+        }
+      ],
+      "input": { "beltSpeed": 8, "dir": 0, "dyn": null, "tick": 9, "variant": 6, "x2": 7, "y2": -3 },
+      "name": "belt dir 0 mask 6 tick 9",
+      "program": "entity",
+      "set": "entity/transport-belt"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [0],
+          "part": "platform",
+          "passes": ["colour"],
+          "quads": [[64.0, -68.0, 32.0, 32.0]],
+          "uvs": [[0.355469, 0.214844, 0.386719, 0.246094]]
+        },
+        {
+          "frames": [4],
+          "part": "platform_shadow",
+          "passes": ["shadow"],
+          "quads": [[64.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.074219, 0.097656, 0.089844, 0.113281]]
+        },
+        {
+          "at": [80.0, -63.04],
+          "frames": [8],
+          "part": "arm",
+          "pass": "colour",
+          "pivot": [2, 9],
+          "rotation_turns": 0.0,
+          "scale": 4.0,
+          "stretch": 1.0
+        },
+        {
+          "at": [80.0, -95.04],
+          "frames": [10],
+          "part": "hand_open",
+          "pass": "colour",
+          "pivot": [2, 3],
+          "rotation_turns": 0.0,
+          "scale": 4.0
+        },
+        {
+          "at": [101.488, -42.088],
+          "frames": [9],
+          "part": "arm_shadow",
+          "pass": "shadow",
+          "pivot": [1, 4],
+          "rotation_turns": 0.0,
+          "scale": 8.0,
+          "stretch": 1.0
+        },
+        {
+          "at": [101.488, -74.088],
+          "frames": [12],
+          "part": "hand_open_shadow",
+          "pass": "shadow",
+          "pivot": [1, 1],
+          "rotation_turns": 0.0,
+          "scale": 8.0
+        }
+      ],
+      "input": { "dir": 0, "ext": 4096, "held": 65535, "theta": 0, "x2": 5, "y2": -3 },
+      "name": "inserter theta 0.0 ext 1.0 held 65535 camera 0",
+      "program": "inserter",
+      "set": "entity/inserter"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [0],
+          "part": "platform",
+          "passes": ["colour"],
+          "quads": [[336.0, -616.0, 64.0, 64.0]],
+          "uvs": [[0.355469, 0.214844, 0.386719, 0.246094]]
+        },
+        {
+          "frames": [4],
+          "part": "platform_shadow",
+          "passes": ["shadow"],
+          "quads": [[336.0, -608.0, 64.0, 64.0]],
+          "uvs": [[0.074219, 0.097656, 0.089844, 0.113281]]
+        },
+        {
+          "at": [368.0, -606.08],
+          "frames": [8],
+          "part": "arm",
+          "pass": "colour",
+          "pivot": [2, 9],
+          "rotation_turns": 0.0,
+          "scale": 8.0,
+          "stretch": 1.0
+        },
+        {
+          "at": [368.0, -670.08],
+          "frames": [10],
+          "part": "hand_open",
+          "pass": "colour",
+          "pivot": [2, 3],
+          "rotation_turns": 0.0,
+          "scale": 8.0
+        },
+        {
+          "at": [410.976, -564.176],
+          "frames": [9],
+          "part": "arm_shadow",
+          "pass": "shadow",
+          "pivot": [1, 4],
+          "rotation_turns": 0.0,
+          "scale": 16.0,
+          "stretch": 1.0
+        },
+        {
+          "at": [410.976, -628.176],
+          "frames": [12],
+          "part": "hand_open_shadow",
+          "pass": "shadow",
+          "pivot": [1, 1],
+          "rotation_turns": 0.0,
+          "scale": 16.0
+        }
+      ],
+      "input": { "dir": 0, "ext": 4096, "held": 65535, "theta": 0, "x2": 5, "y2": -3 },
+      "name": "inserter theta 0.0 ext 1.0 held 65535 camera 1",
+      "program": "inserter",
+      "set": "entity/inserter"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [1],
+          "part": "platform",
+          "passes": ["colour"],
+          "quads": [[64.0, -68.0, 32.0, 32.0]],
+          "uvs": [[0.394531, 0.214844, 0.425781, 0.246094]]
+        },
+        {
+          "frames": [5],
+          "part": "platform_shadow",
+          "passes": ["shadow"],
+          "quads": [[64.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.097656, 0.097656, 0.113281, 0.113281]]
+        },
+        {
+          "at": [80.0, -63.04],
+          "frames": [8],
+          "part": "arm",
+          "pass": "colour",
+          "pivot": [2, 9],
+          "rotation_turns": 0.25,
+          "scale": 4.0,
+          "stretch": 0.799805
+        },
+        {
+          "at": [105.5938, -63.04],
+          "frames": [11],
+          "part": "hand_closed",
+          "pass": "colour",
+          "pivot": [2, 3],
+          "rotation_turns": 0.25,
+          "scale": 4.0
+        },
+        { "at": [105.5938, -63.04], "item": 7, "part": "held", "size_tiles": 0.5 },
+        {
+          "at": [101.488, -42.088],
+          "frames": [9],
+          "part": "arm_shadow",
+          "pass": "shadow",
+          "pivot": [1, 4],
+          "rotation_turns": 0.25,
+          "scale": 8.0,
+          "stretch": 0.799805
+        },
+        {
+          "at": [127.0817, -42.088],
+          "frames": [13],
+          "part": "hand_closed_shadow",
+          "pass": "shadow",
+          "pivot": [1, 1],
+          "rotation_turns": 0.25,
+          "scale": 8.0
+        }
+      ],
+      "input": { "dir": 4, "ext": 3276, "held": 7, "theta": 16384, "x2": 5, "y2": -3 },
+      "name": "inserter theta 0.25 ext 0.8 held 7 camera 0",
+      "program": "inserter",
+      "set": "entity/inserter"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [1],
+          "part": "platform",
+          "passes": ["colour"],
+          "quads": [[336.0, -616.0, 64.0, 64.0]],
+          "uvs": [[0.394531, 0.214844, 0.425781, 0.246094]]
+        },
+        {
+          "frames": [5],
+          "part": "platform_shadow",
+          "passes": ["shadow"],
+          "quads": [[336.0, -608.0, 64.0, 64.0]],
+          "uvs": [[0.097656, 0.097656, 0.113281, 0.113281]]
+        },
+        {
+          "at": [368.0, -606.08],
+          "frames": [8],
+          "part": "arm",
+          "pass": "colour",
+          "pivot": [2, 9],
+          "rotation_turns": 0.25,
+          "scale": 8.0,
+          "stretch": 0.799805
+        },
+        {
+          "at": [419.1875, -606.08],
+          "frames": [11],
+          "part": "hand_closed",
+          "pass": "colour",
+          "pivot": [2, 3],
+          "rotation_turns": 0.25,
+          "scale": 8.0
+        },
+        { "at": [419.1875, -606.08], "item": 7, "part": "held", "size_tiles": 0.5 },
+        {
+          "at": [410.976, -564.176],
+          "frames": [9],
+          "part": "arm_shadow",
+          "pass": "shadow",
+          "pivot": [1, 4],
+          "rotation_turns": 0.25,
+          "scale": 16.0,
+          "stretch": 0.799805
+        },
+        {
+          "at": [462.1635, -564.176],
+          "frames": [13],
+          "part": "hand_closed_shadow",
+          "pass": "shadow",
+          "pivot": [1, 1],
+          "rotation_turns": 0.25,
+          "scale": 16.0
+        }
+      ],
+      "input": { "dir": 4, "ext": 3276, "held": 7, "theta": 16384, "x2": 5, "y2": -3 },
+      "name": "inserter theta 0.25 ext 0.8 held 7 camera 1",
+      "program": "inserter",
+      "set": "entity/inserter"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [2],
+          "part": "platform",
+          "passes": ["colour"],
+          "quads": [[64.0, -68.0, 32.0, 32.0]],
+          "uvs": [[0.433594, 0.214844, 0.464844, 0.246094]]
+        },
+        {
+          "frames": [6],
+          "part": "platform_shadow",
+          "passes": ["shadow"],
+          "quads": [[64.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.121094, 0.097656, 0.136719, 0.113281]]
+        },
+        {
+          "at": [80.0, -63.04],
+          "frames": [8],
+          "part": "arm",
+          "pass": "colour",
+          "pivot": [2, 9],
+          "rotation_turns": 0.5,
+          "scale": 4.0,
+          "stretch": 1.199951
+        },
+        {
+          "at": [80.0, -24.6416],
+          "frames": [10],
+          "part": "hand_open",
+          "pass": "colour",
+          "pivot": [2, 3],
+          "rotation_turns": 0.5,
+          "scale": 4.0
+        },
+        {
+          "at": [101.488, -42.088],
+          "frames": [9],
+          "part": "arm_shadow",
+          "pass": "shadow",
+          "pivot": [1, 4],
+          "rotation_turns": 0.5,
+          "scale": 8.0,
+          "stretch": 1.199951
+        },
+        {
+          "at": [101.488, -3.6896],
+          "frames": [12],
+          "part": "hand_open_shadow",
+          "pass": "shadow",
+          "pivot": [1, 1],
+          "rotation_turns": 0.5,
+          "scale": 8.0
+        }
+      ],
+      "input": { "dir": 8, "ext": 4915, "held": 65535, "theta": 32768, "x2": 5, "y2": -3 },
+      "name": "inserter theta 0.5 ext 1.2 held 65535 camera 0",
+      "program": "inserter",
+      "set": "entity/inserter"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [2],
+          "part": "platform",
+          "passes": ["colour"],
+          "quads": [[336.0, -616.0, 64.0, 64.0]],
+          "uvs": [[0.433594, 0.214844, 0.464844, 0.246094]]
+        },
+        {
+          "frames": [6],
+          "part": "platform_shadow",
+          "passes": ["shadow"],
+          "quads": [[336.0, -608.0, 64.0, 64.0]],
+          "uvs": [[0.121094, 0.097656, 0.136719, 0.113281]]
+        },
+        {
+          "at": [368.0, -606.08],
+          "frames": [8],
+          "part": "arm",
+          "pass": "colour",
+          "pivot": [2, 9],
+          "rotation_turns": 0.5,
+          "scale": 8.0,
+          "stretch": 1.199951
+        },
+        {
+          "at": [368.0, -529.2831],
+          "frames": [10],
+          "part": "hand_open",
+          "pass": "colour",
+          "pivot": [2, 3],
+          "rotation_turns": 0.5,
+          "scale": 8.0
+        },
+        {
+          "at": [410.976, -564.176],
+          "frames": [9],
+          "part": "arm_shadow",
+          "pass": "shadow",
+          "pivot": [1, 4],
+          "rotation_turns": 0.5,
+          "scale": 16.0,
+          "stretch": 1.199951
+        },
+        {
+          "at": [410.976, -487.3791],
+          "frames": [12],
+          "part": "hand_open_shadow",
+          "pass": "shadow",
+          "pivot": [1, 1],
+          "rotation_turns": 0.5,
+          "scale": 16.0
+        }
+      ],
+      "input": { "dir": 8, "ext": 4915, "held": 65535, "theta": 32768, "x2": 5, "y2": -3 },
+      "name": "inserter theta 0.5 ext 1.2 held 65535 camera 1",
+      "program": "inserter",
+      "set": "entity/inserter"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [3],
+          "part": "platform",
+          "passes": ["colour"],
+          "quads": [[64.0, -68.0, 32.0, 32.0]],
+          "uvs": [[0.472656, 0.214844, 0.503906, 0.246094]]
+        },
+        {
+          "frames": [7],
+          "part": "platform_shadow",
+          "passes": ["shadow"],
+          "quads": [[64.0, -64.0, 32.0, 32.0]],
+          "uvs": [[0.144531, 0.097656, 0.160156, 0.113281]]
+        },
+        {
+          "at": [80.0, -63.04],
+          "frames": [8],
+          "part": "arm",
+          "pass": "colour",
+          "pivot": [2, 9],
+          "rotation_turns": 0.8125,
+          "scale": 4.0,
+          "stretch": 1.0
+        },
+        {
+          "at": [50.4359, -75.2859],
+          "frames": [11],
+          "part": "hand_closed",
+          "pass": "colour",
+          "pivot": [2, 3],
+          "rotation_turns": 0.8125,
+          "scale": 4.0
+        },
+        { "at": [50.4359, -75.2859], "item": 3, "part": "held", "size_tiles": 0.5 },
+        {
+          "at": [101.488, -42.088],
+          "frames": [9],
+          "part": "arm_shadow",
+          "pass": "shadow",
+          "pivot": [1, 4],
+          "rotation_turns": 0.8125,
+          "scale": 8.0,
+          "stretch": 1.0
+        },
+        {
+          "at": [71.9239, -54.3339],
+          "frames": [13],
+          "part": "hand_closed_shadow",
+          "pass": "shadow",
+          "pivot": [1, 1],
+          "rotation_turns": 0.8125,
+          "scale": 8.0
+        }
+      ],
+      "input": { "dir": 12, "ext": 4096, "held": 3, "theta": 53248, "x2": 5, "y2": -3 },
+      "name": "inserter theta 0.8125 ext 1.0 held 3 camera 0",
+      "program": "inserter",
+      "set": "entity/inserter"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [3],
+          "part": "platform",
+          "passes": ["colour"],
+          "quads": [[336.0, -616.0, 64.0, 64.0]],
+          "uvs": [[0.472656, 0.214844, 0.503906, 0.246094]]
+        },
+        {
+          "frames": [7],
+          "part": "platform_shadow",
+          "passes": ["shadow"],
+          "quads": [[336.0, -608.0, 64.0, 64.0]],
+          "uvs": [[0.144531, 0.097656, 0.160156, 0.113281]]
+        },
+        {
+          "at": [368.0, -606.08],
+          "frames": [8],
+          "part": "arm",
+          "pass": "colour",
+          "pivot": [2, 9],
+          "rotation_turns": 0.8125,
+          "scale": 8.0,
+          "stretch": 1.0
+        },
+        {
+          "at": [308.8717, -630.5717],
+          "frames": [11],
+          "part": "hand_closed",
+          "pass": "colour",
+          "pivot": [2, 3],
+          "rotation_turns": 0.8125,
+          "scale": 8.0
+        },
+        { "at": [308.8717, -630.5717], "item": 3, "part": "held", "size_tiles": 0.5 },
+        {
+          "at": [410.976, -564.176],
+          "frames": [9],
+          "part": "arm_shadow",
+          "pass": "shadow",
+          "pivot": [1, 4],
+          "rotation_turns": 0.8125,
+          "scale": 16.0,
+          "stretch": 1.0
+        },
+        {
+          "at": [351.8477, -588.6677],
+          "frames": [13],
+          "part": "hand_closed_shadow",
+          "pass": "shadow",
+          "pivot": [1, 1],
+          "rotation_turns": 0.8125,
+          "scale": 16.0
+        }
+      ],
+      "input": { "dir": 12, "ext": 4096, "held": 3, "theta": 53248, "x2": 5, "y2": -3 },
+      "name": "inserter theta 0.8125 ext 1.0 held 3 camera 1",
+      "program": "inserter",
+      "set": "entity/inserter"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [338],
+          "part": "idle",
+          "passes": ["colour"],
+          "quads": [[-158.0, 52.0, 16.0, 32.0]],
+          "uvs": [[0.511719, 0.214844, 0.527344, 0.246094]]
+        },
+        {
+          "frames": [370],
+          "part": "idle_shadow",
+          "passes": ["shadow"],
+          "quads": [[-158.0, 72.0, 32.0, 16.0]],
+          "uvs": [[0.316406, 0.167969, 0.332031, 0.175781]]
+        }
+      ],
+      "input": {
+        "distance": 0.0,
+        "flags": 0,
+        "orientation": 0,
+        "seconds": 0.0,
+        "vx": 0,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character idle orientation 0 camera 0",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [338],
+          "part": "idle",
+          "passes": ["colour"],
+          "quads": [[-108.0, -376.0, 32.0, 64.0]],
+          "uvs": [[0.511719, 0.214844, 0.527344, 0.246094]]
+        },
+        {
+          "frames": [370],
+          "part": "idle_shadow",
+          "passes": ["shadow"],
+          "quads": [[-108.0, -336.0, 64.0, 32.0]],
+          "uvs": [[0.316406, 0.167969, 0.332031, 0.175781]]
+        }
+      ],
+      "input": {
+        "distance": 0.0,
+        "flags": 0,
+        "orientation": 0,
+        "seconds": 0.0,
+        "vx": 0,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character idle orientation 0 camera 1",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 3.0 },
+      "expect": [
+        {
+          "frames": [338],
+          "part": "idle",
+          "passes": ["colour"],
+          "quads": [[-474.0, 156.0, 48.0, 96.0]],
+          "uvs": [[0.511719, 0.214844, 0.527344, 0.246094]]
+        },
+        {
+          "frames": [370],
+          "part": "idle_shadow",
+          "passes": ["shadow"],
+          "quads": [[-474.0, 216.0, 96.0, 48.0]],
+          "uvs": [[0.316406, 0.167969, 0.332031, 0.175781]]
+        }
+      ],
+      "input": {
+        "distance": 0.0,
+        "flags": 0,
+        "orientation": 0,
+        "seconds": 0.0,
+        "vx": 0,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character idle orientation 0 camera 3",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [344],
+          "part": "idle",
+          "passes": ["colour"],
+          "quads": [[-158.0, 52.0, 16.0, 32.0]],
+          "uvs": [[0.652344, 0.214844, 0.667969, 0.246094]]
+        },
+        {
+          "frames": [376],
+          "part": "idle_shadow",
+          "passes": ["shadow"],
+          "quads": [[-158.0, 72.0, 32.0, 16.0]],
+          "uvs": [[0.457031, 0.167969, 0.472656, 0.175781]]
+        }
+      ],
+      "input": {
+        "distance": 0.0,
+        "flags": 0,
+        "orientation": 12000,
+        "seconds": 1.3,
+        "vx": 0,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character idle orientation 12000 camera 0",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [344],
+          "part": "idle",
+          "passes": ["colour"],
+          "quads": [[-108.0, -376.0, 32.0, 64.0]],
+          "uvs": [[0.652344, 0.214844, 0.667969, 0.246094]]
+        },
+        {
+          "frames": [376],
+          "part": "idle_shadow",
+          "passes": ["shadow"],
+          "quads": [[-108.0, -336.0, 64.0, 32.0]],
+          "uvs": [[0.457031, 0.167969, 0.472656, 0.175781]]
+        }
+      ],
+      "input": {
+        "distance": 0.0,
+        "flags": 0,
+        "orientation": 12000,
+        "seconds": 1.3,
+        "vx": 0,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character idle orientation 12000 camera 1",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 3.0 },
+      "expect": [
+        {
+          "frames": [344],
+          "part": "idle",
+          "passes": ["colour"],
+          "quads": [[-474.0, 156.0, 48.0, 96.0]],
+          "uvs": [[0.652344, 0.214844, 0.667969, 0.246094]]
+        },
+        {
+          "frames": [376],
+          "part": "idle_shadow",
+          "passes": ["shadow"],
+          "quads": [[-474.0, 216.0, 96.0, 48.0]],
+          "uvs": [[0.457031, 0.167969, 0.472656, 0.175781]]
+        }
+      ],
+      "input": {
+        "distance": 0.0,
+        "flags": 0,
+        "orientation": 12000,
+        "seconds": 1.3,
+        "vx": 0,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character idle orientation 12000 camera 3",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [442],
+          "part": "run",
+          "passes": ["colour"],
+          "quads": [[-158.0, 52.0, 16.0, 32.0]],
+          "uvs": [[0.214844, 0.292969, 0.230469, 0.324219]]
+        },
+        {
+          "frames": [570],
+          "part": "run_shadow",
+          "passes": ["shadow"],
+          "quads": [[-158.0, 72.0, 32.0, 16.0]],
+          "uvs": [[0.027344, 0.207031, 0.042969, 0.214844]]
+        }
+      ],
+      "input": {
+        "distance": 1.15,
+        "flags": 0,
+        "orientation": 16384,
+        "seconds": 0.0,
+        "vx": 5,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character run orientation 16384 camera 0",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [442],
+          "part": "run",
+          "passes": ["colour"],
+          "quads": [[-108.0, -376.0, 32.0, 64.0]],
+          "uvs": [[0.214844, 0.292969, 0.230469, 0.324219]]
+        },
+        {
+          "frames": [570],
+          "part": "run_shadow",
+          "passes": ["shadow"],
+          "quads": [[-108.0, -336.0, 64.0, 32.0]],
+          "uvs": [[0.027344, 0.207031, 0.042969, 0.214844]]
+        }
+      ],
+      "input": {
+        "distance": 1.15,
+        "flags": 0,
+        "orientation": 16384,
+        "seconds": 0.0,
+        "vx": 5,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character run orientation 16384 camera 1",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 3.0 },
+      "expect": [
+        {
+          "frames": [442],
+          "part": "run",
+          "passes": ["colour"],
+          "quads": [[-474.0, 156.0, 48.0, 96.0]],
+          "uvs": [[0.214844, 0.292969, 0.230469, 0.324219]]
+        },
+        {
+          "frames": [570],
+          "part": "run_shadow",
+          "passes": ["shadow"],
+          "quads": [[-474.0, 216.0, 96.0, 48.0]],
+          "uvs": [[0.027344, 0.207031, 0.042969, 0.214844]]
+        }
+      ],
+      "input": {
+        "distance": 1.15,
+        "flags": 0,
+        "orientation": 16384,
+        "seconds": 0.0,
+        "vx": 5,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character run orientation 16384 camera 3",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [408],
+          "part": "run",
+          "passes": ["colour"],
+          "quads": [[-158.0, 52.0, 16.0, 32.0]],
+          "uvs": [[0.402344, 0.253906, 0.417969, 0.285156]]
+        },
+        {
+          "frames": [536],
+          "part": "run_shadow",
+          "passes": ["shadow"],
+          "quads": [[-158.0, 72.0, 32.0, 16.0]],
+          "uvs": [[0.214844, 0.191406, 0.230469, 0.199219]]
+        }
+      ],
+      "input": {
+        "distance": 7.9,
+        "flags": 0,
+        "orientation": 61440,
+        "seconds": 0.0,
+        "vx": -3,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character run orientation 61440 camera 0",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [408],
+          "part": "run",
+          "passes": ["colour"],
+          "quads": [[-108.0, -376.0, 32.0, 64.0]],
+          "uvs": [[0.402344, 0.253906, 0.417969, 0.285156]]
+        },
+        {
+          "frames": [536],
+          "part": "run_shadow",
+          "passes": ["shadow"],
+          "quads": [[-108.0, -336.0, 64.0, 32.0]],
+          "uvs": [[0.214844, 0.191406, 0.230469, 0.199219]]
+        }
+      ],
+      "input": {
+        "distance": 7.9,
+        "flags": 0,
+        "orientation": 61440,
+        "seconds": 0.0,
+        "vx": -3,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character run orientation 61440 camera 1",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 3.0 },
+      "expect": [
+        {
+          "frames": [408],
+          "part": "run",
+          "passes": ["colour"],
+          "quads": [[-474.0, 156.0, 48.0, 96.0]],
+          "uvs": [[0.402344, 0.253906, 0.417969, 0.285156]]
+        },
+        {
+          "frames": [536],
+          "part": "run_shadow",
+          "passes": ["shadow"],
+          "quads": [[-474.0, 216.0, 96.0, 48.0]],
+          "uvs": [[0.214844, 0.191406, 0.230469, 0.199219]]
+        }
+      ],
+      "input": {
+        "distance": 7.9,
+        "flags": 0,
+        "orientation": 61440,
+        "seconds": 0.0,
+        "vx": -3,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character run orientation 61440 camera 3",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [729],
+          "part": "mine",
+          "passes": ["colour"],
+          "quads": [[-158.0, 52.0, 16.0, 32.0]],
+          "uvs": [[0.003906, 0.449219, 0.019531, 0.480469]]
+        },
+        {
+          "frames": [857],
+          "part": "mine_shadow",
+          "passes": ["shadow"],
+          "quads": [[-158.0, 72.0, 32.0, 16.0]],
+          "uvs": [[0.800781, 0.253906, 0.816406, 0.261719]]
+        }
+      ],
+      "input": {
+        "distance": 0.0,
+        "flags": 1,
+        "orientation": 32768,
+        "seconds": 0.47,
+        "vx": 0,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character mine orientation 32768 camera 0",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [729],
+          "part": "mine",
+          "passes": ["colour"],
+          "quads": [[-108.0, -376.0, 32.0, 64.0]],
+          "uvs": [[0.003906, 0.449219, 0.019531, 0.480469]]
+        },
+        {
+          "frames": [857],
+          "part": "mine_shadow",
+          "passes": ["shadow"],
+          "quads": [[-108.0, -336.0, 64.0, 32.0]],
+          "uvs": [[0.800781, 0.253906, 0.816406, 0.261719]]
+        }
+      ],
+      "input": {
+        "distance": 0.0,
+        "flags": 1,
+        "orientation": 32768,
+        "seconds": 0.47,
+        "vx": 0,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character mine orientation 32768 camera 1",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 3.0 },
+      "expect": [
+        {
+          "frames": [729],
+          "part": "mine",
+          "passes": ["colour"],
+          "quads": [[-474.0, 156.0, 48.0, 96.0]],
+          "uvs": [[0.003906, 0.449219, 0.019531, 0.480469]]
+        },
+        {
+          "frames": [857],
+          "part": "mine_shadow",
+          "passes": ["shadow"],
+          "quads": [[-474.0, 216.0, 96.0, 48.0]],
+          "uvs": [[0.800781, 0.253906, 0.816406, 0.261719]]
+        }
+      ],
+      "input": {
+        "distance": 0.0,
+        "flags": 1,
+        "orientation": 32768,
+        "seconds": 0.47,
+        "vx": 0,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character mine orientation 32768 camera 3",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [658],
+          "part": "mine",
+          "passes": ["colour"],
+          "quads": [[-158.0, 52.0, 16.0, 32.0]],
+          "uvs": [[0.308594, 0.371094, 0.324219, 0.402344]]
+        },
+        {
+          "frames": [786],
+          "part": "mine_shadow",
+          "passes": ["shadow"],
+          "quads": [[-158.0, 72.0, 32.0, 16.0]],
+          "uvs": [[0.121094, 0.238281, 0.136719, 0.246094]]
+        }
+      ],
+      "input": {
+        "distance": 3.0,
+        "flags": 1,
+        "orientation": 4000,
+        "seconds": 2.06,
+        "vx": 4,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character mine orientation 4000 camera 0",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [658],
+          "part": "mine",
+          "passes": ["colour"],
+          "quads": [[-108.0, -376.0, 32.0, 64.0]],
+          "uvs": [[0.308594, 0.371094, 0.324219, 0.402344]]
+        },
+        {
+          "frames": [786],
+          "part": "mine_shadow",
+          "passes": ["shadow"],
+          "quads": [[-108.0, -336.0, 64.0, 32.0]],
+          "uvs": [[0.121094, 0.238281, 0.136719, 0.246094]]
+        }
+      ],
+      "input": {
+        "distance": 3.0,
+        "flags": 1,
+        "orientation": 4000,
+        "seconds": 2.06,
+        "vx": 4,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character mine orientation 4000 camera 1",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 3.0 },
+      "expect": [
+        {
+          "frames": [658],
+          "part": "mine",
+          "passes": ["colour"],
+          "quads": [[-474.0, 156.0, 48.0, 96.0]],
+          "uvs": [[0.308594, 0.371094, 0.324219, 0.402344]]
+        },
+        {
+          "frames": [786],
+          "part": "mine_shadow",
+          "passes": ["shadow"],
+          "quads": [[-474.0, 216.0, 96.0, 48.0]],
+          "uvs": [[0.121094, 0.238281, 0.136719, 0.246094]]
+        }
+      ],
+      "input": {
+        "distance": 3.0,
+        "flags": 1,
+        "orientation": 4000,
+        "seconds": 2.06,
+        "vx": 4,
+        "vy": 0,
+        "x": -1200,
+        "y": 640
+      },
+      "name": "character mine orientation 4000 camera 3",
+      "program": "mover",
+      "set": "mover/character"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [163],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[168.0, -108.0, 16.0, 32.0]],
+          "uvs": [[0.777344, 0.488281, 0.792969, 0.519531]]
+        },
+        {
+          "alpha": 1.0,
+          "frames": [211],
+          "part": "light",
+          "passes": ["light"],
+          "quads": [[160.0, -128.0, 32.0, 32.0]],
+          "uvs": [[0.265625, 0.109375, 0.296875, 0.140625]]
+        },
+        {
+          "frames": [247],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[168.0, -104.0, 16.0, 32.0]],
+          "uvs": [[0.261719, 0.097656, 0.269531, 0.113281]]
+        }
+      ],
+      "input": {
+        "dir": 6,
+        "dyn": { "light": 255, "phase": 0, "state": 1 },
+        "status": 0,
+        "variant": 0,
+        "x2": 11,
+        "y2": -5
+      },
+      "name": "rail signal status 0",
+      "program": "entity",
+      "set": "entity/rail-signal"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [164],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[168.0, -108.0, 16.0, 32.0]],
+          "uvs": [[0.800781, 0.488281, 0.816406, 0.519531]]
+        },
+        {
+          "alpha": 1.0,
+          "frames": [212],
+          "part": "light",
+          "passes": ["light"],
+          "quads": [[160.0, -128.0, 32.0, 32.0]],
+          "uvs": [[0.328125, 0.109375, 0.359375, 0.140625]]
+        },
+        {
+          "frames": [247],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[168.0, -104.0, 16.0, 32.0]],
+          "uvs": [[0.261719, 0.097656, 0.269531, 0.113281]]
+        }
+      ],
+      "input": {
+        "dir": 6,
+        "dyn": { "light": 255, "phase": 0, "state": 1 },
+        "status": 1,
+        "variant": 0,
+        "x2": 11,
+        "y2": -5
+      },
+      "name": "rail signal status 1",
+      "program": "entity",
+      "set": "entity/rail-signal"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [165],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[168.0, -108.0, 16.0, 32.0]],
+          "uvs": [[0.824219, 0.488281, 0.839844, 0.519531]]
+        },
+        {
+          "alpha": 1.0,
+          "frames": [213],
+          "part": "light",
+          "passes": ["light"],
+          "quads": [[160.0, -128.0, 32.0, 32.0]],
+          "uvs": [[0.390625, 0.109375, 0.421875, 0.140625]]
+        },
+        {
+          "frames": [247],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[168.0, -104.0, 16.0, 32.0]],
+          "uvs": [[0.261719, 0.097656, 0.269531, 0.113281]]
+        }
+      ],
+      "input": {
+        "dir": 6,
+        "dyn": { "light": 255, "phase": 0, "state": 1 },
+        "status": 2,
+        "variant": 0,
+        "x2": 11,
+        "y2": -5
+      },
+      "name": "rail signal status 2",
+      "program": "entity",
+      "set": "entity/rail-signal"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        { "frames": [], "part": "base", "passes": [], "quads": [], "uvs": [] },
+        { "alpha": 1.0, "frames": [], "part": "light", "passes": [], "quads": [], "uvs": [] },
+        {
+          "frames": [247],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[168.0, -104.0, 16.0, 32.0]],
+          "uvs": [[0.261719, 0.097656, 0.269531, 0.113281]]
+        }
+      ],
+      "input": {
+        "dir": 6,
+        "dyn": { "light": 255, "phase": 0, "state": 1 },
+        "status": 9,
+        "variant": 0,
+        "x2": 11,
+        "y2": -5
+      },
+      "name": "rail signal status 9",
+      "program": "entity",
+      "set": "entity/rail-signal"
+    },
+    {
+      "camera": { "cx": 100.5, "cy": -40.25, "dpr": 1.0, "zoom": 0.5 },
+      "expect": [
+        {
+          "frames": [1051],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[-1600.0, 646.0, 16.0, 32.0]],
+          "uvs": [[0.597656, 0.003906, 0.628906, 0.066406]]
+        },
+        {
+          "frames": [1063],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[-1596.0, 668.0, 32.0, 16.0]],
+          "uvs": [[0.457031, 0.097656, 0.488281, 0.113281]]
+        }
+      ],
+      "input": { "variant": 4, "x": 256, "y": 512 },
+      "name": "tree at 256,512 stage 4",
+      "program": "object",
+      "set": "object/tree-oak"
+    },
+    {
+      "camera": { "cx": 100.5, "cy": -40.25, "dpr": 1.0, "zoom": 0.5 },
+      "expect": [
+        {
+          "frames": [1042],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[-1803.5, 4989.0, 16.0, 32.0]],
+          "uvs": [[0.246094, 0.003906, 0.277344, 0.066406]]
+        },
+        {
+          "frames": [1062],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[-1799.5, 5011.0, 32.0, 16.0]],
+          "uvs": [[0.417969, 0.097656, 0.449219, 0.113281]]
+        }
+      ],
+      "input": { "variant": 0, "x": -3000, "y": 70000 },
+      "name": "tree at -3000,70000 stage 0",
+      "program": "object",
+      "set": "object/tree-oak"
+    },
+    {
+      "camera": { "cx": 100.5, "cy": -40.25, "dpr": 1.0, "zoom": 0.5 },
+      "expect": [
+        {
+          "frames": [1054],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[75544.4375, -477781.0625, 16.0, 32.0]],
+          "uvs": [[0.714844, 0.003906, 0.746094, 0.066406]]
+        },
+        {
+          "frames": [1064],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[75548.4375, -477759.0625, 32.0, 16.0]],
+          "uvs": [[0.496094, 0.097656, 0.527344, 0.113281]]
+        }
+      ],
+      "input": { "variant": 2, "x": 1234567, "y": -7654321 },
+      "name": "tree at 1234567,-7654321 stage 2",
+      "program": "object",
+      "set": "object/tree-oak"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [1073],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[0.0, -4.0, 32.0, 32.0]],
+          "uvs": [[0.769531, 0.527344, 0.800781, 0.558594]]
+        },
+        {
+          "frames": [1121],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[0.0, 0.0, 32.0, 24.0]],
+          "uvs": [[0.261719, 0.144531, 0.277344, 0.15625]]
+        }
+      ],
+      "input": { "band": 7, "tx": 0, "ty": 0 },
+      "name": "resource tile 0,0 band 7",
+      "program": "resource",
+      "set": "resource/iron-ore-patch"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [1098],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[-160.0, 92.0, 32.0, 32.0]],
+          "uvs": [[0.746094, 0.566406, 0.777344, 0.597656]]
+        },
+        {
+          "frames": [1146],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[-160.0, 96.0, 32.0, 24.0]],
+          "uvs": [[0.847656, 0.144531, 0.863281, 0.15625]]
+        }
+      ],
+      "input": { "band": 0, "tx": -5, "ty": 3 },
+      "name": "resource tile -5,3 band 0",
+      "program": "resource",
+      "set": "resource/iron-ore-patch"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [1110],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[1280.0, -2468.0, 32.0, 32.0]],
+          "uvs": [[0.238281, 0.605469, 0.269531, 0.636719]]
+        },
+        {
+          "frames": [1158],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[1280.0, -2464.0, 32.0, 24.0]],
+          "uvs": [[0.144531, 0.167969, 0.160156, 0.179688]]
+        }
+      ],
+      "input": { "band": 4, "tx": 40, "ty": -77 },
+      "name": "resource tile 40,-77 band 4",
+      "program": "resource",
+      "set": "resource/iron-ore-patch"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [1096],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[-32000.0, 63996.0, 32.0, 32.0]],
+          "uvs": [[0.667969, 0.566406, 0.699219, 0.597656]]
+        },
+        {
+          "frames": [1144],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[-32000.0, 64000.0, 32.0, 24.0]],
+          "uvs": [[0.800781, 0.144531, 0.816406, 0.15625]]
+        }
+      ],
+      "input": { "band": 6, "tx": -1000, "ty": 2000 },
+      "name": "resource tile -1000,2000 band 6",
+      "program": "resource",
+      "set": "resource/iron-ore-patch"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [914],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[816.0, -840.0, 64.0, 64.0]],
+          "uvs": [[0.394531, 0.605469, 0.425781, 0.636719]]
+        },
+        {
+          "frames": [978],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[816.0, -832.0, 64.0, 64.0]],
+          "uvs": [[0.574219, 0.097656, 0.589844, 0.113281]]
+        }
+      ],
+      "input": { "orientation": 0, "x": 2560, "y": -1280 },
+      "name": "locomotive orientation 0",
+      "program": "mover",
+      "set": "mover/locomotive"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [914],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[816.0, -840.0, 64.0, 64.0]],
+          "uvs": [[0.394531, 0.605469, 0.425781, 0.636719]]
+        },
+        {
+          "frames": [978],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[816.0, -832.0, 64.0, 64.0]],
+          "uvs": [[0.574219, 0.097656, 0.589844, 0.113281]]
+        }
+      ],
+      "input": { "orientation": 511, "x": 2560, "y": -1280 },
+      "name": "locomotive orientation 511",
+      "program": "mover",
+      "set": "mover/locomotive"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [915],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[816.0, -840.0, 64.0, 64.0]],
+          "uvs": [[0.433594, 0.605469, 0.464844, 0.636719]]
+        },
+        {
+          "frames": [979],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[816.0, -832.0, 64.0, 64.0]],
+          "uvs": [[0.597656, 0.097656, 0.613281, 0.113281]]
+        }
+      ],
+      "input": { "orientation": 512, "x": 2560, "y": -1280 },
+      "name": "locomotive orientation 512",
+      "program": "mover",
+      "set": "mover/locomotive"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [915],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[816.0, -840.0, 64.0, 64.0]],
+          "uvs": [[0.433594, 0.605469, 0.464844, 0.636719]]
+        },
+        {
+          "frames": [979],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[816.0, -832.0, 64.0, 64.0]],
+          "uvs": [[0.597656, 0.097656, 0.613281, 0.113281]]
+        }
+      ],
+      "input": { "orientation": 1024, "x": 2560, "y": -1280 },
+      "name": "locomotive orientation 1024",
+      "program": "mover",
+      "set": "mover/locomotive"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [946],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[816.0, -840.0, 64.0, 64.0]],
+          "uvs": [[0.667969, 0.644531, 0.699219, 0.675781]]
+        },
+        {
+          "frames": [1010],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[816.0, -832.0, 64.0, 64.0]],
+          "uvs": [[0.332031, 0.121094, 0.347656, 0.136719]]
+        }
+      ],
+      "input": { "orientation": 32767, "x": 2560, "y": -1280 },
+      "name": "locomotive orientation 32767",
+      "program": "mover",
+      "set": "mover/locomotive"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [977],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[816.0, -840.0, 64.0, 64.0]],
+          "uvs": [[0.902344, 0.683594, 0.933594, 0.714844]]
+        },
+        {
+          "frames": [1041],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[816.0, -832.0, 64.0, 64.0]],
+          "uvs": [[0.074219, 0.144531, 0.089844, 0.160156]]
+        }
+      ],
+      "input": { "orientation": 65000, "x": 2560, "y": -1280 },
+      "name": "locomotive orientation 65000",
+      "program": "mover",
+      "set": "mover/locomotive"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [914],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[816.0, -840.0, 64.0, 64.0]],
+          "uvs": [[0.394531, 0.605469, 0.425781, 0.636719]]
+        },
+        {
+          "frames": [978],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[816.0, -832.0, 64.0, 64.0]],
+          "uvs": [[0.574219, 0.097656, 0.589844, 0.113281]]
+        }
+      ],
+      "input": { "orientation": 65535, "x": 2560, "y": -1280 },
+      "name": "locomotive orientation 65535",
+      "program": "mover",
+      "set": "mover/locomotive"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 3.0 },
+      "expect": [
+        {
+          "frames": [16],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[-144.0, -240.0, 288.0, 288.0]],
+          "uvs": [[0.144531, 0.003906, 0.238281, 0.097656]]
+        },
+        {
+          "frames": [17],
+          "part": "layers[0]",
+          "passes": ["colour"],
+          "quads": [[-48.0, -168.0, 96.0, 96.0]],
+          "uvs": [[0.941406, 0.683594, 0.972656, 0.714844]]
+        },
+        {
+          "frames": [81],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[-72.0, -72.0, 192.0, 144.0]],
+          "uvs": [[0.050781, 0.003906, 0.082031, 0.027344]]
+        }
+      ],
+      "input": { "dir": 0, "dyn": { "light": 0, "phase": 0, "state": 1 }, "variant": 0, "x2": 0, "y2": 0 },
+      "name": "radar phase 0",
+      "program": "entity",
+      "set": "entity/radar"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 3.0 },
+      "expect": [
+        {
+          "frames": [16],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[-144.0, -240.0, 288.0, 288.0]],
+          "uvs": [[0.144531, 0.003906, 0.238281, 0.097656]]
+        },
+        {
+          "frames": [17],
+          "part": "layers[0]",
+          "passes": ["colour"],
+          "quads": [[-48.0, -168.0, 96.0, 96.0]],
+          "uvs": [[0.941406, 0.683594, 0.972656, 0.714844]]
+        },
+        {
+          "frames": [81],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[-72.0, -72.0, 192.0, 144.0]],
+          "uvs": [[0.050781, 0.003906, 0.082031, 0.027344]]
+        }
+      ],
+      "input": { "dir": 0, "dyn": { "light": 0, "phase": 1023, "state": 1 }, "variant": 0, "x2": 0, "y2": 0 },
+      "name": "radar phase 1023",
+      "program": "entity",
+      "set": "entity/radar"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 3.0 },
+      "expect": [
+        {
+          "frames": [16],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[-144.0, -240.0, 288.0, 288.0]],
+          "uvs": [[0.144531, 0.003906, 0.238281, 0.097656]]
+        },
+        {
+          "frames": [18],
+          "part": "layers[0]",
+          "passes": ["colour"],
+          "quads": [[-48.0, -168.0, 96.0, 96.0]],
+          "uvs": [[0.003906, 0.722656, 0.035156, 0.753906]]
+        },
+        {
+          "frames": [82],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[-72.0, -72.0, 192.0, 144.0]],
+          "uvs": [[0.089844, 0.003906, 0.121094, 0.027344]]
+        }
+      ],
+      "input": { "dir": 0, "dyn": { "light": 0, "phase": 1024, "state": 1 }, "variant": 0, "x2": 0, "y2": 0 },
+      "name": "radar phase 1024",
+      "program": "entity",
+      "set": "entity/radar"
+    },
+    {
+      "camera": { "cx": 0.0, "cy": 0.0, "dpr": 1.0, "zoom": 3.0 },
+      "expect": [
+        {
+          "frames": [16],
+          "part": "base",
+          "passes": ["colour"],
+          "quads": [[-144.0, -240.0, 288.0, 288.0]],
+          "uvs": [[0.144531, 0.003906, 0.238281, 0.097656]]
+        },
+        {
+          "frames": [80],
+          "part": "layers[0]",
+          "passes": ["colour"],
+          "quads": [[-48.0, -168.0, 96.0, 96.0]],
+          "uvs": [[0.472656, 0.800781, 0.503906, 0.832031]]
+        },
+        {
+          "frames": [144],
+          "part": "shadow",
+          "passes": ["shadow"],
+          "quads": [[-72.0, -72.0, 192.0, 144.0]],
+          "uvs": [[0.550781, 0.066406, 0.582031, 0.089844]]
+        }
+      ],
+      "input": {
+        "dir": 0,
+        "dyn": { "light": 0, "phase": 65535, "state": 1 },
+        "variant": 0,
+        "x2": 0,
+        "y2": 0
+      },
+      "name": "radar phase 65535",
+      "program": "entity",
+      "set": "entity/radar"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [337],
+          "part": "icon",
+          "passes": ["icon"],
+          "quads": [[400.0, -592.0, 32.0, 32.0]],
+          "uvs": [[0.015625, 0.015625, 0.265625, 0.265625]]
+        }
+      ],
+      "input": { "at": [3.25, -1.5], "sizeTiles": 0.5 },
+      "name": "icon item/iron-plate",
+      "program": "icon",
+      "set": "item/iron-plate"
+    },
+    {
+      "camera": { "cx": -3.25, "cy": 7.5, "dpr": 2.0, "zoom": 1.0 },
+      "expect": [
+        {
+          "frames": [332],
+          "part": "icon",
+          "passes": ["icon"],
+          "quads": [[400.0, -592.0, 32.0, 32.0]],
+          "uvs": [[0.015625, 0.296875, 0.265625, 0.546875]]
+        }
+      ],
+      "input": { "at": [3.25, -1.5], "sizeTiles": 0.5 },
+      "name": "icon item/no-such-item",
+      "program": "icon",
+      "set": "item/no-such-item"
+    }
+  ],
+  "manifest": "manifest.json",
+  "notes": [
+    "The sprite manifest's semantics in Python (10 \u00a715.7): flatten, axis lookup, the drawing programs, the projection.",
+    "",
+    "The renderer implements the same in TypeScript; both run test/fixtures/sprites/cases.json (10 \u00a715.7 \"Fixtures and",
+    "versions\"), so a disagreement shows in one of the two suites. The asset build uses this for its checks, contact",
+    "sheets and previews: nothing else computes frame ids.",
+    "",
+    "Conventions (10 \u00a715.4, \u00a715.7): world x east and y south in tiles; Direction 0-15 (north 0, east 4, south 8, west",
+    "12); phases, orientations and theta are turns x 65,536 from north, clockwise; positions of entities are x2, y2 in",
+    "half tiles (the footprint centre), of objects and movers in 1/256 tile, of resource tiles in whole tiles.",
+    "",
+    "Interpretations this file fixes where 10 \u00a715.7 is silent (recorded in pm/reports/C6.md):",
+    "  * a part's `frame` axis takes its index from the set's clock wherever the part is: DYN.phase for entities,",
+    "    and for belts (whose base carries the frame axis) 10 \u00a76.8's rule with the set's framesPerTile;",
+    "  * a set without `base` (none today) draws nothing for it; an empty table entry draws the greybox;",
+    "  * a part P's shadow is the part `P_shadow`, except `base`, whose shadow is `shadow` (10 \u00a715.7's example);",
+    "  * the inserter's shadows rotate like its parts about the shoulder's shadow, anchor + shadowShoulder (shadow",
+    "    array px), the hand's shadow at that point plus r S (sin 2 pi theta, -cos 2 pi theta);",
+    "  * `orientation` rounds half up: floor(o n / 65,536 + 1/2) mod n;",
+    "  * a set whose parts have a `light` axis says where its value comes from: `lightFrom` \"status\" (signals, train",
+    "    stops: EntityView.status) or, by default, DYN.light > 0 as 0 or 1 (lamps)."
+  ],
+  "projection": { "HEIGHT_SCALE": 1, "PX_PER_TILE": 32 },
+  "version": 1
+}

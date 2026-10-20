@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="24" viewBox="0 0 12 24" data-slice="5 4 5 4" data-repeat="stretch">
+  <title>scroll-thumb</title>
+  <desc>Scrollbar thumb, with a grip of three rules (the centre stays fixed when stretched).</desc>
+  <rect x="1.5" y="1.5" width="9" height="21" rx="1" fill="#f3e8cc" stroke="#6f5a36" stroke-width="1"/>
+  <path d="M4 10.5 H8 M4 12.5 H8 M4 14.5 H8" stroke="#6f5a36" stroke-width="0.8"/>
+</svg>

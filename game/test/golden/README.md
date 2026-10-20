@@ -30,7 +30,7 @@ npx vitest run test/golden                             # what `npm run ci` runs 
 | `queries/tick-NNNN/*.bin` (+ `.txt`) | `inspect` (each chest, and serial 1, which is a character and no entity), `hash`, `digest` |
 | `logs/` | valid closure logs a reader must accept: the empty log, the golden log without digests |
 | `negative/` | `index.json` lists each case, the call it is for and the expected status or reader error |
-| `sprites/` | the tiny atlas: `atlases/sprites.json` (§15.7's fixture manifest), its `rgba8` KTX2 pages, `cases.json` |
+| `../../fixtures/sprites/` | the tiny atlas, kept where the asset pipeline (C6) generates it: `manifest.json` (§15.7's fixture manifest), its `rgba8` KTX2 pages, `cases.json`; frozen with the set (`MANIFEST.json`'s `external`) |
 | `MANIFEST.json`, `VERSIONS.txt` | every file's SHA-256, and the version ledger (below) |
 
 The `.txt` files are dumps in the codec fixtures' `path=value` format (`schema/README.md`), compacted: chunk tiles
@@ -76,18 +76,20 @@ hash is SCHEMA_HASH with every byte inverted) and `negative/saves/*` as indexed.
 into the golden packets (the module leaves them 0).
 
 **Renderer (C4).** Decode `packets/*` (the generated `decodePacket` and record codecs), apply them in order to the
-mirror, and draw them with `sprites/atlases/sprites.json` and `prototypes.json` (sprite names) at 1× and 0.3×.
-Run `sprites/cases.json`: each case is a packet-shaped input, a camera and the draws §15.7's programs produce
-(pass, part, frame ids, quad corners in device pixels from the canvas centre, uv); compare with a tolerance of
-0.001.
+mirror, and draw them with `test/fixtures/sprites/manifest.json` and `protos/prototypes.json` (sprite names) at 1×
+and 0.3×. Run `test/fixtures/sprites/cases.json`: each case is a packet-shaped input, a camera and the draws
+§15.7's programs produce. The atlas has a set for every sprite the golden packets draw (the chest, its greybox, the
+character, the ore, the three item icons; a test checks it). Its `prototypesHash` names the build it was made from,
+not the golden M0 build: sets are joined by name, so a dev-build hash check must let the fixture through.
 
 **UI (C5).** Decode `projections/tick-NNNN/*.bin` with the generated codecs into UI state, and the UI records inside
 the packets (statuses ok, gone and invalid, versions, the STATS series whole and then incremental). Item names,
 icons and locale keys come from `protos/prototypes.json`.
 
-**Assets (C6).** `sprites/atlases/sprites.json` is §15.7's fixture manifest (`test/fixtures/sprites/manifest.json` in
-§15.7's words): one set of every kind with explicit index tables, in exactly the build's format. The real
-manifest replaces it in the same format; the asset build's checks can run `cases.json`.
+**Assets (C6).** The tiny atlas is C6's own fixture (`scripts/assets/fixture.py` → `test/fixtures/sprites/`): one
+set of every kind with explicit index tables, in exactly the build's format, with `cases.json` and its notes, which
+fix §15.7's readings. Regenerating it changes the golden set: `node test/golden/build/main.ts --write --bump "why"`
+records the new hashes, and the renderer reruns its golden test.
 
 **Audio (C7).** `packets/tick-0600.bin` holds 70 events of every M0 kind with their players and seqs;
 `AUDIO_WORKING` is absent because nothing works in M0 (use the fake sim, `?sim=fake`, for working sounds and the
@@ -211,21 +213,13 @@ reports it (with the spec citation) instead of editing the set.
 36. `inspect` lists the entity-table row's saved columns, then the pool row's, each with its type code and
     little-endian value (a handle as the serial).
 
-**The tiny atlas** (`sprites/`). Its arrays are small (colour 16 px per tile, 512-px pages, 3 layers, 2 levels; shadow
-8 px; light 8 px; icons 16 px), in 32-px cells with 8-px gutters. File paths are relative to the manifest's parent
-directory, as in the build (`atlases/…`). `cases.json` fixes these readings of §15.7: an entity without DYN draws
-base and layers at frame 0 and no light; a part's `frame` axis (layers, animated shadows) takes
-floor(phase × frames ÷ 65,536); a light part with a `light` axis takes its value from `EntityView.status` and is
-drawn at full strength (signal codes until M2: 0 red, 1 yellow, 2 green), other light parts only with DYN, at
-`light ÷ 255`; inserter parts carry `pivot` (and `length` for the arm), the set a `shoulder`, and shadows are parts
-named `<part>_shadow`, drawn with the same transform; orientation indexes round half up; `idle` and `mine` frames
-are floor(ticks since `base_tick` ÷ 60 × fps); movers are extrapolated by their velocity; an empty table entry draws
-the greybox. Belt masks in the fixture: 1 and 2 are the two curves, every other value straight.
+**The tiny atlas** is C6's fixture (`test/fixtures/sprites/`); the readings of §15.7 it fixes are the `notes` of its
+`cases.json` and `pm/reports/C6.md`, not this file's.
 
 ## Freezing
 
-`MANIFEST.json` lists every file's SHA-256; `VERSIONS.txt` records, per version, the SHA-256 of that list and why it
-changed. The tests fail when a file differs from the manifest, when the manifest's list is not the latest version's,
+`MANIFEST.json` lists every file's SHA-256, and in `external` the tiny atlas's files (by path from `game/`);
+`VERSIONS.txt` records, per version, the SHA-256 of those tables and why they changed. The tests fail when a file differs from the manifest, when the manifest's list is not the latest version's,
 when the schema hash is not the one the set was built against, or when the model no longer reproduces the set. So a
 schema change, a data change that alters the M0 build, or a model change regenerates the set (`--write`), and the
 reviewed diff is recorded with `--bump`; every package that consumes the changed files reruns its golden test.

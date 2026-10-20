@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 32 24" data-slice="5 5 5 5" data-repeat="stretch">
+  <title>textfield</title>
+  <desc>Text field: a form's typed box, inset.</desc>
+  <rect x="0.5" y="0.5" width="31" height="23" fill="#fcfaf3" stroke="#8f7f62" stroke-width="1"/>
+  <path d="M1.5 22 V1.5 H30.5" fill="none" stroke="#2b2723" stroke-width="1" opacity="0.45"/>
+</svg>
