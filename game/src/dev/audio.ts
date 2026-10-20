@@ -2,13 +2,14 @@
 // sliders, every sound, a factory's SFX load), and the hooks the audio tools and tests drive through
 // Playwright (`window.__audioDev`): offline renders through the real engine, live playback for the CPU
 // benchmark, the decode and loop-seam checks, and the reduced path.
-import { AudioSystem, CATEGORIES, EVENT, encodePacket, StandinPacket } from '../audio/index.ts';
+import { AudioSystem, CATEGORIES, EVENT, encodePacket } from '../audio/index.ts';
 import { Decoder } from '../audio/loading/decode.ts';
 import type { MusicManifest, SoundsManifest } from '../audio/loading/manifest.ts';
 import { type LiveRun, playLive, type RenderConfig, renderOffline } from '../audio/offline.ts';
 import bankUrl from '../audio/worklet/bank.ts?worker&url';
 import { BankCore } from '../audio/worklet/bank-core.ts';
 import { F, GROUP, KIND, NF, OUT_UI, SFX_DEST } from '../audio/worklet/protocol.ts';
+import { decodePacket } from '../shared/gen/packet.ts';
 
 const BASE = '/audio/';
 const worklets = { bank: bankUrl };
@@ -97,7 +98,7 @@ $('load').addEventListener('click', (e) => {
     if (tick % 300 === 0)
       for (let i = 0; i < 20; i++) events.push({ type: EVENT.entity_built, tick, proto: 0, x: i - 10, y: 3 });
     const working = loops.map((s, i) => ({ sound: s.id, n: 50, cx: i * 20 - 10, cy: 0, wsum: 35 }));
-    audio.onPacket(new StandinPacket(encodePacket(1, tick, events, working)));
+    audio.onRenderPacket(decodePacket(encodePacket(1, tick, events, working)));
   }, 1000 / 60);
 });
 let map = false;

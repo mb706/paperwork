@@ -11,13 +11,15 @@
 //   snapshot: an absent sound fades out; no packet for 0.5 s fades every loop.
 // - History: events flagged HISTORICAL (catch-up, replay, fast-forward) and events more than 30 ticks older
 //   than their packet never sound. A new state generation resets everything.
+
+import { EventFlags } from '../../shared/gen/events.ts';
 import type { VoiceEngine } from '../bank-client.ts';
 import type { Rng } from '../core/rng.ts';
 import { dbToGain } from '../core/units.ts';
 import {
   type AudioEventRecord,
   type AudioPacketView,
-  EVENT_NAME,
+  eventName,
   newEventRecord,
   newWorkingRecord,
   type ProtoInfo,
@@ -152,7 +154,7 @@ export class SfxSystem {
     const ev = this.ev;
     for (let i = 0; i < p.eventCount; i++) {
       p.readEvent(i, ev);
-      if ((ev.flags & 1) !== 0 || p.tick - ev.tick > HISTORY_TICKS) {
+      if ((ev.flags & EventFlags.historical) !== 0 || p.tick - ev.tick > HISTORY_TICKS) {
         this.stats.historical++;
         continue;
       }
@@ -163,7 +165,7 @@ export class SfxSystem {
   }
 
   private onEvent(e: AudioEventRecord): void {
-    const typeName = EVENT_NAME[e.type];
+    const typeName = eventName(e.type);
     const rule = typeName ? this.table.manifest.events[typeName] : undefined;
     if (rule === undefined) return;
     if (typeName === 'action_failed' && this.proto.isDeveloperReason(e.reason)) return;

@@ -1,24 +1,50 @@
-// The feed's stand-in decoder (10 §15.4, §15.6) and the activity normalisation (§15.6).
+// The audio view of render packets over the schema package's generated decoders (10 §15.4, §15.6; C1b),
+// the music feed from the HUD projection, and the activity normalisation (§15.6).
 import { describe, expect, test } from 'vitest';
+import { DecodeError } from '../../shared/gen/codec.ts';
+import { readEvents } from '../../shared/gen/events.ts';
+import { decodePacket, PACKET_MAGIC, PacketSection } from '../../shared/gen/packet.ts';
+import { HudCodec, HudFlags } from '../../shared/gen/projections.ts';
+import { AlertType, FailReason } from '../../shared/gen/types.ts';
 import { DEFAULT_ERAS } from '../music/conductor.ts';
 import { ACTIVITY_TAU, Activity, rawActivity } from './activity.ts';
-import { encodePacket, PACKET_MAGIC, StandinPacket } from './standin.ts';
-import { EVENT, newEventRecord, newWorkingRecord } from './types.ts';
+import { encodePacket } from './encode.ts';
+import { GenPacketView, musicFeedOf } from './gen.ts';
+import { EVENT, type MusicFeed, newEventRecord, newWorkingRecord } from './types.ts';
 
-describe('the stand-in packet decoder', () => {
-  test('events and working records round-trip through the §15.4/§15.6 layouts', () => {
-    const buf = encodePacket(
+describe('render packets through the generated decoders', () => {
+  test('events and working records: what audio reads equals what was written', () => {
+    const bytes = encodePacket(
       7,
       12345,
       [
         { type: EVENT.entity_built, tick: 12340, proto: 17, ghost: true, x: 10.5, y: -3, player: 1 },
-        { type: EVENT.action_failed, tick: 12344, reason: 4, x: 1.25, y: 2.5 },
-        { type: EVENT.alert_raised, tick: 12345, reason: 2, x: -8, y: 9.5, historical: true },
+        { type: EVENT.action_failed, tick: 12344, reason: FailReason.out_of_reach, x: 1.25, y: 2.5 },
+        {
+          type: EVENT.alert_raised,
+          tick: 12345,
+          reason: AlertType.entity_destroyed,
+          x: -8,
+          y: 9.5,
+          historical: true,
+        },
+        { type: EVENT.research_completed, tick: 12345 },
+        { type: EVENT.entity_mined, tick: 12345, proto: 40, x: 3, y: 4 },
       ],
       [{ sound: 3, n: 40, cx: -12.5, cy: 3.25, wsum: 17.5 }],
     );
-    const p = new StandinPacket(buf);
-    expect([p.generation, p.tick, p.eventCount, p.workingCount]).toEqual([7, 12345, 3, 1]);
+    const packet = decodePacket(bytes);
+    // the generated strict reader accepts every record the test encoder wrote
+    const evs = packet.sections.find((x) => x.type === PacketSection.events);
+    expect(readEvents(evs?.bytes ?? new Uint8Array(0), evs?.count ?? 0).map((e) => e.payload.type)).toEqual([
+      'entity_built',
+      'action_failed',
+      'alert_raised',
+      'research_completed',
+      'entity_mined',
+    ]);
+    const p = new GenPacketView().set(packet);
+    expect([p.generation, p.tick, p.eventCount, p.workingCount]).toEqual([7, 12345, 5, 1]);
     const e = newEventRecord();
     p.readEvent(0, e);
     expect(e).toMatchObject({
@@ -34,29 +60,65 @@ describe('the stand-in packet decoder', () => {
     p.readEvent(1, e);
     expect(e).toMatchObject({
       type: EVENT.action_failed,
-      reason: 4,
+      reason: FailReason.out_of_reach,
       x: 1.25,
       y: 2.5,
       player: 0xffff,
       proto: -1,
     });
     p.readEvent(2, e);
-    expect(e).toMatchObject({ type: EVENT.alert_raised, reason: 2, x: -8, y: 9.5, flags: 1 });
+    expect(e).toMatchObject({
+      type: EVENT.alert_raised,
+      reason: AlertType.entity_destroyed,
+      x: -8,
+      y: 9.5,
+      flags: 1,
+    });
+    p.readEvent(3, e);
+    expect(e).toMatchObject({ type: EVENT.research_completed, proto: -1, reason: -1 });
+    expect(Number.isNaN(e.x)).toBe(true);
+    p.readEvent(4, e);
+    expect(e).toMatchObject({ type: EVENT.entity_mined, proto: 40, x: 3, y: 4 });
     const w = newWorkingRecord();
     p.readWorking(0, w);
     expect(w).toEqual({ sound: 3, n: 40, cx: -12.5, cy: 3.25, wsum: 17.5 });
-    // an absent AUDIO_WORKING section means none
-    expect(new StandinPacket(encodePacket(1, 1, [], null)).workingCount).toBe(0);
+    // the view is reused: an absent AUDIO_WORKING section means none
+    p.set(decodePacket(encodePacket(8, 1, [], null)));
+    expect([p.generation, p.eventCount, p.workingCount]).toEqual([8, 0, 0]);
   });
 
-  test('a malformed packet is refused, never misread', () => {
-    expect(() => new StandinPacket(new ArrayBuffer(8))).toThrow();
-    const buf = encodePacket(1, 1, [{ type: EVENT.entity_built, tick: 1 }], []);
-    new DataView(buf).setUint32(0, PACKET_MAGIC + 1, true);
-    expect(() => new StandinPacket(buf)).toThrow(/not a render packet/);
-    const buf2 = encodePacket(1, 1, [{ type: EVENT.entity_built, tick: 1 }], []);
-    new DataView(buf2).setUint32(32 + 8, 1 << 20, true); // the EVENTS section's length beyond the packet
-    expect(() => new StandinPacket(buf2)).toThrow(/out of bounds/);
+  test('a malformed packet is refused by the generated decoder, never misread', () => {
+    expect(() => decodePacket(new Uint8Array(8))).toThrow(DecodeError);
+    const bad = encodePacket(1, 1, [{ type: EVENT.entity_built, tick: 1 }], []);
+    new DataView(bad.buffer).setUint32(0, PACKET_MAGIC + 1, true);
+    expect(() => decodePacket(bad)).toThrow(DecodeError);
+    const long = encodePacket(1, 1, [{ type: EVENT.entity_built, tick: 1 }], []);
+    new DataView(long.buffer).setUint32(32 + 8, 1 << 20, true); // the EVENTS section's length beyond the packet
+    expect(() => decodePacket(long)).toThrow(DecodeError);
+  });
+
+  test('the music feed comes from the HUD projection', () => {
+    const hud = {
+      ...HudCodec.defaults(),
+      literature: 1961.5,
+      activity_w: 2.5e7,
+      doubling_time_s: 0,
+      flags: HudFlags.closed,
+    };
+    const f: MusicFeed = {
+      literatureYear: 0,
+      consumptionW: 0,
+      doublingTime: 0,
+      closed: false,
+      victory: false,
+    };
+    expect(musicFeedOf(hud, f)).toEqual({
+      literatureYear: 1961.5,
+      consumptionW: 2.5e7,
+      doublingTime: 0,
+      closed: true,
+      victory: false,
+    });
   });
 });
 

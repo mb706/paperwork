@@ -3,11 +3,16 @@
 // packets and the HUD's music feed to it, and the UI calls the settings hooks and `unlock()`.
 //
 //   import bankUrl from '../audio/worklet/bank.ts?worker&url';
-//   const audio = new AudioSystem({ worklets: { bank: bankUrl } });
+//   const audio = new AudioSystem({ worklets: { bank: bankUrl }, proto: protoFacts });
 //   void audio.preload();                       // at page load
 //   menu.onFirstGesture(() => audio.unlock());  // inside the first click or key handler (07 §18)
+//   audio.startGame(seed);                      // a game's music program, from its seed
+//   audio.onRenderPacket(decodePacket(bytes));  // every render packet (shared/gen/packet.ts)
+//   audio.onHud(hud);                           // the HUD projection, about once a second
+//   audio.setView({ cx, cy, halfWidth, zoom, mapView });  // the camera, every frame it changes
 
-export { encodePacket, StandinPacket } from './feed/standin.ts';
+export { type EventSpec, encodePacket } from './feed/encode.ts';
+export { GenPacketView, musicFeedOf } from './feed/gen.ts';
 export type { AudioEventRecord, AudioPacketView, MusicFeed, ProtoInfo, WorkingRecord } from './feed/types.ts';
 export { EVENT } from './feed/types.ts';
 export type { Fetcher, Priority } from './loading/packs.ts';

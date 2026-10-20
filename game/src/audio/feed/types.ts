@@ -1,32 +1,15 @@
-// The audio module's inputs from the simulation (10 §15.4–§15.6), as a small adapter interface.
-//
-// SEAM (C7 → C1b): the generated packet, event and projection decoders of `src/shared/gen/` (the schema
-// package) did not exist when this was written. The audio layer reads packets only through these
-// interfaces; `standin.ts` implements them over the raw bytes of §15.4/§15.6 for tests and the dev page.
-// At merge time the app wires the generated decoders behind the same interfaces (a few lines), and the
-// stand-in's ids for event types and fail reasons give way to the schema's enums.
+// The audio module's inputs from the simulation (10 §15.4–§15.6), as a small adapter interface. The SFX
+// system and the director read packets and the music feed only through these types; `gen.ts` implements them
+// over the schema package's generated decoders (`src/shared/gen/`, C1b), and `encode.ts` writes packets with
+// the generated writer for tests and the dev page.
+import { EventType, EventTypeCodec } from '../../shared/gen/events.ts';
 
-/** Event type ids (10 §15.6; append-only). */
-export const EVENT = {
-  action_failed: 1,
-  flying_text: 2,
-  entity_built: 3,
-  entity_mined: 4,
-  entity_rotated: 5,
-  item_crafted: 6,
-  research_completed: 7,
-  milestone: 8,
-  alert_raised: 9,
-  player_joined: 10,
-  player_left: 11,
-  input_fenced: 12,
-  loop_closed: 13,
-  victory: 14,
-} as const;
+/** Event type ids (10 §15.6; the schema's `EventType`, append-only). */
+export const EVENT = EventType;
 export type EventName = keyof typeof EVENT;
-export const EVENT_NAME: Readonly<Record<number, EventName>> = Object.fromEntries(
-  Object.entries(EVENT).map(([k, v]) => [v, k as EventName]),
-);
+/** An event type's name, or undefined for a type this build does not know. */
+export const eventName = (type: number): EventName | undefined =>
+  EventTypeCodec.name(type) as EventName | undefined;
 
 /** The fields audio reads from one event record; written into a reused object (no allocation). */
 export interface AudioEventRecord {

@@ -12,9 +12,14 @@
 //   context unless the player muted the master. A hidden page fades the music over 1 s and suspends the
 //   context, unless "Keep running in background tab" is on.
 // - A missing `audioWorklet`, a rejected addModule() or a processorerror switches to reduced audio.
+
+import type { Packet } from '../shared/gen/packet.ts';
+import type { Hud } from '../shared/gen/projections.ts';
+import { FailReasonCodec } from '../shared/gen/types.ts';
 import { BankClient } from './bank-client.ts';
 import { makeRng } from './core/rng.ts';
 import { Activity } from './feed/activity.ts';
+import { GenPacketView, musicFeedOf } from './feed/gen.ts';
 import type { AudioPacketView, MusicFeed, ProtoInfo } from './feed/types.ts';
 import { type Codec, MIME, probeCodec } from './loading/codec.ts';
 import { Decoder } from './loading/decode.ts';
@@ -60,11 +65,14 @@ export interface AudioOptions {
   settings?: unknown;
 }
 
-/** Until the prototypes adapter is wired (seam C1b): sizes 1×1, mined things are entities, no dev reasons. */
+/**
+ * Until the app passes prototypes.json's facts: every entity 1×1, mined things are entities. Developer fail
+ * reasons come from the schema (they have no text, so no sound, 10 §15.6).
+ */
 const DEFAULT_PROTO: ProtoInfo = {
   entitySize: () => 1,
   minedKind: () => 'entity',
-  isDeveloperReason: () => false,
+  isDeveloperReason: FailReasonCodec.isDeveloper,
 };
 
 export interface AudioStatus {
@@ -431,6 +439,24 @@ export class AudioSystem {
   onPacket(p: AudioPacketView): void {
     this.sfx?.onPacket(p);
   }
+
+  /** A render packet as the app decodes it (`decodePacket`, shared/gen/packet.ts): the usual entry point. */
+  onRenderPacket(p: Packet): void {
+    this.onPacket(this.packetView.set(p));
+  }
+  private readonly packetView = new GenPacketView();
+
+  /** The HUD projection, about once a second: its music feed (10 §15.5–§15.6). */
+  onHud(h: Hud): void {
+    this.onMusicFeed(musicFeedOf(h, this.feed));
+  }
+  private readonly feed: MusicFeed = {
+    literatureYear: 1945,
+    consumptionW: 0,
+    doublingTime: 0,
+    closed: false,
+    victory: false,
+  };
 
   /** The HUD's music feed, about once a second (10 §15.6). */
   onMusicFeed(f: MusicFeed): void {

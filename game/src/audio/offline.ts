@@ -5,9 +5,13 @@
 //   engine against A4's approved demos, and bench.html's offline load on the player's machine (§9.4: the
 //   render time as a share of the audio's duration, on average and in the worst second).
 // - Live (AudioContext): the realtime CPU benchmark, measured from outside (/proc) on this host.
+
+import { decodePacket } from '../shared/gen/packet.ts';
+import { FailReasonCodec } from '../shared/gen/types.ts';
 import { BankClient } from './bank-client.ts';
 import { makeRng } from './core/rng.ts';
-import { encodePacket, StandinPacket } from './feed/standin.ts';
+import { encodePacket } from './feed/encode.ts';
+import { GenPacketView } from './feed/gen.ts';
 import type { ProtoInfo, WorkingRecord } from './feed/types.ts';
 import { EVENT } from './feed/types.ts';
 import { Decoder } from './loading/decode.ts';
@@ -88,7 +92,7 @@ export interface RenderResult {
 const NO_PROTO: ProtoInfo = {
   entitySize: () => 1,
   minedKind: () => 'entity',
-  isDeveloperReason: () => false,
+  isDeveloperReason: FailReasonCodec.isDeveloper,
 };
 
 interface Assembly {
@@ -326,6 +330,7 @@ export function withLoopAliases(m: SoundsManifest, n: number): SoundsManifest {
 export function sfxLoad(load: SfxLoad, sfx: SfxSystem, table: SoundTable): (t: number) => void {
   const loopSounds = [...table.byName.values()].filter((s) => s.def.loop);
   const rng = makeRng(42);
+  const view = new GenPacketView();
   const kinds = [EVENT.entity_built, EVENT.entity_mined, EVENT.entity_built] as const;
   let tick = 0;
   let next = 0;
@@ -362,6 +367,6 @@ export function sfxLoad(load: SfxLoad, sfx: SfxSystem, table: SoundTable): (t: n
       const n = Math.max(1, Math.round(load.machines / load.loops));
       working.push({ sound: s.id, n, cx: (i / Math.max(1, load.loops - 1)) * 30 - 15, cy: 0, wsum: n * 0.7 });
     }
-    sfx.onPacket(new StandinPacket(encodePacket(1, tick, events, working)));
+    sfx.onPacket(view.set(decodePacket(encodePacket(1, tick, events, working))));
   };
 }

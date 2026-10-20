@@ -1,9 +1,12 @@
 // The SFX system (10 §9.4, §15.6; A4 §7.3): variants, jitter, rate limits, positional mixing, the event map,
 // historical silence and the working loops, with deterministic seeds and a recording voice engine.
 import { describe, expect, test } from 'vitest';
+import { decodePacket } from '../../shared/gen/packet.ts';
+import { AlertType, FailReason, FailReasonCodec } from '../../shared/gen/types.ts';
 import type { NoteRecord, VoiceEngine } from '../bank-client.ts';
 import { makeRng } from '../core/rng.ts';
-import { type EventSpec, encodePacket, StandinPacket } from '../feed/standin.ts';
+import { type EventSpec, encodePacket } from '../feed/encode.ts';
+import { GenPacketView } from '../feed/gen.ts';
 import { EVENT, type ProtoInfo, type WorkingRecord } from '../feed/types.ts';
 import type { SoundEntry, SoundsManifest } from '../loading/manifest.ts';
 import { SFX_DEST } from '../worklet/protocol.ts';
@@ -94,7 +97,7 @@ const MANIFEST: SoundsManifest = {
 const PROTO: ProtoInfo = {
   entitySize: (p) => (p === 9 ? 5 : 1),
   minedKind: (p) => (p === 50 ? 'resource' : 'entity'),
-  isDeveloperReason: (r) => r >= 100,
+  isDeveloperReason: FailReasonCodec.isDeveloper,
 };
 
 function setup() {
@@ -111,7 +114,7 @@ function setup() {
 }
 
 const packet = (gen: number, tick: number, events: EventSpec[], working: WorkingRecord[] | null) =>
-  new StandinPacket(encodePacket(gen, tick, events, working));
+  new GenPacketView().set(decodePacket(encodePacket(gen, tick, events, working)));
 
 describe('spatial', () => {
   test("Factorio's attenuation: −6 dB at half a screen, ±0.7 pan at the edges, −9 dB at 0.25× zoom", () => {
@@ -194,11 +197,11 @@ describe('events', () => {
           { type: EVENT.entity_mined, tick: 1000, proto: 3 }, // an entity
           { type: EVENT.entity_built, tick: 1000, proto: 1, historical: true }, // catch-up: silent
           { type: EVENT.entity_built, tick: 1000 - HISTORY_TICKS - 1, proto: 1 }, // stale: silent
-          { type: EVENT.action_failed, tick: 1000, reason: 5, player: 2 }, // own error
-          { type: EVENT.action_failed, tick: 1000, reason: 5, player: 7 }, // another player's: silent
-          { type: EVENT.action_failed, tick: 1000, reason: 100, player: 2 }, // a developer reason: silent
+          { type: EVENT.action_failed, tick: 1000, reason: FailReason.out_of_reach, player: 2 }, // own error
+          { type: EVENT.action_failed, tick: 1000, reason: FailReason.out_of_reach, player: 7 }, // another player's: silent
+          { type: EVENT.action_failed, tick: 1000, reason: FailReason.malformed, player: 2 }, // a developer reason: silent
           { type: EVENT.entity_built, tick: 1000, proto: 1, player: 7, x: 1, y: 1 }, // others' world sounds play
-          { type: EVENT.alert_raised, tick: 1000, reason: 3 },
+          { type: EVENT.alert_raised, tick: 1000, reason: AlertType.not_enough_construction_agents },
           { type: EVENT.research_completed, tick: 1000 }, // unmapped here: silent
         ],
         null,
