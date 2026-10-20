@@ -137,10 +137,14 @@
   module's zero-allocation steady state), and pins the simplex port to the npm package. Scenario DSL:
   `sim::testkit::{Scenario, TestSequencer}` (`act`, `act_at`, `system`, `run`, `events`, `check_equivalence`).
 - **simtool** (`cargo build --release -p simtool`, run from `game/`): `hash <save|sections>`; `replay <save> <log>`
-  or `replay <bug bundle dir>` (checks the start hash and every recorded digest, names a trap's tick; `--to`,
-  `--trace`, `--state-out`); `trace` (`tick d slice r` like the golden `digests.txt`); `bench [--quick]
-  [--scenario m0-walk|m0-chests-10k|m0-codec|m0-load-30k]` (§10.6's method and thresholds, × 2.4 on this host;
-  appends `bench/history.jsonl`; pin with `taskset -c 0-15`). `--protos` defaults to `public/data/prototypes.bin`.
+  or `replay <bug bundle dir>` (the IO worker's `reports/<time>/`: inflates its deflated save, checks the start
+  hash and every recorded digest, names a trap's tick; `--to`, `--trace`, `--state-out`); `trace` (`tick d slice
+  r` like the golden `digests.txt`); `bench [--quick] [--scenario m0-walk|m0-chests-10k|m0-codec|m0-load-30k]`
+  (§10.6's method; full runs check §10.6's thresholds, `--quick` the tails (each tick p99 against §11's 2 ms);
+  × 2.4 on this host; per-window clocks with turbo flagged; appends `bench/history.jsonl`; `--json`;
+  `--write-scenarios DIR` exports them for `node bench/node-runner.ts`, the same scenarios through sim.wasm in
+  a worker). Paired A/B of a hot-path change: `taskset -c 0-15 node bench/ab.ts --base <rev>`. `npm run ci`
+  ends with both budget gates. `--protos` defaults to `public/data/prototypes.bin`.
 - **Build times** (pinned `taskset -c 0-15`): a sim edit rebuilds the `ntest` tests in ≈ 1–6 s (incremental, no
   LTO) and runs them in ≈ 7 s; the `wasmdev` modules in ≈ 3.5 s; clippy in ≈ 2 s; release simtool (fat LTO) ≈ 25 s.
 
