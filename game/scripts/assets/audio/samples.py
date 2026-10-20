@@ -239,7 +239,7 @@ def fetch(mirror: Path | None = None) -> None:
             print(f"  fetched {i + 1}/{len(files)}")
     if changed:
         LOCK.parent.mkdir(parents=True, exist_ok=True)
-        LOCK.write_text(json.dumps(dict(sorted(lock.items())), indent=1) + "\n")
+        LOCK.write_text(json.dumps(dict(sorted(lock.items())), indent=2) + "\n")  # Biome's JSON style
     print(f"samples: {len(files)} files verified in {time.time() - t0:.1f} s")
 
 

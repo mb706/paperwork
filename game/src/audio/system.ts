@@ -371,6 +371,7 @@ export class AudioSystem {
     if (this.mode === 'reduced') return;
     this.mode = 'reduced';
     this.reducedReason = reason;
+    for (const l of this.listeners) l(this.state);
     this.error(`audio: reduced audio: ${reason}`);
     if (this.bankNode) {
       this.bankNode.disconnect();

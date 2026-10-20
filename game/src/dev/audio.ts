@@ -129,6 +129,58 @@ async function manifests(): Promise<{ music: MusicManifest | null; sounds: Sound
   return { music: await get<MusicManifest>('music.json'), sounds: await get<SoundsManifest>('sounds.json') };
 }
 
+/**
+ * ITU-R BS.1770-4 integrated loudness (K-weighted, gated) of the first two channels; 48 kHz only (the
+ * standard's filter coefficients). After A4's render page.
+ */
+function loudness(buf: AudioBuffer): number {
+  if (buf.sampleRate !== 48000) return Number.NaN;
+  const kw = (x: Float32Array) => {
+    const y = new Float64Array(x.length);
+    const stage = (b: number[], a: number[], inp: ArrayLike<number>, out: Float64Array) => {
+      let x1 = 0;
+      let x2 = 0;
+      let y1 = 0;
+      let y2 = 0;
+      for (let i = 0; i < inp.length; i++) {
+        const v =
+          (b[0] as number) * (inp[i] as number) +
+          (b[1] as number) * x1 +
+          (b[2] as number) * x2 -
+          (a[1] as number) * y1 -
+          (a[2] as number) * y2;
+        x2 = x1;
+        x1 = inp[i] as number;
+        y2 = y1;
+        y1 = v;
+        out[i] = v;
+      }
+    };
+    stage(
+      [1.53512485958697, -2.69169618940638, 1.19839281085285],
+      [1, -1.69065929318241, 0.73248077421585],
+      x,
+      y,
+    );
+    stage([1, -2, 1], [1, -1.99004745483398, 0.99007225036621], y.slice(), y);
+    return y;
+  };
+  const a = kw(buf.getChannelData(0));
+  const b = kw(buf.getChannelData(Math.min(1, buf.numberOfChannels - 1)));
+  const pw: number[] = [];
+  for (let s0 = 0; s0 + 19200 <= a.length; s0 += 4800) {
+    let sum = 0;
+    for (let i = s0; i < s0 + 19200; i++) sum += (a[i] as number) ** 2 + (b[i] as number) ** 2;
+    pw.push(sum / 19200);
+  }
+  const lk = (p: number) => -0.691 + 10 * Math.log10(p);
+  const abs = pw.filter((p) => lk(p) > -70);
+  if (abs.length === 0) return Number.NEGATIVE_INFINITY;
+  const ug = abs.reduce((x, p) => x + p, 0) / abs.length;
+  const rel = abs.filter((p) => lk(p) > lk(ug) - 10);
+  return lk(rel.reduce((x, p) => x + p, 0) / rel.length);
+}
+
 /** A float32 WAV of the first `channels` channels. */
 function wav(buf: AudioBuffer, channels = buf.numberOfChannels): ArrayBuffer {
   const n = buf.length;
@@ -205,6 +257,7 @@ const dev = {
         if (!Number.isFinite(x)) nonFinite++;
       }
     return {
+      lufs: loudness(r.buffer),
       seconds: r.buffer.duration,
       sampleRate: r.buffer.sampleRate,
       ms: r.ms,

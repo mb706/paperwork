@@ -89,6 +89,7 @@ const NO_PROTO: ProtoInfo = {
 };
 
 interface Assembly {
+  clock: { sim: number | null };
   bank: BankClient;
   bankNode: AudioWorkletNode;
   mixer: MixerGraph;
@@ -100,6 +101,8 @@ interface Assembly {
 }
 
 /** The engine on a context: worklets, mixer, packs and SFX loaded, the piece added to the scheduler. */
+const NO_SIM = (): { sim: number | null } => ({ sim: null });
+
 async function assemble(
   ctx: BaseAudioContext,
   deps: OfflineDeps,
@@ -110,6 +113,7 @@ async function assemble(
   const spec = cfg.piece ? PIECES[cfg.piece] : undefined;
   if (cfg.piece && !spec) throw new Error(`no rule set ${cfg.piece}`);
   const taps = merger && spec ? spec.layout.channels.length : 0;
+  const clock = NO_SIM();
   await ctx.audioWorklet.addModule(deps.worklets.bank);
   await ctx.audioWorklet.addModule(deps.worklets.fdn);
   const settings = defaultSettings();
@@ -151,7 +155,8 @@ async function assemble(
   }
   await bank.sync();
   const decodeMs = performance.now() - t0;
-  const now = () => ctx.currentTime;
+  // the audio clock, or a simulated one while an offline render is scheduled up front (no suspend())
+  const now = () => clock.sim ?? ctx.currentTime;
   const engine = new MusicEngine(bank, now, packs);
   if (cfg.log) engine.log = [];
   const scheduler = new Scheduler(now, () => bank.flush());
@@ -187,7 +192,7 @@ async function assemble(
   }
   if (cfg.sfx && table)
     scheduler.listeners.add(sfxLoad(cfg.sfx, new SfxSystem(bank, table, now, NO_PROTO, makeRng(7)), table));
-  return { bank, bankNode, mixer, engine, scheduler, files, stems, decodeMs };
+  return { clock, bank, bankNode, mixer, engine, scheduler, files, stems, decodeMs };
 }
 
 export async function renderOffline(deps: OfflineDeps, cfg: RenderConfig): Promise<RenderResult> {
@@ -224,7 +229,15 @@ export async function renderOffline(deps: OfflineDeps, cfg: RenderConfig): Promi
     }
   });
   const r0 = performance.now();
-  const buffer = await a.scheduler.renderOffline(ctx, total, () => a.bank.sync(), cfg.step ?? 0.25);
+  const buffer = await a.scheduler.renderOffline(
+    ctx,
+    total,
+    () => a.bank.sync(),
+    cfg.step ?? 0.25,
+    (t) => {
+      a.clock.sim = t;
+    },
+  );
   const ms = performance.now() - r0;
   return {
     buffer,

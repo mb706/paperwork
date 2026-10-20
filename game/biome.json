@@ -9,6 +9,7 @@
       "!**/target",
       "!**/.cache",
       "!**/public/data",
+      "!**/public/audio",
       "!**/test-results",
       "!**/playwright-report",
       "!package-lock.json"

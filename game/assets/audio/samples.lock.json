@@ -1,1994 +1,1994 @@
 {
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#2_vl2_rr1.wav": {
-  "size": 6974362,
-  "git": "c714ff9d1936bb2ae5e8d93ca9c93e1fe2a700f3",
-  "sha256": "557dfde33238e4c545f18b49aede282cd8f99459391d0084be8c1c3ec4e8e505",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#2_vl3_rr1.wav": {
-  "size": 7713166,
-  "git": "eee7af318572e8cfe274ecdf26f280ada7ff4730",
-  "sha256": "2edb66a0d4c5fe0cbc9091486caef1f408c0dd94a80775623017fcea67f67d99",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#3_vl2_rr1.wav": {
-  "size": 6364090,
-  "git": "a4f82c9a8f09e555c00cfc7eb173ac233f09861c",
-  "sha256": "fd825809d7b14e39ecd9c52804947ac79b2ecc7f6098048f8320a417d128bd1b",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#3_vl3_rr1.wav": {
-  "size": 9503602,
-  "git": "bcd87fc2c02037a40345ab600bbda280b3696c0a",
-  "sha256": "d9d738af699d5cdda769918e60e55e739b2a661d8714d18f88932f17645660ee",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#4_vl2_rr1.wav": {
-  "size": 5635126,
-  "git": "0966491e828da8222f8ee06cb6374f338c3b7ae4",
-  "sha256": "90cd801d71632c66de69da4b7483e292264c734e0af24be9c48bcfb2b97b7ad8",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#4_vl3_rr1.wav": {
-  "size": 6567808,
-  "git": "3042a43ebb25349ab597e49586f4218c6a7c55d8",
-  "sha256": "da064ffab82a822ba6743f08af9277aafc999d71e29b87adda7e8fe56dd93f3a",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#5_vl2_rr1.wav": {
-  "size": 4180576,
-  "git": "57d347ef82361d077cd68cffe7956b0ad8341ae0",
-  "sha256": "6441ad24da5e4ffb6093516fd576dd2ccee019083a747eb8b50d6cb0b9a3d701",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#5_vl3_rr1.wav": {
-  "size": 3816502,
-  "git": "d1df9d09c61170701247ce0feeca223c7f9d5e4b",
-  "sha256": "34634f370b67ec4ea5bb79fa580e84c67a101ea74667415a9ae2c03e931d9d32",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#6_vl2_rr1.wav": {
-  "size": 1974352,
-  "git": "536e86e76d99e1829820d87bf5fce88ad430174d",
-  "sha256": "13854c8b43b472e89759ad8a071957cc033fbf686e66c35a7180d6d3d178346b",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#6_vl3_rr1.wav": {
-  "size": 2204386,
-  "git": "06fefee4a51bf5346000942b4ece513fcdb4ad1c",
-  "sha256": "efa47a1720547d0513bf2a33a0a1508f19ea79e741ed269d004b186e97cb2e86",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C2_vl2_rr1.wav": {
-  "size": 7731874,
-  "git": "7998140b28c0dc550f5c65e2d8e856ce00c09b88",
-  "sha256": "3a4dd3fb33db802db7ec63e559a7fd715e5ff4b4f3134480b4df0272a04d3194",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C2_vl3_rr1.wav": {
-  "size": 8435152,
-  "git": "b462e67751ea92893b46650c8d9c052e77dcf2f1",
-  "sha256": "6d27c3cc5fec4abb27e96e9a0246840804e5925de1e46d1733cc61373d13ee9c",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C3_vl2_rr1.wav": {
-  "size": 8701120,
-  "git": "fb0d194ba7f5a101305bbaf96dd01b1e07a67a30",
-  "sha256": "8659d6dfde71a5644ba52b648fa4df12cb6aad62905df1d057ed74075e2cf3fc",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C3_vl3_rr1.wav": {
-  "size": 7464676,
-  "git": "d413df8f62fe20165777ff8ee5d3163471ee7837",
-  "sha256": "9910a6e13c4572d78ed336f053132b3b806fa0483cc32a52730fdf18b4e72489",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C4_vl2_rr1.wav": {
-  "size": 5857738,
-  "git": "b9398746124d1a95e73ad1b6711e93657be2e884",
-  "sha256": "63a1eabb40bc288d310e68b399ffcd3558c41e628fe45733c120248efdff1e9d",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C4_vl3_rr1.wav": {
-  "size": 8362948,
-  "git": "8a98b9adf092d11585c401889f4cc58c773e798b",
-  "sha256": "1e7ec3baf2c9bb784d5c5bc1e3ff2a2dff70ceb2a9c887281a89b6a5df5a2e88",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C5_vl2_rr1.wav": {
-  "size": 6255076,
-  "git": "cdd08c6535233e6cc6937c79a15fae6d7a6cd88f",
-  "sha256": "f53297008efdec0753c8eedd90a8f97d5d4363ffd897ce06b0dd48de009d1dae",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C5_vl3_rr1.wav": {
-  "size": 7638298,
-  "git": "c53e8471e2859bca1b75221f1ae2e94e66248ba8",
-  "sha256": "c1251ce77aac2a28d475f12ccd7d183e427ac79950cb8776187a0ccd79f1328e",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C6_vl2_rr1.wav": {
-  "size": 3483238,
-  "git": "2aad2826b3232a13b82490ac101d33209f4a2ae9",
-  "sha256": "54e543e7cc23701f0abc36099ad27a974426bbb7910a9367dac92115d7b2524e",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C6_vl3_rr1.wav": {
-  "size": 4620946,
-  "git": "fa875a5ea095d34ebb68009958e4644a24a8cce7",
-  "sha256": "5c162458135f81ae20a52851412f79a7b360ca9254af54f6b5c5cb7ffee45d3f",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C7_vl2_rr1.wav": {
-  "size": 1743454,
-  "git": "2599c1f8fbeea2adcf63051c9e2619aab37d615c",
-  "sha256": "eb212f49ca0f5c68989cdb6f349bd653a51b5772f36a4f19d1ed2998e2fe887c",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C7_vl3_rr1.wav": {
-  "size": 2307658,
-  "git": "759355b15332c233646d1a325abc4a23b9b5ed13",
-  "sha256": "d30b755f954dd09f24dd1c03b7c3deeed8e9df530163969255b720a2d03f5187",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D2_vl2_rr1.wav": {
-  "size": 9251578,
-  "git": "970c7e65e3d93b43f686d3b534cc050c1a957f7a",
-  "sha256": "fff1d04b046a6c21b3c0dbc6fe2696b205eb0b1fe2a51be334e26b0980278aea",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D2_vl3_rr1.wav": {
-  "size": 9092986,
-  "git": "c34e3f61d8368f58ee441289e50578ae1bac8ba6",
-  "sha256": "ae914ab03432ea13372bd3a75a88fd43edc972abf5794a3f56c36366ad45b3bc",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D3_vl2_rr1.wav": {
-  "size": 8354440,
-  "git": "e66755168d912c95574e343f14cf81db4f4bc554",
-  "sha256": "75182e2390f558d0e5150237c741e17d1bdffff3f0c596e948d9b3a360c13231",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D3_vl3_rr1.wav": {
-  "size": 8216098,
-  "git": "4d4e354eb7a9b2493cf03666df689c0d502375c4",
-  "sha256": "7a57dcc62f221fb4888629c9484173b26ad51041e78689eeccec70013ad51768",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D4_vl2_rr1.wav": {
-  "size": 7669036,
-  "git": "bbc04bc0b941685b290563863c2d779e8bd70819",
-  "sha256": "645cd3f6f657659b8fb6fa78aff8bbb3e5003d82cdb02687078a861dd48fb913",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D4_vl3_rr1.wav": {
-  "size": 6815290,
-  "git": "44b8f032ed434d66b9d463b1ea2bc9a10bf6901a",
-  "sha256": "62f07ca9027742ac07e7caa4c08f325585b5de6c9c485780281bd39d14a08b10",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D5_vl2_rr1.wav": {
-  "size": 5639908,
-  "git": "8616fad753e063468bd989313393e3a1044e24c6",
-  "sha256": "814072dc61808e5bab55c5973a9050df49fc11c770a7ac8cfdc801c674ae44aa",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D5_vl3_rr1.wav": {
-  "size": 5762050,
-  "git": "432296fc6ab1a514830392712347cf7a692eb6e0",
-  "sha256": "ef6aa60760ae682b4948085ff013b8836177eb1dfd08486199c97b1f073e0048",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D6_vl2_rr1.wav": {
-  "size": 3243886,
-  "git": "544360c74a06bc3fbb87b893c46f99aeddcc1111",
-  "sha256": "dff09a446f574b11662ab900ca28366fcf4a2398773fdbeb0f40e47a6d2d8242",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D6_vl3_rr1.wav": {
-  "size": 2995462,
-  "git": "52bd5eabe5f5f75e6bd794cc1005a9c85c7fbcf1",
-  "sha256": "ff1e2ab98bbf970616c6a0544325357b18e85ef3701cae56838d3d0a42eb205d",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D7_vl2_rr1.wav": {
-  "size": 1717150,
-  "git": "b54bdde08f08acfa1a18403983400b3383d1a9e6",
-  "sha256": "9b4da1ebad1204c8eb4062a33c9fcf26e25ad530d07aff49a438009a38c11406",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D7_vl3_rr1.wav": {
-  "size": 1772254,
-  "git": "465283089ab3ec284ebf165d35d1e8739469cd3b",
-  "sha256": "3bd02535ea0d154d10f8f038e1a833ff44bafe5cf3772b9ac7538d1eab84a149",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E2_vl2_rr1.wav": {
-  "size": 7942474,
-  "git": "b749362d9f6326939319c9c69c4b071fabb16dae",
-  "sha256": "12553b088d5322638bec391c3a118add253faadc32f24cf88c5689f5b90bc687",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E2_vl3_rr1.wav": {
-  "size": 8694034,
-  "git": "72a4116e0be18cf35d2c7dbc1b54beb533cb90e8",
-  "sha256": "6303029e8926b8b30dd6062d50c3d6dbf87ed4ec6a9d2309854a21be6a72c667",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E3_vl2_rr1.wav": {
-  "size": 7061026,
-  "git": "4d841e470e88fdd1a8b274d95165691d5eca9e59",
-  "sha256": "52e28ebe55cdcf9202c3f753a60862cc59a4d417c03a55500f36812b1fd90d7c",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E3_vl3_rr1.wav": {
-  "size": 7590154,
-  "git": "55c2d83a277a9696cf12f21e56d2aef9f5272590",
-  "sha256": "10cfd9b20d0c477407cae841b6e08e5131cca58390fc4963eca2772cd8803470",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E4_vl2_rr1.wav": {
-  "size": 6195784,
-  "git": "b1b8b3b822204409eb993a5e70b1c2722e985046",
-  "sha256": "5f67a30325b3dc46123abc024616f4bc7f3e9b78e2a12112b2ca19f7c7dfa7e3",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E4_vl3_rr1.wav": {
-  "size": 7459204,
-  "git": "ee2f164523644c060b4dafcf8186953784f19a1e",
-  "sha256": "27cdbe9e92b07d0412f3378c1206f467f7ec4cda64580615d9797914affad2c4",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E5_vl2_rr1.wav": {
-  "size": 5052622,
-  "git": "4fb8461e3398456f68a9f71696c5cfe4e02f4fbd",
-  "sha256": "b240ef85e7199960cb9104651e82cde24aef00ab2efcad7d552ec508ef2d3c93",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E5_vl3_rr1.wav": {
-  "size": 5079244,
-  "git": "e09ab4c6eeb5422e49e3512be24e7a2e0237aad4",
-  "sha256": "f6b18118f863401320dec215597f14643ac94d7b9dff43d9496b12d0f0916859",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E6_vl2_rr1.wav": {
-  "size": 2316334,
-  "git": "6989b726e83e64f4c87289f5d43d70b530c2b10b",
-  "sha256": "49522e664b22afc5ff016db62c4e1ca0ea984d568a2ea8ca55db583214986652",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E6_vl3_rr1.wav": {
-  "size": 2939098,
-  "git": "d4208718d18e04a09435a6b1bb9dac7cb7cf0051",
-  "sha256": "fd5acdd23d33ff457b6e447714b4fddb5ed83af37e9978450a947c6a233b5646",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E7_vl2_rr1.wav": {
-  "size": 1707358,
-  "git": "d34ebeadf0181defbd582a9ea33e28e6784acf41",
-  "sha256": "76b455f8ff60eef8304931bb77e3964765a696a8b54d5dac00dafab68315c99c",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E7_vl3_rr1.wav": {
-  "size": 1742272,
-  "git": "4e1034563efb42676777413da53473de7c6bca93",
-  "sha256": "e5e26ffb69858d0c12499a89189324953c7ae1209b03178a10fcfb7c51fba6d4",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#2_vl2_rr1.wav": {
-  "size": 7585270,
-  "git": "7c5658016532511e11f5eb3cd7bd27dca03677af",
-  "sha256": "70d2fc9948a95686c5e31b93844eda9fb4aa833a6b74bea2793161b3ffa8d1af",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#2_vl3_rr1.wav": {
-  "size": 9579706,
-  "git": "8caf9faed0082e8fb8f1bbec0b64b5ecfefaedbb",
-  "sha256": "e78ad53a15654ad2ded47d07a756fac600fa4c243aaac1ea6a5523a6a5ad12f7",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#3_vl2_rr1.wav": {
-  "size": 7220560,
-  "git": "00e0708f9a996387415e1863fdb2af3a2c3afcfa",
-  "sha256": "95a7f90813206645c7fa4a2b39703f1a74d7fd4d4db2992b8fd222da0fbb360d",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#3_vl3_rr1.wav": {
-  "size": 8983726,
-  "git": "a2c9cde1fa857a04ba08dd9fca6c16e0deb40206",
-  "sha256": "f818d885b914206b932aff898d3c5eeedc2d53515b266fb44041c8ea0d441cd5",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#4_vl2_rr1.wav": {
-  "size": 6823336,
-  "git": "8a0bc37b05eb6a3cef19abd6257e9455aff7d660",
-  "sha256": "0e55a62e4f21c9cf765785d598e6df4dd696f7703721bf916e7d23bb59b058c1",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#4_vl3_rr1.wav": {
-  "size": 7360438,
-  "git": "b6d3570f9d385f9bde8ffcf9e86bf794be8c3035",
-  "sha256": "f1e94953958c04dd9768977581e94e1c55a4898cf68d5af09f9bc6f3b8dd9432",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#5_vl2_rr1.wav": {
-  "size": 4894504,
-  "git": "9110f54d26edbc247c7bad43d60779991f569cc3",
-  "sha256": "6efc03e12629ce9175276bb1c4bfa55f45fd143ee5b291c147c6c066d3fe84bd",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#5_vl3_rr1.wav": {
-  "size": 4605910,
-  "git": "9879a49ea5a19775e19764d3d191f27e2eba4fd2",
-  "sha256": "30ae5b3b74fe543e3f4dcf8f6df9cc1228285bf9f34810d5c511de1da5249f98",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#6_vl2_rr1.wav": {
-  "size": 2372878,
-  "git": "0fdef3f8b61cc0902ccb60c939ed222ed06e0589",
-  "sha256": "6bd98411743f0b2cafe495b60774466b349782a155d8d8d3628df6d24abe379e",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#6_vl3_rr1.wav": {
-  "size": 2373808,
-  "git": "f926316fb52b56a3a17774e889b2fabe225f9cf5",
-  "sha256": "2395079aa5e0f63ae6000329d46fa655dd6a85fec32612b9abe972ffd53618c9",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#7_vl2_rr1.wav": {
-  "size": 1255894,
-  "git": "b050712682712e849b0f3263349d3728eab47535",
-  "sha256": "7865ac856329c1b0186881920be591952d65542fe2a9ec86b96b501abc96566c",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#7_vl3_rr1.wav": {
-  "size": 1685494,
-  "git": "808747986890d6d2b6c3b38e3087f7542b9a4247",
-  "sha256": "21d81247189d418e88556055f54ff5013aad7a5339806d1cc6777d58febcbe53",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#2_vl2_rr1.wav": {
-  "size": 7271464,
-  "git": "6e51c8a12eb3b4577459debf319866e79aa717ff",
-  "sha256": "0358484d55a9ce5c1b60345f6a1f26686f047635954b2e038486cbf1036c3aec",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#2_vl3_rr1.wav": {
-  "size": 8868796,
-  "git": "0b7a09f089c6978e90f0c069bc659d93e016be51",
-  "sha256": "728d6c855648b125d0eb9516f26d99963b0193a6bb940ee68c287b0ed63602e0",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#3_vl2_rr1.wav": {
-  "size": 6383020,
-  "git": "a58cfaa307cdbbe30bd8c7b28257a2119910890e",
-  "sha256": "e9f010da4ce3333e6f9ce05ee1d7b8498a5b321fcef684c196b3ec97f9b81415",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#3_vl3_rr1.wav": {
-  "size": 8390056,
-  "git": "6cc5b8f2d013750cb3711dff8e3feb0076d3b8ee",
-  "sha256": "76a501e9bd19eefff87e103a89065b04ede5fab359040dc31184df0436d3ad86",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#4_vl2_rr1.wav": {
-  "size": 5126176,
-  "git": "ccc547e6f1c9be7b8824d04b89efce4f9a8df781",
-  "sha256": "67789ba22e2831a15ec967773b87ff3f659425effd8edd8862c4795ac6cf4fa1",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#4_vl3_rr1.wav": {
-  "size": 6730624,
-  "git": "731e99facad96dc0f66a1ef01282a3d667d84ce3",
-  "sha256": "654604eb87a5907fcb81c1a188de34c9bc1d07ad2b519c316d2028230ab2f37a",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#5_vl2_rr1.wav": {
-  "size": 5145286,
-  "git": "7e26d6da8f775ed5405828aa3d43d6301915de4d",
-  "sha256": "586dbc660203723e95ac64e19606421fa676a37a4efddf835826973e584dce7a",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#5_vl3_rr1.wav": {
-  "size": 4346164,
-  "git": "d3f4ece960ea52e2bdf57432b5851fc082f35fb3",
-  "sha256": "1d3959d90d2832bfa4b800bf055440aecb5f045eebf29a8e622c14aa63de3f98",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#6_vl2_rr1.wav": {
-  "size": 2293006,
-  "git": "af4438ad5d4c975109181622b6f68bf9b4229326",
-  "sha256": "65f847b229ee41aa7cf03255438f3d67f00b415570b17deee99770c93c0d6282",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#6_vl3_rr1.wav": {
-  "size": 2525860,
-  "git": "fea42d62def4a8f7bf0ef8630bd7890313d92fdd",
-  "sha256": "02a3e88585feb91f2ebdc4a7c372c4570a07a21b85c0a56a49c1f195592dbd89",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#7_vl2_rr1.wav": {
-  "size": 1274542,
-  "git": "4900f5509e6f9ade3c69cec5f4dfa18db9f61182",
-  "sha256": "93263eca374eaa0064a319813c9019b8dc361e4ee80fd4369d83aa1e04f056de",
-  "licence": "CC0-1.0"
- },
- "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#7_vl3_rr1.wav": {
-  "size": 1458562,
-  "git": "163d9a9af8ce2407a0d4c1e9f4a53d94419236b4",
-  "sha256": "1fd2954e98163a76a69d69d4c84f425b22b53866b8d0bcf63a780e55012297e9",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_Bowed_rr2_Mid.wav": {
-  "size": 1177048,
-  "git": "dc2a873b482776ea2063ef8a22d5f1d98b8f88e8",
-  "sha256": "898d3f1fa9a763af0442b088d8e0c8fcb0aaf80b7f032b6b54300d16d393581c",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_Hammer_v1_rr1_Mid.wav": {
-  "size": 301744,
-  "git": "91347d38dcd43c52d46f28464bc4f56f1a1458cb",
-  "sha256": "11b4fbfc21b5329e7394c24df143716f1f2681f4a8f71aa31dcab1e0d8af6b66",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_Hammer_v2_rr1_Mid.wav": {
-  "size": 282756,
-  "git": "7486442c6c6a1979c798354745d59e6af88da727",
-  "sha256": "c9e7b154d4a5eb6075178cb27ca34582352d18049be2cb73b466db0a39f417e0",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_Hammer_v3_rr1_Mid.wav": {
-  "size": 299416,
-  "git": "905a7919810776e3d8ff3ab47ee129aa2957444d",
-  "sha256": "a488e7cdca983fc53c4399fa0c492d582510dd48ee35e5336113b0041f8f55b1",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_Susp_v1_rr1_Mid.wav": {
-  "size": 630448,
-  "git": "b11749d20ae72a76d3ce5af3cc45cf76dc65f5d9",
-  "sha256": "e6d0dcbbd065a8948cf2c51d4986bbb4d1998897e03fb0f3b5c20b11a660cd85",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_Susp_v3_rr1_Mid.wav": {
-  "size": 591200,
-  "git": "ed97dc61073a581e66f67e1503981b6331b08c3a",
-  "sha256": "6f343377f2c70e587d5c9934db641ebe00beeee4f82d80cc0ae6704635f64f36",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_YarnM_v1_rr1_Mid.wav": {
-  "size": 295840,
-  "git": "f15dad00a281a97112125bef071c4af4e841cff4",
-  "sha256": "9625adef44f3bcb8593e1ed9184d828d208137359fd4352217dff3bd684e74cd",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_YarnM_v2_rr1_Mid.wav": {
-  "size": 270364,
-  "git": "db718646c6dcc41c368ea893b2278f858898c9cb",
-  "sha256": "6bf398572744da39de236e71df8b78bba46c7f7482dfcc2c79f1ca66e5902c25",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_YarnM_v3_rr1_Mid.wav": {
-  "size": 292648,
-  "git": "33a0be5b5f88d6b46a003124c94e6fab49c751b5",
-  "sha256": "029ad3644d14a2eb9939c4fc461004443c88599653534c68a2b9f81559c62817",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Bowed_rr1_Mid.wav": {
-  "size": 1038716,
-  "git": "5994eac61c0c1036f22259dc56d770529b6cf0cd",
-  "sha256": "9a12504e08f0464e3a423280e93767bf0d300e7cb31134d6b37a4307b19b9305",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Hammer1_v1_rr1_Mid.wav": {
-  "size": 282684,
-  "git": "0188d09e6d56dc05a06ebae25da704afbbfdaf03",
-  "sha256": "d7b71a7c0088fa65c0b4848477ae003571acaa16319c4402b1d45425ce0a7d61",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Hammer1_v2_rr1_Mid.wav": {
-  "size": 292616,
-  "git": "b403aa2e8921e9543c9d8f5588822a5c8cfbee7c",
-  "sha256": "cd1b6ee78ba1127b0f85d4a135139120070b7efd6a340d3f2b88db72adedf0c4",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Hammer3_v1_rr1_Mid.wav": {
-  "size": 236792,
-  "git": "bc9c31eca0110362ce0c146867071f5b941f7ede",
-  "sha256": "d646595c33c6dd3c843a097bcd1761a3acd09059aed211920adec0efd005a632",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Hammer3_v2_rr1_Mid.wav": {
-  "size": 237272,
-  "git": "d3450057928d98f605dc795f2af86c97110e0b9f",
-  "sha256": "b1eb38634f71eff408c418f8df489c468b723e05295ee7fd3adda240778fa151",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Hammer3_v3_rr1_Mid.wav": {
-  "size": 252308,
-  "git": "badd8eeec3f7c0ff15f9b0f87ef910b1a7ce4253",
-  "sha256": "3a14ce55e4b27cfaa809e41bdcaf8f588c606cbf8eaebb642d61332cd576ed12",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Susp_v1_rr1_Mid.wav": {
-  "size": 406460,
-  "git": "02d7373d89d340821202bb694dc4f32084a02411",
-  "sha256": "3fb4c5a96c8b5a97c1fdec41a32e286e5c2895ff027bad997559907ae74b18bc",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Susp_v2_rr1_Mid.wav": {
-  "size": 426808,
-  "git": "ffed8423e282d9565877182f926981cabfd9a135",
-  "sha256": "ad37d17087236f74bcdbe6882acb411fc3330feae7f4e27c44ea1fab4f66cc21",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Claves/Claves1_Hit_v1_rr1_Mid.wav": {
-  "size": 199848,
-  "git": "074c11f639e3207fd5e55dc8f869902ed4785f7a",
-  "sha256": "19379cc794b9e50d4dc55200238e27091bedab63b7370eb625490c7a96631b34",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Claves/Claves1_Hit_v2_rr1_Mid.wav": {
-  "size": 191812,
-  "git": "4b5fd3123833f205db154e4aeed85fc5b627b9f9",
-  "sha256": "bcabe27330761309eb4b4f6207e6e3b4be59815df86449ac05bfb9b81f19efc9",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Claves/Claves1_Hit_v3_rr1_Mid.wav": {
-  "size": 228764,
-  "git": "0a886debbe4645a0de9cc8b91a34feade83931f6",
-  "sha256": "12285f65ed125f4140d1e8a86b2d6a08bf3283b7bf30c10d68290b8e8230a927",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Claves/Claves2_Hit_v1_rr1_Mid.wav": {
-  "size": 126800,
-  "git": "9f0cd27df65f6c7b9d20204a962e06ceb7c4193c",
-  "sha256": "06c7c797fcbb624de0522b27f4b8aeab5acd85fabee99c38a0da145b127adf5b",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Claves/Claves2_Hit_v2_rr1_Mid.wav": {
-  "size": 182084,
-  "git": "75711ced6b8094f2ee0aca36e9faa449a42c8591",
-  "sha256": "37849406e124df98de59f74ad0a1a621ea1ee8151bcf6dcc9981462db4ba88ef",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Claves/Claves2_Hit_v3_rr1_Mid.wav": {
-  "size": 225848,
-  "git": "7d98cc379bfdeaf71b2f5d42cda9747e8fa244b5",
-  "sha256": "04954891896d00559d4b59ef468d9f1f51a5c42cb23de6f08af8e8eaaf764a8a",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Claves/Legacy/claves_ff.wav": {
-  "size": 211600,
-  "git": "e33cf32f2b69fd348ffbc6c2dcdb4b606dde8d9d",
-  "sha256": "2a59ddfc86ea84ea835a4fccfd315ececd028324809f572c3d28c7e3eb8bdf19",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Claves/Legacy/claves_mf.wav": {
-  "size": 140164,
-  "git": "2a63979d566d11ed52337bb7e28e76880a2a6fa5",
-  "sha256": "7906ca75132d3374a00d12c23b030807107e4576716b6a437a9a6a8c7824b291",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Claves/Legacy/claves_mf_2.wav": {
-  "size": 120934,
-  "git": "2f7487291a0237f872291f0755f5a62a69dcc007",
-  "sha256": "a95a65360741f0f8a75720bc9bc83ee8281c8453193b59def2df9056b969c8ec",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Claves/Legacy/claves_mf_3.wav": {
-  "size": 118186,
-  "git": "f48e7233df4881c8b28c1b83f86d39646377c428",
-  "sha256": "31744f5a56cd917f14cef6f6a6201c2eae727ac16d5604e72bb0db7aa6936e98",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Claves/Legacy/claves_mp.wav": {
-  "size": 107194,
-  "git": "62b8a8dec145c57dd43a8a5c6d96ba0d7cf2fd59",
-  "sha256": "d2d6d73c5a91baa06f0a43af2f6fa11b3184c75b626fa4446e578b74d55a9ccc",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Claves/Legacy/claves_pp1.wav": {
-  "size": 38512,
-  "git": "63f9c85195facb28439f73ab634a6cc4794c79ad",
-  "sha256": "0e6cd83418789c62e53520f6e569a4875ceb57d1fb1e6c87ed113619a13ed64e",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_C5_01.wav": {
-  "size": 1271310,
-  "git": "db079c70946137f543820b6a6ac023d0afaac47c",
-  "sha256": "635f898e0bcb6975b96b18efd9c896f6f1b97ff12174a339ada4814e49675660",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_C6_01.wav": {
-  "size": 1271310,
-  "git": "c02ff721d10eb3551372806653368f45ea5dc367",
-  "sha256": "e942cbf502cf6731df2925945fe3234c876cb63f047d91007b6929887f9e4904",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_C7_01.wav": {
-  "size": 492418,
-  "git": "a0f4aff9ef7d73e49a16f4054ead1369a78572b0",
-  "sha256": "b2ecbe0e60c983bbfaa49a1f45f8a11559f7dba27b8c8a032eb2cb7366a36910",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_G4_01.wav": {
-  "size": 1271310,
-  "git": "a7d9ca6c68e4c56327d83f0653ee3e16e4810265",
-  "sha256": "6c4649b13e24fa01e4634edad8fe8edf18aef33facc5d49fe53097b376bac4da",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_G5_01.wav": {
-  "size": 1226714,
-  "git": "dbaf80bc3975016095de3a611a202b581931311c",
-  "sha256": "7045c0ef7260e2f1ad11a64406cf7575ed898d1207a91104d33d78caefac63e4",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_G6_01.wav": {
-  "size": 843122,
-  "git": "e95738492bdc207b11ad32891a9a1ea090b6719e",
-  "sha256": "a2ba94e59119cd5272c1161fc8b8fbfb94c7b44de45a9a6cc5973b1c332103af",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_soft_C5_02.wav": {
-  "size": 709206,
-  "git": "b68621c4f4fc482284bc8e848ea2d2654366d49e",
-  "sha256": "4fa149e6f224557df5fab98ad660a8f192bc6fbf2556077dd1089509bf4424e2",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_soft_C6_01.wav": {
-  "size": 706962,
-  "git": "d3c777e9470ee9d4b1821817585967500fc34362",
-  "sha256": "e0fdb3a134ee828530c654db7f94b04f94272984938875b0d5535ec40c658324",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_soft_C7_03.wav": {
-  "size": 706962,
-  "git": "058b6acda9c40c9df19d8a911e79c0c4a60c3111",
-  "sha256": "68d823a0deffef138d4ed583bd027b9932643a630064274e73d67a644385be4c",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_soft_G4_01.wav": {
-  "size": 706962,
-  "git": "0fb4b3e2baea5685fa4bb29aba340781c0ab0077",
-  "sha256": "cd92f9402c28d3e951dc8d575ce61f0a550b7e316cb6427b1b455ac3aab09000",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_soft_G5_01.wav": {
-  "size": 706962,
-  "git": "2de4932c129eaacdb2ec9e6e9795cdf00e112cf7",
-  "sha256": "73f6a6de89291d0292b303d641444de5e6e1561881f09f6cf20d77f245f7bec3",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_soft_G6_01.wav": {
-  "size": 585962,
-  "git": "36c308a3c51796da6754a53373787e818830de5b",
-  "sha256": "b4407b60c2dff43a3a80fe5231beed95caad4d9b8f3f9cdbd80a27642207f35d",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_B2_med_01.wav": {
-  "size": 1495616,
-  "git": "c936311bb0a094e7a6625f3c8a4914754242583d",
-  "sha256": "4d0ffc47858d0c4545191eef3240d470c40df1c090841c0fb2ae2f47900794ee",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_B2_soft_01.wav": {
-  "size": 1406594,
-  "git": "a8d92ac62a6008d29c60d6fb39674f77cfe6ca57",
-  "sha256": "10e4a47853920c93423fd72f224e46bf1bce60319d5e7ae501d1b8431ec7d78a",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_B4_med_01.wav": {
-  "size": 433802,
-  "git": "9393bece679f9d698a8b8acf81be463c07247576",
-  "sha256": "d676b76e3850d85333c85b1fc77d20f4524ff2e9e6f03551f52c5b22fbe8ab30",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_B4_soft_01.wav": {
-  "size": 492602,
-  "git": "e6935a398d8cec04a8e23c58c78d44a9ac066620",
-  "sha256": "278f5123442162e7946fa68a48ed650e3838b1ddcd3e2173d3ea69f30079c534",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C2_med_01.wav": {
-  "size": 1785050,
-  "git": "8d18c94d5945941574e44563a60908d9f8c11430",
-  "sha256": "fd9c329513ed9d54c36174bbe45add471a80ffad411c686428bbf0bbc0121438",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C2_soft_01.wav": {
-  "size": 1697402,
-  "git": "f5411b5221bb5edf59430031c827251b87ff3f5c",
-  "sha256": "5fd3c75ab7eafebc24a693793e2c4404922dfad37d8dd9bf80e8ca483500ed80",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C4_med_01.wav": {
-  "size": 655244,
-  "git": "85c657dd0a8f58808efad5e9184d5b9124285512",
-  "sha256": "3e88c006eef05e8f7891f8f6027042006199a4ec3b53a0ad7308f9782a52d4df",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C4_soft_01.wav": {
-  "size": 915446,
-  "git": "6ccd29800db58963dd91136ea426b895d703bb22",
-  "sha256": "4d03d005166e8b366e6a983b7a4a89e0847e1d58a6d34dda35ddf74289cace94",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C6_med_01.wav": {
-  "size": 451844,
-  "git": "f5c95434f42f07fecdbd4f3e3a6a737d81cdd45a",
-  "sha256": "d93fc6f7b399ac28d1ecf91987e9eb55b34024c6033b7f0e3aaf35f49d51a2f2",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C6_soft_01.wav": {
-  "size": 663584,
-  "git": "87474094e8bb8834cb656645f99bd34eb2f241cb",
-  "sha256": "55d5793308bb10feaf3c1e341c0e4e4dbf8ce7fbea805e118b55177389ec3a09",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F1_med_01.wav": {
-  "size": 1027292,
-  "git": "21df93be7915e72dabe9189001262c62b436355f",
-  "sha256": "484de6300831ebb267a867a4c435567bacfb77aed953f317fde5b1c312bafac4",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F1_soft_01.wav": {
-  "size": 796046,
-  "git": "b275da060dd37cfc2f2d00c2a86d7f0c3a045ad8",
-  "sha256": "eadaeb8bd491b3161197478119be60771e0e1d8620d4848e39595976f9c9c998",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F3_med_01.wav": {
-  "size": 1382924,
-  "git": "2c74c56eba169268ec3e74bc2de31fb282716a58",
-  "sha256": "a493b31ac2e588ed961c522a66b790acc584b59a08918bd7193d6e6fa8df4756",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F3_soft_01.wav": {
-  "size": 1455272,
-  "git": "520e49115bc66a7f3a57a09ba8999abd02e7a7b0",
-  "sha256": "6eb7ccf5fa10b1bdaf10f0cc7a50d8c42ef086636a9e88c6527fb3af58e5ee1f",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F5_med_01.wav": {
-  "size": 566924,
-  "git": "215d4dfb83636c70a5997ac65cb3acf201c53dc5",
-  "sha256": "430da3d4f0a323838b7495d9cc5a98bc3829e2f11be11335af526a48ea88b8e6",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F5_soft_01.wav": {
-  "size": 373694,
-  "git": "224aabf1687b4eabb9bdd2ddac75683220a901a1",
-  "sha256": "f98ea1bd715aee0091ec8eaf61c9fc3c96440f403e9d32ec33f194fb70d9938c",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_G2_med_01.wav": {
-  "size": 1513244,
-  "git": "f27193e84ff36d8c16ddc4a59bc89acc79d426ae",
-  "sha256": "e9c2d33b9f50f0689b349dc9aee20a5b621961cf8294abb5ac4ba5a4674bd7c2",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_G2_soft_01.wav": {
-  "size": 1699184,
-  "git": "0f80a5f6acd14427015b71b62a6ce9ab9177ddfb",
-  "sha256": "bb41b6fce6b5cf73086480754f83a4b33ae61a7e6f19c7e7ee3b01d0171e7f63",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_G4_med_01.wav": {
-  "size": 580262,
-  "git": "be84c27de4fea671b78c82591aa6d6f98c06619e",
-  "sha256": "278e738d8214cdc192e63c3350b1e464a72c86dc135ddf0c5ce035569be66c71",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_G4_soft_01.wav": {
-  "size": 860570,
-  "git": "2aa39578faced00688851f5705857170aa656055",
-  "sha256": "d3e23f018b091a60d91c3c93b38b605d02a9e26c7cf5830ffb866cfe84130cd0",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet1_Crank_rr1_Mid.wav": {
-  "size": 278780,
-  "git": "04a68b3f55857f1e5fe08cb1afef2558b4a3d1ee",
-  "sha256": "40108f3c5e704635d7af039f3202463415228103c260f642e8f231b100b06bec",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet1_Crank_rr3_Mid.wav": {
-  "size": 234492,
-  "git": "670497f11bb207c769e5e8b7f07caf0ef011fa71",
-  "sha256": "fec277c952e603fd2938ce9342f37ca6b61d950c70b9945682bd7022b34da2e1",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet1_Fast_rr1_Mid.wav": {
-  "size": 1247400,
-  "git": "5cad60937336bdf2ac12aaa5ccdcd2a414f8d3b0",
-  "sha256": "476561b6d3185dd91946faf28b4ff50364842919b5e1ebd63444c40543925de4",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet1_Slow_rr1_Mid.wav": {
-  "size": 1579076,
-  "git": "222981643f98004a7c8fd7c0d0ebc87f00cbb884",
-  "sha256": "f3236309dbd3a1e3a00a48db7ec5a0c90a59d171512f4ec0a21f197014b16080",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet2_Crank_v1_rr1_Mid.wav": {
-  "size": 257080,
-  "git": "7f3a0940b135b2f649d13f823d170ec5a952813d",
-  "sha256": "c6146f197b93a9b4cb3abf3a1a28a94836d3a0dfbd8ba087aa1eb3de4fa65e1c",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet2_Crank_v1_rr2_Mid.wav": {
-  "size": 265012,
-  "git": "d8925d0adefe64e99a8bf141186c47c5159063c1",
-  "sha256": "a89cd5a71ac269d67c35ef09c6be80e9292642db71a48e2d2f41b84ca854ff39",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet2_Fast_rr1_Mid.wav": {
-  "size": 1545800,
-  "git": "b4d7b5af8eab962ca5ef2457d4092b824f633ad2",
-  "sha256": "f4b66db2382097bb0f44edb56ee368023999996ebaef4810384b54d6223bf1a9",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet2_Slow_rr1_Mid.wav": {
-  "size": 1805000,
-  "git": "fd3db7caeb8ad7d607a988efee5ec8fc550ad32f",
-  "sha256": "6f5027872df97a9fb86549b9f1826fd6f0c75dbd74eef04c097e2fd5c2a0e7c8",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_A2_v1_rr1_Main.wav": {
-  "size": 1811676,
-  "git": "5e0049f968a46453e531d235c55dec82d7cda29d",
-  "sha256": "b6e23a94322107d0ab884d7c38e51be538eb45f613c6a24e980c2261151bed75",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_A2_v2_rr1_Main.wav": {
-  "size": 2420596,
-  "git": "2beb86397ab2fedb87a8428e5bc715deefa9ea38",
-  "sha256": "683d2b5a9ece5e5bcf421a9ae62d74e5004b40493e1b5893f125bb96fd52cb64",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_A4_v1_rr1_Main.wav": {
-  "size": 1465148,
-  "git": "0e113727968fe8c907e483ef619abadb8060431f",
-  "sha256": "48e942290a982768d7a0038e28a76a99cb666673518b29ebdc55de5e1491025f",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_A4_v2_rr1_Main.wav": {
-  "size": 2388580,
-  "git": "f49a1fadfdbc378aacbfbb2a57a6fb434dd90ede",
-  "sha256": "fb507c5cb2f2023289fdf1384092f3c5e13f03a2b5b1c39f6792cc57aa77d58d",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_B3_v1_rr1_Main.wav": {
-  "size": 1850652,
-  "git": "bacab8cdb0f85f9f4f28a1654ded6811318bb9f8",
-  "sha256": "7edfbd70f93781d2cbb17c2fc8befe474de9987c6353db2358af4e13a0269345",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_B3_v2_rr1_Main.wav": {
-  "size": 2851524,
-  "git": "c2050a8979ad5673be81c0466833014736254977",
-  "sha256": "9d2466c4d3375f2eb24c57f17e15736052a5492d6c84b876c1d0a4997eea99a0",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_C3_v2_rr1_Main.wav": {
-  "size": 2117636,
-  "git": "750bf1b714d4435a11fc4f53226c0fc27e251541",
-  "sha256": "83950902ab4323f372bbf81b924fc05c6bd0ea42c9742db44464d562c20414bf",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_C5_v1_rr1_Main.wav": {
-  "size": 641932,
-  "git": "46a9c03a0ecfaee7246b10e2eec32908853ab860",
-  "sha256": "be995c1164dcbbcf83688d095864a4abd0feaa68b71d1d2e78c35f62461fc03b",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_C5_v2_rr1_Main.wav": {
-  "size": 1161864,
-  "git": "7896c7155ca938445cf59e16c779c4504e911630",
-  "sha256": "129c5661e386f3c08a4f777c108815f174d96e02f5fb4b4026a9437905327847",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_D4_v1_rr1_Main.wav": {
-  "size": 1973784,
-  "git": "df2e9089d97a1f002655b75e9dcf9656fffb5950",
-  "sha256": "daedf613863d4de0a383d66b2db6ab9ffd8dc492d16ff7d735cf3b3107046a26",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_D4_v2_rr1_Main.wav": {
-  "size": 2625224,
-  "git": "88e93ea2798d9583c81a867a8a27c7559c873c35",
-  "sha256": "aa5626038a653de08057e1dae8a7160b12f2ce26c85a525bc545b8d14843ce80",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_E3_v2_rr1_Main.wav": {
-  "size": 2665284,
-  "git": "3e5d93391a1e94724a6e2e2cb2f75181ea78e2dc",
-  "sha256": "268f0a703ca5e394533913bce3760e8c06661a5d72841601ade887ea72a00312",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_E5_v1_rr1_Main.wav": {
-  "size": 1019012,
-  "git": "5ed1086c7afbe31827afa8be8a8c7c55dcbd7b01",
-  "sha256": "d2a9412550115bfdc4e1087cad3cd6e9d8146c1f4a91bf47f60aa7936c5f5dbe",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_E5_v2_rr1_Main.wav": {
-  "size": 1496764,
-  "git": "db7d41afbd1212d374ff9ae1050dae58fced279c",
-  "sha256": "7e854b01269cd206cd863025c5b61416bba90362fa965597a7b174851d07648e",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_F2_v1_rr1_Main.wav": {
-  "size": 973692,
-  "git": "859f9625a662560facae4de31e8af82f78469492",
-  "sha256": "df5cfcc72af80fac2191300d09922474c4ac25c5cbc43ff387953d607f7c1320",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_F2_v2_rr1_Main.wav": {
-  "size": 1569944,
-  "git": "bdf8117e17ce9f7e0d7878f2b99f1f3c6e846855",
-  "sha256": "14c3f7a2492f6a87aecd6463611bbbbfe2094383bfa267a2df67f94766e00df5",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_F4_v1_rr1_Main.wav": {
-  "size": 1368508,
-  "git": "0e230262665e212a99cab1a11cfdad30b9977492",
-  "sha256": "95b7d6eeb71d77cce607c0c52b0a6dfd23d0eeedc2eb393fb9a6c5a5768f4aa5",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_F4_v2_rr1_Main.wav": {
-  "size": 2027468,
-  "git": "ec0b4f8a15407cf79e943c7e895a0292947e7de1",
-  "sha256": "76c2813ea1e87870dfbf3035360af46aee54214eda5e95b03bffb83f64a89b1c",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_G3_v1_rr1_Main.wav": {
-  "size": 2519544,
-  "git": "36a655b6f107c87cd5e7ed06aa1805449600576a",
-  "sha256": "9b479e4c84fb1caafba8c1c106a8922cea20bba81c37d65f93afae339626767f",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_G3_v2_rr1_Main.wav": {
-  "size": 3221132,
-  "git": "daeca7e9d2fa64996c0c59473786a9594235879a",
-  "sha256": "ecd350b0fec96ce465a185c44a9c3b2ee966d6b56784c27c17d42e9b5d887882",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click2_mp.wav": {
-  "size": 370954,
-  "git": "f9c0fae178baa8d10863e8b3fcca8d27297d92e6",
-  "sha256": "cfb04b07ceb70b6056ab1849cbbba53f658b4453982a6f44b4a05e19676361dd",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click3_vl1.wav": {
-  "size": 186874,
-  "git": "0df4f555f624d91e5fb6841af9e72123ab859218",
-  "sha256": "b38a06f037de70bb2cf98fd89f06af8d104d4123773d2e625691189a67495be5",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click3_vl2.wav": {
-  "size": 244570,
-  "git": "79a388f22dc8241f6e9e0c98937a83bfa1f80658",
-  "sha256": "eb93ee3fa02d66588a48b34d8b686638dd4e90433c8c75f2397a3dbc35c61d10",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_f_rr1.wav": {
-  "size": 497338,
-  "git": "ee846604e1c6850582d6aad3d4cd9983e1c73d49",
-  "sha256": "86b690a393ad62d65dc6832948adb0cc164fe22f544a8065809f000c65d615fc",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_f_rr2.wav": {
-  "size": 516568,
-  "git": "25739527f54e1a2f1bea670cdf3eece04f414946",
-  "sha256": "661e25cc1233a9d3d85bde188762d23fbbd69ac6af68af5c8db8fdd36fe25608",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_ff.wav": {
-  "size": 200608,
-  "git": "443e60a1b78d4fbad34448723ea9e3f2c45646c2",
-  "sha256": "9a911c66212d50a09494821bf9af8ce6e007612e232b5905f838348cb1d63b75",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_mp.wav": {
-  "size": 134674,
-  "git": "f625cb9b072b8a88ad588f8c125654f31e8c36cb",
-  "sha256": "00b76f9fe96c118f29dfc69866c12ec11f2e1264f6cb9c0b36912c2210b015fe",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_pp_rr1.wav": {
-  "size": 107200,
-  "git": "74858894be5bbdd0da1c4a8c46ad234ed8e9b95f",
-  "sha256": "2c21a5de6f3ddd51ce851325ba6caa4a187422c51299da7b2fdc4f51ae5e9ee1",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_pp_rr2.wav": {
-  "size": 107200,
-  "git": "27f32555c46d4311f20e37c71a50e6fbb1adbfa9",
-  "sha256": "94db112d562381852c6f7356a85090db25980ec6c9f1dbda0615bafac0fad7db",
-  "licence": "CC0-1.0"
- },
- "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_pp_rr3.wav": {
-  "size": 82468,
-  "git": "63e544917f0dd25f9bd70314f57750243d506303",
-  "sha256": "ecd77e89be7f5ba0b875825ee61902f54736014e3892248299af6b70fff5feb1",
-  "licence": "CC0-1.0"
- },
- "VCSL/LICENSE": {
-  "size": 7048,
-  "git": "0e259d42c996742e9e3cba14c677129b2c1b6311",
-  "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
-  "licence": "CC0-1.0"
- },
- "VCSL/README.md": {
-  "size": 4365,
-  "git": "655eaa2be2a415dfa526bf6e7729aa40590ac0e8",
-  "sha256": "6f7214a188f106c917d6503748485413c3e47cf56bce69f82beb9d16aa0894a9",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/LICENSE": {
-  "size": 6555,
-  "git": "670154e3538863b2d9891fd5483160fbdfc89164",
-  "sha256": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/README.md": {
-  "size": 751,
-  "git": "64362229eaee3d93aae6cb86446b6b5f4f0a1170",
-  "sha256": "8fbf399338661e6c76585ad9e75eb10324f823935168e0567553293a83f200a0",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Readme.txt": {
-  "size": 1838,
-  "git": "72e2bfeac69f91a77497254c4991a3c5fbb87bfb",
-  "sha256": "101ddb88eb013900cc911834ecbdfbd49497bcd913bf09417160b9677952bb38",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_A2_v1_1.wav": {
-  "size": 2336738,
-  "git": "76df6b474aff133b2ac9d96bf2466cb6fd865c72",
-  "sha256": "c97a003184fdcb153d6b6c0bae8d82a90592a1b04b06bd7caaeda8b9776d5284",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_A2_v3_1.wav": {
-  "size": 3082676,
-  "git": "ad696c6ad3cbacb37b6d9cf4f26da4a54521e7ce",
-  "sha256": "b7f226f19b9616abe5fa4a27ef50116667e19eb0127f30eacfa6d1a83e9149f0",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_B1_v1_1.wav": {
-  "size": 2372492,
-  "git": "d6a4a2d1a688c6ccb4e1e1a56b878c9c93df468b",
-  "sha256": "4f95c087c4b8d87ee591e9d39c3c9caf085c6f1b9125eac3ca9e4e637da628ee",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_B1_v3_1.wav": {
-  "size": 3372962,
-  "git": "56c81412c60a2b04b8556dfa26a7e0127357c5cb",
-  "sha256": "8331a0e13f41243efab111f9b5e9185524c27ee48631269acecafc954ab7eaa8",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_B3_v1_1.wav": {
-  "size": 1690082,
-  "git": "16d846690d7c4d385f3cfc8f1fe25873d6bd5b01",
-  "sha256": "bd25d66c1c4e73f5827bf3b931244e51ec8388594d8004529a762be81258097f",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_B3_v3_1.wav": {
-  "size": 2865086,
-  "git": "3b1685e657db57bd71c979da8c2d9d35d2d0d197",
-  "sha256": "1c8b571516ac503df871bbea74756dfc3813b4bc10a76921d231afb0175cdbf1",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_C1_v1_1.wav": {
-  "size": 2347376,
-  "git": "ff87d1ae488d87189f33a0d18550d3bcde012f3d",
-  "sha256": "abdcea431f384e135c469b0f3e4ac2a437f282f521dc5bcbe22abc221536e8de",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_C1_v3_1.wav": {
-  "size": 3335948,
-  "git": "d3820a6d57daf9a202a000bff0fa082a3f77acf6",
-  "sha256": "19195ab85ab71626bd11e7100febdaeeba1c237ff5887b934fd0ffd8dfad82cb",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_C3_v1_1.wav": {
-  "size": 2444174,
-  "git": "73ccb5dc2cc2a07926a1c41aa3c5621b19f420bf",
-  "sha256": "a614ee7ca821b44660236e47b89620cf914ec6ad27a99bc0d9764f47dbe512e1",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_C3_v3_1.wav": {
-  "size": 3019394,
-  "git": "a192845091cb8e669c72d3ff4a88eb1c5968e626",
-  "sha256": "51e884d54eea3bf4ba7ee35289a09f15ddb6a52cd849248d01bf18477ccbd07b",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_D2_v1_1.wav": {
-  "size": 2550956,
-  "git": "8076f809d4f6a8057f3835e12d22751a25e39252",
-  "sha256": "e8640dec9febc6e39fcf06b19d2c95a85d5ff8c38f13c9879e69f551eaf38ab8",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_D2_v3_1.wav": {
-  "size": 3291368,
-  "git": "fdb46242bb68876ad275b9b8ed10c4b8508b9292",
-  "sha256": "fc946615cd6550570c8f05d61c0d59b9079bf9daba8bf25be7943487fea5a7ae",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_D4_v1_1.wav": {
-  "size": 2153228,
-  "git": "e1125afc13def9b43e4612cdcebd11b99fce20cc",
-  "sha256": "b4aa3a7fec1f0e783fa560f493868c17045feb271738e3d6834d1b00594b1c38",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_D4_v3_1.wav": {
-  "size": 2801210,
-  "git": "9189549dab9d3e0928fc7e42f94c04d66d28c52b",
-  "sha256": "2ea7f580738dbcf143b9c9f72703071aa7a8f6bfa33cdd2c2e5da961df1805bb",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_E1_v1_1.wav": {
-  "size": 2468348,
-  "git": "fcd27d29a8c0d520539cef6aad659bf9006ae730",
-  "sha256": "de31a61b02d4e1d5a79b8bc432b0f35fe2e434290ad34402cc0f2dd7dc278cde",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_E1_v3_1.wav": {
-  "size": 3080426,
-  "git": "666f0d1ba1a76133c12c9859222c1c7094b613cf",
-  "sha256": "ee190b95be4f2416b9f41d248d255a4d7067b722f9b21482b30bc9872a9bb0d1",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_E3_v1_1.wav": {
-  "size": 2456672,
-  "git": "63f4d6df3a25fb95f417b5d45b5f8bf6a11107bf",
-  "sha256": "d2f961e30bf64021cf4acbd88e0e7a1fd1840943ae78c62a711bcce3d109216e",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_E3_v3_1.wav": {
-  "size": 3278270,
-  "git": "7711cb67795d692b0d732eb8fd234c41d5980f42",
-  "sha256": "24a7ffdc23087026c4ef2d421441253c71490df9cf0757e93ffb14b4e61481ef",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_F2_v1_1.wav": {
-  "size": 2186012,
-  "git": "78f52c49ddc8a357657d92b05cd89f15beb6c717",
-  "sha256": "162054eab4ba118924f8f8986cf1b17ccfd65211d1945743ffbae30b4953f901",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_F2_v3_1.wav": {
-  "size": 3062696,
-  "git": "a384e84a342ab9be12ca55b92c845a3c351b75bf",
-  "sha256": "d965197faf2e6ab8675f1d65505e5ba934a5ab769412d314bad94133e18f24d0",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_F4_v1_1.wav": {
-  "size": 1922948,
-  "git": "7f39cccecb392eaa0ff4c94e3607dc2294458a30",
-  "sha256": "a9888547b4b684c7649a882e693d61964848f18401a18e4646a8449b40c08bad",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_F4_v3_1.wav": {
-  "size": 2726342,
-  "git": "074f12a91124e13ea0e4fb34d9ecbe7279ec0806",
-  "sha256": "24ea4a0f892cb60c4a52d6a5b1ef8281e4e9a9f78b5f938e078da7cbbfd5ba19",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_G1_v1_1.wav": {
-  "size": 2161700,
-  "git": "42a2731d11a4749c3026f0618e21a8c9370c2024",
-  "sha256": "9e5d24e8e28d6c7f650f9bb2b33d43c13e341a8bd33124c64e23881378b181ba",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_G1_v3_1.wav": {
-  "size": 3370496,
-  "git": "35971538059e18b8f38cdc556630967777a0a0d5",
-  "sha256": "e4c61d4ab855ec20ddb69ff608a1c066ff8a779ddd08d1dfe1d534d3a4563ad0",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_G3_v1_1.wav": {
-  "size": 2431598,
-  "git": "7880157fbb8e57fb0b7a694b8569701bc0d942ea",
-  "sha256": "8d658346b8d2054fd534b3222b5d7a23196d22a83a68c3a04ffb76b21853a3db",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Cello Section/susvib/susvib_G3_v3_1.wav": {
-  "size": 3335768,
-  "git": "732d0c80596fdfc593f55b5a24f65c07cd3191cd",
-  "sha256": "17df597c259a849870aa25e9fbfa6093371851f83ba7b9deb9cb9e1ec11463a7",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_A2_mf.wav": {
-  "size": 2007670,
-  "git": "265383d75cb23b2882ca297e6c50908e3ec8247a",
-  "sha256": "1df9f4d138ca3931fcb458bcdf01304cadf2e5f4eef67bbc17b0e42c0e60fce6",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_A4_mf.wav": {
-  "size": 2143618,
-  "git": "acbece38a84e886cb5516e0f29d6ff5d38900fe1",
-  "sha256": "3665f3975cad4a33f46784aa4f896f4b4319ba2b7831e892d975bc38c9f09f23",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_A6_mf.wav": {
-  "size": 636870,
-  "git": "9fc9959804954e24e6837c426d702031fd2a3b7f",
-  "sha256": "4605355d22fae6f58190bf0d033d2ebdd745d63e2e43204d6f41ad27e4f09af0",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_B1_mf.wav": {
-  "size": 2284022,
-  "git": "bb26292fd8b4d4d7f95703c69667c8f2234eebc8",
-  "sha256": "284034807efbb429cb63f6fb744834b18e6281a4914e6460de0a5818b5d0d0e6",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_B3_mf.wav": {
-  "size": 1981130,
-  "git": "8d06cd55bc871d19f25a2bb1b56c7a567aabbc6b",
-  "sha256": "f6f71be8c640822ef48a448b245585659acdfcc7ed5774e10f37be2fc02fcab4",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_B5_mf.wav": {
-  "size": 779058,
-  "git": "2d2689e8ca023cd685ed5a29161f3d641f109da9",
-  "sha256": "f2757b674c6b7301bed52e17a1ae3e3d34d628b3f7edc5773ebb25798d2541f7",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_B6_mf.wav": {
-  "size": 483966,
-  "git": "d350ad472b663c9c239802f10228cd0073cf698d",
-  "sha256": "720e56b99f84d4ef1b9bc8cd3c217170320f523edb68488af3da76d2217e16f7",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_C3_mf.wav": {
-  "size": 1586172,
-  "git": "20e91e167e86132bb16601f682c90444779d8a23",
-  "sha256": "e5d232771704e140959819de8cf2a3e0ba49d021ca77354c42664ce4fce6d9f3",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_C5_mf.wav": {
-  "size": 1237142,
-  "git": "748b4b1366616972c2a22e81fc48a86178801c45",
-  "sha256": "7c8b862f6fd3f1442ed87537af976d84bda8c05a5b4900e8907d570b5202a517",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_D2_mf.wav": {
-  "size": 1741118,
-  "git": "2a9d5a18ceb32459a29995a4e68e06c8f78dff5d",
-  "sha256": "b9cbdc08e43fc0b28ac70246df991cb390f5cbd7f31519b3cc7f70d283b70566",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_D4_mf.wav": {
-  "size": 1921690,
-  "git": "342eec5072e2c0a7fb7cb03b6f5b46d84ed6ac69",
-  "sha256": "ebfde8aab4411019e37e3426f4dd88d6a52a38c2d0261d7f10ec63d8ff584dc7",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_D6_mf.wav": {
-  "size": 687750,
-  "git": "f66e88f651740695e4971c3197e6a1d61d6380c1",
-  "sha256": "b040b61fb279efa1a9b9c60dcbd8626a37f57ffb30f3b50747a2123ee4db5bd2",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_D7_f.wav": {
-  "size": 396134,
-  "git": "096a6d12f2a4e01c952d85100d11030b8ab2fdf9",
-  "sha256": "87ca6f45c5c242d9cd595911278290a4abdba587f71ed263acb1650236fcd4a7",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_E1_f.wav": {
-  "size": 4001190,
-  "git": "483714bd64ecf4947fe70d0ae0da6f2292c958f2",
-  "sha256": "70f534627d6155bab46262e0383a8b431c25fde78ca029947d453748b1f73038",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_E3_mf.wav": {
-  "size": 2461138,
-  "git": "5c6c7410ae0ff7800214931f9db9a7f52db5987e",
-  "sha256": "aafa9d41ec0f77da8f2891055af8b3f9557e0ba1f1df93d53ae6e1fda07afae5",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_E5_mf.wav": {
-  "size": 1171586,
-  "git": "20675907d698db011d0c8bc72cf9af4e7a1ac971",
-  "sha256": "95dd9ddb0bd15bee7687906e00f25aafcaa43020cc9501f0e8b6cabf0e9a53ec",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_F2_mf.wav": {
-  "size": 3086590,
-  "git": "03c3ce65453dc79a0b36805126b57574ff7dc654",
-  "sha256": "d5c0fb42c176af334fd6f6d1b97858556619c51e177efb5b0c6c23bc19ce6dad",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_F4_mf.wav": {
-  "size": 1913498,
-  "git": "a1966639b165b623ac533270d616814cbc5389ef",
-  "sha256": "db27ebbb37334c10e06f2ae63f4d9ff555e4d11704fcc6f0bcf503863867e577",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_F6_mf.wav": {
-  "size": 413126,
-  "git": "5d80932f790a28c088fab5dc2727c01ef2a130fc",
-  "sha256": "7cf4c012542df737be39900af262fdd980681956e734f43af106718184f34213",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_F7_f.wav": {
-  "size": 332482,
-  "git": "2451907b2acc4cdf9b371111c760abc9bb866926",
-  "sha256": "638b40d6c6c674257daa89b0b1e5108973ccbf13d7cc282e21266d3fb71500c5",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_G1_mp.wav": {
-  "size": 1189890,
-  "git": "b7935d0f8828a40be189f960960d4cb8d3235328",
-  "sha256": "f9fa1a6ea784320125fef31495ff223ceea675641d0728c2a33b431c06a78bfb",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_G3_mf.wav": {
-  "size": 1806874,
-  "git": "a2f7fcc2bce81d039d9c0c529a94159f589f36e1",
-  "sha256": "62600eb1b37bc2829ca65351f7ca7e506c9ae472abd5bea0765a8b8fa7df2772",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Harp/KSHarp_G5_mf.wav": {
-  "size": 1049778,
-  "git": "8e3593345c95368ae9d74591c1046d21de6a8e60",
-  "sha256": "f2004dfc617997fbabc6f849add2af06f4f859361c44a8fca0f993dc7f999540",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_A#0_v1_rr1.wav": {
-  "size": 1861432,
-  "git": "7cf00f069ec3bcd2168ab3bf323528ccad07444c",
-  "sha256": "b3800588b7aeff8f0c81998bdc4bfe47b3fc3e621f166de3df68f614a9f53afd",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_A#0_v3_rr1.wav": {
-  "size": 1786876,
-  "git": "938d98f61c6df3573658c7b1ebfaddc3643b29ee",
-  "sha256": "3a8ba2d2cf631a9b4732a1ca717a7059d20b71a9db576ae4fa5346d024cd17e8",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_A1_v1_rr1.wav": {
-  "size": 1249496,
-  "git": "1bffe0476c289a25c3404d023a37e26d473dee48",
-  "sha256": "06057880075d08c3f5a9df78bb7ec07f4cd41bd26e09a69f7a2e92cc66f308d9",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_A1_v3_rr1.wav": {
-  "size": 2383056,
-  "git": "1931bca16de18f5a7f4f3d36334b8d49bbfd935f",
-  "sha256": "993b0f67c4050225d3d45cdc50c3362ec6026956b765a946498419541aa6e8c4",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_B2_v1_rr1.wav": {
-  "size": 1596108,
-  "git": "1fa75f0eabf6637e3b64eedc7bcbda664b7bd5c9",
-  "sha256": "75e9119ac1c1e0d60fdd28ae88c3628a40a21d4ef91731cbd890b0cd29b08ce0",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_B2_v3_rr1.wav": {
-  "size": 1375120,
-  "git": "ffc3f8d81a8d551a7caa650d75b7ff45b27870c6",
-  "sha256": "e38aaa840cef00b48cb12fe3ae20098890a4a22d58741c860c633c65f9537f1f",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_C#2_v1_rr1.wav": {
-  "size": 1162724,
-  "git": "6c81a4f26d83527e775f705a8888cde24224e75e",
-  "sha256": "2bbc1f013bf4725dc45dde12d1a83c71bf6681920824932059799c1d4c7e1a4b",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_C#2_v3_rr1.wav": {
-  "size": 1752396,
-  "git": "2e6da6b6e76e5eb396bf7203f847413f344202cf",
-  "sha256": "b2e8f4ca464b44e3f73a0f8a360ad369d546fb2d2f03e369235fc403f543b1f0",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_C1_v1_rr1.wav": {
-  "size": 1458252,
-  "git": "e8b4cd7952603319926b7ad8d1ac363c07f61a67",
-  "sha256": "c930941735e707b109878f4734110412ebe26b983c2b3e300510175aedf5e61c",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_C1_v3_rr1.wav": {
-  "size": 1843084,
-  "git": "b682eeea5db633ff03765d15add584871a421092",
-  "sha256": "220043ee46c072d1aef3e8c16f4531d0e3e4d7369dfbbf0869c75b11663cb792",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_D1_v1_rr1.wav": {
-  "size": 2548840,
-  "git": "efc144474b11569f4c40c48b3b112d068d038274",
-  "sha256": "d07634bec7bb0d736375bfb0c514f3d7586d9a625c4f56f4936556e247b33812",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_D1_v3_rr1.wav": {
-  "size": 3209708,
-  "git": "249f36163d2073c10a9085072324ac90c427641d",
-  "sha256": "da9f42632d703a139d051b4c0de3f8c5fbcece5242f06e397e910c2e3f57c1a9",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E0_v1_rr1.wav": {
-  "size": 2852456,
-  "git": "3ec46c827e37588c7f5eed288055e85b75171a08",
-  "sha256": "b510c6c2eb4fb0acba5eaaaa703ebe19025cad3749f645c41f883e4217b338fa",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E0_v3_rr1.wav": {
-  "size": 2341236,
-  "git": "755166d7fa032b814274c2eb48f927069c20f03d",
-  "sha256": "a40e0ee5f4bd31ed6c097b382ce916140e2175b34969f32b0f3162051bdc268f",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E1_v1_rr1.wav": {
-  "size": 2824612,
-  "git": "bfa40160c441f0b4ef4fb964a05434ba79513c10",
-  "sha256": "90428ce30d89c2eab94187a2d2c589758bc7027b8f0c8d3e2cce165972f60e21",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E1_v3_rr1.wav": {
-  "size": 2356332,
-  "git": "bfb7197f57602935e10486ad753a4bc20220bb2e",
-  "sha256": "1f122393a2b0e771d3e9d17b122c1f4f0a5872c342d46743103250946b7dda55",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E2_v1_rr1.wav": {
-  "size": 1356572,
-  "git": "b419330c6a748a8b4aa1cf2c3cffb04da87ec22a",
-  "sha256": "1b9d36042135c2eda513881612fb550a1b2669caddf70a7a514caeb4725fbbf2",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E2_v3_rr1.wav": {
-  "size": 1277060,
-  "git": "458b973c82eb8d06aa8df74744c388e9571aa324",
-  "sha256": "fb300e271ef6ebf42b9e049a180209a4ab80c9b8f750c32a22257838bb82f7ab",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_F#0_v1_rr1.wav": {
-  "size": 2224156,
-  "git": "6ad421289478178f9e3bec82ae206bebb7ce5292",
-  "sha256": "416f46ccdf1c27cc15767c1f1053a2246a690e8e1b150fc8f08da4548e7f2ca4",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_F#0_v3_rr1.wav": {
-  "size": 2295924,
-  "git": "51a849123c202178bccee68191009a1a862cd3e1",
-  "sha256": "a6e1d3a1a3ba9b5025c4c67d916409bca8b4931518778fff6ae4aeef32c1fa2e",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_F#1_v1_rr1.wav": {
-  "size": 1322048,
-  "git": "7bcbf7236cdee6c05b998b43bfe3d845d8a07837",
-  "sha256": "a678ba2e2399b7da502628962575e904127d5f5a2a68a6ab6c4237c7281dee4b",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_F#1_v3_rr1.wav": {
-  "size": 1619688,
-  "git": "a6681f7efe06d19894b0bdb03b7f15f04fe4c135",
-  "sha256": "165cce5739a5a80c33336a2f667fc1a7ed5541bba74dfae7e3f122a70b0a0418",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G#1_v1_rr1.wav": {
-  "size": 1342128,
-  "git": "a7fb50754e56af940300a7af2f834f3635d2228d",
-  "sha256": "c7adf9c807d5425e3ce88246a5ad716fdfa573b6b1185540052a5b5cf8118ac8",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G#1_v3_rr1.wav": {
-  "size": 1722468,
-  "git": "6142b5a07c12982809119348f2633bc57ff8c400",
-  "sha256": "f61ea9d3b6b11720752dc1d94101cdd49a9dafcb444527657c89e9312bc98842",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G#2_v1_rr1.wav": {
-  "size": 1630016,
-  "git": "c9eb10a6d480739d47e232f70f99b7441cd2ca4f",
-  "sha256": "cfa576d12284ab9fad6e6f300cd2bd682a80b331673105c1b5d208f04230460d",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G#2_v3_rr1.wav": {
-  "size": 1585864,
-  "git": "95169c0f1fb4287e2b9bafb006912ba524dddac1",
-  "sha256": "7043a9ce6142a2fd6b9882778f15618ed2d10ebea408edd617d160afec83f8da",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G0_v1_rr1.wav": {
-  "size": 1881520,
-  "git": "1a0f1864681c12fbc9a0dd8ca118754e95bb20c6",
-  "sha256": "d363b0e026cae6e86dcb60e353672fbec2f1bab9e8ee4c95903d9fa83fd47606",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G0_v3_rr1.wav": {
-  "size": 1934328,
-  "git": "d6a91ce81864ed75338f79038c55c57fd18d48bc",
-  "sha256": "129f188021438e2c103d709a550db59ba9aba9eb771a1763fdb2f57b188040fe",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_A3_v1_1.wav": {
-  "size": 2491352,
-  "git": "a57d0e5e328257ef14a3dd09b1debea045671527",
-  "sha256": "7cea6482a8f67536e3108f01b688d54d198e5820ffcd0ac5a49652d38f6ec065",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_A3_v2_1.wav": {
-  "size": 2861282,
-  "git": "b479361fe3bed076db011092b8d48bca54daf83f",
-  "sha256": "35984c7bfffe781d8e33bee045f66427a827794ff5c53c3d3bb82baeee3272dd",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_B2_v1_1.wav": {
-  "size": 2861510,
-  "git": "86e2428bca77c49d795e5e3d5be7dd9b022fce65",
-  "sha256": "ad96d747c5125adec8f069c49091ee3ba937efd4a5b909d3c4938f17e3c8513d",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_B2_v2_1.wav": {
-  "size": 3268364,
-  "git": "0f7bee6ccadc6e25a101cbd7be1c27ac6e896ea4",
-  "sha256": "edc77038a83f47cf49296c0009fdac23cb5ade3133a2beabd0d2d1f591ccf3cb",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_B4_v1_1.wav": {
-  "size": 2203118,
-  "git": "66520dad5b544b8e93c48e0f3aa941b3e85bc633",
-  "sha256": "abb1fe57a4a3175e1e243ceba0c0c0052ec5af5c3061e4f446266b9c832d6d02",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_B4_v2_1.wav": {
-  "size": 2893766,
-  "git": "818ac60340e41f1287024c738d43c5bf3cf7dc9d",
-  "sha256": "cac7c5f73d9f7974156ef52c7b5202428271d8fcf9ceb11936e694c199be2f31",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_C2_v1_1.wav": {
-  "size": 2642360,
-  "git": "b1cfb66c1ab03bdb9adac7e347b427bc61524b94",
-  "sha256": "8b4e0e0985d245ac9ddc39cdd06cec5bd74fa80056c074736d6eb38fdccfe636",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_C2_v2_1.wav": {
-  "size": 3318188,
-  "git": "7851268d881b226650cba4ef1d4e9578ae212099",
-  "sha256": "09db4ed2c8eda02d1f6a27258a2292b56e65e94ecc0337265bbbac5d9978dc92",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_C4_v1_1.wav": {
-  "size": 2289656,
-  "git": "a88aa6006bbc4ad1b25e4f08eb2d8ac974a7097f",
-  "sha256": "144ec7666be1b3b4da50937db4b1fc3675ca34bc2e871264707d83b8a0d526e6",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_C4_v2_1.wav": {
-  "size": 2954936,
-  "git": "4561f010d9b6de44b121246731042d1879d38ab7",
-  "sha256": "81e1ef9109a1434974092c0165ffee44918b2553fd4afeeee42b91b8007ad263",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_D2_v1_1.wav": {
-  "size": 2359898,
-  "git": "d508161e1c7a255d291f1d32f9605a9c215357aa",
-  "sha256": "49b09bcaec177f67382644913da5ca5582fe1d1d74a9f097edb6e0b5db43d35f",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_D2_v2_1.wav": {
-  "size": 3049772,
-  "git": "bf8a94de83b7d96375bef7c94e07d616f43f9c14",
-  "sha256": "d3bf192cc03925a4da5ee626763287f85aad1dc498578abf612a97eb548736eb",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_D3_v1_1.wav": {
-  "size": 2789648,
-  "git": "9a3a65b93d871964a666d6a86deec4d29425d828",
-  "sha256": "61ab4cfc0ea90c683433a7c50b3bb4fa86a81c9d4854589562707d54ed028349",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_D3_v2_1.wav": {
-  "size": 3596756,
-  "git": "2f6d74aa54f4f23889de311ff85d9f704fb600b9",
-  "sha256": "f941028c5d5e854b4391669056f0f639799f80ac7c8da3939c7788b1a394d16c",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_D5_v1_1.wav": {
-  "size": 2087798,
-  "git": "57d1de0867673e6861f318c01ed3358ffbff2996",
-  "sha256": "801bcea9c53c2521900cbbbe70ff2fe4f66a1c182f26744f608144905ec5f880",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_D5_v2_1.wav": {
-  "size": 2638244,
-  "git": "05a181827b7f6b3f339a92fa8eaf648f352651a5",
-  "sha256": "d3c5d05da8f90533aa7587649f18f4e68147aa7abc7a5559d8741089bea32239",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_E2_v1_1.wav": {
-  "size": 2520044,
-  "git": "6401156b3518b6f39e95fdaefc74cc814d6aceb2",
-  "sha256": "5c4c636583ce43b694583e8cbf7a14d1f3efcb0e871fe7dedff8a6b354c432bf",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_E2_v2_1.wav": {
-  "size": 3027656,
-  "git": "764698fba8db1da82ecc6b5ec54fe61c0036e4f2",
-  "sha256": "bb31bed6936b5c855fceb94d829e2d3a0492f9af4ad7a2cee57e783719710ceb",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_E4_v1_1.wav": {
-  "size": 2044358,
-  "git": "c97e8f4eeffe3fd94afeb8a3d32099105ab270d2",
-  "sha256": "b70d7b94014a9fc40f0e8cc12542fa85e0304386fe411ef4305b55b7f194afcb",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_E4_v2_1.wav": {
-  "size": 2559086,
-  "git": "c0e669461ba50854dd80e68767604a6f57471cc2",
-  "sha256": "29899afd4513761c3f1e3a4cc56f5c11cdb4de2b204f9f1467946327362e4bd7",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_F3_v1_1.wav": {
-  "size": 2487818,
-  "git": "f9e0fa27802046cf9ed1e6b5625b6a815b3c09e8",
-  "sha256": "7a37f00ecb58fcaa5c32427a5ffb30950787b40c247409a8e18cfe0880955fd8",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_F3_v2_1.wav": {
-  "size": 3471944,
-  "git": "e6b387021b4b98c926d737b2d451037aad087d0e",
-  "sha256": "d281171e60b852451deecce57a6f5e9b623eea9632916336324c52c4ada6c750",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_G2_v1_1.wav": {
-  "size": 2001644,
-  "git": "7c6dbafbe1f5de539b5861515f1bf39987e354cb",
-  "sha256": "557c2e033951015c30765bf18266bce0dd0412e3ca646dd1a225c32422c60662",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_G2_v2_1.wav": {
-  "size": 3637364,
-  "git": "e8b4cc651229723bc4dcb781d715d6b995b5589d",
-  "sha256": "e3552ebd2d1ac5d089cd2424d31ea88be8d887643311cb23abf5b416838ce2ba",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_G4_v1_1.wav": {
-  "size": 2542586,
-  "git": "2f34fb8b8826e09cf0427d1710b650a5c3dd3010",
-  "sha256": "624a70ef842744cb7847a07fba3115ace5689746a107da91f237bf2534d42b03",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_G4_v2_1.wav": {
-  "size": 3103628,
-  "git": "54255fd83b3bf242022e61ff6d9fe518401dc537",
-  "sha256": "b09b8338945b814b9ce6dd8980a49323d10e55f89f1c4dcf6d58b04cd672d99c",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_A2_v1.wav": {
-  "size": 1979216,
-  "git": "b86c2e7000da2a80466196acca2ddbdf6cf83fe8",
-  "sha256": "5b3ff9f991642a6dc2fdad56a7d94f581077d2c4082cc1ed89156737716ff22c",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_A2_v2.wav": {
-  "size": 2231504,
-  "git": "5960b46c4678a146834594031d0bba1048855102",
-  "sha256": "db6bad06c78577a105f6c2a5dc5c7ac0643c36e6904742411f0506dd9d6fa84b",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_A3_v1.wav": {
-  "size": 1890316,
-  "git": "ec84b89a4b93ecdc7e23d0c023b897b6f151bca7",
-  "sha256": "72817a53dfd2eb61eca94658c14e1cab6017629ca2f27bab8e394c6675bfaad7",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_A3_v2.wav": {
-  "size": 1671704,
-  "git": "401653718e521b65712da594a53d22184f4a207a",
-  "sha256": "3fc4a9e22037643fce11e755da72c61c664893f83e637c24a7b5c2d3824ab986",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_B2_v1.wav": {
-  "size": 2314360,
-  "git": "c2bdf89eed02c0e7fbb11b52799ac62276787ff8",
-  "sha256": "1a873970a86da78ed8c9aa068303958496c34eee6fa94fcab39d499dbdfb7826",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_B2_v2.wav": {
-  "size": 2373380,
-  "git": "4f54ea9180f4c11ec3d0e92f556003be59cb0f0c",
-  "sha256": "a822fd195e60881afac5e0801d8d494b782a8f6787a08f3c711f5e00290b3fb6",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_B4_v1.wav": {
-  "size": 2056964,
-  "git": "8e22cb66ba5bccb4df68decf98139b3008733e8a",
-  "sha256": "ec4cea41ac77f251bf5f4158fe9cbeeae13755e3785106e505808de18fdddc0d",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_B4_v2.wav": {
-  "size": 1923744,
-  "git": "598c11bd6fb25e33c599836428e03336ad5a5031",
-  "sha256": "bdb85532f47e4ebd681f9617a415116e7e5aeb786dce2eeab5ab9b93c1b31644",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_C4_v1.wav": {
-  "size": 2063320,
-  "git": "6d81fcafba04ca992a8b85665a56e60337929ce0",
-  "sha256": "c07edd5b2119fa1da2207aba996961b50dd616f69bbcf2300ab271bc6c16239f",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_C4_v2.wav": {
-  "size": 2017512,
-  "git": "1c8e05059b270f870342a03e19b93882d6dd1e1b",
-  "sha256": "5857387b40c412f756ef281c1171247664432a4e5078c98142d595d15cd92ef9",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_D3_v1.wav": {
-  "size": 2061808,
-  "git": "e47f9a53d487475fb049039ca7846e11c1ff830a",
-  "sha256": "583e660bc5daa4e094aef5fc014fbb92751040be8741ed7a16847306a1fe0a99",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_D3_v2.wav": {
-  "size": 2457908,
-  "git": "31143ae1a31ddd57baa38b3e79a4415b108a0007",
-  "sha256": "77893dbf1ea1be8c40ad756d16b916298e6b1b0742495e9853e020375592357c",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_D5_v1.wav": {
-  "size": 2116352,
-  "git": "fa455a7f8fe8c5c00b36c8e131bbc340204ae1c8",
-  "sha256": "f8d870457826c94270b9c3ead8e8ec02cb7e6c4a3481cded055641b7fab7df62",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_D5_v2.wav": {
-  "size": 1976276,
-  "git": "804a72a49c07eed754e377b354f8e54a4805476d",
-  "sha256": "0c2ca9de723bed0a0968e32126b934f778cd678b367a29e7fde91004daf84daf",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_E4_v1.wav": {
-  "size": 2315540,
-  "git": "838b43d3c9e763898817869d411ab26463b7464f",
-  "sha256": "787fb4bcfb47d5c88ee1573c8db15f32d345386301be4a8eea6a825847413ae2",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_E4_v2.wav": {
-  "size": 1702620,
-  "git": "2c33cc296b9b3654fd08fc9e9887042eabee738d",
-  "sha256": "030c09a631ebbc7304fc0b47bb5c346cd646e7451d9fdc531870f2534c60d9e9",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_F#3_v1.wav": {
-  "size": 1585612,
-  "git": "996ca7e6b1d9541d2f2fd7f53ba88294693893e7",
-  "sha256": "8dc13d197373f0d1fe1b0744de57796800bde372906d3667398c55d473a383ea",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_F#3_v2.wav": {
-  "size": 1720800,
-  "git": "33a19df9d89a5dbb174b9f72e6ae79a07327b2b6",
-  "sha256": "d7bc6b4c259b9543de4fe66228ee107205b8f539c8d7c1de71f5781d45a14fc7",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_G2_v1.wav": {
-  "size": 2341712,
-  "git": "e2de84e8b912dbfb8df3efe7b8ee241e2bcfa027",
-  "sha256": "feb96c5064fbef43087c495d61a9cab9f70ff1be5b22905147c1f86d5f89547c",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_G2_v2.wav": {
-  "size": 2681324,
-  "git": "b7693eb5c9d104fc01e130ee2552dac546ee85f7",
-  "sha256": "c0b06a23f0245c042f0609dc0db704adc14bfc9ea8a34cb5c97d80096715a0e6",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_G4_v1.wav": {
-  "size": 2330236,
-  "git": "81d3994ebbf467cbbc88bb2d2ad0dd94d96e7e04",
-  "sha256": "ed2a89cf254432d2af073699fa43ebfa16cfbc5552c7fc964a184fc434eaaa39",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_G4_v2.wav": {
-  "size": 2150136,
-  "git": "c36674326c6d0b6ae8bf5d20b52b6ddd005719bb",
-  "sha256": "a1d6d5a0397541692e2f88a0cd9820eabe90407784ee631aa3bfa74772637a65",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#2_v1_rr1_sum.wav": {
-  "size": 1825324,
-  "git": "c02251ea67183260dd5f3b4cca97eeb0e8f23bed",
-  "sha256": "f4e51e4addda4e87e84b0a57b1de21cb447adff0a2c1aa5c71b5d3ef5618a93e",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#2_v2_rr1_sum.wav": {
-  "size": 1909388,
-  "git": "4ab307dd0c82ce0900eb7439bdb8d0a1008d4034",
-  "sha256": "82be872b7915c833e06910846e3398b55591f69bfe6474c39dd4051742db2700",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#2_v3_rr1_sum.wav": {
-  "size": 2335540,
-  "git": "d08b0b0242b1695b533f14c7774c4e5bd7f83646",
-  "sha256": "45db5a4eda1927cb627006145cd751d99bfd4449576730009d521191bfb8d746",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#3_v1_rr1_sum.wav": {
-  "size": 1599888,
-  "git": "f8db827226f661779d8965737fa0850d8275be9a",
-  "sha256": "c314aa26ec148ffa30afe988d7f4f178941a38ca401f487ea2633ce635e78d3f",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#3_v2_rr1_sum.wav": {
-  "size": 1791140,
-  "git": "c80415402c31b050eb51796e17fba541a24a57a0",
-  "sha256": "779e2cad84f6f5103272f17cb4637a94d8e9c533a5811233595960cad61b391f",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#3_v3_rr1_sum.wav": {
-  "size": 2059160,
-  "git": "08f1508a646a60a8795861688932e38955cc8ba0",
-  "sha256": "29fc72eb3b93cc297095d6cdeb54b3d819de8e4070855c565302bb0a471b0a5c",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#4_v1_rr1_sum.wav": {
-  "size": 1996064,
-  "git": "27315505c21685cdc911e3ae30ce8712c712da26",
-  "sha256": "9669ede565f46af967a1ff72cb106a14736e0325680aa3b62ee148f8750efd88",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#4_v2_rr1_sum.wav": {
-  "size": 1823220,
-  "git": "4250227b229f8f94ea73ecb3ff4e996bfa1cf91b",
-  "sha256": "569e902693e7d04ecd20507f0a3dd0be92a7a3cdf14ab685d89aefacff2a34cb",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#4_v3_rr1_sum.wav": {
-  "size": 1885948,
-  "git": "bc184323f783462fb1bbb3f49ad57ddaaac2cb11",
-  "sha256": "6867f47637a3a869504911814be53dbc5e01fa52c2705a87afee20d2b71fc5aa",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D2_v1_rr1_sum.wav": {
-  "size": 806612,
-  "git": "22e4849edce9f5f75473852d71b1a71e75502505",
-  "sha256": "359344f125ee42ea30b1143ef7ad3ea0d8a19f871d400a07bf784bd691b1a72a",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D2_v2_rr1_sum.wav": {
-  "size": 1689164,
-  "git": "e435f825232aff390c93e0462d9e93e9e488d7ed",
-  "sha256": "b1a793ff45d8f068dd83b591924b1a29bbece98e6e8177b31fc003f2f426fe00",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D2_v3_rr1_sum.wav": {
-  "size": 1381704,
-  "git": "3d40552dd6d2dead91c702fe68175869a988009d",
-  "sha256": "346775f54394b9cf5e9513a4ab8292274f20370f2ac4cd47cea6319c1fa494ff",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D3_v1_rr1_sum.wav": {
-  "size": 2230948,
-  "git": "8f3f973a0d69c3c721f1eb8b27f208c80bd17ceb",
-  "sha256": "74ba0ec6cb0698f314b07cee2f63cd309d5fd30db262d10d1f69e6aec9cd5896",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D3_v2_rr1_sum.wav": {
-  "size": 1876188,
-  "git": "dfffae60b3793d9687b2cb2c9b3850f593c723c6",
-  "sha256": "30e686ffc58caa48bbfae309a06f1c27c75b192fb653729ffdf8586cbd9b8405",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D3_v3_rr1_sum.wav": {
-  "size": 1856124,
-  "git": "aa7a1f5f31cef8d36552072d9f275b7940c879c0",
-  "sha256": "bec366e903704a8d267202b16c3f170c513aef18fc6727f5bc4ec424c27efeb3",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D4_v1_rr1_sum.wav": {
-  "size": 1987372,
-  "git": "c3284691eb2dfe4f1be1b116b804a2e41062bb9c",
-  "sha256": "61ff877d4b500c2e1b6b51f693cd1ea8df05c7473c2ea458a207b1450495e430",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D4_v2_rr1_sum.wav": {
-  "size": 2047596,
-  "git": "9efaf747591d3c39b7b6e87a077963a1ac71ae45",
-  "sha256": "4bdc53f3ef917cc9146e10cec5eb33744524e8b510c4a39c080dc5c774b3c956",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D4_v3_rr1_sum.wav": {
-  "size": 2087348,
-  "git": "119bec0bc1ad924b04e416966239d6af3a67a764",
-  "sha256": "f913c749eb6b5a1c621e13548d5c30c8f67a6007a2992a6f85deb977c2d41b1f",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D5_v1_rr1_sum.wav": {
-  "size": 1692352,
-  "git": "ee07579d393b6c9a43aaf65f375d2012c3d0c774",
-  "sha256": "0ed79db13dc312c9f5adaf11492f6fd871a5619a9e452434043c33d7a1608697",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D5_v2_rr1_sum.wav": {
-  "size": 1772224,
-  "git": "d2c1fa23c73a15d50b581b6f83aa9e56e7e01a0c",
-  "sha256": "4cedd1d7bd779fe357529e34ff398bc0e80c5088fc3908944962d65fcdc94823",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D5_v3_rr1_sum.wav": {
-  "size": 1593652,
-  "git": "a06b19f95d397920e21a56cdb85223a39e860d47",
-  "sha256": "4bcff7aa31fe94c9d4a23acde1a9c2cb437dd4ee9c9804c981bbfb184c76509a",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F#5_v1_rr1_sum.wav": {
-  "size": 1025344,
-  "git": "0e30b7890f8c35943fa4eb693c704ce5c595acec",
-  "sha256": "26fcfdba581d7251cf96007650890bbb3f8c61d020278b45441113d47ce1c05e",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F#5_v2_rr1_sum.wav": {
-  "size": 1252444,
-  "git": "5e103799bb30ef1afa405511230c852b942a9d7c",
-  "sha256": "2f024789f1b2ecc25f0e07dcff06084e4c2def83ff74e693c098c28fbec319fc",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F#5_v3_rr1_sum.wav": {
-  "size": 1586272,
-  "git": "9655d9014a2500386d01f80bf0d7e3100e8caa59",
-  "sha256": "13355ccf2ead9ed98142c0062682aecf3ed3c443df619e94a9b3ec7ef523f057",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F2_v1_rr1_sum.wav": {
-  "size": 1527412,
-  "git": "a8b913d7e923c58f150e757f1748da37c80587b4",
-  "sha256": "008d2f0894c90e912f8315639ff8ed2687454195be14054e5fadee8e0db3b559",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F2_v2_rr1_sum.wav": {
-  "size": 1835164,
-  "git": "090db5da13fb0ec67673b6a656887644c923d341",
-  "sha256": "36348e1fd1a1e53485c7f48983cfd758ced036f6af1a832671bf5ef1f8b00448",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F2_v3_rr1_sum.wav": {
-  "size": 1747440,
-  "git": "04b88f5463edcbdfb44e64826d26d8528b4a12f6",
-  "sha256": "7049e55a73851574d5e11a518aeaa3c646bdd0f2323780a10abc379410dad2cf",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F3_v1_rr1_sum.wav": {
-  "size": 1762976,
-  "git": "31ac755ac1dff319c409505d26706d9851bb7e92",
-  "sha256": "0677787afa8d1fdc99e267a1518a49dacf3f1899dc27239c1fbe93568fda2222",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F3_v2_rr1_sum.wav": {
-  "size": 2069572,
-  "git": "1a445b0610a060c571574916d140344fc60922b2",
-  "sha256": "3c9a237651cd049cacdf4052ef85ff406da1d9e5d4f59439c20f45a7578ff431",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F3_v3_rr1_sum.wav": {
-  "size": 1743712,
-  "git": "fc79b6d0f5b3420f4e24b0392484b43a864a6d50",
-  "sha256": "6b434e88f724e46116dd71bdfe52dc82c9b1ec7cec5f512bf9719be51e646671",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F4_v1_rr1_sum.wav": {
-  "size": 2034208,
-  "git": "04e3a4727ee49ff915baeb65c1d32ee4e9ec37e2",
-  "sha256": "e7b54b1ac626a6c54db3fa320a38acd3f099c33c936fca0d82259f9f9641e4f3",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F4_v2_rr1_sum.wav": {
-  "size": 2142808,
-  "git": "9188e6eb2204ec227bac95cf254b9ce20e5d9d58",
-  "sha256": "9988142d8fd2856af4217e3983316a42ef1d91b6381afd9fa138072d91122c2e",
-  "licence": "CC0-1.0"
- },
- "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F4_v3_rr1_sum.wav": {
-  "size": 2373520,
-  "git": "086d21e2c435964f31b77df757b763e6d6b5eb54",
-  "sha256": "8d9bcdf56ed0c2adebb38242d7b5bb0e2da6884fa9f42a6d4226fb21c1bc7f68",
-  "licence": "CC0-1.0"
- }
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#2_vl2_rr1.wav": {
+    "size": 6974362,
+    "git": "c714ff9d1936bb2ae5e8d93ca9c93e1fe2a700f3",
+    "sha256": "557dfde33238e4c545f18b49aede282cd8f99459391d0084be8c1c3ec4e8e505",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#2_vl3_rr1.wav": {
+    "size": 7713166,
+    "git": "eee7af318572e8cfe274ecdf26f280ada7ff4730",
+    "sha256": "2edb66a0d4c5fe0cbc9091486caef1f408c0dd94a80775623017fcea67f67d99",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#3_vl2_rr1.wav": {
+    "size": 6364090,
+    "git": "a4f82c9a8f09e555c00cfc7eb173ac233f09861c",
+    "sha256": "fd825809d7b14e39ecd9c52804947ac79b2ecc7f6098048f8320a417d128bd1b",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#3_vl3_rr1.wav": {
+    "size": 9503602,
+    "git": "bcd87fc2c02037a40345ab600bbda280b3696c0a",
+    "sha256": "d9d738af699d5cdda769918e60e55e739b2a661d8714d18f88932f17645660ee",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#4_vl2_rr1.wav": {
+    "size": 5635126,
+    "git": "0966491e828da8222f8ee06cb6374f338c3b7ae4",
+    "sha256": "90cd801d71632c66de69da4b7483e292264c734e0af24be9c48bcfb2b97b7ad8",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#4_vl3_rr1.wav": {
+    "size": 6567808,
+    "git": "3042a43ebb25349ab597e49586f4218c6a7c55d8",
+    "sha256": "da064ffab82a822ba6743f08af9277aafc999d71e29b87adda7e8fe56dd93f3a",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#5_vl2_rr1.wav": {
+    "size": 4180576,
+    "git": "57d347ef82361d077cd68cffe7956b0ad8341ae0",
+    "sha256": "6441ad24da5e4ffb6093516fd576dd2ccee019083a747eb8b50d6cb0b9a3d701",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#5_vl3_rr1.wav": {
+    "size": 3816502,
+    "git": "d1df9d09c61170701247ce0feeca223c7f9d5e4b",
+    "sha256": "34634f370b67ec4ea5bb79fa580e84c67a101ea74667415a9ae2c03e931d9d32",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#6_vl2_rr1.wav": {
+    "size": 1974352,
+    "git": "536e86e76d99e1829820d87bf5fce88ad430174d",
+    "sha256": "13854c8b43b472e89759ad8a071957cc033fbf686e66c35a7180d6d3d178346b",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_A#6_vl3_rr1.wav": {
+    "size": 2204386,
+    "git": "06fefee4a51bf5346000942b4ece513fcdb4ad1c",
+    "sha256": "efa47a1720547d0513bf2a33a0a1508f19ea79e741ed269d004b186e97cb2e86",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C2_vl2_rr1.wav": {
+    "size": 7731874,
+    "git": "7998140b28c0dc550f5c65e2d8e856ce00c09b88",
+    "sha256": "3a4dd3fb33db802db7ec63e559a7fd715e5ff4b4f3134480b4df0272a04d3194",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C2_vl3_rr1.wav": {
+    "size": 8435152,
+    "git": "b462e67751ea92893b46650c8d9c052e77dcf2f1",
+    "sha256": "6d27c3cc5fec4abb27e96e9a0246840804e5925de1e46d1733cc61373d13ee9c",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C3_vl2_rr1.wav": {
+    "size": 8701120,
+    "git": "fb0d194ba7f5a101305bbaf96dd01b1e07a67a30",
+    "sha256": "8659d6dfde71a5644ba52b648fa4df12cb6aad62905df1d057ed74075e2cf3fc",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C3_vl3_rr1.wav": {
+    "size": 7464676,
+    "git": "d413df8f62fe20165777ff8ee5d3163471ee7837",
+    "sha256": "9910a6e13c4572d78ed336f053132b3b806fa0483cc32a52730fdf18b4e72489",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C4_vl2_rr1.wav": {
+    "size": 5857738,
+    "git": "b9398746124d1a95e73ad1b6711e93657be2e884",
+    "sha256": "63a1eabb40bc288d310e68b399ffcd3558c41e628fe45733c120248efdff1e9d",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C4_vl3_rr1.wav": {
+    "size": 8362948,
+    "git": "8a98b9adf092d11585c401889f4cc58c773e798b",
+    "sha256": "1e7ec3baf2c9bb784d5c5bc1e3ff2a2dff70ceb2a9c887281a89b6a5df5a2e88",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C5_vl2_rr1.wav": {
+    "size": 6255076,
+    "git": "cdd08c6535233e6cc6937c79a15fae6d7a6cd88f",
+    "sha256": "f53297008efdec0753c8eedd90a8f97d5d4363ffd897ce06b0dd48de009d1dae",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C5_vl3_rr1.wav": {
+    "size": 7638298,
+    "git": "c53e8471e2859bca1b75221f1ae2e94e66248ba8",
+    "sha256": "c1251ce77aac2a28d475f12ccd7d183e427ac79950cb8776187a0ccd79f1328e",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C6_vl2_rr1.wav": {
+    "size": 3483238,
+    "git": "2aad2826b3232a13b82490ac101d33209f4a2ae9",
+    "sha256": "54e543e7cc23701f0abc36099ad27a974426bbb7910a9367dac92115d7b2524e",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C6_vl3_rr1.wav": {
+    "size": 4620946,
+    "git": "fa875a5ea095d34ebb68009958e4644a24a8cce7",
+    "sha256": "5c162458135f81ae20a52851412f79a7b360ca9254af54f6b5c5cb7ffee45d3f",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C7_vl2_rr1.wav": {
+    "size": 1743454,
+    "git": "2599c1f8fbeea2adcf63051c9e2619aab37d615c",
+    "sha256": "eb212f49ca0f5c68989cdb6f349bd653a51b5772f36a4f19d1ed2998e2fe887c",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_C7_vl3_rr1.wav": {
+    "size": 2307658,
+    "git": "759355b15332c233646d1a325abc4a23b9b5ed13",
+    "sha256": "d30b755f954dd09f24dd1c03b7c3deeed8e9df530163969255b720a2d03f5187",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D2_vl2_rr1.wav": {
+    "size": 9251578,
+    "git": "970c7e65e3d93b43f686d3b534cc050c1a957f7a",
+    "sha256": "fff1d04b046a6c21b3c0dbc6fe2696b205eb0b1fe2a51be334e26b0980278aea",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D2_vl3_rr1.wav": {
+    "size": 9092986,
+    "git": "c34e3f61d8368f58ee441289e50578ae1bac8ba6",
+    "sha256": "ae914ab03432ea13372bd3a75a88fd43edc972abf5794a3f56c36366ad45b3bc",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D3_vl2_rr1.wav": {
+    "size": 8354440,
+    "git": "e66755168d912c95574e343f14cf81db4f4bc554",
+    "sha256": "75182e2390f558d0e5150237c741e17d1bdffff3f0c596e948d9b3a360c13231",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D3_vl3_rr1.wav": {
+    "size": 8216098,
+    "git": "4d4e354eb7a9b2493cf03666df689c0d502375c4",
+    "sha256": "7a57dcc62f221fb4888629c9484173b26ad51041e78689eeccec70013ad51768",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D4_vl2_rr1.wav": {
+    "size": 7669036,
+    "git": "bbc04bc0b941685b290563863c2d779e8bd70819",
+    "sha256": "645cd3f6f657659b8fb6fa78aff8bbb3e5003d82cdb02687078a861dd48fb913",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D4_vl3_rr1.wav": {
+    "size": 6815290,
+    "git": "44b8f032ed434d66b9d463b1ea2bc9a10bf6901a",
+    "sha256": "62f07ca9027742ac07e7caa4c08f325585b5de6c9c485780281bd39d14a08b10",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D5_vl2_rr1.wav": {
+    "size": 5639908,
+    "git": "8616fad753e063468bd989313393e3a1044e24c6",
+    "sha256": "814072dc61808e5bab55c5973a9050df49fc11c770a7ac8cfdc801c674ae44aa",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D5_vl3_rr1.wav": {
+    "size": 5762050,
+    "git": "432296fc6ab1a514830392712347cf7a692eb6e0",
+    "sha256": "ef6aa60760ae682b4948085ff013b8836177eb1dfd08486199c97b1f073e0048",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D6_vl2_rr1.wav": {
+    "size": 3243886,
+    "git": "544360c74a06bc3fbb87b893c46f99aeddcc1111",
+    "sha256": "dff09a446f574b11662ab900ca28366fcf4a2398773fdbeb0f40e47a6d2d8242",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D6_vl3_rr1.wav": {
+    "size": 2995462,
+    "git": "52bd5eabe5f5f75e6bd794cc1005a9c85c7fbcf1",
+    "sha256": "ff1e2ab98bbf970616c6a0544325357b18e85ef3701cae56838d3d0a42eb205d",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D7_vl2_rr1.wav": {
+    "size": 1717150,
+    "git": "b54bdde08f08acfa1a18403983400b3383d1a9e6",
+    "sha256": "9b4da1ebad1204c8eb4062a33c9fcf26e25ad530d07aff49a438009a38c11406",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_D7_vl3_rr1.wav": {
+    "size": 1772254,
+    "git": "465283089ab3ec284ebf165d35d1e8739469cd3b",
+    "sha256": "3bd02535ea0d154d10f8f038e1a833ff44bafe5cf3772b9ac7538d1eab84a149",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E2_vl2_rr1.wav": {
+    "size": 7942474,
+    "git": "b749362d9f6326939319c9c69c4b071fabb16dae",
+    "sha256": "12553b088d5322638bec391c3a118add253faadc32f24cf88c5689f5b90bc687",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E2_vl3_rr1.wav": {
+    "size": 8694034,
+    "git": "72a4116e0be18cf35d2c7dbc1b54beb533cb90e8",
+    "sha256": "6303029e8926b8b30dd6062d50c3d6dbf87ed4ec6a9d2309854a21be6a72c667",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E3_vl2_rr1.wav": {
+    "size": 7061026,
+    "git": "4d841e470e88fdd1a8b274d95165691d5eca9e59",
+    "sha256": "52e28ebe55cdcf9202c3f753a60862cc59a4d417c03a55500f36812b1fd90d7c",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E3_vl3_rr1.wav": {
+    "size": 7590154,
+    "git": "55c2d83a277a9696cf12f21e56d2aef9f5272590",
+    "sha256": "10cfd9b20d0c477407cae841b6e08e5131cca58390fc4963eca2772cd8803470",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E4_vl2_rr1.wav": {
+    "size": 6195784,
+    "git": "b1b8b3b822204409eb993a5e70b1c2722e985046",
+    "sha256": "5f67a30325b3dc46123abc024616f4bc7f3e9b78e2a12112b2ca19f7c7dfa7e3",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E4_vl3_rr1.wav": {
+    "size": 7459204,
+    "git": "ee2f164523644c060b4dafcf8186953784f19a1e",
+    "sha256": "27cdbe9e92b07d0412f3378c1206f467f7ec4cda64580615d9797914affad2c4",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E5_vl2_rr1.wav": {
+    "size": 5052622,
+    "git": "4fb8461e3398456f68a9f71696c5cfe4e02f4fbd",
+    "sha256": "b240ef85e7199960cb9104651e82cde24aef00ab2efcad7d552ec508ef2d3c93",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E5_vl3_rr1.wav": {
+    "size": 5079244,
+    "git": "e09ab4c6eeb5422e49e3512be24e7a2e0237aad4",
+    "sha256": "f6b18118f863401320dec215597f14643ac94d7b9dff43d9496b12d0f0916859",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E6_vl2_rr1.wav": {
+    "size": 2316334,
+    "git": "6989b726e83e64f4c87289f5d43d70b530c2b10b",
+    "sha256": "49522e664b22afc5ff016db62c4e1ca0ea984d568a2ea8ca55db583214986652",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E6_vl3_rr1.wav": {
+    "size": 2939098,
+    "git": "d4208718d18e04a09435a6b1bb9dac7cb7cf0051",
+    "sha256": "fd5acdd23d33ff457b6e447714b4fddb5ed83af37e9978450a947c6a233b5646",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E7_vl2_rr1.wav": {
+    "size": 1707358,
+    "git": "d34ebeadf0181defbd582a9ea33e28e6784acf41",
+    "sha256": "76b455f8ff60eef8304931bb77e3964765a696a8b54d5dac00dafab68315c99c",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_E7_vl3_rr1.wav": {
+    "size": 1742272,
+    "git": "4e1034563efb42676777413da53473de7c6bca93",
+    "sha256": "e5e26ffb69858d0c12499a89189324953c7ae1209b03178a10fcfb7c51fba6d4",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#2_vl2_rr1.wav": {
+    "size": 7585270,
+    "git": "7c5658016532511e11f5eb3cd7bd27dca03677af",
+    "sha256": "70d2fc9948a95686c5e31b93844eda9fb4aa833a6b74bea2793161b3ffa8d1af",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#2_vl3_rr1.wav": {
+    "size": 9579706,
+    "git": "8caf9faed0082e8fb8f1bbec0b64b5ecfefaedbb",
+    "sha256": "e78ad53a15654ad2ded47d07a756fac600fa4c243aaac1ea6a5523a6a5ad12f7",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#3_vl2_rr1.wav": {
+    "size": 7220560,
+    "git": "00e0708f9a996387415e1863fdb2af3a2c3afcfa",
+    "sha256": "95a7f90813206645c7fa4a2b39703f1a74d7fd4d4db2992b8fd222da0fbb360d",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#3_vl3_rr1.wav": {
+    "size": 8983726,
+    "git": "a2c9cde1fa857a04ba08dd9fca6c16e0deb40206",
+    "sha256": "f818d885b914206b932aff898d3c5eeedc2d53515b266fb44041c8ea0d441cd5",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#4_vl2_rr1.wav": {
+    "size": 6823336,
+    "git": "8a0bc37b05eb6a3cef19abd6257e9455aff7d660",
+    "sha256": "0e55a62e4f21c9cf765785d598e6df4dd696f7703721bf916e7d23bb59b058c1",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#4_vl3_rr1.wav": {
+    "size": 7360438,
+    "git": "b6d3570f9d385f9bde8ffcf9e86bf794be8c3035",
+    "sha256": "f1e94953958c04dd9768977581e94e1c55a4898cf68d5af09f9bc6f3b8dd9432",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#5_vl2_rr1.wav": {
+    "size": 4894504,
+    "git": "9110f54d26edbc247c7bad43d60779991f569cc3",
+    "sha256": "6efc03e12629ce9175276bb1c4bfa55f45fd143ee5b291c147c6c066d3fe84bd",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#5_vl3_rr1.wav": {
+    "size": 4605910,
+    "git": "9879a49ea5a19775e19764d3d191f27e2eba4fd2",
+    "sha256": "30ae5b3b74fe543e3f4dcf8f6df9cc1228285bf9f34810d5c511de1da5249f98",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#6_vl2_rr1.wav": {
+    "size": 2372878,
+    "git": "0fdef3f8b61cc0902ccb60c939ed222ed06e0589",
+    "sha256": "6bd98411743f0b2cafe495b60774466b349782a155d8d8d3628df6d24abe379e",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#6_vl3_rr1.wav": {
+    "size": 2373808,
+    "git": "f926316fb52b56a3a17774e889b2fabe225f9cf5",
+    "sha256": "2395079aa5e0f63ae6000329d46fa655dd6a85fec32612b9abe972ffd53618c9",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#7_vl2_rr1.wav": {
+    "size": 1255894,
+    "git": "b050712682712e849b0f3263349d3728eab47535",
+    "sha256": "7865ac856329c1b0186881920be591952d65542fe2a9ec86b96b501abc96566c",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_F#7_vl3_rr1.wav": {
+    "size": 1685494,
+    "git": "808747986890d6d2b6c3b38e3087f7542b9a4247",
+    "sha256": "21d81247189d418e88556055f54ff5013aad7a5339806d1cc6777d58febcbe53",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#2_vl2_rr1.wav": {
+    "size": 7271464,
+    "git": "6e51c8a12eb3b4577459debf319866e79aa717ff",
+    "sha256": "0358484d55a9ce5c1b60345f6a1f26686f047635954b2e038486cbf1036c3aec",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#2_vl3_rr1.wav": {
+    "size": 8868796,
+    "git": "0b7a09f089c6978e90f0c069bc659d93e016be51",
+    "sha256": "728d6c855648b125d0eb9516f26d99963b0193a6bb940ee68c287b0ed63602e0",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#3_vl2_rr1.wav": {
+    "size": 6383020,
+    "git": "a58cfaa307cdbbe30bd8c7b28257a2119910890e",
+    "sha256": "e9f010da4ce3333e6f9ce05ee1d7b8498a5b321fcef684c196b3ec97f9b81415",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#3_vl3_rr1.wav": {
+    "size": 8390056,
+    "git": "6cc5b8f2d013750cb3711dff8e3feb0076d3b8ee",
+    "sha256": "76a501e9bd19eefff87e103a89065b04ede5fab359040dc31184df0436d3ad86",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#4_vl2_rr1.wav": {
+    "size": 5126176,
+    "git": "ccc547e6f1c9be7b8824d04b89efce4f9a8df781",
+    "sha256": "67789ba22e2831a15ec967773b87ff3f659425effd8edd8862c4795ac6cf4fa1",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#4_vl3_rr1.wav": {
+    "size": 6730624,
+    "git": "731e99facad96dc0f66a1ef01282a3d667d84ce3",
+    "sha256": "654604eb87a5907fcb81c1a188de34c9bc1d07ad2b519c316d2028230ab2f37a",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#5_vl2_rr1.wav": {
+    "size": 5145286,
+    "git": "7e26d6da8f775ed5405828aa3d43d6301915de4d",
+    "sha256": "586dbc660203723e95ac64e19606421fa676a37a4efddf835826973e584dce7a",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#5_vl3_rr1.wav": {
+    "size": 4346164,
+    "git": "d3f4ece960ea52e2bdf57432b5851fc082f35fb3",
+    "sha256": "1d3959d90d2832bfa4b800bf055440aecb5f045eebf29a8e622c14aa63de3f98",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#6_vl2_rr1.wav": {
+    "size": 2293006,
+    "git": "af4438ad5d4c975109181622b6f68bf9b4229326",
+    "sha256": "65f847b229ee41aa7cf03255438f3d67f00b415570b17deee99770c93c0d6282",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#6_vl3_rr1.wav": {
+    "size": 2525860,
+    "git": "fea42d62def4a8f7bf0ef8630bd7890313d92fdd",
+    "sha256": "02a3e88585feb91f2ebdc4a7c372c4570a07a21b85c0a56a49c1f195592dbd89",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#7_vl2_rr1.wav": {
+    "size": 1274542,
+    "git": "4900f5509e6f9ade3c69cec5f4dfa18db9f61182",
+    "sha256": "93263eca374eaa0064a319813c9019b8dc361e4ee80fd4369d83aa1e04f056de",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Chordophones/Zithers/Grand Piano, Steinway B/Sus/JHPiano_Sus_Close_G#7_vl3_rr1.wav": {
+    "size": 1458562,
+    "git": "163d9a9af8ce2407a0d4c1e9f4a53d94419236b4",
+    "sha256": "1fd2954e98163a76a69d69d4c84f425b22b53866b8d0bcf63a780e55012297e9",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_Bowed_rr2_Mid.wav": {
+    "size": 1177048,
+    "git": "dc2a873b482776ea2063ef8a22d5f1d98b8f88e8",
+    "sha256": "898d3f1fa9a763af0442b088d8e0c8fcb0aaf80b7f032b6b54300d16d393581c",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_Hammer_v1_rr1_Mid.wav": {
+    "size": 301744,
+    "git": "91347d38dcd43c52d46f28464bc4f56f1a1458cb",
+    "sha256": "11b4fbfc21b5329e7394c24df143716f1f2681f4a8f71aa31dcab1e0d8af6b66",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_Hammer_v2_rr1_Mid.wav": {
+    "size": 282756,
+    "git": "7486442c6c6a1979c798354745d59e6af88da727",
+    "sha256": "c9e7b154d4a5eb6075178cb27ca34582352d18049be2cb73b466db0a39f417e0",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_Hammer_v3_rr1_Mid.wav": {
+    "size": 299416,
+    "git": "905a7919810776e3d8ff3ab47ee129aa2957444d",
+    "sha256": "a488e7cdca983fc53c4399fa0c492d582510dd48ee35e5336113b0041f8f55b1",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_Susp_v1_rr1_Mid.wav": {
+    "size": 630448,
+    "git": "b11749d20ae72a76d3ce5af3cc45cf76dc65f5d9",
+    "sha256": "e6d0dcbbd065a8948cf2c51d4986bbb4d1998897e03fb0f3b5c20b11a660cd85",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_Susp_v3_rr1_Mid.wav": {
+    "size": 591200,
+    "git": "ed97dc61073a581e66f67e1503981b6331b08c3a",
+    "sha256": "6f343377f2c70e587d5c9934db641ebe00beeee4f82d80cc0ae6704635f64f36",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_YarnM_v1_rr1_Mid.wav": {
+    "size": 295840,
+    "git": "f15dad00a281a97112125bef071c4af4e841cff4",
+    "sha256": "9625adef44f3bcb8593e1ed9184d828d208137359fd4352217dff3bd684e74cd",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_YarnM_v2_rr1_Mid.wav": {
+    "size": 270364,
+    "git": "db718646c6dcc41c368ea893b2278f858898c9cb",
+    "sha256": "6bf398572744da39de236e71df8b78bba46c7f7482dfcc2c79f1ca66e5902c25",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum1_YarnM_v3_rr1_Mid.wav": {
+    "size": 292648,
+    "git": "33a0be5b5f88d6b46a003124c94e6fab49c751b5",
+    "sha256": "029ad3644d14a2eb9939c4fc461004443c88599653534c68a2b9f81559c62817",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Bowed_rr1_Mid.wav": {
+    "size": 1038716,
+    "git": "5994eac61c0c1036f22259dc56d770529b6cf0cd",
+    "sha256": "9a12504e08f0464e3a423280e93767bf0d300e7cb31134d6b37a4307b19b9305",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Hammer1_v1_rr1_Mid.wav": {
+    "size": 282684,
+    "git": "0188d09e6d56dc05a06ebae25da704afbbfdaf03",
+    "sha256": "d7b71a7c0088fa65c0b4848477ae003571acaa16319c4402b1d45425ce0a7d61",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Hammer1_v2_rr1_Mid.wav": {
+    "size": 292616,
+    "git": "b403aa2e8921e9543c9d8f5588822a5c8cfbee7c",
+    "sha256": "cd1b6ee78ba1127b0f85d4a135139120070b7efd6a340d3f2b88db72adedf0c4",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Hammer3_v1_rr1_Mid.wav": {
+    "size": 236792,
+    "git": "bc9c31eca0110362ce0c146867071f5b941f7ede",
+    "sha256": "d646595c33c6dd3c843a097bcd1761a3acd09059aed211920adec0efd005a632",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Hammer3_v2_rr1_Mid.wav": {
+    "size": 237272,
+    "git": "d3450057928d98f605dc795f2af86c97110e0b9f",
+    "sha256": "b1eb38634f71eff408c418f8df489c468b723e05295ee7fd3adda240778fa151",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Hammer3_v3_rr1_Mid.wav": {
+    "size": 252308,
+    "git": "badd8eeec3f7c0ff15f9b0f87ef910b1a7ce4253",
+    "sha256": "3a14ce55e4b27cfaa809e41bdcaf8f588c606cbf8eaebb642d61332cd576ed12",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Susp_v1_rr1_Mid.wav": {
+    "size": 406460,
+    "git": "02d7373d89d340821202bb694dc4f32084a02411",
+    "sha256": "3fb4c5a96c8b5a97c1fdec41a32e286e5c2895ff027bad997559907ae74b18bc",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Brake Drum/BrakeDrum2_Susp_v2_rr1_Mid.wav": {
+    "size": 426808,
+    "git": "ffed8423e282d9565877182f926981cabfd9a135",
+    "sha256": "ad37d17087236f74bcdbe6882acb411fc3330feae7f4e27c44ea1fab4f66cc21",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Claves/Claves1_Hit_v1_rr1_Mid.wav": {
+    "size": 199848,
+    "git": "074c11f639e3207fd5e55dc8f869902ed4785f7a",
+    "sha256": "19379cc794b9e50d4dc55200238e27091bedab63b7370eb625490c7a96631b34",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Claves/Claves1_Hit_v2_rr1_Mid.wav": {
+    "size": 191812,
+    "git": "4b5fd3123833f205db154e4aeed85fc5b627b9f9",
+    "sha256": "bcabe27330761309eb4b4f6207e6e3b4be59815df86449ac05bfb9b81f19efc9",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Claves/Claves1_Hit_v3_rr1_Mid.wav": {
+    "size": 228764,
+    "git": "0a886debbe4645a0de9cc8b91a34feade83931f6",
+    "sha256": "12285f65ed125f4140d1e8a86b2d6a08bf3283b7bf30c10d68290b8e8230a927",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Claves/Claves2_Hit_v1_rr1_Mid.wav": {
+    "size": 126800,
+    "git": "9f0cd27df65f6c7b9d20204a962e06ceb7c4193c",
+    "sha256": "06c7c797fcbb624de0522b27f4b8aeab5acd85fabee99c38a0da145b127adf5b",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Claves/Claves2_Hit_v2_rr1_Mid.wav": {
+    "size": 182084,
+    "git": "75711ced6b8094f2ee0aca36e9faa449a42c8591",
+    "sha256": "37849406e124df98de59f74ad0a1a621ea1ee8151bcf6dcc9981462db4ba88ef",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Claves/Claves2_Hit_v3_rr1_Mid.wav": {
+    "size": 225848,
+    "git": "7d98cc379bfdeaf71b2f5d42cda9747e8fa244b5",
+    "sha256": "04954891896d00559d4b59ef468d9f1f51a5c42cb23de6f08af8e8eaaf764a8a",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Claves/Legacy/claves_ff.wav": {
+    "size": 211600,
+    "git": "e33cf32f2b69fd348ffbc6c2dcdb4b606dde8d9d",
+    "sha256": "2a59ddfc86ea84ea835a4fccfd315ececd028324809f572c3d28c7e3eb8bdf19",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Claves/Legacy/claves_mf.wav": {
+    "size": 140164,
+    "git": "2a63979d566d11ed52337bb7e28e76880a2a6fa5",
+    "sha256": "7906ca75132d3374a00d12c23b030807107e4576716b6a437a9a6a8c7824b291",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Claves/Legacy/claves_mf_2.wav": {
+    "size": 120934,
+    "git": "2f7487291a0237f872291f0755f5a62a69dcc007",
+    "sha256": "a95a65360741f0f8a75720bc9bc83ee8281c8453193b59def2df9056b969c8ec",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Claves/Legacy/claves_mf_3.wav": {
+    "size": 118186,
+    "git": "f48e7233df4881c8b28c1b83f86d39646377c428",
+    "sha256": "31744f5a56cd917f14cef6f6a6201c2eae727ac16d5604e72bb0db7aa6936e98",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Claves/Legacy/claves_mp.wav": {
+    "size": 107194,
+    "git": "62b8a8dec145c57dd43a8a5c6d96ba0d7cf2fd59",
+    "sha256": "d2d6d73c5a91baa06f0a43af2f6fa11b3184c75b626fa4446e578b74d55a9ccc",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Claves/Legacy/claves_pp1.wav": {
+    "size": 38512,
+    "git": "63f9c85195facb28439f73ab634a6cc4794c79ad",
+    "sha256": "0e6cd83418789c62e53520f6e569a4875ceb57d1fb1e6c87ed113619a13ed64e",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_C5_01.wav": {
+    "size": 1271310,
+    "git": "db079c70946137f543820b6a6ac023d0afaac47c",
+    "sha256": "635f898e0bcb6975b96b18efd9c896f6f1b97ff12174a339ada4814e49675660",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_C6_01.wav": {
+    "size": 1271310,
+    "git": "c02ff721d10eb3551372806653368f45ea5dc367",
+    "sha256": "e942cbf502cf6731df2925945fe3234c876cb63f047d91007b6929887f9e4904",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_C7_01.wav": {
+    "size": 492418,
+    "git": "a0f4aff9ef7d73e49a16f4054ead1369a78572b0",
+    "sha256": "b2ecbe0e60c983bbfaa49a1f45f8a11559f7dba27b8c8a032eb2cb7366a36910",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_G4_01.wav": {
+    "size": 1271310,
+    "git": "a7d9ca6c68e4c56327d83f0653ee3e16e4810265",
+    "sha256": "6c4649b13e24fa01e4634edad8fe8edf18aef33facc5d49fe53097b376bac4da",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_G5_01.wav": {
+    "size": 1226714,
+    "git": "dbaf80bc3975016095de3a611a202b581931311c",
+    "sha256": "7045c0ef7260e2f1ad11a64406cf7575ed898d1207a91104d33d78caefac63e4",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_G6_01.wav": {
+    "size": 843122,
+    "git": "e95738492bdc207b11ad32891a9a1ea090b6719e",
+    "sha256": "a2ba94e59119cd5272c1161fc8b8fbfb94c7b44de45a9a6cc5973b1c332103af",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_soft_C5_02.wav": {
+    "size": 709206,
+    "git": "b68621c4f4fc482284bc8e848ea2d2654366d49e",
+    "sha256": "4fa149e6f224557df5fab98ad660a8f192bc6fbf2556077dd1089509bf4424e2",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_soft_C6_01.wav": {
+    "size": 706962,
+    "git": "d3c777e9470ee9d4b1821817585967500fc34362",
+    "sha256": "e0fdb3a134ee828530c654db7f94b04f94272984938875b0d5535ec40c658324",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_soft_C7_03.wav": {
+    "size": 706962,
+    "git": "058b6acda9c40c9df19d8a911e79c0c4a60c3111",
+    "sha256": "68d823a0deffef138d4ed583bd027b9932643a630064274e73d67a644385be4c",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_soft_G4_01.wav": {
+    "size": 706962,
+    "git": "0fb4b3e2baea5685fa4bb29aba340781c0ab0077",
+    "sha256": "cd92f9402c28d3e951dc8d575ce61f0a550b7e316cb6427b1b455ac3aab09000",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_soft_G5_01.wav": {
+    "size": 706962,
+    "git": "2de4932c129eaacdb2ec9e6e9795cdf00e112cf7",
+    "sha256": "73f6a6de89291d0292b303d641444de5e6e1561881f09f6cf20d77f245f7bec3",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Glockenspiel/glock_soft_G6_01.wav": {
+    "size": 585962,
+    "git": "36c308a3c51796da6754a53373787e818830de5b",
+    "sha256": "b4407b60c2dff43a3a80fe5231beed95caad4d9b8f3f9cdbd80a27642207f35d",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_B2_med_01.wav": {
+    "size": 1495616,
+    "git": "c936311bb0a094e7a6625f3c8a4914754242583d",
+    "sha256": "4d0ffc47858d0c4545191eef3240d470c40df1c090841c0fb2ae2f47900794ee",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_B2_soft_01.wav": {
+    "size": 1406594,
+    "git": "a8d92ac62a6008d29c60d6fb39674f77cfe6ca57",
+    "sha256": "10e4a47853920c93423fd72f224e46bf1bce60319d5e7ae501d1b8431ec7d78a",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_B4_med_01.wav": {
+    "size": 433802,
+    "git": "9393bece679f9d698a8b8acf81be463c07247576",
+    "sha256": "d676b76e3850d85333c85b1fc77d20f4524ff2e9e6f03551f52c5b22fbe8ab30",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_B4_soft_01.wav": {
+    "size": 492602,
+    "git": "e6935a398d8cec04a8e23c58c78d44a9ac066620",
+    "sha256": "278f5123442162e7946fa68a48ed650e3838b1ddcd3e2173d3ea69f30079c534",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C2_med_01.wav": {
+    "size": 1785050,
+    "git": "8d18c94d5945941574e44563a60908d9f8c11430",
+    "sha256": "fd9c329513ed9d54c36174bbe45add471a80ffad411c686428bbf0bbc0121438",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C2_soft_01.wav": {
+    "size": 1697402,
+    "git": "f5411b5221bb5edf59430031c827251b87ff3f5c",
+    "sha256": "5fd3c75ab7eafebc24a693793e2c4404922dfad37d8dd9bf80e8ca483500ed80",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C4_med_01.wav": {
+    "size": 655244,
+    "git": "85c657dd0a8f58808efad5e9184d5b9124285512",
+    "sha256": "3e88c006eef05e8f7891f8f6027042006199a4ec3b53a0ad7308f9782a52d4df",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C4_soft_01.wav": {
+    "size": 915446,
+    "git": "6ccd29800db58963dd91136ea426b895d703bb22",
+    "sha256": "4d03d005166e8b366e6a983b7a4a89e0847e1d58a6d34dda35ddf74289cace94",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C6_med_01.wav": {
+    "size": 451844,
+    "git": "f5c95434f42f07fecdbd4f3e3a6a737d81cdd45a",
+    "sha256": "d93fc6f7b399ac28d1ecf91987e9eb55b34024c6033b7f0e3aaf35f49d51a2f2",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C6_soft_01.wav": {
+    "size": 663584,
+    "git": "87474094e8bb8834cb656645f99bd34eb2f241cb",
+    "sha256": "55d5793308bb10feaf3c1e341c0e4e4dbf8ce7fbea805e118b55177389ec3a09",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F1_med_01.wav": {
+    "size": 1027292,
+    "git": "21df93be7915e72dabe9189001262c62b436355f",
+    "sha256": "484de6300831ebb267a867a4c435567bacfb77aed953f317fde5b1c312bafac4",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F1_soft_01.wav": {
+    "size": 796046,
+    "git": "b275da060dd37cfc2f2d00c2a86d7f0c3a045ad8",
+    "sha256": "eadaeb8bd491b3161197478119be60771e0e1d8620d4848e39595976f9c9c998",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F3_med_01.wav": {
+    "size": 1382924,
+    "git": "2c74c56eba169268ec3e74bc2de31fb282716a58",
+    "sha256": "a493b31ac2e588ed961c522a66b790acc584b59a08918bd7193d6e6fa8df4756",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F3_soft_01.wav": {
+    "size": 1455272,
+    "git": "520e49115bc66a7f3a57a09ba8999abd02e7a7b0",
+    "sha256": "6eb7ccf5fa10b1bdaf10f0cc7a50d8c42ef086636a9e88c6527fb3af58e5ee1f",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F5_med_01.wav": {
+    "size": 566924,
+    "git": "215d4dfb83636c70a5997ac65cb3acf201c53dc5",
+    "sha256": "430da3d4f0a323838b7495d9cc5a98bc3829e2f11be11335af526a48ea88b8e6",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F5_soft_01.wav": {
+    "size": 373694,
+    "git": "224aabf1687b4eabb9bdd2ddac75683220a901a1",
+    "sha256": "f98ea1bd715aee0091ec8eaf61c9fc3c96440f403e9d32ec33f194fb70d9938c",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_G2_med_01.wav": {
+    "size": 1513244,
+    "git": "f27193e84ff36d8c16ddc4a59bc89acc79d426ae",
+    "sha256": "e9c2d33b9f50f0689b349dc9aee20a5b621961cf8294abb5ac4ba5a4674bd7c2",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_G2_soft_01.wav": {
+    "size": 1699184,
+    "git": "0f80a5f6acd14427015b71b62a6ce9ab9177ddfb",
+    "sha256": "bb41b6fce6b5cf73086480754f83a4b33ae61a7e6f19c7e7ee3b01d0171e7f63",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_G4_med_01.wav": {
+    "size": 580262,
+    "git": "be84c27de4fea671b78c82591aa6d6f98c06619e",
+    "sha256": "278e738d8214cdc192e63c3350b1e464a72c86dc135ddf0c5ce035569be66c71",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_G4_soft_01.wav": {
+    "size": 860570,
+    "git": "2aa39578faced00688851f5705857170aa656055",
+    "sha256": "d3e23f018b091a60d91c3c93b38b605d02a9e26c7cf5830ffb866cfe84130cd0",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet1_Crank_rr1_Mid.wav": {
+    "size": 278780,
+    "git": "04a68b3f55857f1e5fe08cb1afef2558b4a3d1ee",
+    "sha256": "40108f3c5e704635d7af039f3202463415228103c260f642e8f231b100b06bec",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet1_Crank_rr3_Mid.wav": {
+    "size": 234492,
+    "git": "670497f11bb207c769e5e8b7f07caf0ef011fa71",
+    "sha256": "fec277c952e603fd2938ce9342f37ca6b61d950c70b9945682bd7022b34da2e1",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet1_Fast_rr1_Mid.wav": {
+    "size": 1247400,
+    "git": "5cad60937336bdf2ac12aaa5ccdcd2a414f8d3b0",
+    "sha256": "476561b6d3185dd91946faf28b4ff50364842919b5e1ebd63444c40543925de4",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet1_Slow_rr1_Mid.wav": {
+    "size": 1579076,
+    "git": "222981643f98004a7c8fd7c0d0ebc87f00cbb884",
+    "sha256": "f3236309dbd3a1e3a00a48db7ec5a0c90a59d171512f4ec0a21f197014b16080",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet2_Crank_v1_rr1_Mid.wav": {
+    "size": 257080,
+    "git": "7f3a0940b135b2f649d13f823d170ec5a952813d",
+    "sha256": "c6146f197b93a9b4cb3abf3a1a28a94836d3a0dfbd8ba087aa1eb3de4fa65e1c",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet2_Crank_v1_rr2_Mid.wav": {
+    "size": 265012,
+    "git": "d8925d0adefe64e99a8bf141186c47c5159063c1",
+    "sha256": "a89cd5a71ac269d67c35ef09c6be80e9292642db71a48e2d2f41b84ca854ff39",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet2_Fast_rr1_Mid.wav": {
+    "size": 1545800,
+    "git": "b4d7b5af8eab962ca5ef2457d4092b824f633ad2",
+    "sha256": "f4b66db2382097bb0f44edb56ee368023999996ebaef4810384b54d6223bf1a9",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Ratchet/Ratchet2_Slow_rr1_Mid.wav": {
+    "size": 1805000,
+    "git": "fd3db7caeb8ad7d607a988efee5ec8fc550ad32f",
+    "sha256": "6f5027872df97a9fb86549b9f1826fd6f0c75dbd74eef04c097e2fd5c2a0e7c8",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_A2_v1_rr1_Main.wav": {
+    "size": 1811676,
+    "git": "5e0049f968a46453e531d235c55dec82d7cda29d",
+    "sha256": "b6e23a94322107d0ab884d7c38e51be538eb45f613c6a24e980c2261151bed75",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_A2_v2_rr1_Main.wav": {
+    "size": 2420596,
+    "git": "2beb86397ab2fedb87a8428e5bc715deefa9ea38",
+    "sha256": "683d2b5a9ece5e5bcf421a9ae62d74e5004b40493e1b5893f125bb96fd52cb64",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_A4_v1_rr1_Main.wav": {
+    "size": 1465148,
+    "git": "0e113727968fe8c907e483ef619abadb8060431f",
+    "sha256": "48e942290a982768d7a0038e28a76a99cb666673518b29ebdc55de5e1491025f",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_A4_v2_rr1_Main.wav": {
+    "size": 2388580,
+    "git": "f49a1fadfdbc378aacbfbb2a57a6fb434dd90ede",
+    "sha256": "fb507c5cb2f2023289fdf1384092f3c5e13f03a2b5b1c39f6792cc57aa77d58d",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_B3_v1_rr1_Main.wav": {
+    "size": 1850652,
+    "git": "bacab8cdb0f85f9f4f28a1654ded6811318bb9f8",
+    "sha256": "7edfbd70f93781d2cbb17c2fc8befe474de9987c6353db2358af4e13a0269345",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_B3_v2_rr1_Main.wav": {
+    "size": 2851524,
+    "git": "c2050a8979ad5673be81c0466833014736254977",
+    "sha256": "9d2466c4d3375f2eb24c57f17e15736052a5492d6c84b876c1d0a4997eea99a0",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_C3_v2_rr1_Main.wav": {
+    "size": 2117636,
+    "git": "750bf1b714d4435a11fc4f53226c0fc27e251541",
+    "sha256": "83950902ab4323f372bbf81b924fc05c6bd0ea42c9742db44464d562c20414bf",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_C5_v1_rr1_Main.wav": {
+    "size": 641932,
+    "git": "46a9c03a0ecfaee7246b10e2eec32908853ab860",
+    "sha256": "be995c1164dcbbcf83688d095864a4abd0feaa68b71d1d2e78c35f62461fc03b",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_C5_v2_rr1_Main.wav": {
+    "size": 1161864,
+    "git": "7896c7155ca938445cf59e16c779c4504e911630",
+    "sha256": "129c5661e386f3c08a4f777c108815f174d96e02f5fb4b4026a9437905327847",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_D4_v1_rr1_Main.wav": {
+    "size": 1973784,
+    "git": "df2e9089d97a1f002655b75e9dcf9656fffb5950",
+    "sha256": "daedf613863d4de0a383d66b2db6ab9ffd8dc492d16ff7d735cf3b3107046a26",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_D4_v2_rr1_Main.wav": {
+    "size": 2625224,
+    "git": "88e93ea2798d9583c81a867a8a27c7559c873c35",
+    "sha256": "aa5626038a653de08057e1dae8a7160b12f2ce26c85a525bc545b8d14843ce80",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_E3_v2_rr1_Main.wav": {
+    "size": 2665284,
+    "git": "3e5d93391a1e94724a6e2e2cb2f75181ea78e2dc",
+    "sha256": "268f0a703ca5e394533913bce3760e8c06661a5d72841601ade887ea72a00312",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_E5_v1_rr1_Main.wav": {
+    "size": 1019012,
+    "git": "5ed1086c7afbe31827afa8be8a8c7c55dcbd7b01",
+    "sha256": "d2a9412550115bfdc4e1087cad3cd6e9d8146c1f4a91bf47f60aa7936c5f5dbe",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_E5_v2_rr1_Main.wav": {
+    "size": 1496764,
+    "git": "db7d41afbd1212d374ff9ae1050dae58fced279c",
+    "sha256": "7e854b01269cd206cd863025c5b61416bba90362fa965597a7b174851d07648e",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_F2_v1_rr1_Main.wav": {
+    "size": 973692,
+    "git": "859f9625a662560facae4de31e8af82f78469492",
+    "sha256": "df5cfcc72af80fac2191300d09922474c4ac25c5cbc43ff387953d607f7c1320",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_F2_v2_rr1_Main.wav": {
+    "size": 1569944,
+    "git": "bdf8117e17ce9f7e0d7878f2b99f1f3c6e846855",
+    "sha256": "14c3f7a2492f6a87aecd6463611bbbbfe2094383bfa267a2df67f94766e00df5",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_F4_v1_rr1_Main.wav": {
+    "size": 1368508,
+    "git": "0e230262665e212a99cab1a11cfdad30b9977492",
+    "sha256": "95b7d6eeb71d77cce607c0c52b0a6dfd23d0eeedc2eb393fb9a6c5a5768f4aa5",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_F4_v2_rr1_Main.wav": {
+    "size": 2027468,
+    "git": "ec0b4f8a15407cf79e943c7e895a0292947e7de1",
+    "sha256": "76c2813ea1e87870dfbf3035360af46aee54214eda5e95b03bffb83f64a89b1c",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_G3_v1_rr1_Main.wav": {
+    "size": 2519544,
+    "git": "36a655b6f107c87cd5e7ed06aa1805449600576a",
+    "sha256": "9b479e4c84fb1caafba8c1c106a8922cea20bba81c37d65f93afae339626767f",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_G3_v2_rr1_Main.wav": {
+    "size": 3221132,
+    "git": "daeca7e9d2fa64996c0c59473786a9594235879a",
+    "sha256": "ecd350b0fec96ce465a185c44a9c3b2ee966d6b56784c27c17d42e9b5d887882",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click2_mp.wav": {
+    "size": 370954,
+    "git": "f9c0fae178baa8d10863e8b3fcca8d27297d92e6",
+    "sha256": "cfb04b07ceb70b6056ab1849cbbba53f658b4453982a6f44b4a05e19676361dd",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click3_vl1.wav": {
+    "size": 186874,
+    "git": "0df4f555f624d91e5fb6841af9e72123ab859218",
+    "sha256": "b38a06f037de70bb2cf98fd89f06af8d104d4123773d2e625691189a67495be5",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click3_vl2.wav": {
+    "size": 244570,
+    "git": "79a388f22dc8241f6e9e0c98937a83bfa1f80658",
+    "sha256": "eb93ee3fa02d66588a48b34d8b686638dd4e90433c8c75f2397a3dbc35c61d10",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_f_rr1.wav": {
+    "size": 497338,
+    "git": "ee846604e1c6850582d6aad3d4cd9983e1c73d49",
+    "sha256": "86b690a393ad62d65dc6832948adb0cc164fe22f544a8065809f000c65d615fc",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_f_rr2.wav": {
+    "size": 516568,
+    "git": "25739527f54e1a2f1bea670cdf3eece04f414946",
+    "sha256": "661e25cc1233a9d3d85bde188762d23fbbd69ac6af68af5c8db8fdd36fe25608",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_ff.wav": {
+    "size": 200608,
+    "git": "443e60a1b78d4fbad34448723ea9e3f2c45646c2",
+    "sha256": "9a911c66212d50a09494821bf9af8ce6e007612e232b5905f838348cb1d63b75",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_mp.wav": {
+    "size": 134674,
+    "git": "f625cb9b072b8a88ad588f8c125654f31e8c36cb",
+    "sha256": "00b76f9fe96c118f29dfc69866c12ec11f2e1264f6cb9c0b36912c2210b015fe",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_pp_rr1.wav": {
+    "size": 107200,
+    "git": "74858894be5bbdd0da1c4a8c46ad234ed8e9b95f",
+    "sha256": "2c21a5de6f3ddd51ce851325ba6caa4a187422c51299da7b2fdc4f51ae5e9ee1",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_pp_rr2.wav": {
+    "size": 107200,
+    "git": "27f32555c46d4311f20e37c71a50e6fbb1adbfa9",
+    "sha256": "94db112d562381852c6f7356a85090db25980ec6c9f1dbda0615bafac0fad7db",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/Idiophones/Struck Idiophones/Woodblock/wood_click_pp_rr3.wav": {
+    "size": 82468,
+    "git": "63e544917f0dd25f9bd70314f57750243d506303",
+    "sha256": "ecd77e89be7f5ba0b875825ee61902f54736014e3892248299af6b70fff5feb1",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/LICENSE": {
+    "size": 7048,
+    "git": "0e259d42c996742e9e3cba14c677129b2c1b6311",
+    "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+    "licence": "CC0-1.0"
+  },
+  "VCSL/README.md": {
+    "size": 4365,
+    "git": "655eaa2be2a415dfa526bf6e7729aa40590ac0e8",
+    "sha256": "6f7214a188f106c917d6503748485413c3e47cf56bce69f82beb9d16aa0894a9",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/LICENSE": {
+    "size": 6555,
+    "git": "670154e3538863b2d9891fd5483160fbdfc89164",
+    "sha256": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/README.md": {
+    "size": 751,
+    "git": "64362229eaee3d93aae6cb86446b6b5f4f0a1170",
+    "sha256": "8fbf399338661e6c76585ad9e75eb10324f823935168e0567553293a83f200a0",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Readme.txt": {
+    "size": 1838,
+    "git": "72e2bfeac69f91a77497254c4991a3c5fbb87bfb",
+    "sha256": "101ddb88eb013900cc911834ecbdfbd49497bcd913bf09417160b9677952bb38",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_A2_v1_1.wav": {
+    "size": 2336738,
+    "git": "76df6b474aff133b2ac9d96bf2466cb6fd865c72",
+    "sha256": "c97a003184fdcb153d6b6c0bae8d82a90592a1b04b06bd7caaeda8b9776d5284",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_A2_v3_1.wav": {
+    "size": 3082676,
+    "git": "ad696c6ad3cbacb37b6d9cf4f26da4a54521e7ce",
+    "sha256": "b7f226f19b9616abe5fa4a27ef50116667e19eb0127f30eacfa6d1a83e9149f0",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_B1_v1_1.wav": {
+    "size": 2372492,
+    "git": "d6a4a2d1a688c6ccb4e1e1a56b878c9c93df468b",
+    "sha256": "4f95c087c4b8d87ee591e9d39c3c9caf085c6f1b9125eac3ca9e4e637da628ee",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_B1_v3_1.wav": {
+    "size": 3372962,
+    "git": "56c81412c60a2b04b8556dfa26a7e0127357c5cb",
+    "sha256": "8331a0e13f41243efab111f9b5e9185524c27ee48631269acecafc954ab7eaa8",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_B3_v1_1.wav": {
+    "size": 1690082,
+    "git": "16d846690d7c4d385f3cfc8f1fe25873d6bd5b01",
+    "sha256": "bd25d66c1c4e73f5827bf3b931244e51ec8388594d8004529a762be81258097f",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_B3_v3_1.wav": {
+    "size": 2865086,
+    "git": "3b1685e657db57bd71c979da8c2d9d35d2d0d197",
+    "sha256": "1c8b571516ac503df871bbea74756dfc3813b4bc10a76921d231afb0175cdbf1",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_C1_v1_1.wav": {
+    "size": 2347376,
+    "git": "ff87d1ae488d87189f33a0d18550d3bcde012f3d",
+    "sha256": "abdcea431f384e135c469b0f3e4ac2a437f282f521dc5bcbe22abc221536e8de",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_C1_v3_1.wav": {
+    "size": 3335948,
+    "git": "d3820a6d57daf9a202a000bff0fa082a3f77acf6",
+    "sha256": "19195ab85ab71626bd11e7100febdaeeba1c237ff5887b934fd0ffd8dfad82cb",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_C3_v1_1.wav": {
+    "size": 2444174,
+    "git": "73ccb5dc2cc2a07926a1c41aa3c5621b19f420bf",
+    "sha256": "a614ee7ca821b44660236e47b89620cf914ec6ad27a99bc0d9764f47dbe512e1",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_C3_v3_1.wav": {
+    "size": 3019394,
+    "git": "a192845091cb8e669c72d3ff4a88eb1c5968e626",
+    "sha256": "51e884d54eea3bf4ba7ee35289a09f15ddb6a52cd849248d01bf18477ccbd07b",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_D2_v1_1.wav": {
+    "size": 2550956,
+    "git": "8076f809d4f6a8057f3835e12d22751a25e39252",
+    "sha256": "e8640dec9febc6e39fcf06b19d2c95a85d5ff8c38f13c9879e69f551eaf38ab8",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_D2_v3_1.wav": {
+    "size": 3291368,
+    "git": "fdb46242bb68876ad275b9b8ed10c4b8508b9292",
+    "sha256": "fc946615cd6550570c8f05d61c0d59b9079bf9daba8bf25be7943487fea5a7ae",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_D4_v1_1.wav": {
+    "size": 2153228,
+    "git": "e1125afc13def9b43e4612cdcebd11b99fce20cc",
+    "sha256": "b4aa3a7fec1f0e783fa560f493868c17045feb271738e3d6834d1b00594b1c38",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_D4_v3_1.wav": {
+    "size": 2801210,
+    "git": "9189549dab9d3e0928fc7e42f94c04d66d28c52b",
+    "sha256": "2ea7f580738dbcf143b9c9f72703071aa7a8f6bfa33cdd2c2e5da961df1805bb",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_E1_v1_1.wav": {
+    "size": 2468348,
+    "git": "fcd27d29a8c0d520539cef6aad659bf9006ae730",
+    "sha256": "de31a61b02d4e1d5a79b8bc432b0f35fe2e434290ad34402cc0f2dd7dc278cde",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_E1_v3_1.wav": {
+    "size": 3080426,
+    "git": "666f0d1ba1a76133c12c9859222c1c7094b613cf",
+    "sha256": "ee190b95be4f2416b9f41d248d255a4d7067b722f9b21482b30bc9872a9bb0d1",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_E3_v1_1.wav": {
+    "size": 2456672,
+    "git": "63f4d6df3a25fb95f417b5d45b5f8bf6a11107bf",
+    "sha256": "d2f961e30bf64021cf4acbd88e0e7a1fd1840943ae78c62a711bcce3d109216e",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_E3_v3_1.wav": {
+    "size": 3278270,
+    "git": "7711cb67795d692b0d732eb8fd234c41d5980f42",
+    "sha256": "24a7ffdc23087026c4ef2d421441253c71490df9cf0757e93ffb14b4e61481ef",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_F2_v1_1.wav": {
+    "size": 2186012,
+    "git": "78f52c49ddc8a357657d92b05cd89f15beb6c717",
+    "sha256": "162054eab4ba118924f8f8986cf1b17ccfd65211d1945743ffbae30b4953f901",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_F2_v3_1.wav": {
+    "size": 3062696,
+    "git": "a384e84a342ab9be12ca55b92c845a3c351b75bf",
+    "sha256": "d965197faf2e6ab8675f1d65505e5ba934a5ab769412d314bad94133e18f24d0",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_F4_v1_1.wav": {
+    "size": 1922948,
+    "git": "7f39cccecb392eaa0ff4c94e3607dc2294458a30",
+    "sha256": "a9888547b4b684c7649a882e693d61964848f18401a18e4646a8449b40c08bad",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_F4_v3_1.wav": {
+    "size": 2726342,
+    "git": "074f12a91124e13ea0e4fb34d9ecbe7279ec0806",
+    "sha256": "24ea4a0f892cb60c4a52d6a5b1ef8281e4e9a9f78b5f938e078da7cbbfd5ba19",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_G1_v1_1.wav": {
+    "size": 2161700,
+    "git": "42a2731d11a4749c3026f0618e21a8c9370c2024",
+    "sha256": "9e5d24e8e28d6c7f650f9bb2b33d43c13e341a8bd33124c64e23881378b181ba",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_G1_v3_1.wav": {
+    "size": 3370496,
+    "git": "35971538059e18b8f38cdc556630967777a0a0d5",
+    "sha256": "e4c61d4ab855ec20ddb69ff608a1c066ff8a779ddd08d1dfe1d534d3a4563ad0",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_G3_v1_1.wav": {
+    "size": 2431598,
+    "git": "7880157fbb8e57fb0b7a694b8569701bc0d942ea",
+    "sha256": "8d658346b8d2054fd534b3222b5d7a23196d22a83a68c3a04ffb76b21853a3db",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Cello Section/susvib/susvib_G3_v3_1.wav": {
+    "size": 3335768,
+    "git": "732d0c80596fdfc593f55b5a24f65c07cd3191cd",
+    "sha256": "17df597c259a849870aa25e9fbfa6093371851f83ba7b9deb9cb9e1ec11463a7",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_A2_mf.wav": {
+    "size": 2007670,
+    "git": "265383d75cb23b2882ca297e6c50908e3ec8247a",
+    "sha256": "1df9f4d138ca3931fcb458bcdf01304cadf2e5f4eef67bbc17b0e42c0e60fce6",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_A4_mf.wav": {
+    "size": 2143618,
+    "git": "acbece38a84e886cb5516e0f29d6ff5d38900fe1",
+    "sha256": "3665f3975cad4a33f46784aa4f896f4b4319ba2b7831e892d975bc38c9f09f23",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_A6_mf.wav": {
+    "size": 636870,
+    "git": "9fc9959804954e24e6837c426d702031fd2a3b7f",
+    "sha256": "4605355d22fae6f58190bf0d033d2ebdd745d63e2e43204d6f41ad27e4f09af0",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_B1_mf.wav": {
+    "size": 2284022,
+    "git": "bb26292fd8b4d4d7f95703c69667c8f2234eebc8",
+    "sha256": "284034807efbb429cb63f6fb744834b18e6281a4914e6460de0a5818b5d0d0e6",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_B3_mf.wav": {
+    "size": 1981130,
+    "git": "8d06cd55bc871d19f25a2bb1b56c7a567aabbc6b",
+    "sha256": "f6f71be8c640822ef48a448b245585659acdfcc7ed5774e10f37be2fc02fcab4",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_B5_mf.wav": {
+    "size": 779058,
+    "git": "2d2689e8ca023cd685ed5a29161f3d641f109da9",
+    "sha256": "f2757b674c6b7301bed52e17a1ae3e3d34d628b3f7edc5773ebb25798d2541f7",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_B6_mf.wav": {
+    "size": 483966,
+    "git": "d350ad472b663c9c239802f10228cd0073cf698d",
+    "sha256": "720e56b99f84d4ef1b9bc8cd3c217170320f523edb68488af3da76d2217e16f7",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_C3_mf.wav": {
+    "size": 1586172,
+    "git": "20e91e167e86132bb16601f682c90444779d8a23",
+    "sha256": "e5d232771704e140959819de8cf2a3e0ba49d021ca77354c42664ce4fce6d9f3",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_C5_mf.wav": {
+    "size": 1237142,
+    "git": "748b4b1366616972c2a22e81fc48a86178801c45",
+    "sha256": "7c8b862f6fd3f1442ed87537af976d84bda8c05a5b4900e8907d570b5202a517",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_D2_mf.wav": {
+    "size": 1741118,
+    "git": "2a9d5a18ceb32459a29995a4e68e06c8f78dff5d",
+    "sha256": "b9cbdc08e43fc0b28ac70246df991cb390f5cbd7f31519b3cc7f70d283b70566",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_D4_mf.wav": {
+    "size": 1921690,
+    "git": "342eec5072e2c0a7fb7cb03b6f5b46d84ed6ac69",
+    "sha256": "ebfde8aab4411019e37e3426f4dd88d6a52a38c2d0261d7f10ec63d8ff584dc7",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_D6_mf.wav": {
+    "size": 687750,
+    "git": "f66e88f651740695e4971c3197e6a1d61d6380c1",
+    "sha256": "b040b61fb279efa1a9b9c60dcbd8626a37f57ffb30f3b50747a2123ee4db5bd2",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_D7_f.wav": {
+    "size": 396134,
+    "git": "096a6d12f2a4e01c952d85100d11030b8ab2fdf9",
+    "sha256": "87ca6f45c5c242d9cd595911278290a4abdba587f71ed263acb1650236fcd4a7",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_E1_f.wav": {
+    "size": 4001190,
+    "git": "483714bd64ecf4947fe70d0ae0da6f2292c958f2",
+    "sha256": "70f534627d6155bab46262e0383a8b431c25fde78ca029947d453748b1f73038",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_E3_mf.wav": {
+    "size": 2461138,
+    "git": "5c6c7410ae0ff7800214931f9db9a7f52db5987e",
+    "sha256": "aafa9d41ec0f77da8f2891055af8b3f9557e0ba1f1df93d53ae6e1fda07afae5",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_E5_mf.wav": {
+    "size": 1171586,
+    "git": "20675907d698db011d0c8bc72cf9af4e7a1ac971",
+    "sha256": "95dd9ddb0bd15bee7687906e00f25aafcaa43020cc9501f0e8b6cabf0e9a53ec",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_F2_mf.wav": {
+    "size": 3086590,
+    "git": "03c3ce65453dc79a0b36805126b57574ff7dc654",
+    "sha256": "d5c0fb42c176af334fd6f6d1b97858556619c51e177efb5b0c6c23bc19ce6dad",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_F4_mf.wav": {
+    "size": 1913498,
+    "git": "a1966639b165b623ac533270d616814cbc5389ef",
+    "sha256": "db27ebbb37334c10e06f2ae63f4d9ff555e4d11704fcc6f0bcf503863867e577",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_F6_mf.wav": {
+    "size": 413126,
+    "git": "5d80932f790a28c088fab5dc2727c01ef2a130fc",
+    "sha256": "7cf4c012542df737be39900af262fdd980681956e734f43af106718184f34213",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_F7_f.wav": {
+    "size": 332482,
+    "git": "2451907b2acc4cdf9b371111c760abc9bb866926",
+    "sha256": "638b40d6c6c674257daa89b0b1e5108973ccbf13d7cc282e21266d3fb71500c5",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_G1_mp.wav": {
+    "size": 1189890,
+    "git": "b7935d0f8828a40be189f960960d4cb8d3235328",
+    "sha256": "f9fa1a6ea784320125fef31495ff223ceea675641d0728c2a33b431c06a78bfb",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_G3_mf.wav": {
+    "size": 1806874,
+    "git": "a2f7fcc2bce81d039d9c0c529a94159f589f36e1",
+    "sha256": "62600eb1b37bc2829ca65351f7ca7e506c9ae472abd5bea0765a8b8fa7df2772",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Harp/KSHarp_G5_mf.wav": {
+    "size": 1049778,
+    "git": "8e3593345c95368ae9d74591c1046d21de6a8e60",
+    "sha256": "f2004dfc617997fbabc6f849add2af06f4f859361c44a8fca0f993dc7f999540",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_A#0_v1_rr1.wav": {
+    "size": 1861432,
+    "git": "7cf00f069ec3bcd2168ab3bf323528ccad07444c",
+    "sha256": "b3800588b7aeff8f0c81998bdc4bfe47b3fc3e621f166de3df68f614a9f53afd",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_A#0_v3_rr1.wav": {
+    "size": 1786876,
+    "git": "938d98f61c6df3573658c7b1ebfaddc3643b29ee",
+    "sha256": "3a8ba2d2cf631a9b4732a1ca717a7059d20b71a9db576ae4fa5346d024cd17e8",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_A1_v1_rr1.wav": {
+    "size": 1249496,
+    "git": "1bffe0476c289a25c3404d023a37e26d473dee48",
+    "sha256": "06057880075d08c3f5a9df78bb7ec07f4cd41bd26e09a69f7a2e92cc66f308d9",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_A1_v3_rr1.wav": {
+    "size": 2383056,
+    "git": "1931bca16de18f5a7f4f3d36334b8d49bbfd935f",
+    "sha256": "993b0f67c4050225d3d45cdc50c3362ec6026956b765a946498419541aa6e8c4",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_B2_v1_rr1.wav": {
+    "size": 1596108,
+    "git": "1fa75f0eabf6637e3b64eedc7bcbda664b7bd5c9",
+    "sha256": "75e9119ac1c1e0d60fdd28ae88c3628a40a21d4ef91731cbd890b0cd29b08ce0",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_B2_v3_rr1.wav": {
+    "size": 1375120,
+    "git": "ffc3f8d81a8d551a7caa650d75b7ff45b27870c6",
+    "sha256": "e38aaa840cef00b48cb12fe3ae20098890a4a22d58741c860c633c65f9537f1f",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_C#2_v1_rr1.wav": {
+    "size": 1162724,
+    "git": "6c81a4f26d83527e775f705a8888cde24224e75e",
+    "sha256": "2bbc1f013bf4725dc45dde12d1a83c71bf6681920824932059799c1d4c7e1a4b",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_C#2_v3_rr1.wav": {
+    "size": 1752396,
+    "git": "2e6da6b6e76e5eb396bf7203f847413f344202cf",
+    "sha256": "b2e8f4ca464b44e3f73a0f8a360ad369d546fb2d2f03e369235fc403f543b1f0",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_C1_v1_rr1.wav": {
+    "size": 1458252,
+    "git": "e8b4cd7952603319926b7ad8d1ac363c07f61a67",
+    "sha256": "c930941735e707b109878f4734110412ebe26b983c2b3e300510175aedf5e61c",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_C1_v3_rr1.wav": {
+    "size": 1843084,
+    "git": "b682eeea5db633ff03765d15add584871a421092",
+    "sha256": "220043ee46c072d1aef3e8c16f4531d0e3e4d7369dfbbf0869c75b11663cb792",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_D1_v1_rr1.wav": {
+    "size": 2548840,
+    "git": "efc144474b11569f4c40c48b3b112d068d038274",
+    "sha256": "d07634bec7bb0d736375bfb0c514f3d7586d9a625c4f56f4936556e247b33812",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_D1_v3_rr1.wav": {
+    "size": 3209708,
+    "git": "249f36163d2073c10a9085072324ac90c427641d",
+    "sha256": "da9f42632d703a139d051b4c0de3f8c5fbcece5242f06e397e910c2e3f57c1a9",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E0_v1_rr1.wav": {
+    "size": 2852456,
+    "git": "3ec46c827e37588c7f5eed288055e85b75171a08",
+    "sha256": "b510c6c2eb4fb0acba5eaaaa703ebe19025cad3749f645c41f883e4217b338fa",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E0_v3_rr1.wav": {
+    "size": 2341236,
+    "git": "755166d7fa032b814274c2eb48f927069c20f03d",
+    "sha256": "a40e0ee5f4bd31ed6c097b382ce916140e2175b34969f32b0f3162051bdc268f",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E1_v1_rr1.wav": {
+    "size": 2824612,
+    "git": "bfa40160c441f0b4ef4fb964a05434ba79513c10",
+    "sha256": "90428ce30d89c2eab94187a2d2c589758bc7027b8f0c8d3e2cce165972f60e21",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E1_v3_rr1.wav": {
+    "size": 2356332,
+    "git": "bfb7197f57602935e10486ad753a4bc20220bb2e",
+    "sha256": "1f122393a2b0e771d3e9d17b122c1f4f0a5872c342d46743103250946b7dda55",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E2_v1_rr1.wav": {
+    "size": 1356572,
+    "git": "b419330c6a748a8b4aa1cf2c3cffb04da87ec22a",
+    "sha256": "1b9d36042135c2eda513881612fb550a1b2669caddf70a7a514caeb4725fbbf2",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_E2_v3_rr1.wav": {
+    "size": 1277060,
+    "git": "458b973c82eb8d06aa8df74744c388e9571aa324",
+    "sha256": "fb300e271ef6ebf42b9e049a180209a4ab80c9b8f750c32a22257838bb82f7ab",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_F#0_v1_rr1.wav": {
+    "size": 2224156,
+    "git": "6ad421289478178f9e3bec82ae206bebb7ce5292",
+    "sha256": "416f46ccdf1c27cc15767c1f1053a2246a690e8e1b150fc8f08da4548e7f2ca4",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_F#0_v3_rr1.wav": {
+    "size": 2295924,
+    "git": "51a849123c202178bccee68191009a1a862cd3e1",
+    "sha256": "a6e1d3a1a3ba9b5025c4c67d916409bca8b4931518778fff6ae4aeef32c1fa2e",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_F#1_v1_rr1.wav": {
+    "size": 1322048,
+    "git": "7bcbf7236cdee6c05b998b43bfe3d845d8a07837",
+    "sha256": "a678ba2e2399b7da502628962575e904127d5f5a2a68a6ab6c4237c7281dee4b",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_F#1_v3_rr1.wav": {
+    "size": 1619688,
+    "git": "a6681f7efe06d19894b0bdb03b7f15f04fe4c135",
+    "sha256": "165cce5739a5a80c33336a2f667fc1a7ed5541bba74dfae7e3f122a70b0a0418",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G#1_v1_rr1.wav": {
+    "size": 1342128,
+    "git": "a7fb50754e56af940300a7af2f834f3635d2228d",
+    "sha256": "c7adf9c807d5425e3ce88246a5ad716fdfa573b6b1185540052a5b5cf8118ac8",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G#1_v3_rr1.wav": {
+    "size": 1722468,
+    "git": "6142b5a07c12982809119348f2633bc57ff8c400",
+    "sha256": "f61ea9d3b6b11720752dc1d94101cdd49a9dafcb444527657c89e9312bc98842",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G#2_v1_rr1.wav": {
+    "size": 1630016,
+    "git": "c9eb10a6d480739d47e232f70f99b7441cd2ca4f",
+    "sha256": "cfa576d12284ab9fad6e6f300cd2bd682a80b331673105c1b5d208f04230460d",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G#2_v3_rr1.wav": {
+    "size": 1585864,
+    "git": "95169c0f1fb4287e2b9bafb006912ba524dddac1",
+    "sha256": "7043a9ce6142a2fd6b9882778f15618ed2d10ebea408edd617d160afec83f8da",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G0_v1_rr1.wav": {
+    "size": 1881520,
+    "git": "1a0f1864681c12fbc9a0dd8ca118754e95bb20c6",
+    "sha256": "d363b0e026cae6e86dcb60e353672fbec2f1bab9e8ee4c95903d9fa83fd47606",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_G0_v3_rr1.wav": {
+    "size": 1934328,
+    "git": "d6a91ce81864ed75338f79038c55c57fd18d48bc",
+    "sha256": "129f188021438e2c103d709a550db59ba9aba9eb771a1763fdb2f57b188040fe",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_A3_v1_1.wav": {
+    "size": 2491352,
+    "git": "a57d0e5e328257ef14a3dd09b1debea045671527",
+    "sha256": "7cea6482a8f67536e3108f01b688d54d198e5820ffcd0ac5a49652d38f6ec065",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_A3_v2_1.wav": {
+    "size": 2861282,
+    "git": "b479361fe3bed076db011092b8d48bca54daf83f",
+    "sha256": "35984c7bfffe781d8e33bee045f66427a827794ff5c53c3d3bb82baeee3272dd",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_B2_v1_1.wav": {
+    "size": 2861510,
+    "git": "86e2428bca77c49d795e5e3d5be7dd9b022fce65",
+    "sha256": "ad96d747c5125adec8f069c49091ee3ba937efd4a5b909d3c4938f17e3c8513d",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_B2_v2_1.wav": {
+    "size": 3268364,
+    "git": "0f7bee6ccadc6e25a101cbd7be1c27ac6e896ea4",
+    "sha256": "edc77038a83f47cf49296c0009fdac23cb5ade3133a2beabd0d2d1f591ccf3cb",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_B4_v1_1.wav": {
+    "size": 2203118,
+    "git": "66520dad5b544b8e93c48e0f3aa941b3e85bc633",
+    "sha256": "abb1fe57a4a3175e1e243ceba0c0c0052ec5af5c3061e4f446266b9c832d6d02",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_B4_v2_1.wav": {
+    "size": 2893766,
+    "git": "818ac60340e41f1287024c738d43c5bf3cf7dc9d",
+    "sha256": "cac7c5f73d9f7974156ef52c7b5202428271d8fcf9ceb11936e694c199be2f31",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_C2_v1_1.wav": {
+    "size": 2642360,
+    "git": "b1cfb66c1ab03bdb9adac7e347b427bc61524b94",
+    "sha256": "8b4e0e0985d245ac9ddc39cdd06cec5bd74fa80056c074736d6eb38fdccfe636",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_C2_v2_1.wav": {
+    "size": 3318188,
+    "git": "7851268d881b226650cba4ef1d4e9578ae212099",
+    "sha256": "09db4ed2c8eda02d1f6a27258a2292b56e65e94ecc0337265bbbac5d9978dc92",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_C4_v1_1.wav": {
+    "size": 2289656,
+    "git": "a88aa6006bbc4ad1b25e4f08eb2d8ac974a7097f",
+    "sha256": "144ec7666be1b3b4da50937db4b1fc3675ca34bc2e871264707d83b8a0d526e6",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_C4_v2_1.wav": {
+    "size": 2954936,
+    "git": "4561f010d9b6de44b121246731042d1879d38ab7",
+    "sha256": "81e1ef9109a1434974092c0165ffee44918b2553fd4afeeee42b91b8007ad263",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_D2_v1_1.wav": {
+    "size": 2359898,
+    "git": "d508161e1c7a255d291f1d32f9605a9c215357aa",
+    "sha256": "49b09bcaec177f67382644913da5ca5582fe1d1d74a9f097edb6e0b5db43d35f",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_D2_v2_1.wav": {
+    "size": 3049772,
+    "git": "bf8a94de83b7d96375bef7c94e07d616f43f9c14",
+    "sha256": "d3bf192cc03925a4da5ee626763287f85aad1dc498578abf612a97eb548736eb",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_D3_v1_1.wav": {
+    "size": 2789648,
+    "git": "9a3a65b93d871964a666d6a86deec4d29425d828",
+    "sha256": "61ab4cfc0ea90c683433a7c50b3bb4fa86a81c9d4854589562707d54ed028349",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_D3_v2_1.wav": {
+    "size": 3596756,
+    "git": "2f6d74aa54f4f23889de311ff85d9f704fb600b9",
+    "sha256": "f941028c5d5e854b4391669056f0f639799f80ac7c8da3939c7788b1a394d16c",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_D5_v1_1.wav": {
+    "size": 2087798,
+    "git": "57d1de0867673e6861f318c01ed3358ffbff2996",
+    "sha256": "801bcea9c53c2521900cbbbe70ff2fe4f66a1c182f26744f608144905ec5f880",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_D5_v2_1.wav": {
+    "size": 2638244,
+    "git": "05a181827b7f6b3f339a92fa8eaf648f352651a5",
+    "sha256": "d3c5d05da8f90533aa7587649f18f4e68147aa7abc7a5559d8741089bea32239",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_E2_v1_1.wav": {
+    "size": 2520044,
+    "git": "6401156b3518b6f39e95fdaefc74cc814d6aceb2",
+    "sha256": "5c4c636583ce43b694583e8cbf7a14d1f3efcb0e871fe7dedff8a6b354c432bf",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_E2_v2_1.wav": {
+    "size": 3027656,
+    "git": "764698fba8db1da82ecc6b5ec54fe61c0036e4f2",
+    "sha256": "bb31bed6936b5c855fceb94d829e2d3a0492f9af4ad7a2cee57e783719710ceb",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_E4_v1_1.wav": {
+    "size": 2044358,
+    "git": "c97e8f4eeffe3fd94afeb8a3d32099105ab270d2",
+    "sha256": "b70d7b94014a9fc40f0e8cc12542fa85e0304386fe411ef4305b55b7f194afcb",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_E4_v2_1.wav": {
+    "size": 2559086,
+    "git": "c0e669461ba50854dd80e68767604a6f57471cc2",
+    "sha256": "29899afd4513761c3f1e3a4cc56f5c11cdb4de2b204f9f1467946327362e4bd7",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_F3_v1_1.wav": {
+    "size": 2487818,
+    "git": "f9e0fa27802046cf9ed1e6b5625b6a815b3c09e8",
+    "sha256": "7a37f00ecb58fcaa5c32427a5ffb30950787b40c247409a8e18cfe0880955fd8",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_F3_v2_1.wav": {
+    "size": 3471944,
+    "git": "e6b387021b4b98c926d737b2d451037aad087d0e",
+    "sha256": "d281171e60b852451deecce57a6f5e9b623eea9632916336324c52c4ada6c750",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_G2_v1_1.wav": {
+    "size": 2001644,
+    "git": "7c6dbafbe1f5de539b5861515f1bf39987e354cb",
+    "sha256": "557c2e033951015c30765bf18266bce0dd0412e3ca646dd1a225c32422c60662",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_G2_v2_1.wav": {
+    "size": 3637364,
+    "git": "e8b4cc651229723bc4dcb781d715d6b995b5589d",
+    "sha256": "e3552ebd2d1ac5d089cd2424d31ea88be8d887643311cb23abf5b416838ce2ba",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_G4_v1_1.wav": {
+    "size": 2542586,
+    "git": "2f34fb8b8826e09cf0427d1710b650a5c3dd3010",
+    "sha256": "624a70ef842744cb7847a07fba3115ace5689746a107da91f237bf2534d42b03",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Viola Section/susvib/ViolaEns_susvib_G4_v2_1.wav": {
+    "size": 3103628,
+    "git": "54255fd83b3bf242022e61ff6d9fe518401dc537",
+    "sha256": "b09b8338945b814b9ce6dd8980a49323d10e55f89f1c4dcf6d58b04cd672d99c",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_A2_v1.wav": {
+    "size": 1979216,
+    "git": "b86c2e7000da2a80466196acca2ddbdf6cf83fe8",
+    "sha256": "5b3ff9f991642a6dc2fdad56a7d94f581077d2c4082cc1ed89156737716ff22c",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_A2_v2.wav": {
+    "size": 2231504,
+    "git": "5960b46c4678a146834594031d0bba1048855102",
+    "sha256": "db6bad06c78577a105f6c2a5dc5c7ac0643c36e6904742411f0506dd9d6fa84b",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_A3_v1.wav": {
+    "size": 1890316,
+    "git": "ec84b89a4b93ecdc7e23d0c023b897b6f151bca7",
+    "sha256": "72817a53dfd2eb61eca94658c14e1cab6017629ca2f27bab8e394c6675bfaad7",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_A3_v2.wav": {
+    "size": 1671704,
+    "git": "401653718e521b65712da594a53d22184f4a207a",
+    "sha256": "3fc4a9e22037643fce11e755da72c61c664893f83e637c24a7b5c2d3824ab986",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_B2_v1.wav": {
+    "size": 2314360,
+    "git": "c2bdf89eed02c0e7fbb11b52799ac62276787ff8",
+    "sha256": "1a873970a86da78ed8c9aa068303958496c34eee6fa94fcab39d499dbdfb7826",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_B2_v2.wav": {
+    "size": 2373380,
+    "git": "4f54ea9180f4c11ec3d0e92f556003be59cb0f0c",
+    "sha256": "a822fd195e60881afac5e0801d8d494b782a8f6787a08f3c711f5e00290b3fb6",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_B4_v1.wav": {
+    "size": 2056964,
+    "git": "8e22cb66ba5bccb4df68decf98139b3008733e8a",
+    "sha256": "ec4cea41ac77f251bf5f4158fe9cbeeae13755e3785106e505808de18fdddc0d",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_B4_v2.wav": {
+    "size": 1923744,
+    "git": "598c11bd6fb25e33c599836428e03336ad5a5031",
+    "sha256": "bdb85532f47e4ebd681f9617a415116e7e5aeb786dce2eeab5ab9b93c1b31644",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_C4_v1.wav": {
+    "size": 2063320,
+    "git": "6d81fcafba04ca992a8b85665a56e60337929ce0",
+    "sha256": "c07edd5b2119fa1da2207aba996961b50dd616f69bbcf2300ab271bc6c16239f",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_C4_v2.wav": {
+    "size": 2017512,
+    "git": "1c8e05059b270f870342a03e19b93882d6dd1e1b",
+    "sha256": "5857387b40c412f756ef281c1171247664432a4e5078c98142d595d15cd92ef9",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_D3_v1.wav": {
+    "size": 2061808,
+    "git": "e47f9a53d487475fb049039ca7846e11c1ff830a",
+    "sha256": "583e660bc5daa4e094aef5fc014fbb92751040be8741ed7a16847306a1fe0a99",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_D3_v2.wav": {
+    "size": 2457908,
+    "git": "31143ae1a31ddd57baa38b3e79a4415b108a0007",
+    "sha256": "77893dbf1ea1be8c40ad756d16b916298e6b1b0742495e9853e020375592357c",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_D5_v1.wav": {
+    "size": 2116352,
+    "git": "fa455a7f8fe8c5c00b36c8e131bbc340204ae1c8",
+    "sha256": "f8d870457826c94270b9c3ead8e8ec02cb7e6c4a3481cded055641b7fab7df62",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_D5_v2.wav": {
+    "size": 1976276,
+    "git": "804a72a49c07eed754e377b354f8e54a4805476d",
+    "sha256": "0c2ca9de723bed0a0968e32126b934f778cd678b367a29e7fde91004daf84daf",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_E4_v1.wav": {
+    "size": 2315540,
+    "git": "838b43d3c9e763898817869d411ab26463b7464f",
+    "sha256": "787fb4bcfb47d5c88ee1573c8db15f32d345386301be4a8eea6a825847413ae2",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_E4_v2.wav": {
+    "size": 1702620,
+    "git": "2c33cc296b9b3654fd08fc9e9887042eabee738d",
+    "sha256": "030c09a631ebbc7304fc0b47bb5c346cd646e7451d9fdc531870f2534c60d9e9",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_F#3_v1.wav": {
+    "size": 1585612,
+    "git": "996ca7e6b1d9541d2f2fd7f53ba88294693893e7",
+    "sha256": "8dc13d197373f0d1fe1b0744de57796800bde372906d3667398c55d473a383ea",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_F#3_v2.wav": {
+    "size": 1720800,
+    "git": "33a19df9d89a5dbb174b9f72e6ae79a07327b2b6",
+    "sha256": "d7bc6b4c259b9543de4fe66228ee107205b8f539c8d7c1de71f5781d45a14fc7",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_G2_v1.wav": {
+    "size": 2341712,
+    "git": "e2de84e8b912dbfb8df3efe7b8ee241e2bcfa027",
+    "sha256": "feb96c5064fbef43087c495d61a9cab9f70ff1be5b22905147c1f86d5f89547c",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_G2_v2.wav": {
+    "size": 2681324,
+    "git": "b7693eb5c9d104fc01e130ee2552dac546ee85f7",
+    "sha256": "c0b06a23f0245c042f0609dc0db704adc14bfc9ea8a34cb5c97d80096715a0e6",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_G4_v1.wav": {
+    "size": 2330236,
+    "git": "81d3994ebbf467cbbc88bb2d2ad0dd94d96e7e04",
+    "sha256": "ed2a89cf254432d2af073699fa43ebfa16cfbc5552c7fc964a184fc434eaaa39",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Strings/Violin Section/susVib/VlnEns_susVib_G4_v2.wav": {
+    "size": 2150136,
+    "git": "c36674326c6d0b6ae8bf5d20b52b6ddd005719bb",
+    "sha256": "a1d6d5a0397541692e2f88a0cd9820eabe90407784ee631aa3bfa74772637a65",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#2_v1_rr1_sum.wav": {
+    "size": 1825324,
+    "git": "c02251ea67183260dd5f3b4cca97eeb0e8f23bed",
+    "sha256": "f4e51e4addda4e87e84b0a57b1de21cb447adff0a2c1aa5c71b5d3ef5618a93e",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#2_v2_rr1_sum.wav": {
+    "size": 1909388,
+    "git": "4ab307dd0c82ce0900eb7439bdb8d0a1008d4034",
+    "sha256": "82be872b7915c833e06910846e3398b55591f69bfe6474c39dd4051742db2700",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#2_v3_rr1_sum.wav": {
+    "size": 2335540,
+    "git": "d08b0b0242b1695b533f14c7774c4e5bd7f83646",
+    "sha256": "45db5a4eda1927cb627006145cd751d99bfd4449576730009d521191bfb8d746",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#3_v1_rr1_sum.wav": {
+    "size": 1599888,
+    "git": "f8db827226f661779d8965737fa0850d8275be9a",
+    "sha256": "c314aa26ec148ffa30afe988d7f4f178941a38ca401f487ea2633ce635e78d3f",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#3_v2_rr1_sum.wav": {
+    "size": 1791140,
+    "git": "c80415402c31b050eb51796e17fba541a24a57a0",
+    "sha256": "779e2cad84f6f5103272f17cb4637a94d8e9c533a5811233595960cad61b391f",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#3_v3_rr1_sum.wav": {
+    "size": 2059160,
+    "git": "08f1508a646a60a8795861688932e38955cc8ba0",
+    "sha256": "29fc72eb3b93cc297095d6cdeb54b3d819de8e4070855c565302bb0a471b0a5c",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#4_v1_rr1_sum.wav": {
+    "size": 1996064,
+    "git": "27315505c21685cdc911e3ae30ce8712c712da26",
+    "sha256": "9669ede565f46af967a1ff72cb106a14736e0325680aa3b62ee148f8750efd88",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#4_v2_rr1_sum.wav": {
+    "size": 1823220,
+    "git": "4250227b229f8f94ea73ecb3ff4e996bfa1cf91b",
+    "sha256": "569e902693e7d04ecd20507f0a3dd0be92a7a3cdf14ab685d89aefacff2a34cb",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_A#4_v3_rr1_sum.wav": {
+    "size": 1885948,
+    "git": "bc184323f783462fb1bbb3f49ad57ddaaac2cb11",
+    "sha256": "6867f47637a3a869504911814be53dbc5e01fa52c2705a87afee20d2b71fc5aa",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D2_v1_rr1_sum.wav": {
+    "size": 806612,
+    "git": "22e4849edce9f5f75473852d71b1a71e75502505",
+    "sha256": "359344f125ee42ea30b1143ef7ad3ea0d8a19f871d400a07bf784bd691b1a72a",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D2_v2_rr1_sum.wav": {
+    "size": 1689164,
+    "git": "e435f825232aff390c93e0462d9e93e9e488d7ed",
+    "sha256": "b1a793ff45d8f068dd83b591924b1a29bbece98e6e8177b31fc003f2f426fe00",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D2_v3_rr1_sum.wav": {
+    "size": 1381704,
+    "git": "3d40552dd6d2dead91c702fe68175869a988009d",
+    "sha256": "346775f54394b9cf5e9513a4ab8292274f20370f2ac4cd47cea6319c1fa494ff",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D3_v1_rr1_sum.wav": {
+    "size": 2230948,
+    "git": "8f3f973a0d69c3c721f1eb8b27f208c80bd17ceb",
+    "sha256": "74ba0ec6cb0698f314b07cee2f63cd309d5fd30db262d10d1f69e6aec9cd5896",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D3_v2_rr1_sum.wav": {
+    "size": 1876188,
+    "git": "dfffae60b3793d9687b2cb2c9b3850f593c723c6",
+    "sha256": "30e686ffc58caa48bbfae309a06f1c27c75b192fb653729ffdf8586cbd9b8405",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D3_v3_rr1_sum.wav": {
+    "size": 1856124,
+    "git": "aa7a1f5f31cef8d36552072d9f275b7940c879c0",
+    "sha256": "bec366e903704a8d267202b16c3f170c513aef18fc6727f5bc4ec424c27efeb3",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D4_v1_rr1_sum.wav": {
+    "size": 1987372,
+    "git": "c3284691eb2dfe4f1be1b116b804a2e41062bb9c",
+    "sha256": "61ff877d4b500c2e1b6b51f693cd1ea8df05c7473c2ea458a207b1450495e430",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D4_v2_rr1_sum.wav": {
+    "size": 2047596,
+    "git": "9efaf747591d3c39b7b6e87a077963a1ac71ae45",
+    "sha256": "4bdc53f3ef917cc9146e10cec5eb33744524e8b510c4a39c080dc5c774b3c956",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D4_v3_rr1_sum.wav": {
+    "size": 2087348,
+    "git": "119bec0bc1ad924b04e416966239d6af3a67a764",
+    "sha256": "f913c749eb6b5a1c621e13548d5c30c8f67a6007a2992a6f85deb977c2d41b1f",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D5_v1_rr1_sum.wav": {
+    "size": 1692352,
+    "git": "ee07579d393b6c9a43aaf65f375d2012c3d0c774",
+    "sha256": "0ed79db13dc312c9f5adaf11492f6fd871a5619a9e452434043c33d7a1608697",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D5_v2_rr1_sum.wav": {
+    "size": 1772224,
+    "git": "d2c1fa23c73a15d50b581b6f83aa9e56e7e01a0c",
+    "sha256": "4cedd1d7bd779fe357529e34ff398bc0e80c5088fc3908944962d65fcdc94823",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_D5_v3_rr1_sum.wav": {
+    "size": 1593652,
+    "git": "a06b19f95d397920e21a56cdb85223a39e860d47",
+    "sha256": "4bcff7aa31fe94c9d4a23acde1a9c2cb437dd4ee9c9804c981bbfb184c76509a",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F#5_v1_rr1_sum.wav": {
+    "size": 1025344,
+    "git": "0e30b7890f8c35943fa4eb693c704ce5c595acec",
+    "sha256": "26fcfdba581d7251cf96007650890bbb3f8c61d020278b45441113d47ce1c05e",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F#5_v2_rr1_sum.wav": {
+    "size": 1252444,
+    "git": "5e103799bb30ef1afa405511230c852b942a9d7c",
+    "sha256": "2f024789f1b2ecc25f0e07dcff06084e4c2def83ff74e693c098c28fbec319fc",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F#5_v3_rr1_sum.wav": {
+    "size": 1586272,
+    "git": "9655d9014a2500386d01f80bf0d7e3100e8caa59",
+    "sha256": "13355ccf2ead9ed98142c0062682aecf3ed3c443df619e94a9b3ec7ef523f057",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F2_v1_rr1_sum.wav": {
+    "size": 1527412,
+    "git": "a8b913d7e923c58f150e757f1748da37c80587b4",
+    "sha256": "008d2f0894c90e912f8315639ff8ed2687454195be14054e5fadee8e0db3b559",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F2_v2_rr1_sum.wav": {
+    "size": 1835164,
+    "git": "090db5da13fb0ec67673b6a656887644c923d341",
+    "sha256": "36348e1fd1a1e53485c7f48983cfd758ced036f6af1a832671bf5ef1f8b00448",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F2_v3_rr1_sum.wav": {
+    "size": 1747440,
+    "git": "04b88f5463edcbdfb44e64826d26d8528b4a12f6",
+    "sha256": "7049e55a73851574d5e11a518aeaa3c646bdd0f2323780a10abc379410dad2cf",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F3_v1_rr1_sum.wav": {
+    "size": 1762976,
+    "git": "31ac755ac1dff319c409505d26706d9851bb7e92",
+    "sha256": "0677787afa8d1fdc99e267a1518a49dacf3f1899dc27239c1fbe93568fda2222",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F3_v2_rr1_sum.wav": {
+    "size": 2069572,
+    "git": "1a445b0610a060c571574916d140344fc60922b2",
+    "sha256": "3c9a237651cd049cacdf4052ef85ff406da1d9e5d4f59439c20f45a7578ff431",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F3_v3_rr1_sum.wav": {
+    "size": 1743712,
+    "git": "fc79b6d0f5b3420f4e24b0392484b43a864a6d50",
+    "sha256": "6b434e88f724e46116dd71bdfe52dc82c9b1ec7cec5f512bf9719be51e646671",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F4_v1_rr1_sum.wav": {
+    "size": 2034208,
+    "git": "04e3a4727ee49ff915baeb65c1d32ee4e9ec37e2",
+    "sha256": "e7b54b1ac626a6c54db3fa320a38acd3f099c33c936fca0d82259f9f9641e4f3",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F4_v2_rr1_sum.wav": {
+    "size": 2142808,
+    "git": "9188e6eb2204ec227bac95cf254b9ce20e5d9d58",
+    "sha256": "9988142d8fd2856af4217e3983316a42ef1d91b6381afd9fa138072d91122c2e",
+    "licence": "CC0-1.0"
+  },
+  "VSCO-2-CE/Woodwinds/Clarinet/susLong/DCClar_susLong_F4_v3_rr1_sum.wav": {
+    "size": 2373520,
+    "git": "086d21e2c435964f31b77df757b763e6d6b5eb54",
+    "sha256": "8d9bcdf56ed0c2adebb38242d7b5bb0e2da6884fa9f42a6d4226fb21c1bc7f68",
+    "licence": "CC0-1.0"
+  }
 }

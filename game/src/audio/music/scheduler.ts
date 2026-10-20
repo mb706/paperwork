@@ -114,14 +114,32 @@ export class Scheduler {
     if (this.ticker) this.start(ticker);
   }
 
-  /** Offline: tick at every `step`, waiting for `sync` before each resume. */
+  /**
+   * Offline: tick at every `step`, waiting for `sync` before each resume. A browser without
+   * `OfflineAudioContext.suspend()` (Firefox) gets every tick up front instead, against a simulated clock
+   * (`setNow`), and the voice bank's queue holds the notes: the same notes, without per-second timing.
+   */
   renderOffline(
     ctx: OfflineAudioContext,
     duration: number,
     sync: () => Promise<void>,
     step = 0.25,
+    setNow: (t: number | null) => void = () => {},
   ): Promise<AudioBuffer> {
     this.errors = [];
+    if (typeof (ctx as { suspend?: unknown }).suspend !== 'function') {
+      for (let t = 0; t < duration; t += step) {
+        setNow(t);
+        try {
+          this.tick(t);
+        } catch (e) {
+          if (this.errors.length < 5)
+            this.errors.push(`${t.toFixed(2)} s: ${e instanceof Error ? e.stack : String(e)}`);
+        }
+      }
+      setNow(null);
+      return sync().then(() => ctx.startRendering());
+    }
     for (let t = step; t < duration; t += step) {
       const at = t;
       ctx
