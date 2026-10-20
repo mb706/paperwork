@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Paperwork · audio</title>
+    <link rel="icon" href="data:," />
+    <style>
+      /* A dev page (10 §2.2 src/dev/): the audio runtime's test bench. Survey's paper and ink (A3 §3.1). */
+      :root {
+        --paper: #ece3cb;
+        --ink: #2b2723;
+        --rule: #b9ab88;
+        --warm: #8a3b12;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+        font-size: 14px;
+      }
+      main {
+        max-width: 64rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem 2rem;
+      }
+      h1 {
+        grid-column: 1 / -1;
+        font-size: 1.6rem;
+        font-weight: 600;
+        margin: 0;
+      }
+      section {
+        border-top: 1px solid var(--rule);
+        padding-top: 0.5rem;
+      }
+      h2 {
+        font-size: 0.85rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin: 0 0 0.5rem;
+      }
+      button {
+        font: inherit;
+        background: transparent;
+        border: 1px solid var(--ink);
+        padding: 0.2rem 0.6rem;
+        margin: 0 0.3rem 0.3rem 0;
+        cursor: pointer;
+      }
+      button.on {
+        background: var(--ink);
+        color: var(--paper);
+      }
+      label {
+        display: grid;
+        grid-template-columns: 7rem 1fr 3rem 1.5rem;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      pre {
+        grid-column: 1 / -1;
+        font-family: "Courier Prime", "Courier New", monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+        border-top: 1px solid var(--rule);
+        padding-top: 0.5rem;
+      }
+      .state {
+        font-family: "Courier Prime", "Courier New", monospace;
+        color: var(--warm);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Audio <span class="state" data-testid="audio-state">idle</span></h1>
+      <section>
+        <h2>Start</h2>
+        <button type="button" data-testid="unlock" id="unlock">Start audio</button>
+        <button type="button" id="menu">Menu loop</button>
+        <button type="button" id="game">Start game</button>
+        <button type="button" id="end">End game</button>
+      </section>
+      <section>
+        <h2>Music</h2>
+        <button type="button" id="prev">Previous</button>
+        <button type="button" id="next">Next</button>
+        <button type="button" id="pause">Pause/resume</button>
+        <label>Literature <input id="year" type="range" min="1945" max="1990" value="1945" /><span id="yearv">1945</span><span></span></label>
+        <label>Power <input id="watts" type="range" min="4" max="9" step="0.1" value="6" /><span id="wattsv">1 MW</span><span></span></label>
+      </section>
+      <section>
+        <h2>Volume</h2>
+        <div id="volumes"></div>
+      </section>
+      <section>
+        <h2>Sounds</h2>
+        <div id="sounds"></div>
+        <button type="button" id="load">Load test: 100 machines, bursts</button>
+        <button type="button" id="map">Map view</button>
+        <button type="button" id="paused">Paused</button>
+      </section>
+      <pre data-testid="audio-status" id="status"></pre>
+    </main>
+    <script type="module" src="./audio.ts"></script>
+  </body>
+</html>

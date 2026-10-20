@@ -1,0 +1,3 @@
+# The audio asset build writes here (scripts/assets/audio/build.py); nothing in it is committed.
+*
+!.gitignore

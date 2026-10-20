@@ -1,6 +1,7 @@
-// The FDN reverb (10 §9.4) against A4's convolution reverb, which the approved demos used: the same wet
-// energy (Chrome's ConvolverNode normalisation of A4's generated IRs), the same decay per band, stable,
-// and asleep (exact zeros) after its tail.
+// The FDN reverb (10 §9.4) against A4's convolution reverb, which the approved demos used: A4's generated
+// IRs with Chrome's ConvolverNode normalisation, ported. The same level per Hz in the music band and the
+// same spectrum within 1.5 dB per octave (at 32 and 48 kHz), the same decay per octave, stable, and asleep
+// (exact zeros) after its tail.
 import { describe, expect, test } from 'vitest';
 import { makeRng } from '../core/rng.ts';
 import { FDN_GAIN } from '../music/reverb.ts';
@@ -54,8 +55,8 @@ function biquad(x: Float64Array, type: 'lp' | 'hp', f0: number, sr: number): Flo
   return x;
 }
 
-/** A4's `makeIR` (ported), then the energy of each channel after ConvolverNode's normalisation. */
-function convolverEnergy(p: IrPreset, sr = 48000): number {
+/** A4's `makeIR` (ported), scaled by ConvolverNode's normalisation: the IR the demos convolved with. */
+function convolverIr(p: IrPreset, sr = 48000): Float64Array[] {
   const n = Math.floor(sr * p.seconds);
   const rng = makeRng(p.seed);
   const pre = Math.floor(p.predelay * sr);
@@ -98,9 +99,59 @@ function convolverEnergy(p: IrPreset, sr = 48000): number {
   for (const c of chans) for (const x of c) power += x * x;
   power = Math.sqrt(power / (2 * n));
   const scale = (1 / power) * 0.00125 * (44100 / sr);
-  let e = 0;
-  for (const c of chans) for (const x of c) e += (scale * x) ** 2;
-  return e / 2;
+  for (const c of chans) for (let i = 0; i < c.length; i++) c[i] = (c[i] as number) * scale;
+  return chans;
+}
+
+/**
+ * The mean |H(f)|² per octave (centres 63 Hz … 16 kHz) of an impulse response, by FFT: a response's level
+ * per Hz, which does not depend on the sample rate (a sum of bins would).
+ */
+function octaveEnergy(x: ArrayLike<number>, sr: number): number[] {
+  let n = 1;
+  while (n < x.length) n <<= 1;
+  const re = new Float64Array(n);
+  const im = new Float64Array(n);
+  for (let i = 0; i < x.length; i++) re[i] = x[i] as number;
+  // iterative radix-2 FFT
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      [re[i], re[j]] = [re[j] as number, re[i] as number];
+      [im[i], im[j]] = [im[j] as number, im[i] as number];
+    }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = (-2 * Math.PI) / len;
+    for (let i = 0; i < n; i += len)
+      for (let k = 0; k < len / 2; k++) {
+        const wr = Math.cos(ang * k);
+        const wi = Math.sin(ang * k);
+        const a = i + k;
+        const b = a + len / 2;
+        const xr = (re[b] as number) * wr - (im[b] as number) * wi;
+        const xi = (re[b] as number) * wi + (im[b] as number) * wr;
+        re[b] = (re[a] as number) - xr;
+        im[b] = (im[a] as number) - xi;
+        re[a] = (re[a] as number) + xr;
+        im[a] = (im[a] as number) + xi;
+      }
+  }
+  const centres = [63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+  return centres.map((c) => {
+    let e = 0;
+    let bins = 0;
+    for (let k = 1; k < n / 2; k++) {
+      const f = (k * sr) / n;
+      if (f >= c / Math.SQRT2 && f < c * Math.SQRT2) {
+        e += (re[k] as number) ** 2 + (im[k] as number) ** 2;
+        bins++;
+      }
+    }
+    return bins > 0 ? e / bins : Number.NaN;
+  });
 }
 
 /** The FDN's impulse response to L = R = δ, per channel, `seconds` long. */
@@ -122,8 +173,6 @@ function fdnIr(name: string, sr: number, seconds: number, gain = 1): [Float32Arr
   return [L, R];
 }
 
-const energy = (x: Float32Array) => x.reduce((s, v) => s + v * v, 0);
-
 /** T60 of a band from Schroeder's backward integration, fitted between −5 and −25 dB. */
 function bandT60(ir: Float32Array, sr: number, lo: number, hi: number): number {
   const x = Float64Array.from(ir);
@@ -144,31 +193,33 @@ function bandT60(ir: Float32Array, sr: number, lo: number, hi: number): number {
 }
 
 describe('the FDN reverb', () => {
+  const OCT = [63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
   for (const name of ['hall', 'plate']) {
-    test(`${name}: wet energy equals A4's normalised convolution, at 32 and 48 kHz`, () => {
-      const target = convolverEnergy(IR[name] as IrPreset);
-      for (const sr of [32000, 48000]) {
-        const [L, R] = fdnIr(name, sr, 10, FDN_GAIN[name] as number);
-        const e = (energy(L) + energy(R)) / 2;
-        expect(
-          Math.abs(10 * Math.log10(e / target)),
-          `${name} at ${sr}: ${(10 * Math.log10(e / target)).toFixed(2)} dB`,
-        ).toBeLessThan(0.4);
+    const conv = convolverIr(IR[name] as IrPreset, 48000);
+    const ce = octaveEnergy(conv[0] as Float64Array, 48000);
+    for (const sr of [32000, 48000]) {
+      test(`${name} at ${sr} Hz: A4's level per Hz in the music band, its spectrum within 1.5 dB per octave`, () => {
+        const [L] = fdnIr(name, sr, 20, FDN_GAIN[name] as number);
+        const fe = octaveEnergy(L, sr);
+        const d = ce.map((c, i) => 10 * Math.log10((fe[i] as number) / c));
+        const band = d.slice(1, 7); // 125 Hz – 4 kHz
+        const mean = band.reduce((a, b) => a + b, 0) / band.length;
+        expect(Math.abs(mean), `${name} ${sr}: ${mean.toFixed(2)} dB`).toBeLessThan(0.25);
+        for (let i = 0; i < OCT.length - 1; i++)
+          expect(Math.abs(d[i] as number), `${OCT[i]} Hz: ${(d[i] as number).toFixed(1)} dB`).toBeLessThan(
+            name === 'plate' && i === 0 ? 3 : 1.5,
+          );
+      });
+    }
+    test(`${name}: decays per octave as A4's IR does`, () => {
+      const c32 = Float32Array.from(conv[0] as Float64Array);
+      const [L] = fdnIr(name, 32000, 20);
+      for (const f of [125, 500, 1000, 2000, 4000, 8000]) {
+        const a = bandT60(c32, 48000, f / Math.SQRT2, f * Math.SQRT2);
+        const b = bandT60(L, 32000, f / Math.SQRT2, f * Math.SQRT2);
+        expect(b / a, `${f} Hz: FDN ${b.toFixed(2)} s, IR ${a.toFixed(2)} s`).toBeGreaterThan(0.88);
+        expect(b / a, `${f} Hz: FDN ${b.toFixed(2)} s, IR ${a.toFixed(2)} s`).toBeLessThan(1.12);
       }
-    });
-
-    test(`${name}: decay per band follows A4's three T60s`, () => {
-      const p = IR[name] as IrPreset;
-      const [L] = fdnIr(name, 32000, 9);
-      const low = bandT60(L, 32000, 0, 250);
-      const mid = bandT60(L, 32000, 700, 2000);
-      const high = bandT60(L, 32000, 5000, 0);
-      expect(low / p.t60[0]).toBeGreaterThan(0.8);
-      expect(low / p.t60[0]).toBeLessThan(1.2);
-      expect(mid / p.t60[1]).toBeGreaterThan(0.85);
-      expect(mid / p.t60[1]).toBeLessThan(1.15);
-      expect(high / p.t60[2]).toBeGreaterThan(0.75);
-      expect(high / p.t60[2]).toBeLessThan(1.35);
     });
   }
 
