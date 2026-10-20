@@ -73,7 +73,15 @@ async function main(): Promise<void> {
     genWorkers: 2,
     io,
     test: params.get('test') === '1',
-    events: { log },
+    events: {
+      log,
+      // §3.6's trap notice, until the UI package shows its own: SimHost reloads the last save meanwhile.
+      trap: (t) =>
+        show('sim-status', `sim.wasm trapped at tick ${t.tick}: ${t.message}; reloading the last save`),
+      generation: (g) => {
+        if (g > 1) show('sim-status', `sim.wasm ABI ${ABI_VERSION}, world bound (generation ${g})`);
+      },
+    },
   });
   // §9.7: dev code (`__game`) lives in a chunk loaded only by dev builds or `?dev=1`.
   if (import.meta.env.DEV || params.get('dev') === '1')

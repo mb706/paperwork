@@ -132,7 +132,8 @@
   on demand into `target/stubs/`; `debug_dump` ids from 0xFFFF0000 are its test commands), on the golden reference
   model behind the ABI (`test/helpers/model-module.ts`: the golden digests and packets through the shell), and on
   the real sim.wasm once it lands (`real.test.ts`, skipped while crates/simabi is the scaffold). The browser bench
-  is `/src/dev/shell.html` (`e2e/shell.spec.ts`, @smoke). Playwright on a busy host: set `PW_PORT` to a free port.
+  is `/src/dev/shell.html` (`e2e/shell.spec.ts`, @smoke). Several worktrees share this host: give
+  Playwright free ports with `PW_PORT` and `PW_RELEASE_PORT` (defaults 5191, 5193).
 
 ## Assets (`npm run assets`; C6, 10 §9, the *Survey* look of `design/art/DIRECTION.md`)
 - **Sources** (committed): `game/assets/blender/` (`lib/` style, materials, parts, rig, contract; `entities/`,
