@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="28" viewBox="0 0 32 28" data-slice="6 6 6 6" data-repeat="stretch">
+  <desc>Button pressed (inset).</desc>
+  <g opacity="1.0">
+  <rect x="0.5" y="0.5" width="31" height="27" rx="1.5" fill="#e2d3ad" stroke="#6f5a36" stroke-width="1"/>
+  <path d="M2 25 V2.5 Q2 2 2.5 2 H29.5" fill="none" stroke="#a88f5a" stroke-width="1"/>
+  <path d="M30 3 V25.5 Q30 26 29.5 26 H2.5" fill="none" stroke="#fbf5e3" stroke-width="1.5"/>
+  </g>
+</svg>

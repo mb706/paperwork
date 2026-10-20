@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paperwork.invalid/schema/sprites-v2.json",
+  "title": "Paperwork sprite manifest, version 2 (10 §15.7)",
+  "type": "object",
+  "required": ["version", "axesVersion", "prototypesHash", "arrays", "pages", "frames", "sets"],
+  "properties": {
+    "version": { "const": 2 },
+    "axesVersion": { "const": 1 },
+    "prototypesHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "style": { "type": "string" },
+    "arrays": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        { "$ref": "#/$defs/array", "properties": { "kind": { "const": "colour" } } },
+        { "$ref": "#/$defs/array", "properties": { "kind": { "const": "shadow" } } },
+        { "$ref": "#/$defs/array", "properties": { "kind": { "const": "light" } } },
+        { "$ref": "#/$defs/array", "properties": { "kind": { "const": "icon" } } }
+      ]
+    },
+    "pages": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "type": "array", "items": { "$ref": "#/$defs/page" } }
+    },
+    "frames": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "minItems": 8,
+        "maxItems": 8,
+        "prefixItems": [
+          { "type": "integer", "minimum": 0, "maximum": 3 },
+          { "type": "integer", "minimum": 0 },
+          { "type": "integer", "minimum": 0 },
+          { "type": "integer", "minimum": 0 },
+          { "type": "integer", "minimum": 1 },
+          { "type": "integer", "minimum": 1 },
+          { "type": "number" },
+          { "type": "number" }
+        ]
+      }
+    },
+    "sets": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^(entity|greybox|item|fluid|object|decor|cliff|resource|town|mover|fx)/[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "additionalProperties": { "$ref": "#/$defs/set" }
+    },
+    "dom": { "type": "object" },
+    "terrain": {
+      "type": "object",
+      "required": ["pxPerTile", "size", "levels", "codec", "tiles"],
+      "properties": {
+        "pxPerTile": { "type": "integer" },
+        "size": { "type": "integer" },
+        "levels": { "type": "integer", "minimum": 1 },
+        "codec": { "enum": ["xubc7", "rgba8"] },
+        "tiles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["file", "bytes", "group"],
+            "properties": {
+              "file": { "type": "string" },
+              "bytes": { "type": "integer", "minimum": 1 },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "group": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "array": {
+      "type": "object",
+      "required": ["kind", "pxPerTile", "pageSize", "levels", "codec"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["colour", "shadow", "light", "icon"] },
+        "pxPerTile": { "type": "integer", "minimum": 1 },
+        "pageSize": { "type": "integer", "minimum": 32 },
+        "levels": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "codec": { "enum": ["xubc7", "etc1s", "rgba8"] }
+      }
+    },
+    "page": {
+      "type": "object",
+      "required": ["group", "files", "bytes"],
+      "properties": {
+        "group": { "type": "string", "pattern": "^(core|[a-z-]+/[0-9]+|town-[0-9]+|biome-[a-z-]+|wild)$" },
+        "files": { "type": "array", "minItems": 1, "maxItems": 2, "items": { "type": "string" } },
+        "bytes": { "type": "array", "minItems": 1, "maxItems": 2, "items": { "type": "integer", "minimum": 1 } },
+        "sha256": { "type": "array", "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+      }
+    },
+    "set": {
+      "type": "object",
+      "required": ["kind", "group", "parts"],
+      "properties": {
+        "kind": { "enum": ["entity", "inserter", "object", "resource", "mover", "icon"] },
+        "group": { "type": "string" },
+        "size": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 1 } },
+        "parts": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [{ "$ref": "#/$defs/part" }, { "type": "array", "items": { "$ref": "#/$defs/part" } }]
+          }
+        },
+        "shoulder": { "$ref": "#/$defs/point" },
+        "shadowShoulder": { "$ref": "#/$defs/point" },
+        "smoke": { "type": "array", "items": { "$ref": "#/$defs/point" } },
+        "framesPerTile": { "type": "integer", "minimum": 1 },
+        "radiusTiles": { "type": "number" }
+      }
+    },
+    "part": {
+      "type": "object",
+      "required": ["axes", "shape", "table"],
+      "properties": {
+        "axes": {
+          "type": "array",
+          "items": { "enum": ["dir", "mask", "shape", "stage", "band", "light", "orientation", "frame"] },
+          "uniqueItems": true
+        },
+        "shape": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
+        "map": {
+          "type": "object",
+          "propertyNames": { "enum": ["dir", "mask", "stage", "light"] },
+          "additionalProperties": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+        },
+        "table": {
+          "type": "array",
+          "items": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+        },
+        "pivot": { "$ref": "#/$defs/point" },
+        "length": { "type": "number", "exclusiveMinimum": 0 },
+        "fps": { "type": "number", "exclusiveMinimum": 0 },
+        "cycleTiles": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "point": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } }
+  }
+}

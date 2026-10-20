@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" data-slice="10 10 10 10" data-repeat="stretch">
+  <desc>Slot under the cursor.</desc>
+  <g opacity="1.0">
+  <rect x="0.75" y="0.75" width="38.5" height="38.5" rx="1" fill="#fbf7ea" stroke="#5d5345" stroke-width="1.5"/>
+  <rect x="3" y="8.6" width="34" height="0.8" fill="#b5352a" opacity="0.5"/>
+  </g>
+</svg>

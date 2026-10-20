@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="24" viewBox="0 0 16 24" data-slice="0 0 0 0" data-repeat="repeat">
+  <desc>Title bar filler (the draggable space): three printed rules, repeated horizontally.</desc>
+  <rect x="0" y="8" width="16" height="1" fill="#6f5a36" opacity="0.75"/>
+  <rect x="0" y="12" width="16" height="1" fill="#6f5a36" opacity="0.75"/>
+  <rect x="0" y="16" width="16" height="1" fill="#6f5a36" opacity="0.75"/>
+</svg>

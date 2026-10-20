@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" data-slice="0 0 0 0" data-repeat="stretch">
+  <desc>Checkbox, checked: ticked in ink.</desc>
+  <rect x="1.5" y="1.5" width="13" height="13" fill="#fcfaf3" stroke="#2b2723" stroke-width="1"/>
+  <path d="M3.8 8.4 L6.7 11.4 L12.5 4.3" fill="none" stroke="#2b2723" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -12,6 +12,7 @@
     "build": "sh scripts/wasm-release.sh && vite build",
     "preview": "vite preview",
     "data": "node scripts/data-stage.ts",
+    "assets": "node scripts/build-assets.ts",
     "gen": "node scripts/schema-gen.ts",
     "check": "node scripts/ci.ts check",
     "test": "node scripts/ci.ts test",

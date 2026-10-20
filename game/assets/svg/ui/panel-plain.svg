@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" data-slice="4 4 4 4" data-repeat="stretch">
+  <desc>Content panel without rules (dense lists, tables).</desc>
+  <rect x="0.5" y="0.5" width="15" height="15" rx="1" fill="#f4ecd8" stroke="#8f7f62" stroke-width="1"/>
+</svg>

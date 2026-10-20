@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" data-slice="8 8 8 8" data-repeat="stretch">
+  <desc>Inner frame (insets, sub-panels): a darker fold of the folder.</desc>
+  <rect x="0.75" y="0.75" width="46.5" height="46.5" rx="2" fill="#b89c63" stroke="#5c4a2c" stroke-width="1.5"/>
+  <path d="M2.5 45 V3.5 Q2.5 2.5 3.5 2.5 H45" fill="none" stroke="#d3bd8a" stroke-width="1" opacity="0.9"/>
+  <path d="M45.5 3 V44.5 Q45.5 45.5 44.5 45.5 H3" fill="none" stroke="#5c4a2c" stroke-width="1" opacity="0.35"/>
+</svg>

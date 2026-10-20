@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="60" viewBox="0 0 48 60" data-slice="14 4 10 4" data-repeat="repeat">
+  <desc>Content panel: a cream index card, a red top rule and pale-blue rules every 18 px (the centre slice repeats them).</desc>
+  <rect x="0.5" y="0.5" width="47" height="59" rx="1" fill="#f4ecd8" stroke="#8f7f62" stroke-width="1"/>
+  <rect x="3" y="12" width="42" height="1.2" fill="#b5352a" opacity="0.55"/>
+  <rect x="3" y="31" width="42" height="1" fill="#a9bfd0" opacity="0.6"/>
+  <rect x="3" y="49" width="42" height="1" fill="#a9bfd0" opacity="0.6"/>
+
+</svg>
