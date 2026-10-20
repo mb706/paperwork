@@ -10,10 +10,37 @@ import type { MusicEngine } from './engine.ts';
 import { PIECES } from './pieces/index.ts';
 import { fdnConfig } from './reverb.ts';
 import type { Scheduler } from './scheduler.ts';
-import type { Piece, PieceSpec } from './types.ts';
+import { defaultMusicState, type Piece, type PieceSpec } from './types.ts';
 
-/** Era bus gains (dB) so a piece measures −18 LUFS integrated at 100 % music (A4 §8); data overrides. */
-export const DEFAULT_BUS_DB: Readonly<Record<string, number>> = { era1: 13.9, era2: 9.4, takeoff: 7.3 };
+/** Runs `fn` in a task of its own (a message, which hidden pages do not throttle as they do timers). */
+function defer(fn: () => void): void {
+  const ch = new MessageChannel();
+  ch.port1.onmessage = () => {
+    ch.port1.close();
+    fn();
+  };
+  ch.port2.postMessage(0);
+}
+
+/**
+ * Plans and schedules a few seconds of every rule set into a silent host, so the first real piece runs
+ * compiled code (a cold first plan measured 10 ms on this host; warm ones 0.5–1 ms). Call in idle time.
+ */
+export function warmUp(): void {
+  const host = { state: defaultMusicState(), play() {}, setParam() {}, targetParam() {} };
+  for (const spec of Object.values(PIECES)) {
+    const p = spec.create(host, { seed: 7, duration: 180, start: 0 });
+    for (let t = 0; t < 120; t += 1) p.schedule(t, t + 1);
+  }
+}
+
+/**
+ * Era bus gains (dB) so a piece measures −18 LUFS integrated at 100 % music (A4 §8); the data
+ * (sounds.yaml) overrides. A4 derived +13.9 and +9.4 from its engine's raw outputs; measured on this engine
+ * at 32 kHz with the glue compressor over six game-length pieces (C7), Era I averaged −17.7 LUFS and Era II
+ * −19.3 with those, hence +13.6 and +10.7. The takeoff's is A4's (M4).
+ */
+export const DEFAULT_BUS_DB: Readonly<Record<string, number>> = { era1: 13.6, era2: 10.7, takeoff: 7.3 };
 /** Fades: a skipped piece (the music keys), a closure cut (A4 §5.3), a finished piece's tail. */
 const SKIP_FADE = 1.5;
 const CUT_FADE = 6;
@@ -110,8 +137,17 @@ export class Director {
       if (this.current && !this.current.piece) this.current = null;
       return;
     }
-    this.begin(seg, now);
+    // a piece is planned in a task of its own, never inside a scheduler tick (every tick ≤ 2 ms, 10 §9.4)
+    this.pending = seg;
+    defer(() => {
+      if (this.pending !== seg || !this.running) return;
+      this.pending = null;
+      this.begin(seg, this.o.now());
+    });
   }
+
+  /** A piece segment whose planning task has not run yet. */
+  private pending: Segment | null = null;
 
   private begin(seg: Segment, now: number): void {
     const name = seg.piece ?? '';
@@ -158,7 +194,7 @@ export class Director {
     const busDb = this.o.busDb?.[spec.id] ?? DEFAULT_BUS_DB[spec.id] ?? 0;
     mixer.fadeSlot(slot, busDb, 0, now);
     // the piece's 0 is the segment's start on the audio clock (a piece joined late drops its past notes)
-    const start = Math.max(this.origin + seg.start, now + 0.05);
+    const start = Math.max(this.origin + seg.start, now + 0.15);
     const piece = spec.create(engine.host(slot), { ...seg.params, start });
     scheduler.add(piece);
     this.current = { seg, slot, piece, recorded: false };

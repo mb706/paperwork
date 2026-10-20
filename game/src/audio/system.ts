@@ -23,7 +23,7 @@ import { type Fetcher, FileLoader, httpFetcher, IdAllocator, PackLoader } from '
 import { MixerGraph } from './mixer/graph.ts';
 import { type AudioSettings, type Category, defaultSettings, sanitizeSettings } from './mixer/volumes.ts';
 import { Conductor, DEFAULT_ERAS, type Era } from './music/conductor.ts';
-import { DEFAULT_BUS_DB, Director, type RecordedMusic } from './music/director.ts';
+import { DEFAULT_BUS_DB, Director, type RecordedMusic, warmUp } from './music/director.ts';
 import { MusicEngine } from './music/engine.ts';
 import { PIECES } from './music/pieces/index.ts';
 import { fdnConfig } from './music/reverb.ts';
@@ -361,6 +361,10 @@ export class AudioSystem {
       this.sfx?.tick();
     });
     this.scheduler.start();
+    // compile the rule sets before the first generative piece (the charter piece plays from its recording)
+    const idle = (globalThis as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    if (idle) idle(() => warmUp());
+    else setTimeout(warmUp, 2000);
   }
 
   private reduce(reason: string): void {
