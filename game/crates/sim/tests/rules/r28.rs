@@ -178,3 +178,31 @@ fn r28_saves_under_another_worldgen_load_only_baked() {
     assert!(c.load_report_record().expect("a report").new_lineage);
     finish(&s);
 }
+
+/// An answer that claims this world but holds what worldgen v0 never makes (an empty resource, an unknown
+/// tile, a tree) is refused (`ERR_INPUT`) and changes nothing; the chunk is generated inline as without it.
+#[test]
+fn r28_an_impossible_answer_is_refused() {
+    let s = walker("r28-impossible-answer");
+    let mut c = sim::testkit::reload(s.protos(), &s.ctx).expect("reloads");
+    let k = *s.world().pending().first().expect("a request");
+    let g = c.world().expect("w").regen.generator().expect("g").clone();
+    let good = g.chunk(k.1, k.3, k.2);
+    let before = c.state_hashes().expect("hash").full;
+    let mut empty = good.clone();
+    if let Some(r) = empty.resources.first_mut() {
+        r.amount = 0;
+    } else {
+        empty.resources.push(schema::ResourceTile { tile: 0, resource: schema::ResourceId(0), amount: 0 });
+    }
+    let mut unknown = good.clone();
+    unknown.tiles[7] = schema::TileId(200);
+    let mut tree = good.clone();
+    tree.trees.push(schema::TreeState::default());
+    for bad in [empty, unknown, tree] {
+        let mut b = Vec::new();
+        bad.encode(&mut Writer::new(&mut b)).expect("encodes");
+        assert_eq!(c.supply_chunk(&b).expect_err("impossible").status, SimStatus::ErrInput);
+    }
+    assert_eq!(c.state_hashes().expect("hash").full, before);
+}

@@ -31,10 +31,20 @@ pub const fn tile_index(tx: i32, ty: i32) -> usize {
     ((ty & 31) * 32 + (tx & 31)) as usize
 }
 
-/// The chunk key of the chunk holding tile `(tx, ty)`.
+/// The chunk key of the chunk holding tile `(tx, ty)` (the tile must lie in the key range).
 #[inline]
 pub const fn tile_chunk_key(tx: i32, ty: i32) -> ChunkKey {
     chunk_key(tile_chunk(tx), tile_chunk(ty))
+}
+
+/// Tiles per axis on each side of the origin that chunk keys can name (§4.4: ±32,768 chunks, ±2²⁰ tiles,
+/// Factorio's map size).
+pub const KEY_TILES: i32 = 1 << 20;
+
+/// Whether tile `(tx, ty)` lies in the chunk-key range; outside it no chunk exists (a key would alias).
+#[inline]
+pub const fn in_key_range(tx: i32, ty: i32) -> bool {
+    tx >= -KEY_TILES && tx < KEY_TILES && ty >= -KEY_TILES && ty < KEY_TILES
 }
 
 /// The view versions of §15.4: presentation counters, derived, never saved or read by a rule.
@@ -185,12 +195,18 @@ impl ChunkStore {
         self.modified_index(surface, key).ok().map(|i| &mut *self.modified[i])
     }
 
-    /// The modified chunk holding tile `(tx, ty)`.
+    /// The modified chunk holding tile `(tx, ty)`; none outside the chunk-key range.
     pub fn at_tile(&self, surface: SurfaceIndex, tx: i32, ty: i32) -> Option<&ChunkState> {
+        if !in_key_range(tx, ty) {
+            return None;
+        }
         self.get(surface, tile_chunk_key(tx, ty))
     }
 
     pub fn at_tile_mut(&mut self, surface: SurfaceIndex, tx: i32, ty: i32) -> Option<&mut ChunkState> {
+        if !in_key_range(tx, ty) {
+            return None;
+        }
         self.get_mut(surface, tile_chunk_key(tx, ty))
     }
 
@@ -289,16 +305,16 @@ impl TileRect {
 }
 
 /// The map's tile bounds (§5.18, 07 §17): golden README rule 1, Factorio's centred map. Width W covers
-/// `x ∈ [−⌊W/2⌋, W − ⌊W/2⌋)`; 0 is unbounded (the chunk-key range, ±2²⁰ tiles).
+/// `x ∈ [−⌊W/2⌋, W − ⌊W/2⌋)`; 0 is unbounded. Every map ends at the chunk-key range (±2²⁰ tiles), where
+/// Factorio's ends too (a 2,000,000-tile map), so no tile of the map has an aliased chunk key.
 pub fn map_bounds(width: u32, height: u32) -> TileRect {
-    const BIG: i64 = 1 << 20;
-    let (w, h) = (i64::from(width), i64::from(height));
-    TileRect {
-        x0: if width == 0 { -BIG } else { -(w / 2) },
-        x1: if width == 0 { BIG } else { w - w / 2 },
-        y0: if height == 0 { -BIG } else { -(h / 2) },
-        y1: if height == 0 { BIG } else { h - h / 2 },
-    }
+    const BIG: i64 = KEY_TILES as i64;
+    let lo = |size: u32| if size == 0 || i64::from(size / 2) > BIG { -BIG } else { -i64::from(size / 2) };
+    let hi = |size: u32| {
+        let v = i64::from(size) - i64::from(size / 2);
+        if size == 0 || v > BIG { BIG } else { v }
+    };
+    TileRect { x0: lo(width), x1: hi(width), y0: lo(height), y1: hi(height) }
 }
 
 #[cfg(test)]
@@ -332,6 +348,14 @@ mod tests {
         let odd = map_bounds(5, 0);
         assert_eq!((odd.x0, odd.x1), (-2, 3));
         assert!(odd.contains(0, 1_000_000));
+        // Every map ends at the chunk-key range: no tile of the map has an aliased key.
+        let huge = map_bounds(4_000_000, 0);
+        assert_eq!((huge.x0, huge.x1, huge.y0, huge.y1), (-(1 << 20), 1 << 20, -(1 << 20), 1 << 20));
+        assert!(
+            !huge.contains(1 << 20, 0)
+                && !in_key_range(1 << 20, 0)
+                && in_key_range(-(1 << 20), (1 << 20) - 1)
+        );
     }
 
     #[test]

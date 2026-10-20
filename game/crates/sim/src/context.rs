@@ -288,6 +288,9 @@ impl SimContext {
         };
         let dg = world.tick(closure, &mut io)?;
         self.answers.retain_pending(world);
+        // The shell forgets requests whose commit tick has passed (§15.9); so does the list it has not fetched.
+        let now = world.current_tick();
+        self.issued.retain(|q| q.commit_tick.0 > now);
         self.d = dg.d;
         self.slice = dg.slice;
         self.r = digest::roll(self.r, dg.d, dg.slice);
@@ -378,8 +381,20 @@ impl SimContext {
         }
         let resources = w.protos.resource.len();
         let ordered = d.resources.windows(2).all(|p| p[0].tile < p[1].tile);
-        if !ordered || d.resources.iter().any(|r| usize::from(r.resource.0) >= resources || r.tile >= 1024) {
-            return Err(input("chunk_data: resources out of order or unknown"));
+        let bad = |r: &schema::ResourceTile| {
+            usize::from(r.resource.0) >= resources || r.tile >= 1024 || r.amount == 0
+        };
+        if !ordered || d.resources.iter().any(bad) {
+            return Err(input("chunk_data: resources out of order, empty or unknown"));
+        }
+        // Worldgen v0 makes no trees, objects, cliffs or town features (M0's prototypes have none), and its
+        // climate is finite: an answer with them did not come from this build's generator.
+        if !(d.trees.is_empty() && d.objects.is_empty() && d.cliffs.is_empty() && d.town_features.is_empty())
+        {
+            return Err(input("chunk_data: features worldgen v0 does not generate"));
+        }
+        if !(d.theta.is_finite() && d.sunlight.is_finite()) {
+            return Err(input("chunk_data: a climate that is not finite"));
         }
         self.answers.put(d);
         Ok(())

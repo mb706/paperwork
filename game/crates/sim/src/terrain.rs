@@ -6,7 +6,7 @@
 //! the chunk's generated content becomes its `CHUNKS` record, rule version 0, and the change raises it from
 //! there.
 
-use crate::chunks::{tile_chunk, tile_index};
+use crate::chunks::{in_key_range, tile_chunk, tile_index};
 use crate::world::World;
 use schema::{ResourceTile, SurfaceIndex, TileId, chunk_key};
 
@@ -15,6 +15,9 @@ impl World {
     pub fn tile_at(&self, surface: SurfaceIndex, tx: i32, ty: i32) -> Option<TileId> {
         if let Some(c) = self.chunks.at_tile(surface, tx, ty) {
             return Some(c.tile(tx, ty));
+        }
+        if !in_key_range(tx, ty) {
+            return None;
         }
         let key = chunk_key(tile_chunk(tx), tile_chunk(ty));
         if !self.chunks.is_generated(surface, key) {
@@ -44,6 +47,9 @@ impl World {
         if let Some(c) = self.chunks.at_tile(surface, tx, ty) {
             return find(&c.rec.resources);
         }
+        if !in_key_range(tx, ty) {
+            return None;
+        }
         let key = chunk_key(tile_chunk(tx), tile_chunk(ty));
         if !self.chunks.is_generated(surface, key) {
             return None;
@@ -57,6 +63,10 @@ impl World {
         if tx1 <= tx0 || ty1 <= ty0 {
             return;
         }
+        debug_assert!(
+            in_key_range(tx0, ty0) && in_key_range(tx1 - 1, ty1 - 1),
+            "a change outside the key range"
+        );
         for cy in tile_chunk(ty0)..=tile_chunk(ty1 - 1) {
             for cx in tile_chunk(tx0)..=tile_chunk(tx1 - 1) {
                 let key = chunk_key(cx, cy);

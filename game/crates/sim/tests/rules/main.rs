@@ -12,6 +12,7 @@
 #[allow(dead_code)]
 #[path = "../core/common.rs"]
 mod common;
+mod fuzz;
 mod helpers;
 mod m0;
 mod r23_r27;
