@@ -45,5 +45,5 @@ Next: codex reviews of A1/A2, then Phase B (an architecture revision that folds 
 The Schema package is split into sequential parts: C1a (scaffold, CI, data stage), then C1b (schema, generator, codec fixtures), then C1c (fake sim, reference model, golden set). After that, the contract gate: a codex review. Then the parallel packages start.
 | WP | Topic | Status |
 |---|---|---|
-| C1a | Scaffold, toolchains, CI, check-arch, data stage, capability manifest | done (3ebd435..4036076); `npm run ci` takes about 30 s. Codex r1 running |
-| C1b | Schema, generator, codec fixtures (gate items 1–3) | brief ready; starts after the C1a review fixes |
+| C1a | Scaffold, toolchains, CI, check-arch, data stage, capability manifest | done (3ebd435..53e1d61); `npm run ci` takes about 33 s. Codex r1's 15 findings are fixed |
+| C1b | Schema, generator, codec fixtures (gate items 1–3) | running (commits to `dev`) |
