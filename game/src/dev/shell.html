@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Paperwork · worker shell</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        --paper: #ece3cb;
+        --ink: #2b2723;
+      }
+      body {
+        margin: 2rem;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "Courier Prime", "Courier New", monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Worker shell</h1>
+    <pre data-testid="shell-status">waiting for modules (window.__shellDev.start)</pre>
+    <script type="module" src="./shell.ts"></script>
+  </body>
+</html>

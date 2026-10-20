@@ -9,8 +9,8 @@
 //!   pristine chunk's 32 × 32 chart image (tile map colours); `gen_preview` samples tiles over a rectangle;
 //! - the panic hook passes a panic's message to `host_panic` before the module aborts (§3.6).
 //!
-//! **Feature `full-abi`**, as in `simabi`: without it the module is the M0 scaffold (`gen_abi_version` = 0, no
-//! imports) until the Shell package's loaders land; the WebAssembly tests build with it.
+//! **Feature `full-abi`**, as in `simabi` (default since C3-r1): without it the module is the M0 scaffold
+//! (`gen_abi_version` = 0, no imports), which the worldgen workers refuse.
 
 use schema::abi::GenAbi;
 use schema::codec::{Fixed, Packed, Writer};
