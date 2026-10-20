@@ -101,13 +101,16 @@
   has a licence record in `assets/audio/licences.json` (prose: `LICENSES.md`). Sound definitions (bus, variation, rate
   limit, events, working sounds, era bus gains): `data/engine/sounds.yaml`.
 - **Dev page:** `/src/dev/audio.html` on the dev server: start, the music program and keys, the sliders, every sound,
-  a factory's SFX load. Tools drive it through `window.__audioDev` (offline renders, live play, decode/loop checks).
+  a factory's SFX load, and the offline CPU load (10 §9.4's gate for the user's laptop). Tools drive it through
+  `window.__audioDev` (offline renders, live play, decode/loop checks). The app feeds audio with
+  `audio.onRenderPacket(decodePacket(bytes))` and `audio.onHud(hud)` (`src/audio/index.ts` shows the wiring).
 - **Renders:** `node scripts/assets/audio/render.ts <cfgs.json> [--out dir] [--checks]` renders through the real engine
   in headless Chrome (OfflineAudioContext, WAVs in `.cache/assets/audio/renders/`); `scripts/assets/audio/analyze.py`
   compares loudness, spectra and stems with A4's demos; `master.py` makes a recording (−18 LUFS, −1 dBTP).
 - **CPU:** `taskset -c 0-7 node scripts/assets/audio/bench.ts <cfgs.json> [seconds] [rounds]` plays live and reads the
   audio threads from `/proc`, rounds interleaved (reference ≈ host ÷ 2.4; budget 10 §9.4: host ≤ 19 % mean, ≤ 36 %
-  worst second). The CPU clock drifts with load, so compare only within one interleaved session.
+  worst second). The governor runs light audio threads at 1.3–1.5 GHz, not 2.6 GHz, and Chrome suspends a silent
+  output, so compare only within one interleaved session; rows also give the share scaled to 2.6 GHz.
 - **Tests:** `npx vitest run src/audio` (the rule sets note for note against A4's prototype, the bank's DSP, the FDN
   against A4's IRs, the conductor); `npx playwright test e2e/audio.spec.ts` (@audio).
 - **Rules:** the worklet's `process()` never allocates. Keep native nodes few: beside an AudioWorklet each one renders
