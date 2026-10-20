@@ -318,6 +318,9 @@ describe('gen.wasm: worldgen v0 natively and in WebAssembly', () => {
       hex(fixture('chart_0_0.bin')),
     );
     expect(gen.envelope('gen_chunk', undefined, 0, 40_000, 0).status).toBe('err_input');
+    // C2b-r1 finding 4: settings outside the bounds are refused at gen_init.
+    const fresh = new WasmSim(buildModule('genabi'), 'gen');
+    expect(fresh.envelope('gen_init', fixture('init-unbounded.bin')).status).toBe('err_input');
     expect(gen.panics).toEqual([]);
   });
 });

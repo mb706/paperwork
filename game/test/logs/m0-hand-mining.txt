@@ -1,1 +1,1 @@
-m0-hand-mining ticks 0..585 state de62f3bdd6c059f7 r bb2fdd669b47de42
+m0-hand-mining ticks 0..441 state fa436b7361292974 r 25abd6ed8f1836e0

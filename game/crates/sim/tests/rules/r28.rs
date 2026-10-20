@@ -129,8 +129,8 @@ fn r28_a_load_regenerates_nothing_until_a_rule_touches_it() {
     // A character joining at spawn and walking touches the chunks under it, and only those.
     let mut seq = sim::testkit::TestSequencer::new(&c);
     let t = c.world().expect("w").current_tick();
-    seq.push_system(t + 1, &joined(0));
-    seq.push(t + 2, schema::PlayerIndex(0), &walk(Direction::South));
+    seq.push_system(t + 1, &joined(0)).expect("in order");
+    seq.push(t + 2, schema::PlayerIndex(0), &walk(Direction::South)).expect("in order");
     for k in 1..=100 {
         c.tick(&seq.closure(t + k)).expect("ticks");
     }

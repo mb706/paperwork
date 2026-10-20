@@ -162,24 +162,30 @@ fn fuzzed_actions_never_trap_and_refusals_change_nothing() {
                 // An unknown type, or a known one with a payload of the wrong length: `malformed`.
                 let ty = if g.n(2) == 0 { 0x7777 } else { ActionType::Build.value() };
                 let p = (0..g.n(24)).map(|_| g.n(256) as u8).collect();
-                s.seq.push_raw(t, Some(PlayerIndex(i)), ty, p);
+                s.seq.push_raw(t, Some(PlayerIndex(i)), ty, p).expect("in order");
             } else if roll < 8 {
                 // Outside M0's manifest: `unsupported`.
                 let a = Action::RotateEntity(schema::RotateEntityAction {
                     target: g.entity(last),
                     reverse: false,
                 });
-                s.seq.push(t, PlayerIndex(i), &a);
+                s.seq.push(t, PlayerIndex(i), &a).expect("in order");
             } else {
                 let a = action(&mut g, x, y, last, ig);
                 let mut p = Vec::new();
                 match (a.encode(&mut schema::codec::Writer::new(&mut p)), &a) {
-                    (Ok(()), _) => s.seq.push_raw(t, Some(PlayerIndex(i)), a.action_type().value(), p),
+                    (Ok(()), _) => {
+                        s.seq
+                            .push_raw(t, Some(PlayerIndex(i)), a.action_type().value(), p)
+                            .expect("in order");
+                    }
                     // The encoder refuses what the decoder refuses (an odd walking direction): its bytes by hand.
                     (Err(_), Action::StartWalking(w)) => {
                         let mut b = w.input_gen.to_le_bytes().to_vec();
                         b.push(w.dir.value());
-                        s.seq.push_raw(t, Some(PlayerIndex(i)), ActionType::StartWalking.value(), b);
+                        s.seq
+                            .push_raw(t, Some(PlayerIndex(i)), ActionType::StartWalking.value(), b)
+                            .expect("in order");
                     }
                     (Err(e), other) => panic!("{}: {e}", other.action_type().name()),
                 }

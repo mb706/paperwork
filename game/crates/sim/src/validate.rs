@@ -11,6 +11,11 @@
 //! 3. [`check_inventories`], on the built World: each inventory's block is the canonical class for its owner's
 //!    size, the slots past the size are empty, every stack is a known item at a known quality and at most a
 //!    stack, limit bars and filters lie inside the size, and every hand is well formed.
+//! 4. [`check_rule_state`], on the built World (C2b-r1 finding 3): what the rules index or assume — crafting
+//!    queues (known recipes, positive counts, finite progress, only the head under way), mining states the
+//!    milestone supports, even walking directions, bounded creation rings, the chunks' tiles, resources and
+//!    features, the generated chunks' climate, the serial counter, and pending requests (their surface, not
+//!    generated, at most 8 per commit tick).
 
 use crate::chunks::map_bounds;
 use crate::r#gen::{ContainerPool, EntityTable, Globals, Hand, Player, SlotHeap as SlotHeapRecord};
@@ -139,7 +144,9 @@ pub fn check_players(players: &[Player], globals: &Globals) -> Result<(), String
     Ok(())
 }
 
-/// Work timers and worldgen requests lie in the future, and requests name chunks of the key range (finding 2).
+/// Work timers and worldgen requests lie in the future, and requests name chunks of the key range (finding 2);
+/// a request names an existing surface and a chunk not generated yet, and no commit tick holds more than 8
+/// (C2b-r1 finding 3).
 pub fn check_schedules(w: &World) -> Result<(), String> {
     let t = w.current_tick();
     if let Some(k) = w.timers().first()
@@ -147,13 +154,117 @@ pub fn check_schedules(w: &World) -> Result<(), String> {
     {
         return Err(format!("a work timer due at tick {} in a save at tick {t}", k.0.0));
     }
-    for &(commit, _, cy, cx) in w.pending().iter() {
+    let surfaces = w.globals.surfaces.len();
+    let (mut last, mut run) = (None, 0usize);
+    for &(commit, surface, cy, cx) in w.pending().iter() {
         if commit.0 <= t {
             return Err(format!("a worldgen request committing at tick {} in a save at tick {t}", commit.0));
         }
         if !(-32_768..32_768).contains(&cx) || !(-32_768..32_768).contains(&cy) {
             return Err(format!("a worldgen request for chunk ({cx}, {cy}) outside the key range"));
         }
+        if usize::from(surface.0) >= surfaces {
+            return Err(format!("a worldgen request on the missing surface {}", surface.0));
+        }
+        if w.chunks.is_generated(surface, schema::chunk_key(cx, cy)) {
+            return Err(format!("a worldgen request for chunk ({cx}, {cy}), which is generated"));
+        }
+        run = if last == Some(commit) { run + 1 } else { 1 };
+        last = Some(commit);
+        if run > crate::regen::COMMITS_PER_TICK {
+            return Err(format!("more than 8 worldgen requests commit at tick {}", commit.0));
+        }
+    }
+    Ok(())
+}
+
+/// What the rules index or assume (C2b-r1 finding 3; see the module documentation).
+pub fn check_rule_state(w: &World) -> Result<(), String> {
+    let p = &w.protos;
+    if w.globals.next_serial.is_none() {
+        return Err("the serial counter is 0".to_owned());
+    }
+    let finite_nonneg = |v: f64| v.is_finite() && v >= 0.0;
+    for pl in w.players.iter() {
+        let i = pl.index.0;
+        if pl.crafting_queue.len() > 256 {
+            return Err(format!("player {i}: {} crafting queue entries", pl.crafting_queue.len()));
+        }
+        for (k, e) in pl.crafting_queue.iter().enumerate() {
+            if usize::from(e.recipe.0) >= p.recipe.len() || e.count == 0 || !finite_nonneg(e.progress) {
+                return Err(format!(
+                    "player {i}: crafting queue entry {k} (recipe {}, count {})",
+                    e.recipe.0, e.count
+                ));
+            }
+            // Only the head of a queue is under way.
+            if k > 0 && e.progress != 0.0 {
+                return Err(format!("player {i}: crafting queue entry {k} under way behind the head"));
+            }
+        }
+        use crate::r#gen::MiningMode;
+        let supported =
+            matches!(pl.mining.mode, MiningMode::None | MiningMode::Entity | MiningMode::ResourceTile);
+        if !supported || !finite_nonneg(pl.mining.progress) {
+            return Err(format!(
+                "player {i}: mining {:?} at progress {}",
+                pl.mining.mode, pl.mining.progress
+            ));
+        }
+        if pl.walking_dir.value() % 2 != 0 {
+            return Err(format!("player {i}: walking direction {}", pl.walking_dir.value()));
+        }
+        if pl.creation_ring.len() > 256 || pl.creation_ring.iter().any(|c| c.count == 0) {
+            return Err(format!("player {i}: a creation ring of {} entries", pl.creation_ring.len()));
+        }
+        if !finite_nonneg(pl.hand_crafted) {
+            return Err(format!("player {i}: hand-crafted {}", pl.hand_crafted));
+        }
+    }
+    for c in w.chunks.modified() {
+        let (cx, cy) = c.xy();
+        let what = |x: &str| format!("chunk ({cx}, {cy}): {x}");
+        if let Some(t) = c.rec.tiles.iter().find(|t| usize::from(t.0) >= p.tile.len()) {
+            return Err(what(&format!("tile {} of {}", t.0, p.tile.len())));
+        }
+        let res = &c.rec.resources;
+        let bad = |r: &schema::ResourceTile| {
+            r.tile >= 1024 || usize::from(r.resource.0) >= p.resource.len() || r.amount == 0
+        };
+        if res.windows(2).any(|x| x[0].tile >= x[1].tile) || res.iter().any(bad) {
+            return Err(what("resources out of order, empty or unknown"));
+        }
+        let hidden = &c.rec.hidden_tiles;
+        if hidden.windows(2).any(|x| x[0].tile >= x[1].tile)
+            || hidden.iter().any(|h| h.tile >= 1024 || usize::from(h.id.0) >= p.tile.len())
+        {
+            return Err(what("hidden tiles out of order or unknown"));
+        }
+        let objects = p.world_object.len();
+        if c.rec.trees.iter().any(|t| usize::from(t.species) >= objects)
+            || c.rec.objects.iter().any(|o| usize::from(o.object.0) >= objects)
+        {
+            return Err(what("trees or world objects the prototypes lack"));
+        }
+        if c.rec
+            .ground_items
+            .iter()
+            .any(|g| usize::from(g.key.0 >> 3) >= p.item.stack_size.len() || g.count == 0)
+        {
+            return Err(what("ground items the prototypes lack"));
+        }
+        if !finite_nonneg(c.rec.leaf_timer) {
+            return Err(what("a leaf timer that is not finite"));
+        }
+    }
+    if let Some(g) = w
+        .chunks
+        .generated()
+        .iter()
+        .find(|g| !(g.kappa.is_finite() && g.theta.is_finite() && g.sunlight.is_finite()))
+    {
+        let (cx, cy) = schema::chunk_xy(g.key);
+        return Err(format!("generated chunk ({cx}, {cy}): a climate that is not finite"));
     }
     Ok(())
 }

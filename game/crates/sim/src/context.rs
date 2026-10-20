@@ -181,14 +181,8 @@ impl SimContext {
     /// The world hash of a world with these settings under the loaded prototypes (§15.9).
     fn generator_for(&self, globals: &Globals) -> SimResult<Arc<worldgen::Generator>> {
         let l = self.loaded()?;
-        let hash = worldgen::world_hash(&l.bin, globals.seed, &globals.map);
-        Ok(Arc::new(worldgen::Generator::new(
-            &l.protos,
-            globals.seed,
-            &globals.map,
-            globals.world.climate_compass,
-            hash,
-        )))
+        let hash = worldgen::world_hash(&l.bin, globals.seed, &globals.map, &globals.world);
+        Ok(Arc::new(worldgen::Generator::new(&l.protos, globals.seed, &globals.map, &globals.world, hash)))
     }
 
     /// Replaces the world (a new game or a load): fresh presentation and digests, the module's flags applied.
@@ -218,6 +212,8 @@ impl SimContext {
     pub fn new_world(&mut self, record: &[u8]) -> SimResult<()> {
         let l = self.loaded()?;
         let nw = NewWorld::decode_exact(record, true).map_err(|e| input(format!("new_world: {e}")))?;
+        // Settings that bound generation (C2b-r1 finding 4).
+        worldgen::check_settings(&nw.map, &l.protos).map_err(|e| input(format!("new_world: {e}")))?;
         let globals = Globals {
             tick: Tick(0),
             seed: nw.seed,
@@ -395,6 +391,15 @@ impl SimContext {
         }
         if !(d.theta.is_finite() && d.sunlight.is_finite()) {
             return Err(input("chunk_data: a climate that is not finite"));
+        }
+        // Builds with simcheck (tests, the dev module) check the answer against the world's own generator
+        // (C2b-r1 finding 1): structure cannot prove that a worker generated this world's chunk.
+        if cfg!(feature = "simcheck") {
+            let (cx, cy) = schema::chunk_xy(d.key);
+            let own = w.regen.generator().map(|g| g.chunk(d.surface, cx, cy));
+            if own.as_ref() != Some(&d) {
+                return Err(input("chunk_data: not the chunk this world generates (simcheck)"));
+            }
         }
         self.answers.put(d);
         Ok(())

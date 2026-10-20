@@ -74,9 +74,10 @@ impl World {
         p
     }
 
-    pub(crate) fn apply_system(&mut self, ctx: &mut Ctx<'_>, act: &Action<'_>) {
+    /// Applies a system action of the batch with `seq` (its refusals carry the system batch's player).
+    pub(crate) fn apply_system(&mut self, ctx: &mut Ctx<'_>, act: &Action<'_>, seq: Seq, batch: PlayerIndex) {
         match act {
-            Action::PlayerJoined(a) => self.player_joined(ctx, a.player),
+            Action::PlayerJoined(a) => self.player_joined(ctx, a.player, seq, batch),
             Action::PlayerLeft(a) => self.player_left(ctx, a.player),
             Action::ReleaseInputs(a) => {
                 if let Some(p) = self.players.get_mut(a.player) {
@@ -145,7 +146,24 @@ impl World {
     /// `player_joined` (rule 8): a returning player gets the same character back (11 §4.5); joining while
     /// online changes nothing; whether the character exists decides, not the `returning` flag. A watermark
     /// record keeps its seq watermark and input generation.
-    fn player_joined(&mut self, ctx: &mut Ctx<'_>, pi: PlayerIndex) {
+    fn player_joined(&mut self, ctx: &mut Ctx<'_>, pi: PlayerIndex, seq: Seq, batch: PlayerIndex) {
+        // A new character needs a serial and an inventory block (C2b-r1 finding 5): without them the join is
+        // refused (an engine limit, `unsupported`) and changes nothing, never a trap.
+        let needs_character = self.players.get(pi).is_none_or(|p| p.character.is_none());
+        if needs_character
+            && (self.globals.next_serial.0 == u32::MAX || !self.heap.can_alloc(self.main_size()))
+        {
+            ctx.emit(
+                seq,
+                batch,
+                EventPayload::ActionFailed(schema::events::ActionFailedEvent {
+                    reason: schema::FailReason::Unsupported,
+                    pos: schema::FinePos { x: 0, y: 0 },
+                    serial: Serial::NONE,
+                }),
+            );
+            return;
+        }
         match self.players.get_mut(pi) {
             Some(p) if !p.character.is_none() => {
                 if p.online {

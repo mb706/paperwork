@@ -312,7 +312,7 @@ pub fn load(protos: &Arc<Protos>, build: &WorldgenId, req: &LoadRequest<'_>) -> 
         })
     };
     // §4.4, rule 4: the worldgen pair. GLOBALS, CHUNKS and GENERATED decide; read them first.
-    let globals =
+    let mut globals =
         decode_globals(get(SaveSection::Globals)?).map_err(|e| schema_err(SaveSection::Globals, e))?;
     let chunks = decode_chunks(get(SaveSection::Chunks)?).map_err(|e| schema_err(SaveSection::Chunks, e))?;
     let generated =
@@ -380,9 +380,12 @@ pub fn load(protos: &Arc<Protos>, build: &WorldgenId, req: &LoadRequest<'_>) -> 
             players: &mut players,
             stats: &mut stats,
             chunks: &mut chunks,
+            map: &mut globals.map,
         };
         removed = remap::apply(&mut raw, &req.remaps)?;
     }
+    // The map settings bound generation (C2b-r1 finding 4): a pristine chunk regenerates from them.
+    worldgen::check_settings(&globals.map, protos).map_err(corrupt)?;
     // Prototypes, coordinates and positions before any derived index uses them (C2a-r1 finding 2).
     validate::check_entities(&entities, protos, &globals).map_err(corrupt)?;
     validate::check_players(&players, &globals).map_err(corrupt)?;
@@ -413,6 +416,7 @@ pub fn load(protos: &Arc<Protos>, build: &WorldgenId, req: &LoadRequest<'_>) -> 
     world.rng = RngStreams::from_records(rng);
     world.rebuild_derived();
     validate::check_schedules(&world).map_err(corrupt)?;
+    validate::check_rule_state(&world).map_err(corrupt)?;
     world.check_invariants().map_err(corrupt)?;
     validate::check_inventories(&world).map_err(corrupt)?;
     check_records(&world).map_err(corrupt)?;

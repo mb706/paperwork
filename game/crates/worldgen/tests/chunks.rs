@@ -1,9 +1,9 @@
 //! Worldgen v0's guarantees (10 §5.18, §15.9; D12): pure and order-independent chunks, a land starting area
 //! with a starting patch of every solid resource, ore spots elsewhere, water by the water settings, the
 //! out-of-map tile outside a bounded map. Run on the golden set's M0 prototypes.
-#![allow(clippy::disallowed_methods)] // the test reads the prototypes
+#![allow(clippy::disallowed_methods, clippy::disallowed_macros)] // the test reads the prototypes and prints ranges
 
-use schema::{MapSettings, Protos, ResourceSettings, SurfaceIndex, TileId};
+use schema::{MapSettings, Protos, ResourceSettings, SurfaceIndex, TileId, WorldSettings};
 use worldgen::Generator;
 
 fn protos_bin() -> Vec<u8> {
@@ -14,8 +14,8 @@ fn protos_bin() -> Vec<u8> {
 fn generator(seed: u32, map: &MapSettings) -> (Protos, Generator) {
     let bin = protos_bin();
     let p = Protos::load(&bin).expect("loads");
-    let h = worldgen::world_hash(&bin, seed, map);
-    let g = Generator::new(&p, seed, map, true, h);
+    let h = worldgen::world_hash(&bin, seed, map, &WorldSettings::default());
+    let g = Generator::new(&p, seed, map, &WorldSettings::default(), h);
     (p, g)
 }
 
@@ -123,4 +123,73 @@ fn resource_settings_scale_the_patches() {
     let (_, g) = generator(1945, &rich);
     let (a, b) = (total(&base), total(&g));
     assert!(b > a + a / 2, "richness 2: {b} against {a}");
+}
+
+/// C2b-r1 finding 8: the starting iron patch is 01 §4's: about 600 tiles and 600,000 ore (±20%), on every
+/// seed (the reviewed generator made about 115,000 on 156 tiles).
+#[test]
+fn the_starting_iron_patch_matches_the_opening() {
+    let mut range = (u64::MAX, 0, u64::MAX, 0);
+    for seed in 0..20u32 {
+        let (p, g) = generator(seed.wrapping_mul(2_654_435_761), &MapSettings::default());
+        let iron = schema::ResourceId(
+            p.names.resource.iter().position(|n| n == "iron-ore-patch").expect("iron") as u16,
+        );
+        let (mut tiles, mut ore) = (0u64, 0u64);
+        for cy in -3..3 {
+            for cx in -3..3 {
+                for r in g.chunk(SurfaceIndex(0), cx, cy).resources.iter().filter(|r| r.resource == iron) {
+                    tiles += 1;
+                    ore += u64::from(r.amount);
+                }
+            }
+        }
+        assert!((420..=780).contains(&tiles), "seed {seed}: {tiles} tiles");
+        assert!((480_000..=720_000).contains(&ore), "seed {seed}: {ore} ore");
+        range = (range.0.min(tiles), range.1.max(tiles), range.2.min(ore), range.3.max(ore));
+    }
+    eprintln!("starting iron over 20 seeds: {}–{} tiles, {}–{} ore", range.0, range.1, range.2, range.3);
+}
+
+/// C2b-r1 finding 4: the settings are bounded (01 §4: sliders 1/6× to 6×), and a generator given unchecked
+/// settings clamps them, so a chunk's work stays bounded (the reviewed code searched an astronomical cell
+/// range for a size of 1e30, and overflowed for larger ones).
+#[test]
+fn settings_are_bounded_and_generation_stays_bounded() {
+    let bin = protos_bin();
+    let p = Protos::load(&bin).expect("loads");
+    let iron = schema::ResourceId(0);
+    let wild = |size: f64, frequency: f64| MapSettings {
+        resources: vec![ResourceSettings { resource: iron, frequency, size, richness: 1.0 }],
+        ..MapSettings::default()
+    };
+    for (m, ok) in [
+        (wild(1.0, 1.0), true),
+        (wild(6.0, 6.0), true),
+        (wild(0.0, 1.0), true),
+        (wild(1e30, 1.0), false),
+        (wild(1.0, 0.1), false),
+        (wild(f64::INFINITY, 1.0), false),
+        (MapSettings { water_scale: 7.0, ..MapSettings::default() }, false),
+        (MapSettings { starting_area: -1.0, ..MapSettings::default() }, false),
+    ] {
+        assert_eq!(worldgen::check_settings(&m, &p).is_ok(), ok, "{m:?}");
+    }
+    let unknown = MapSettings {
+        resources: vec![ResourceSettings {
+            resource: schema::ResourceId(9),
+            frequency: 1.0,
+            size: 1.0,
+            richness: 1.0,
+        }],
+        ..MapSettings::default()
+    };
+    assert!(worldgen::check_settings(&unknown, &p).is_err());
+    // Unchecked: clamped to the bounds, so a far chunk takes milliseconds, not forever.
+    for size in [1e30, f64::MAX, f64::INFINITY] {
+        let g = Generator::new(&p, 1, &wild(size, 1e30), &WorldSettings::default(), 0);
+        for (cx, cy) in [(0, 0), (30_000, -30_000), (-32_768, 32_767)] {
+            let _ = g.chunk(SurfaceIndex(0), cx, cy);
+        }
+    }
 }

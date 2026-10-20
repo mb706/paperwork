@@ -149,20 +149,24 @@ impl World {
 
     /// `begin_mining_terrain` (I §3.7): a solid resource tile within the resource reach; a tile (only placed
     /// tiles are minable, and M0 places none); world objects and ground items (none in M0).
+    ///
+    /// **Reach first** (C2b-r1 finding 7): a target out of reach is refused before any terrain is read, so a
+    /// refused action never makes the sim generate a distant pristine chunk. (The golden model reads the
+    /// resource first; every golden case has the same outcome either way.)
     fn begin_mining_terrain(&mut self, pi: PlayerIndex, kind: MiningTarget, pos: FinePos) -> RuleResult {
+        let (tx, ty) = (pos.x.div_euclid(256), pos.y.div_euclid(256));
         match kind {
             MiningTarget::ResourceTile => {
-                let (tx, ty) = (pos.x.div_euclid(256), pos.y.div_euclid(256));
+                let reach = self.protos.entity.resource_reach_distance[self.character_proto()];
+                if !in_reach(self.player(pi), &tile_box(tx, ty), reach) {
+                    return Err(fail_at(FailReason::OutOfReach, pos));
+                }
                 let surface = self.player(pi).surface;
                 let Some(res) = self.resource_at(surface, tx, ty) else {
                     return Err(fail_at(FailReason::NothingToMine, pos));
                 };
                 if self.protos.resource.kind[usize::from(res.resource.0)] != ResourceKind::Solid {
                     return Err(fail_at(FailReason::NotMinable, pos));
-                }
-                let reach = self.protos.entity.resource_reach_distance[self.character_proto()];
-                if !in_reach(self.player(pi), &tile_box(tx, ty), reach) {
-                    return Err(fail_at(FailReason::OutOfReach, pos));
                 }
                 // Beginning on the tile already being mined keeps its progress (rule 23).
                 let p = self.player(pi);
@@ -174,9 +178,13 @@ impl World {
                 Ok(())
             }
             MiningTarget::Tile => {
-                let (tx, ty) = (pos.x.div_euclid(256), pos.y.div_euclid(256));
+                // Placed tiles are mined within the entity reach (I §3.1); M0 places none, so a tile there is
+                // never minable, and whether one is there needs no tile read: its chunk is generated.
+                if !in_reach(self.player(pi), &tile_box(tx, ty), self.reach()) {
+                    return Err(fail_at(FailReason::OutOfReach, pos));
+                }
                 let surface = self.player(pi).surface;
-                if self.tile_at(surface, tx, ty).is_none() {
+                if !self.tile_exists(surface, tx, ty) {
                     return Err(fail_at(FailReason::NothingToMine, pos));
                 }
                 Err(fail_at(FailReason::NotMinable, pos))
@@ -261,6 +269,11 @@ impl World {
             return Err(Refusal { reason: FailReason::EntityInTheWay, pos: Some(at), serial: s });
         }
 
+        // The world must have room for the entity (C2b-r1 finding 5): checked before anything changes, so an
+        // exhausted serial counter or a full pool is a refusal (an engine limit: `unsupported`), not a trap.
+        if self.creation_room(proto).is_err() {
+            return Err(fail_at(FailReason::Unsupported, at));
+        }
         let e = &self.protos.entity;
         let dir = if e.rotatable[pr] { a.dir } else { Direction::North };
         let flip = u8::from(e.flippable[pr] && a.flip);
@@ -286,21 +299,7 @@ impl World {
         // The hand loses the item; auto-replenish from the main inventory (I §3.2), else a ghost cursor or empty.
         p.hand.count -= 1;
         if p.hand.count == 0 {
-            let main = self.main_inv(pi);
-            let block = self.heap.block_mut(main.r);
-            let from =
-                (0..main.size).find(|&i| block[i as usize].key == a.item && block[i as usize].count > 0);
-            let hand = if let Some(i) = from {
-                let s = &mut block[i as usize];
-                let h = crate::r#gen::Hand { key: s.key, ghost: false, origin: i as u16, count: s.count };
-                clear(s);
-                h
-            } else if self.player(pi).pick_ghost_cursor {
-                crate::r#gen::Hand { key: a.item, ghost: true, origin: NONE16, count: 0 }
-            } else {
-                EMPTY_HAND
-            };
-            self.player_mut(pi).hand = hand;
+            self.refill_hand(pi, a.item, true);
             self.sort_main(pi, ctx.scratch);
         }
         ctx.emit(
@@ -459,6 +458,27 @@ impl World {
         Ok(())
     }
 
+    /// Refills an emptied hand from the main inventory (I §3.2 auto-replenish, I §3.8 fast transfer): the
+    /// stack of the lowest main slot holding `key`, which becomes the hand's origin slot; else, when `ghost` and
+    /// the player's *Pick ghost item if no items are available* is on, a ghost cursor of `key`; else empty. The
+    /// caller sorts the inventory.
+    pub(crate) fn refill_hand(&mut self, pi: PlayerIndex, key: ItemKey, ghost: bool) {
+        let main = self.main_inv(pi);
+        let block = self.heap.block_mut(main.r);
+        let from = (0..main.size).find(|&i| block[i as usize].key == key && block[i as usize].count > 0);
+        let hand = if let Some(i) = from {
+            let s = &mut block[i as usize];
+            let h = crate::r#gen::Hand { key: s.key, ghost: false, origin: i as u16, count: s.count };
+            clear(s);
+            h
+        } else if ghost && self.player(pi).pick_ghost_cursor {
+            crate::r#gen::Hand { key, ghost: true, origin: NONE16, count: 0 }
+        } else {
+            EMPTY_HAND
+        };
+        self.player_mut(pi).hand = hand;
+    }
+
     /// Factorio's "Cannot insert Iron plate. Inventory is full." (rule 19): what did not fit the player's
     /// inventory, as a flying text, never a refusal.
     pub(crate) fn not_fitting(&self, ctx: &mut Ctx<'_>, pi: PlayerIndex, seq: Seq, key: ItemKey, n: i64) {
@@ -542,10 +562,14 @@ impl World {
             }
             let p = self.player_mut(pi);
             p.hand.count -= moved as i32;
-            if p.hand.count == 0 {
-                p.hand = EMPTY_HAND;
-            }
+            // The text names what left and what the inventory holds; then an emptied cursor refills from the
+            // inventory (I §3.8, corrected 2026-10-20: "the cursor refills from the inventory"; C2b-r1 finding 6),
+            // as building's auto-replenish does, without a ghost cursor.
+            let emptied = p.hand.count == 0;
             self.item_delta(ctx, pi, seq, hand.key, -moved, at);
+            if emptied {
+                self.refill_hand(pi, hand.key, false);
+            }
             return Ok(());
         }
         let mut next = inventory::next_key(&self.heap, &chest, None);

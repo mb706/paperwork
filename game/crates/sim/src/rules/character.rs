@@ -139,11 +139,17 @@ impl World {
             MiningMode::ResourceTile => {
                 let (tx, ty) = (m.pos.x.div_euclid(256), m.pos.y.div_euclid(256));
                 let reach = self.protos.entity.resource_reach_distance[ch];
-                match self.resource_at(p.surface, tx, ty) {
-                    Some(res) if in_reach(p, &tile_box(tx, ty), reach) => {
+                // Reach before the terrain (C2b-r1 finding 7): no tile far away is ever read.
+                let res = if in_reach(p, &tile_box(tx, ty), reach) {
+                    self.resource_at(p.surface, tx, ty)
+                } else {
+                    None
+                };
+                match res {
+                    Some(res) => {
                         (self.protos.resource.mining_time[usize::from(res.resource.0)], None, Some((tx, ty)))
                     }
-                    _ => {
+                    None => {
                         self.player_mut(pi).mining = MiningState::default();
                         return;
                     }

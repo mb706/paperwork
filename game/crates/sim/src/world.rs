@@ -360,12 +360,44 @@ impl World {
         (cx0..=cx1).flat_map(move |cx| (cy0..=cy1).map(move |cy| schema::chunk_key(cx, cy)))
     }
 
+    /// Whether an entity of `proto` can be created (C2b-r1 finding 5): its type has a pool, the serial counter
+    /// is not exhausted, and the entity table, the pool and the slot heap have room. Rules check this before
+    /// they change anything, so a creation that cannot happen is a refusal, never a trap.
+    pub fn creation_room(&self, proto: EntityId) -> Result<(), String> {
+        let p = usize::from(proto.0);
+        let t =
+            *self.protos.entity.r#type.get(p).ok_or_else(|| format!("no entity prototype {}", proto.0))?;
+        let kind = pool_kind(t).ok_or_else(|| format!("entity type {t:?} has no pool in this milestone"))?;
+        if self.globals.next_serial.0 == u32::MAX {
+            return Err("the serial counter is exhausted".to_owned());
+        }
+        // Every M0 entity has one pool row, so the live entities are the live rows of the table and the pool.
+        let live = self.serials.len();
+        let rows = self.entities.rows() as usize;
+        if live >= rows && rows >= EntityTable::MAX_ROWS {
+            return Err("the entity table is full".to_owned());
+        }
+        match kind {
+            PoolKind::Container => {
+                let rows = self.containers.rows() as usize;
+                if live >= rows && rows >= ContainerPool::MAX_ROWS {
+                    return Err("the container pool is full".to_owned());
+                }
+                if !self.heap.can_alloc(u32::from(self.protos.entity.inventory_slots[p])) {
+                    return Err("the slot heap's class is full".to_owned());
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Creates an entity (§4.5): the lowest free entity-table row, its generation raised (rule 28), the next
     /// serial, a row in its kind's pool and its inventory block; every derived index updated; the rule and
     /// entity view versions of each chunk it touches raised (§4.4, rule 6). The chunks it touches must be
     /// modified (a build first makes a pristine chunk modified). Returns its serial and handle.
     pub fn create_entity(&mut self, e: &NewEntity) -> Result<(Serial, EntityHandle), String> {
         let p = usize::from(e.proto.0);
+        self.creation_room(e.proto)?;
         let t =
             *self.protos.entity.r#type.get(p).ok_or_else(|| format!("no entity prototype {}", e.proto.0))?;
         let kind = pool_kind(t).ok_or_else(|| format!("entity type {t:?} has no pool in this milestone"))?;

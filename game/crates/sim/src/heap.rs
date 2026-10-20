@@ -109,6 +109,18 @@ impl SlotHeap {
         self.exists(r) && self.arena(r).is_owned(inv_block(r))
     }
 
+    /// Whether [`Self::alloc`] would succeed for `slots` slots: a class holds them, and the class has a free block
+    /// or room for a new one (2²⁴ blocks per class).
+    pub fn can_alloc(&self, slots: u32) -> bool {
+        let Some(class) = class_for(slots) else {
+            return false;
+        };
+        match self.arenas.get(usize::from(class)) {
+            None => true,
+            Some(a) => a.blocks < 1 << 24 || (a.first_free..a.blocks).any(|b| !a.is_owned(b)),
+        }
+    }
+
     /// Allocates the lowest free block of the smallest class holding `slots` slots; its slots are empty.
     pub fn alloc(&mut self, slots: u32) -> InvRef {
         let class = class_for(slots).unwrap_or_else(|| panic!("no slot-heap class holds {slots} slots"));

@@ -6,6 +6,9 @@ use schema::container::ClosureLog;
 
 #[test]
 fn every_recorded_session_replays_to_its_digests_and_hash() {
+    if std::env::var("UPDATE_SCENARIO_LOGS").is_ok_and(|v| v == "1") {
+        return; // the scenarios are rewriting the sessions in parallel; the next plain run replays them
+    }
     let dir = logs_dir();
     let mut names: Vec<String> = std::fs::read_dir(&dir)
         .expect("test/logs")

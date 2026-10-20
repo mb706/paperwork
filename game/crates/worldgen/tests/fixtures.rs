@@ -25,13 +25,30 @@ fn files() -> Vec<(String, Vec<u8>)> {
     let mut init = Vec::new();
     GenInitInput { protos: &bin, world: world.clone() }.encode(&mut Writer::new(&mut init)).expect("encodes");
     let p = Protos::load(&bin).expect("loads");
-    let hash = worldgen::world_hash(&bin, world.seed, &world.map);
-    let g = Generator::new(&p, world.seed, &world.map, world.world.climate_compass, hash);
+    let hash = worldgen::world_hash(&bin, world.seed, &world.map, &world.world);
+    let g = Generator::new(&p, world.seed, &world.map, &world.world, hash);
+    // C2b-r1 finding 4: a world whose resource size is 1e30, which gen_init refuses.
+    let mut unbounded = Vec::new();
+    let wild = NewWorld {
+        seed: 1945,
+        map: MapSettings {
+            resources: vec![schema::ResourceSettings {
+                resource: schema::ResourceId(0),
+                frequency: 1.0,
+                size: 1e30,
+                richness: 1.0,
+            }],
+            ..MapSettings::default()
+        },
+        ..NewWorld::default()
+    };
+    GenInitInput { protos: &bin, world: wild }.encode(&mut Writer::new(&mut unbounded)).expect("encodes");
     let mut out = vec![
         ("init.bin".to_owned(), init),
+        ("init-unbounded.bin".to_owned(), unbounded),
         ("world-hash.txt".to_owned(), format!("{hash:016x}\n").into_bytes()),
     ];
-    // The starting patch's chunks too (the patch lies 30–40 tiles from spawn).
+    // The starting patch's chunks too (the patch lies near spawn).
     let mut chunks = CHUNKS.to_vec();
     for cy in -2..2 {
         for cx in -2..2 {

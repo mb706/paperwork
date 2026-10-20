@@ -11,18 +11,33 @@
 //!    prototypes, so §5.18's numbers are written here.)
 //! 2. **Elevation** (stage 2): three octaves (384, 96 and 24 tiles × `water_scale`; weights 0.55, 0.3,
 //!    0.15). Water lies below the level −0.12 + 0.3 × (`water_coverage` − 1), deep water 0.18 below that;
-//!    `water_coverage` 0 makes no water. **The starting area is land**: within 48 × `starting_area` tiles of
-//!    spawn the elevation is raised above the water level.
+//!    `water_coverage` 0 makes no water. **The starting area is land**: within 56 × `starting_area` tiles of
+//!    spawn (the starting patches included) the elevation is raised above the water level.
 //! 3. **Tiles** (stage 3): biomes by θ (tundra < 0 ≤ boreal < 8 ≤ temperate < 20 ≤ steppe < 26 ≤ desert),
 //!    blended ±2 K with tile noise (24 tiles); each biome draws from the tiles that name it, by moisture
 //!    noise (64 and 16 tiles, weights 0.7 and 0.3); a biome without tiles in the prototype set falls back to its neighbours. Land just
 //!    above the water level is a beach of the first desert tile. Tiles outside the map are `out-of-map`.
-//! 4. **Resources** (stage 5, and stage 10's starting patches), solid resources only: one starting patch per
-//!    resource 30–40 tiles from spawn (radius 7 × √size, amount richness × 1,500 × falloff × (1 + 0.2 n));
-//!    elsewhere one spot per 128-tile cell with probability 0.5 × frequency outside the starting area
-//!    (radius (12–23) × √size, amount richness × 2,000 × (1 + d/512) × falloff × (1 + 0.2 n), d the spot's
-//!    distance from spawn). Falloff is 1 − (r/R)². Earlier patches win: starting patches, then spots, each
-//!    in ascending resource id and cell order. Resources lie only on walkable land.
+//! 4. **Resources** (stage 5, and stage 10's starting patches), solid resources only, by 01 §4's parametric
+//!    model (its table, by resource id; a resource it does not list takes iron's row):
+//!    - one **starting patch** per resource: a blob of `tiles` (iron ≈ 600) at radius √(tiles/π) × size with
+//!      ±30% edge noise, a₀ × richness per tile (iron 1,000: 600,000 ± 20% in all), centred 1.3 R + 3–10 tiles
+//!      from spawn so that its nearest tile is at least 3 from spawn, in a seeded direction (each resource 3/8
+//!      of a turn from the last);
+//!    - **regular patches** on a jittered grid of cells c / √frequency (iron 224 tiles), each holding a patch
+//!      with probability min(p × frequency, 1) (iron 0.90), centred in the cell's middle 60%, radius
+//!      r₀ × size × √(1 + d / 1,500) with ±30% edge noise, a₀ × richness × (1 + d / 800) per tile, d the
+//!      patch centre's distance from spawn; none centred within 128 × `starting_area` tiles of spawn (the
+//!      starting patches' area) or within a resource's `not within` distance (uranium 512).
+//!
+//!    Tiles vary ±10% around their patch's amount. Earlier patches win: starting patches, then regular
+//!    patches, each in ascending resource id and cell order. Resources lie only on walkable land.
+//!
+//! **Bounds** ([`check_settings`]): every multiplier is finite and in [0, 6]; a resource slider is 0 (none) or
+//! in [1/6, 6] (01 §4: "each ranges from 1/6× to 6×"). The sim refuses other settings at `sim_new_world` and
+//! `sim_load`, and gen.wasm at `gen_init`, so a chunk's work is bounded.
+//!
+//! **Identity** ([`world_hash`]): XXH64 of `VERSION`, the seed, the `map_settings` and `world_settings` records
+//! and `prototypes.bin`: everything a chunk depends on.
 //!
 //! No trees, rocks, cliffs, decoratives or towns in v0 (M0's prototypes have none). The water, deep-water and
 //! out-of-map tiles are found by name (`tiles.yaml` ids), the land tiles by their biomes.
@@ -34,7 +49,8 @@ use det::xxh64::Xxh64;
 use noise::{Simplex2, SplitMix64, mix64};
 use schema::codec::Writer;
 use schema::{
-    Biomes, ChunkData, MapSettings, Protos, ResourceKind, ResourceTile, SurfaceIndex, TileId, chunk_key,
+    Biomes, ChunkData, MapSettings, Protos, ResourceKind, ResourceTile, SurfaceIndex, TileId, WorldSettings,
+    chunk_key,
 };
 
 /// The worldgen version (§4.4: raised by hand whenever generation changes). GLOBALS records the version a
@@ -45,19 +61,128 @@ pub const VERSION: u32 = 1;
 /// Tiles per chunk side.
 pub const CHUNK: i32 = 32;
 
-/// The world hash (§15.9 `GenInitOutput`): XXH64 of the `u32` seed, the `map_settings` record as the
-/// codec writes it, then `prototypes.bin`. The sim computes it at `sim_new_world` and `sim_load`; a worker's
-/// answer carrying another world's hash is ignored.
-pub fn world_hash(protos_bin: &[u8], seed: u32, map: &MapSettings) -> u64 {
+/// The world hash (§15.9 `GenInitOutput`): XXH64 of `u32 VERSION`, `u32 seed`, the `map_settings` record and
+/// the `world_settings` record as the codec writes them, then `prototypes.bin` — every input a chunk depends on
+/// (the climate compass is a world setting; game settings change at runtime and never reach worldgen). The
+/// sim computes it at `sim_new_world` and `sim_load`; a worker's answer carrying another world's hash is
+/// ignored (C2b-r1 finding 1).
+pub fn world_hash(protos_bin: &[u8], seed: u32, map: &MapSettings, world: &WorldSettings) -> u64 {
     let mut h = Xxh64::new();
+    h.u32(VERSION);
     h.u32(seed);
     let mut rec = Vec::new();
     // A record the decoder accepted re-encodes; a failure would be a codec bug, and hashes the empty record.
     let _ = map.encode(&mut Writer::new(&mut rec));
     h.write(&rec);
+    rec.clear();
+    let _ = world.encode(&mut Writer::new(&mut rec));
+    h.write(&rec);
     h.write(protos_bin);
     h.digest()
 }
+
+/// The largest multiplier a setting may have (01 §4: sliders range 1/6× to 6×).
+pub const SETTING_MAX: f64 = 6.0;
+/// The smallest nonzero resource slider.
+pub const SLIDER_MIN: f64 = 1.0 / 6.0;
+
+/// Whether a world's map settings bound generation (C2b-r1 finding 4): every multiplier finite and in
+/// [0, 6]; each resource entry names a resource of these prototypes, its sliders 0 (none) or in [1/6, 6].
+pub fn check_settings(map: &MapSettings, protos: &Protos) -> Result<(), String> {
+    let multipliers = [
+        ("starting_area", map.starting_area),
+        ("water_scale", map.water_scale),
+        ("water_coverage", map.water_coverage),
+        ("trees_frequency", map.trees_frequency),
+        ("trees_size", map.trees_size),
+        ("cliffs_frequency", map.cliffs_frequency),
+        ("cliffs_continuity", map.cliffs_continuity),
+        ("towns_frequency", map.towns_frequency),
+        ("towns_size", map.towns_size),
+        ("archives_size", map.archives_size),
+        ("archives_richness", map.archives_richness),
+        ("exchanges_richness", map.exchanges_richness),
+    ];
+    for (name, v) in multipliers {
+        if !(v.is_finite() && (0.0..=SETTING_MAX).contains(&v)) {
+            return Err(format!("map setting {name} = {v}: a multiplier in [0, 6]"));
+        }
+    }
+    for r in &map.resources {
+        if usize::from(r.resource.0) >= protos.resource.len() {
+            return Err(format!(
+                "resource settings for resource {}, which the prototypes lack",
+                r.resource.0
+            ));
+        }
+        for (name, v) in [("frequency", r.frequency), ("size", r.size), ("richness", r.richness)] {
+            if !(v == 0.0 || (v.is_finite() && (SLIDER_MIN..=SETTING_MAX).contains(&v))) {
+                return Err(format!("resource {} {name} = {v}: 0 or in [1/6, 6]", r.resource.0));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 01 §4's resource table: per resource id, the regular grid (cell c, probability p, radius r₀, amount a₀,
+/// not within d), and the starting patch (amount, tiles); `None` for a resource without a starting patch.
+struct ResourceRow {
+    name: &'static str,
+    cell: f64,
+    p: f64,
+    r0: f64,
+    a0: f64,
+    not_within: f64,
+    start_tiles: Option<f64>,
+}
+
+const RESOURCE_TABLE: [ResourceRow; 5] = [
+    ResourceRow {
+        name: "iron-ore-patch",
+        cell: 224.0,
+        p: 0.90,
+        r0: 14.0,
+        a0: 1000.0,
+        not_within: 0.0,
+        start_tiles: Some(600.0),
+    },
+    ResourceRow {
+        name: "copper-ore-patch",
+        cell: 240.0,
+        p: 0.85,
+        r0: 13.0,
+        a0: 1000.0,
+        not_within: 0.0,
+        start_tiles: Some(500.0),
+    },
+    ResourceRow {
+        name: "coal-patch",
+        cell: 256.0,
+        p: 0.80,
+        r0: 12.0,
+        a0: 800.0,
+        not_within: 0.0,
+        start_tiles: Some(500.0),
+    },
+    ResourceRow {
+        name: "quartz-patch",
+        cell: 288.0,
+        p: 0.70,
+        r0: 10.0,
+        a0: 600.0,
+        not_within: 0.0,
+        start_tiles: Some(500.0),
+    },
+    ResourceRow {
+        name: "uranium-ore-patch",
+        cell: 640.0,
+        p: 0.35,
+        r0: 8.0,
+        a0: 400.0,
+        not_within: 512.0,
+        start_tiles: None,
+    },
+];
 
 /// A chunk's κ (golden README rule 5): the mean of its 1,024 tiles' `kappa_per_s` (0 for a tile without
 /// one), summed in tile order.
@@ -87,6 +212,7 @@ enum Layer {
     Starting = 8,
     Spots = 9,
     Decor = 10,
+    Edge = 11,
 }
 
 /// The seed of a layer's stream, or of one cell of it.
@@ -100,26 +226,33 @@ fn layer_seed(seed: u32, layer: Layer, a: i64, b: i64) -> u64 {
 const BIOMES: [Biomes; 5] =
     [Biomes::TUNDRA, Biomes::BOREAL, Biomes::TEMPERATE, Biomes::STEPPE, Biomes::DESERT];
 
-/// One solid resource's generation parameters.
+/// One solid resource's generation parameters (01 §4's row and the world's sliders).
 #[derive(Clone, Copy, Debug)]
 struct ResourceRule {
     id: schema::ResourceId,
-    frequency: f64,
-    size: f64,
-    richness: f64,
-    /// The starting patch's centre.
-    start: (f64, f64),
+    /// The regular grid: cell size (frequency applied), probability (frequency applied), radius r₀ × size,
+    /// amount a₀ × richness, no patch centred within this distance of spawn.
+    cell: f64,
+    p: f64,
+    r0: f64,
+    a0: f64,
+    not_within: f64,
+    /// The starting patch: centre, radius and amount per tile; `None` without one.
+    start: Option<(f64, f64, f64, f64)>,
 }
 
-/// A spot or patch: centre, squared radius and base amount.
+/// A patch: centre, radius (before edge noise) and amount per tile.
 #[derive(Clone, Copy, Debug)]
 struct Patch {
     resource: schema::ResourceId,
     x: f64,
     y: f64,
-    r2: f64,
-    base: f64,
+    r: f64,
+    amount: f64,
 }
+
+/// A patch's edge noise: its radius varies ±30% along the edge (01 §4).
+const EDGE: f64 = 0.3;
 
 /// The generator of one world: its settings, the prototype roles it uses and its noise tables. Built once
 /// per world (`gen_init`, a new world or a load) and shared by every chunk.
@@ -130,6 +263,8 @@ pub struct Generator {
     width: u32,
     height: u32,
     starting_radius: f64,
+    /// No regular patch is centred within this distance of spawn.
+    exclusion: f64,
     water_scale: f64,
     water_level: Option<f64>,
     compass: bool,
@@ -145,18 +280,18 @@ pub struct Generator {
     blend: Simplex2,
     ambient: Simplex2,
     richness: Simplex2,
+    edge: Simplex2,
 }
-
-/// The spot cell size in tiles.
-const CELL: i64 = 128;
 
 impl Generator {
     /// The generator of the world with this seed and these settings (`climate_compass` from the world settings).
+    /// The generator of a world. Settings outside [`check_settings`]' bounds are clamped into them, so a
+    /// chunk's work stays bounded even for a caller that skipped the check.
     pub fn new(
         protos: &Protos,
         seed: u32,
         map: &MapSettings,
-        climate_compass: bool,
+        world: &WorldSettings,
         world_hash: u64,
     ) -> Self {
         let names = &protos.names.tile;
@@ -188,6 +323,10 @@ impl Generator {
             *list = near.cloned().unwrap_or_else(|| fallback.clone());
         }
         let beach = found[4].first().copied();
+        // A setting as generation reads it: finite, in [0, 6].
+        let bounded = |v: f64| {
+            if v.is_finite() && v > 0.0 { if v > SETTING_MAX { SETTING_MAX } else { v } } else { 0.0 }
+        };
         let mut resources = Vec::new();
         let r = &protos.resource;
         for i in 0..r.len() {
@@ -198,25 +337,47 @@ impl Generator {
             let s = map.resources.iter().find(|s| s.resource == id);
             let (frequency, size, richness) =
                 s.map_or((1.0, 1.0, 1.0), |s| (s.frequency, s.size, s.richness));
-            let h = layer_seed(seed, Layer::Starting, i as i64, 0);
-            let dir = ((h % 8) + 3 * resources.len() as u64) % 8;
-            let dist = 30.0 + ((h >> 8) % 11) as f64;
-            let (ux, uy) = UNIT[dir as usize];
-            let start = ((dist * ux).floor(), (dist * uy).floor());
-            resources.push(ResourceRule { id, frequency, size, richness, start });
+            let (frequency, size, richness) = (bounded(frequency), bounded(size), bounded(richness));
+            let name = protos.names.resource.get(i).map_or("", String::as_str);
+            let row = RESOURCE_TABLE.iter().find(|x| x.name == name).unwrap_or(&RESOURCE_TABLE[0]);
+            let start = row.start_tiles.filter(|_| size > 0.0 && richness > 0.0).map(|tiles| {
+                // The blob's radius, and a centre that keeps its edge (at most 1.3 R) 3 tiles from spawn.
+                let radius = (tiles / std::f64::consts::PI).sqrt() * size;
+                let h = layer_seed(seed, Layer::Starting, i as i64, 0);
+                let dir = ((h % 8) + 3 * resources.len() as u64) % 8;
+                let dist = (1.0 + EDGE) * radius + 3.0 + ((h >> 8) % 8) as f64;
+                let (ux, uy) = UNIT[dir as usize];
+                ((dist * ux).floor(), (dist * uy).floor(), radius, row.a0 * richness)
+            });
+            let on = frequency > 0.0 && size > 0.0 && richness > 0.0;
+            resources.push(ResourceRule {
+                id,
+                cell: if on { row.cell / frequency.sqrt() } else { 0.0 },
+                p: if on {
+                    let p = row.p * frequency;
+                    if p > 1.0 { 1.0 } else { p }
+                } else {
+                    0.0
+                },
+                r0: row.r0 * size,
+                a0: row.a0 * richness,
+                not_within: row.not_within,
+                start,
+            });
         }
-        let pos = |v: f64| if v > 0.0 && v.is_finite() { v } else { 0.0 };
-        let coverage = pos(map.water_coverage);
+        let coverage = bounded(map.water_coverage);
         let level = -0.12 + 0.3 * (coverage - 1.0);
+        let starting_area = bounded(map.starting_area);
         Self {
             world_hash,
             seed,
             width: map.width,
             height: map.height,
-            starting_radius: 48.0 * pos(map.starting_area),
-            water_scale: if pos(map.water_scale) > 0.0 { map.water_scale } else { 1.0 },
+            starting_radius: 56.0 * starting_area,
+            exclusion: 128.0 * starting_area,
+            water_scale: if bounded(map.water_scale) > 0.0 { bounded(map.water_scale) } else { 1.0 },
             water_level: (coverage > 0.0).then_some(if level > 0.6 { 0.6 } else { level }),
-            compass: climate_compass,
+            compass: world.climate_compass,
             out_of_map: named("out-of-map"),
             water: named("water"),
             deep_water: named("deep-water"),
@@ -232,6 +393,7 @@ impl Generator {
             blend: Simplex2::from_seed(layer_seed(seed, Layer::TileBlend, 0, 0)),
             ambient: Simplex2::from_seed(layer_seed(seed, Layer::Ambient, 0, 0)),
             richness: Simplex2::from_seed(layer_seed(seed, Layer::Richness, 0, 0)),
+            edge: Simplex2::from_seed(layer_seed(seed, Layer::Edge, 0, 0)),
         }
     }
 
@@ -283,42 +445,55 @@ impl Generator {
         e
     }
 
-    /// The patches that can reach chunk `(cx, cy)`: starting patches, then spots, in priority order.
+    /// The patches that can reach chunk `(cx, cy)`: starting patches, then regular patches, in priority order.
+    /// The cell search is bounded: radii grow with the distance from spawn, which the chunk-key range bounds
+    /// (±2²⁰ tiles), and every quantity is computed in `i64` or bounded floats.
     fn patches(&self, cx: i32, cy: i32, out: &mut Vec<Patch>) {
         out.clear();
-        for r in &self.resources {
-            if r.size > 0.0 && r.richness > 0.0 {
-                let r2 = 49.0 * r.size;
-                out.push(Patch { resource: r.id, x: r.start.0, y: r.start.1, r2, base: 1500.0 * r.richness });
+        let (x0, y0) = (f64::from(cx) * 32.0, f64::from(cy) * 32.0);
+        // Whether a patch's disc (with its edge noise) can touch the chunk.
+        let touches = |px: f64, py: f64, r: f64| {
+            let reach = (1.0 + EDGE) * r + 1.0;
+            px + reach > x0 && px - reach < x0 + 32.0 && py + reach > y0 && py - reach < y0 + 32.0
+        };
+        for rule in &self.resources {
+            if let Some((x, y, r, amount)) = rule.start
+                && touches(x, y, r)
+            {
+                out.push(Patch { resource: rule.id, x, y, r, amount });
             }
         }
-        let (x0, y0) = (i64::from(cx) * 32, i64::from(cy) * 32);
-        // A spot's centre lies 16–111 tiles into its cell and its radius is under 24 × √size tiles.
-        for (k, r) in self.resources.iter().enumerate() {
-            if !(r.size > 0.0 && r.richness > 0.0 && r.frequency > 0.0) {
+        // The farthest a chunk tile lies from spawn bounds every radius that can reach it.
+        let far = (x0.abs() + 32.0) * (x0.abs() + 32.0) + (y0.abs() + 32.0) * (y0.abs() + 32.0);
+        for (k, rule) in self.resources.iter().enumerate() {
+            if rule.p <= 0.0 || rule.cell < 1.0 {
                 continue;
             }
-            let reach = (24.0 * r.size.sqrt()).ceil() as i64 + 1;
-            let (rx0, rx1) = ((x0 - reach).div_euclid(CELL), (x0 + 32 + reach).div_euclid(CELL));
-            let (ry0, ry1) = ((y0 - reach).div_euclid(CELL), (y0 + 32 + reach).div_euclid(CELL));
-            for ry in ry0..=ry1 {
-                for rx in rx0..=rx1 {
-                    let h = layer_seed(self.seed, Layer::Spots, rx, ry) ^ mix64(k as u64 + 1);
-                    let h = mix64(h);
+            let r_max = rule.r0 * (1.0 + (far.sqrt() + 2.0 * rule.cell) / 1500.0).sqrt();
+            let reach = ((1.0 + EDGE) * r_max + 1.0).ceil() as i64;
+            let cell = rule.cell;
+            let lo = |v: f64| ((v - reach as f64) / cell).floor() as i64;
+            let hi = |v: f64| ((v + 32.0 + reach as f64) / cell).floor() as i64;
+            for ry in lo(y0)..=hi(y0) {
+                for rx in lo(x0)..=hi(x0) {
+                    let h = mix64(layer_seed(self.seed, Layer::Spots, rx, ry) ^ mix64(k as u64 + 1));
                     let u = (h & 0xFF_FFFF) as f64 / 16_777_216.0;
-                    if u >= 0.5 * r.frequency {
+                    if u >= rule.p {
                         continue;
                     }
-                    let x = (rx * CELL + 16 + ((h >> 24) % 96) as i64) as f64;
-                    let y = (ry * CELL + 16 + ((h >> 36) % 96) as i64) as f64;
-                    // The starting area is the starting patches'.
-                    let keep = 2.0 * self.starting_radius + 64.0;
-                    if x * x + y * y < keep * keep {
+                    // Centred in the cell's middle 60%.
+                    let fx = ((h >> 24) & 0xFFFF) as f64 / 65_536.0;
+                    let fy = ((h >> 40) & 0xFFFF) as f64 / 65_536.0;
+                    let x = (rx as f64 + 0.2 + 0.6 * fx) * cell;
+                    let y = (ry as f64 + 0.2 + 0.6 * fy) * cell;
+                    let d = (x * x + y * y).sqrt();
+                    if d < self.exclusion || d < rule.not_within {
                         continue;
                     }
-                    let radius = (12 + (h >> 48) % 12) as f64;
-                    let base = 2000.0 * (1.0 + (x * x + y * y).sqrt() / 512.0) * r.richness;
-                    out.push(Patch { resource: r.id, x, y, r2: radius * radius * r.size, base });
+                    let r = rule.r0 * (1.0 + d / 1500.0).sqrt();
+                    if touches(x, y, r) {
+                        out.push(Patch { resource: rule.id, x, y, r, amount: rule.a0 * (1.0 + d / 800.0) });
+                    }
                 }
             }
         }
@@ -392,15 +567,15 @@ impl Generator {
                     continue;
                 }
                 let (x, y) = (f64::from(tx) + 0.5, f64::from(ty) + 0.5);
-                // Resources on land only: the first patch that covers the tile.
+                // Resources on land only: the first patch whose noisy edge covers the tile.
                 for p in &patches {
                     let (dx, dy) = (x - p.x, y - p.y);
-                    let d2 = dx * dx + dy * dy;
-                    if d2 >= p.r2 {
+                    let r = p.r * (1.0 + EDGE * self.edge.noise(x / 10.0, y / 10.0));
+                    if dx * dx + dy * dy >= r * r {
                         continue;
                     }
                     let n = self.richness.noise(x / 8.0, y / 8.0);
-                    let amount = (p.base * (1.0 - d2 / p.r2) * (1.0 + 0.2 * n)).floor();
+                    let amount = (p.amount * (1.0 + 0.1 * n)).floor();
                     if amount >= 1.0 {
                         let a = if amount > 4.0e9 { 4_000_000_000 } else { amount as u32 };
                         resources.push(ResourceTile { tile: i as u16, resource: p.resource, amount: a });

@@ -98,16 +98,17 @@ fn a_walking_mining_character_allocates_nothing_once_warm() {
     let ore = c.world().expect("w").resource_at(schema::SurfaceIndex(0), 1, 1).expect("ore on (1, 1)");
     assert!(ore.amount >= 500);
     let mut seq = sim::testkit::TestSequencer::new(&c);
-    seq.push_system(1, &Action::PlayerJoined(PlayerJoinedAction { player: me, flags: JoinFlags::EMPTY }));
+    seq.push_system(1, &Action::PlayerJoined(PlayerJoinedAction { player: me, flags: JoinFlags::EMPTY }))
+        .expect("in order");
     let mine = Action::BeginMiningTerrain(BeginMiningTerrainAction {
         input_gen: 0,
         kind: MiningTarget::ResourceTile,
         pos: FinePos { x: 256 + 128, y: 256 + 128 },
     });
-    seq.push(2, me, &mine);
+    seq.push(2, me, &mine).expect("in order");
     for t in (3..7200).step_by(6) {
         let dir = if (t / 6) % 2 == 0 { Direction::East } else { Direction::West };
-        seq.push(t, me, &Action::StartWalking(StartWalkingAction { input_gen: 0, dir }));
+        seq.push(t, me, &Action::StartWalking(StartWalkingAction { input_gen: 0, dir })).expect("in order");
     }
     let closures: Vec<Vec<u8>> = (1..=7200).map(|t| seq.closure(t)).collect();
     let mut events = Vec::with_capacity(1 << 16);

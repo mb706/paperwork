@@ -1,1 +1,1 @@
-r23-input-fencing ticks 0..1025 state 4c80571204b3531d r 19bb5d189cf77203
+r23-input-fencing ticks 0..1025 state 5b7d577eaddd9817 r 7be131132f49927f

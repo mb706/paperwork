@@ -15,7 +15,7 @@ use schema::container::{
     CLOSURE_LOG_FORMAT_VERSION, CLOSURE_LOG_MAGIC, ClosureLogFlags, ClosureLogHeader, ClosureRecord,
 };
 use schema::events::{EventHeader, EventPayload, read_event};
-use schema::{ACTION_SCHEMA_VERSION, Action, Hash256, NewWorld, PlayerIndex, SimFlags, Tick};
+use schema::{ACTION_SCHEMA_VERSION, Action, Hash256, NewWorld, PlayerIndex, Seq, SimFlags, Tick};
 use std::collections::BTreeMap;
 
 use super::sequencer::TestSequencer;
@@ -87,27 +87,27 @@ impl Scenario {
         self.world().players.get(PlayerIndex(i)).unwrap_or_else(|| panic!("no player {i}"))
     }
 
-    /// Queues an action of player `i` for the next tick, held inputs stamped with its current generation.
-    pub fn act(&mut self, i: u16, a: Action<'_>) {
+    /// Queues an action of player `i` for the next tick and returns its seq (a creation id's `a`); held inputs
+    /// are stamped with the sequencer's input generation.
+    pub fn act(&mut self, i: u16, a: Action<'_>) -> Seq {
         let t = self.tick() + 1;
-        self.act_at(t, i, a);
+        self.act_at(t, i, a)
     }
 
-    /// Queues an action of player `i` for tick `t`, held inputs stamped now (D22: a release before `t` fences it).
-    pub fn act_at(&mut self, t: u32, i: u16, a: Action<'_>) {
-        let g = self.world().players.get(PlayerIndex(i)).map_or(0, |p| p.input_gen);
-        self.seq.push(t, PlayerIndex(i), &a.with_input_gen(g));
+    /// Queues an action of player `i` for tick `t`, stamped now (D22: a release queued before `t` fences it).
+    pub fn act_at(&mut self, t: u32, i: u16, a: Action<'_>) -> Seq {
+        self.seq.push(t, PlayerIndex(i), &a).unwrap_or_else(|e| panic!("{}: {e}", self.name))
     }
 
     /// Queues a system action for the next tick.
-    pub fn system(&mut self, a: Action<'_>) {
+    pub fn system(&mut self, a: Action<'_>) -> Seq {
         let t = self.tick() + 1;
-        self.seq.push_system(t, &a);
+        self.system_at(t, a)
     }
 
     /// Queues a system action for tick `t`.
-    pub fn system_at(&mut self, t: u32, a: Action<'_>) {
-        self.seq.push_system(t, &a);
+    pub fn system_at(&mut self, t: u32, a: Action<'_>) -> Seq {
+        self.seq.push_system(t, &a).unwrap_or_else(|e| panic!("{}: {e}", self.name))
     }
 
     /// Runs `n` ticks.

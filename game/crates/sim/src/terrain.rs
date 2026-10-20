@@ -26,6 +26,11 @@ impl World {
         Some(self.regen.with_chunk(surface, key, |d| d.tiles[tile_index(tx, ty)]))
     }
 
+    /// Whether a tile exists at `(tx, ty)` (its chunk is generated), without reading or generating it.
+    pub fn tile_exists(&self, surface: SurfaceIndex, tx: i32, ty: i32) -> bool {
+        in_key_range(tx, ty) && self.chunks.is_generated(surface, chunk_key(tile_chunk(tx), tile_chunk(ty)))
+    }
+
     /// Walkable (§4.4, §5.18; rules 3, 11): in the map, generated, and a walkable tile.
     pub fn walkable(&self, surface: SurfaceIndex, tx: i32, ty: i32) -> bool {
         self.tile_at(surface, tx, ty).is_some_and(|t| {

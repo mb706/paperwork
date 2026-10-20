@@ -102,9 +102,9 @@ impl Module {
         let protos = Protos::load(v.protos)
             .map_err(|e| GenError(SimStatus::ErrProtos, format!("prototypes.bin: {e}")))?;
         let w = &v.world;
-        let hash = worldgen::world_hash(v.protos, w.seed, &w.map);
-        self.generator =
-            Some(worldgen::Generator::new(&protos, w.seed, &w.map, w.world.climate_compass, hash));
+        worldgen::check_settings(&w.map, &protos).map_err(|e| input_err(format!("new_world: {e}")))?;
+        let hash = worldgen::world_hash(v.protos, w.seed, &w.map, &w.world);
+        self.generator = Some(worldgen::Generator::new(&protos, w.seed, &w.map, &w.world, hash));
         self.protos = Some(protos);
         let mut out = Vec::new();
         GenInitOutput { world_hash: hash }

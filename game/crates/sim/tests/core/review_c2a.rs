@@ -206,7 +206,14 @@ fn wasm_case_fixtures_are_current() {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/sim-wasm/cases");
     let update = std::env::var_os("UPDATE_SIM_WASM_CASES").is_some();
     let mut index = String::from("[\n");
-    let all = cases();
+    // C2b-r1's malformed loads (findings 3 and 4) run in wasm32 too.
+    let mut all = cases();
+    all.extend(crate::review_c2b::cases().into_iter().map(|c| Case {
+        name: c.name,
+        input: c.input,
+        expect: c.expect,
+        why: c.why,
+    }));
     for (i, c) in all.iter().enumerate() {
         let file = format!("{}.bin", c.name);
         let path = dir.join(&file);

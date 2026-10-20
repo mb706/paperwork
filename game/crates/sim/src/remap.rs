@@ -105,6 +105,8 @@ pub struct RawState<'a> {
     pub players: &'a mut Vec<Player>,
     pub stats: &'a mut Vec<Stat>,
     pub chunks: &'a mut Vec<Chunk>,
+    /// GLOBALS' map settings: their per-resource sliders name resources.
+    pub map: &'a mut schema::MapSettings,
 }
 
 struct Tables<'a> {
@@ -165,6 +167,21 @@ impl Tables<'_> {
 /// Rewrites the state's prototype ids (§8.3); returns the removed prototypes the state used.
 pub fn apply(s: &mut RawState<'_>, remaps: &[Remap]) -> SimResult<Vec<RemovedProto>> {
     let mut t = Tables { remaps, lost: Vec::new() };
+    // The map settings' resource sliders follow their resources; a removed resource's sliders go (C2b-r1:
+    // the settings are checked against this build's prototypes after the remap).
+    if t.table(ProtoKind::Resource).is_some() {
+        let mut kept = Vec::with_capacity(s.map.resources.len());
+        for r in &s.map.resources {
+            match t.map(ProtoKind::Resource, r.resource.0)? {
+                Mapped::Same => kept.push(r.clone()),
+                Mapped::To(v) => kept.push(schema::ResourceSettings { resource: ResourceId(v), ..r.clone() }),
+                Mapped::Removed => {}
+            }
+        }
+        kept.sort_by_key(|r| r.resource);
+        kept.dedup_by_key(|r| r.resource);
+        s.map.resources = kept;
+    }
     // Entities first: a removed prototype takes its entity, its container row and its inventory block.
     for row in 0..s.entities.rows() {
         if !s.entities.is_live(row) {

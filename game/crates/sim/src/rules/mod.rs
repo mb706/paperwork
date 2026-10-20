@@ -314,7 +314,7 @@ impl World {
             return;
         }
         if a.system {
-            self.apply_system(ctx, &act);
+            self.apply_system(ctx, &act, seq, a.player);
             return;
         }
         let pi = a.player;

@@ -212,8 +212,10 @@ impl World {
         }
     }
 
-    /// Schedules this tick's requests (sorted, deduplicated by the caller's list) and reports each through
-    /// `issued` (`sim_pending_chunks`).
+    /// Schedules this tick's requests (sorted, deduplicated) and reports each through `issued`
+    /// (`sim_pending_chunks`). Each takes the first tick from t + 30 with fewer than 8 commits. **Exhaustion**
+    /// (C2b-r1 finding 2): a request with no such tick at or before `u32::MAX` (the last tick a world can run)
+    /// is not made, since it could never commit; nor are the tick's later ones (they would wait longer).
     pub(crate) fn schedule_requests(
         &mut self,
         t: u32,
@@ -222,17 +224,22 @@ impl World {
     ) {
         wanted.sort_unstable();
         wanted.dedup();
-        let mut due = t.saturating_add(COMMIT_DELAY);
+        let mut due = t.checked_add(COMMIT_DELAY);
         for &(surface, cy, cx) in wanted.iter() {
             if self.is_pending(surface, chunk_key(cx, cy)) {
                 continue;
             }
-            while self.commits_at(due) >= COMMITS_PER_TICK {
-                due = due.saturating_add(1);
+            while let Some(d) = due
+                && self.commits_at(d) >= COMMITS_PER_TICK
+            {
+                due = d.checked_add(1);
             }
-            let k: PendingKey = (Tick(due), surface, cy, cx);
+            let Some(d) = due else {
+                break;
+            };
+            let k: PendingKey = (Tick(d), surface, cy, cx);
             self.add_pending(k);
-            issued.push(ChunkRequest { surface, cx, cy, commit_tick: Tick(due) });
+            issued.push(ChunkRequest { surface, cx, cy, commit_tick: Tick(d) });
         }
         wanted.clear();
     }
@@ -281,5 +288,34 @@ impl World {
         };
         self.chunks.insert_generated(rec).expect("a new chunk is not generated yet");
         self.regen.put(data);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::r#gen::Globals;
+    use schema::Protos;
+
+    /// C2b-r1 finding 2: nine requests at the last tick a world can reach. Eight take `u32::MAX`; the ninth has
+    /// no tick left and is not made. (The reviewed code looped forever on `saturating_add`.)
+    #[test]
+    fn requests_at_the_final_deadline_end() {
+        let mut w = World::new(Arc::new(Protos::default()), Globals::default());
+        let t = u32::MAX - COMMIT_DELAY;
+        let mut wanted: Vec<(SurfaceIndex, i32, i32)> = (0..9).map(|k| (SurfaceIndex(0), 0, k)).collect();
+        let mut issued = Vec::new();
+        w.schedule_requests(t, &mut wanted, &mut issued);
+        assert_eq!(issued.len(), 8);
+        assert!(issued.iter().all(|q| q.commit_tick.0 == u32::MAX));
+        assert_eq!(w.pending().len(), 8);
+        // A tick later nothing has room: no request at all, and no wait.
+        let mut more: Vec<(SurfaceIndex, i32, i32)> = (20..35).map(|k| (SurfaceIndex(0), 0, k)).collect();
+        w.schedule_requests(t + 1, &mut more, &mut issued);
+        assert_eq!((issued.len(), w.pending().len()), (8, 8));
+        // Past the last tick from which t + 30 exists: nothing.
+        let mut late: Vec<(SurfaceIndex, i32, i32)> = vec![(SurfaceIndex(0), 5, 5)];
+        w.schedule_requests(u32::MAX - 3, &mut late, &mut issued);
+        assert_eq!(w.pending().len(), 8);
     }
 }
