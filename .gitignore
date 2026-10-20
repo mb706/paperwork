@@ -26,3 +26,10 @@ design/round1/E-data/dl2077/
 design/round1/E-data/dlq/
 design/round1/E-data/dlsa/
 design/round1/E-data/luarun/
+
+# Scratch space for agents, and large generated outputs
+.scratch/
+design/art/out/
+design/audio/out/
+design/engine-study/**/target/
+design/engine-study/**/node_modules/
