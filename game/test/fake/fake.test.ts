@@ -12,7 +12,7 @@ import {
   QueryKind,
   type UiRecord,
 } from '../../src/shared/gen/projections.ts';
-import { SCHEMA_HASH } from '../../src/shared/gen/schema.ts';
+import { ABI_VERSION, SCHEMA_HASH } from '../../src/shared/gen/schema.ts';
 import { decodeAll, encodeAll, UI_CODECS } from '../helpers/packets.ts';
 import { fakeProtos, Harness } from './harness.ts';
 
@@ -62,7 +62,12 @@ describe('the fake sim', () => {
     const h = new Harness();
     await h.start(3);
     const ready = h.out.find((m) => m.t === 'ready');
-    expect(ready).toEqual({ t: 'ready', abi: 1, schemaHash: SCHEMA_HASH, buildHash: '0'.repeat(64) });
+    expect(ready).toEqual({
+      t: 'ready',
+      abi: ABI_VERSION,
+      schemaHash: SCHEMA_HASH,
+      buildHash: '0'.repeat(64),
+    });
     const bound = h.out.find((m) => m.t === 'bound');
     expect(bound).toMatchObject({ t: 'bound', gen: 3, tick: 0 });
     const full = decodePacket(h.packets[0] as Uint8Array);

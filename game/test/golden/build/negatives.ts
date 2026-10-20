@@ -12,7 +12,7 @@ import {
   writeSaveContainer,
 } from '../../../src/shared/gen/container.ts';
 import { ViewRequestCodec } from '../../../src/shared/gen/packet.ts';
-import { SCHEMA_HASH } from '../../../src/shared/gen/schema.ts';
+import { ABI_VERSION, SCHEMA_HASH } from '../../../src/shared/gen/schema.ts';
 import {
   decodeChunks,
   decodeGlobals,
@@ -386,6 +386,17 @@ export function abiCases(protosBin: Uint8Array): NegativeCase[] {
   });
   const badView = view.slice();
   badView[6] = 0x80; // ViewFlags bit 7: undeclared
+  const preview = (o: Partial<Record<'width' | 'step' | 'flags', number>>): Uint8Array => {
+    const b = new Uint8Array(24);
+    const v = new DataView(b.buffer);
+    v.setInt32(0, -16, true);
+    v.setInt32(4, -16, true);
+    v.setUint32(8, o.width ?? 32, true);
+    v.setUint32(12, 32, true);
+    v.setUint32(16, o.step ?? 1, true);
+    v.setUint32(20, o.flags ?? 0, true);
+    return b;
+  };
   const staleProtos = protosBin.slice();
   for (let i = 12; i < 44; i++) staleProtos[i] = (staleProtos[i] as number) ^ 0xff;
   const cases: [string, string, Uint8Array | null, string, string][] = [
@@ -469,34 +480,40 @@ export function abiCases(protosBin: Uint8Array): NegativeCase[] {
       'err_input',
       'a 5-byte SaveInput',
     ],
+    // gen.wasm's inputs (§15.9): GenInitInput and PreviewRequest.
     [
-      'set-flags-undeclared',
-      'sim_set_flags(8)',
-      null,
+      'gen-init-protos-len-past-end',
+      'gen_init',
+      cat(le32(protosBin.length + 1), protosBin, nw),
       'err_input',
-      'SimFlags bit 3 (a parameter, not a record)',
+      'protos_len one past the bytes',
     ],
     [
-      'tick-before-world',
-      'sim_init, then sim_tick of an empty closure',
-      null,
-      'err_order',
-      'no world exists yet',
+      'gen-init-truncated-world',
+      'gen_init',
+      cat(le32(protosBin.length), protosBin, nw.subarray(0, 9)),
+      'err_input',
+      'the new_world record cut short',
     ],
     [
-      'load-report-without-load',
-      'sim_init, sim_new_world, then sim_load_report',
-      null,
-      'err_order',
-      'the last world call was not sim_load',
+      'gen-init-no-world',
+      'gen_init',
+      cat(le32(protosBin.length), protosBin),
+      'err_input',
+      'no new_world record at all',
     ],
+    ['gen-preview-short', 'gen_preview', new Uint8Array(23), 'err_input', 'a 23-byte PreviewRequest (24)'],
+    ['gen-preview-width-0', 'gen_preview', preview({ width: 0 }), 'err_input', 'width 0 (range 1–4,096)'],
+    ['gen-preview-step-0', 'gen_preview', preview({ step: 0 }), 'err_input', 'step 0 (range 1–1,024)'],
     [
-      'query-limit',
-      'sim_query × 5 (hash), no step in between',
-      null,
-      'err_limit',
-      'at most 4 queries run at once (§15.5)',
+      'gen-preview-undeclared-flag',
+      'gen_preview',
+      preview({ flags: 0x80 }),
+      'err_input',
+      'PreviewFlags bit 7',
     ],
+    // The call-order and limit refusals that need several calls (sim_tick before a world, sim_load_report
+    // after sim_new_world, SimFlags bit 3, a fifth query) are in the ABI traces (abi/traces.json).
   ];
   return cases.map(([name, call, bytes, expect, why]) =>
     bytes ? { file: `abi/${name}.bin`, bytes, call, expect, why } : { file: null, call, expect, why },
@@ -535,7 +552,7 @@ const section = (id: number, body: number[]): number[] => [id, ...uleb(body.leng
 /**
  * A module whose `sim_schema_hash` is another schema's (§15.1 "runtime handshake"): the shell must refuse to
  * run it, naming both hashes. Hand-assembled (WebAssembly binary format 1): it exports `memory`,
- * `sim_abi_version` (1), `sim_schema_hash` (an envelope at 64: u32 32, then SCHEMA_HASH with every byte
+ * `sim_abi_version` (this ABI_VERSION, so only the hash differs), `sim_schema_hash` (an envelope at 64: u32 32, then SCHEMA_HASH with every byte
  * inverted), `sim_input`, `sim_last_error` and `sim_memory_epoch`, and nothing else.
  */
 export function staleModule(): Uint8Array {
@@ -571,7 +588,7 @@ export function staleModule(): Uint8Array {
         [...name('sim_memory_epoch'), 0x00, 4],
       ]),
     ),
-    ...section(10, vec([body(i32(1)), body(i32(64)), body(i32(1024)), body(i32(0)), body(i32(0))])),
+    ...section(10, vec([body(i32(ABI_VERSION)), body(i32(64)), body(i32(1024)), body(i32(0)), body(i32(0))])),
     ...section(11, vec([[0x00, ...i32(64), ...uleb(36), 32, 0, 0, 0, ...hash]])),
   ];
   return new Uint8Array(bytes);

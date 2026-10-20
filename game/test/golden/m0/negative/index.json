@@ -116,13 +116,13 @@
   {
     "file": "logs/truncated.pwlog",
     "call": "parseClosureLog (§8.5)",
-    "expect": "truncated ClosureLog.blobs @8274",
+    "expect": "truncated ClosureLog.blobs @32274",
     "why": "the blob region is one byte short"
   },
   {
     "file": "logs/trailing.pwlog",
     "call": "parseClosureLog (§8.5)",
-    "expect": "trailing ClosureLog @12406",
+    "expect": "trailing ClosureLog @36406",
     "why": "a byte after the last region"
   },
   {
@@ -312,28 +312,46 @@
     "why": "a 5-byte SaveInput"
   },
   {
-    "file": null,
-    "call": "sim_set_flags(8)",
+    "file": "abi/gen-init-protos-len-past-end.bin",
+    "call": "gen_init",
     "expect": "err_input",
-    "why": "SimFlags bit 3 (a parameter, not a record)"
+    "why": "protos_len one past the bytes"
   },
   {
-    "file": null,
-    "call": "sim_init, then sim_tick of an empty closure",
-    "expect": "err_order",
-    "why": "no world exists yet"
+    "file": "abi/gen-init-truncated-world.bin",
+    "call": "gen_init",
+    "expect": "err_input",
+    "why": "the new_world record cut short"
   },
   {
-    "file": null,
-    "call": "sim_init, sim_new_world, then sim_load_report",
-    "expect": "err_order",
-    "why": "the last world call was not sim_load"
+    "file": "abi/gen-init-no-world.bin",
+    "call": "gen_init",
+    "expect": "err_input",
+    "why": "no new_world record at all"
   },
   {
-    "file": null,
-    "call": "sim_query × 5 (hash), no step in between",
-    "expect": "err_limit",
-    "why": "at most 4 queries run at once (§15.5)"
+    "file": "abi/gen-preview-short.bin",
+    "call": "gen_preview",
+    "expect": "err_input",
+    "why": "a 23-byte PreviewRequest (24)"
+  },
+  {
+    "file": "abi/gen-preview-width-0.bin",
+    "call": "gen_preview",
+    "expect": "err_input",
+    "why": "width 0 (range 1–4,096)"
+  },
+  {
+    "file": "abi/gen-preview-step-0.bin",
+    "call": "gen_preview",
+    "expect": "err_input",
+    "why": "step 0 (range 1–1,024)"
+  },
+  {
+    "file": "abi/gen-preview-undeclared-flag.bin",
+    "call": "gen_preview",
+    "expect": "err_input",
+    "why": "PreviewFlags bit 7"
   },
   {
     "file": "module/stale-schema.wasm",

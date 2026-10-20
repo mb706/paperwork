@@ -1,11 +1,17 @@
-// The golden set's command line (10 §15.10; test/golden/README.md "Freezing").
+// The golden set's command line (10 §15.10; test/golden/README.md "Freezing"; pm/DECISIONS-IMPL.md decision 14).
 //
 //   node test/golden/build/main.ts                         check: the reference model reproduces m0/ exactly
 //   node test/golden/build/main.ts --write                 rewrite m0/ and MANIFEST.json from the model
-//   node test/golden/build/main.ts --write --bump "why"    and record a new version in VERSIONS.txt
+//   node test/golden/build/main.ts --write --bump mechanical "why"
+//   node test/golden/build/main.ts --write --bump value --approval <ref> "why"
+//                                                          record the reviewed change as a new version
 //
 // A changed golden file is a changed contract: --write alone leaves the set failing its freeze test until the
-// change has been reviewed and recorded with --bump.
+// change has been reviewed and recorded with --bump. Decision 14's two kinds: a *mechanical* bump changes no
+// expected value (only the tiny atlas, or a schema layout change: the schema hash moved), and the package that
+// causes it may record it; a *value* bump changes expected states, digests, records, packets or refusals and
+// names the approval it was made under (a review or the manager's decision, e.g. pm/reviews/GATE-r1.md). The
+// tool refuses a mechanical bump of anything else, a value bump without an approval, and a short reason.
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -25,11 +31,28 @@ export interface Manifest {
   files: Record<string, string>;
   /** Files of the set that live elsewhere, by path from game/: the tiny atlas, C6's fixture (§15.7, §15.10). */
   external: Record<string, string>;
+  /**
+   * The contract's inputs, by path from game/ (GATE-r1 finding 15): the README's rules and the reference model's
+   * sources, which bind the packages as much as the files they produce.
+   */
+  contract: Record<string, string>;
 }
 
 /** The golden set's parts kept outside m0/: the tiny atlas is the asset pipeline's fixture (README "The tiny atlas"). */
 export const EXTERNAL_DIRS = ['test/fixtures/sprites'];
 export const GAME_DIR = join(M0, '..', '..', '..');
+
+/** The contract inputs: the golden README and the model's sources (tests excluded). */
+export function contractFiles(): Record<string, string> {
+  const out: Record<string, string> = {};
+  const add = (p: string) => {
+    out[p] = sha256(readFileSync(join(GAME_DIR, p)));
+  };
+  add('test/golden/README.md');
+  for (const name of readdirSync(join(GAME_DIR, 'test/golden/model')).sort())
+    if (name.endsWith('.ts') && !name.endsWith('.test.ts')) add(`test/golden/model/${name}`);
+  return out;
+}
 
 /** The external files and their SHA-256, as they are on disk now. */
 export function externalFiles(): Record<string, string> {
@@ -48,25 +71,79 @@ const canonical = (t: Record<string, string>): string => {
 };
 
 /**
- * The digest a VERSIONS line records: SHA-256 of the files table as canonical JSON (keys sorted), and of the
- * external table when there is one, so a change to the tiny atlas is a change to the set.
+ * The digest a VERSIONS line records: SHA-256 of the files table as canonical JSON (keys sorted), then of the
+ * external table and of the contract table when they are not empty (versions 1 and 2 had neither or no contract).
  */
-export function filesDigest(files: Record<string, string>, external: Record<string, string> = {}): string {
-  return sha256(
-    Object.keys(external).length === 0 ? canonical(files) : `${canonical(files)}\n${canonical(external)}`,
-  );
+export function filesDigest(
+  files: Record<string, string>,
+  external: Record<string, string> = {},
+  contract: Record<string, string> = {},
+): string {
+  const parts = [canonical(files)];
+  if (Object.keys(external).length > 0 || Object.keys(contract).length > 0) parts.push(canonical(external));
+  if (Object.keys(contract).length > 0) parts.push(canonical(contract));
+  return sha256(parts.join('\n'));
 }
 
-export function readVersions(): { version: number; digest: string; why: string }[] {
+export const BUMP_KINDS = ['mechanical', 'value'] as const;
+export type BumpKind = (typeof BUMP_KINDS)[number];
+
+export interface Version {
+  version: number;
+  digest: string;
+  /** null on the two lines written before kinds existed (versions 1 and 2, kept as written). */
+  kind: BumpKind | null;
+  approval: string | null;
+  /** The first 16 hex digits of the previous line's SHA-256 (null on the old lines). */
+  prev: string | null;
+  why: string;
+  line: string;
+}
+
+/**
+ * The ledger. A line is `version digest why…` (versions 1–2, before GATE-r1), or
+ * `version digest kind=K approval=A prev=P why…` (K mechanical or value, A a reference or `-`, P the previous
+ * line's hash prefix): a hash chain, so an edited old line breaks every later one.
+ */
+export function readVersions(text?: string): Version[] {
   const p = join(M0, VERSIONS);
-  if (!existsSync(p)) return [];
-  return readFileSync(p, 'utf8')
+  if (text === undefined && !existsSync(p)) return [];
+  return (text ?? readFileSync(p, 'utf8'))
     .split('\n')
     .filter((l) => l.trim() && !l.startsWith('#'))
-    .map((l) => {
-      const [v, digest, ...why] = l.split(' ');
-      return { version: Number(v), digest: digest as string, why: why.join(' ') };
+    .map((line) => {
+      const [v, digest, ...rest] = line.split(' ');
+      const tag = (k: string) =>
+        rest[0]?.startsWith(`${k}=`) ? (rest.shift() as string).slice(k.length + 1) : null;
+      const kind = tag('kind');
+      const approval = tag('approval');
+      const prev = tag('prev');
+      return {
+        version: Number(v),
+        digest: digest as string,
+        kind: kind as BumpKind | null,
+        approval: approval === '-' ? null : approval,
+        prev,
+        why: rest.join(' '),
+        line,
+      };
     });
+}
+
+/** The ledger's rules (decision 14, GATE-r1 finding 15): problems, or none. */
+export function ledgerProblems(versions: readonly Version[]): string[] {
+  const out: string[] = [];
+  versions.forEach((v, i) => {
+    if (v.version !== i + 1) out.push(`line ${i + 1}: version ${v.version}, expected ${i + 1}`);
+    if (v.version <= 2) return; // written before kinds existed; kept as written (append-only)
+    if (v.kind === null || !BUMP_KINDS.includes(v.kind)) out.push(`version ${v.version}: no kind`);
+    if (v.kind === 'value' && !v.approval) out.push(`version ${v.version}: a value bump names no approval`);
+    if (v.why.trim().length < 20) out.push(`version ${v.version}: the reason is too short`);
+    const prev = versions[i - 1];
+    if (prev && v.prev !== sha256(prev.line).slice(0, 16))
+      out.push(`version ${v.version}: prev does not chain to version ${prev.version}'s line`);
+  });
+  return out;
 }
 
 /** Every file under m0/ (relative paths), the manifest and the ledger excluded. */
@@ -91,6 +168,7 @@ function manifestText(m: Manifest): string {
         .map((k) => [k, t[k]]),
     );
   const body = {
+    contract: sorted(m.contract),
     external: sorted(m.external),
     files: sorted(m.files),
     schemaHash: m.schemaHash,
@@ -99,10 +177,23 @@ function manifestText(m: Manifest): string {
   return `${JSON.stringify(body, null, 2)}\n`;
 }
 
+function argAfter(flag: string): string | null {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 ? (process.argv[i + 1] ?? null) : null;
+}
+
 function main(): number {
   const write = process.argv.includes('--write');
-  const bumpAt = process.argv.indexOf('--bump');
-  const bump = bumpAt >= 0 ? (process.argv[bumpAt + 1] ?? '') : null;
+  const bumpKind = argAfter('--bump');
+  const approval = argAfter('--approval');
+  // The reason is the last argument that is not a flag or a flag's value.
+  const taken = new Set<number>();
+  for (const f of ['--bump', '--approval']) {
+    const i = process.argv.indexOf(f);
+    if (i >= 0) taken.add(i).add(i + 1);
+  }
+  const free = process.argv.slice(2).filter((a, i) => !a.startsWith('--') && !taken.has(i + 2));
+  const why = free[free.length - 1] ?? '';
   // check-arch-ignore determinism: the elapsed time goes to the log only
   const t0 = performance.now();
   const { files } = goldenFiles();
@@ -111,7 +202,8 @@ function main(): number {
   const versions = readVersions();
   const latest = versions[versions.length - 1];
   const external = externalFiles();
-  const digest = filesDigest(table, external);
+  const contract = contractFiles();
+  const digest = filesDigest(table, external, contract);
 
   if (!write) {
     const problems: string[] = [];
@@ -122,18 +214,53 @@ function main(): number {
     }
     for (const p of have) if (!files.has(p)) problems.push(`stale: ${p}`);
     const recorded = existsSync(join(M0, MANIFEST))
-      ? (JSON.parse(readFileSync(join(M0, MANIFEST), 'utf8')) as Manifest).external
-      : {};
+      ? (JSON.parse(readFileSync(join(M0, MANIFEST), 'utf8')) as Manifest)
+      : null;
     for (const [p, h] of Object.entries(external))
-      if (recorded[p] !== h) problems.push(`external file changed: ${p}`);
-    for (const p of Object.keys(recorded)) if (!(p in external)) problems.push(`external file missing: ${p}`);
+      if (recorded?.external[p] !== h) problems.push(`external file changed: ${p}`);
+    for (const p of Object.keys(recorded?.external ?? {}))
+      if (!(p in external)) problems.push(`external file missing: ${p}`);
+    for (const [p, h] of Object.entries(contract))
+      if (recorded?.contract?.[p] !== h) problems.push(`contract input changed: ${p}`);
+    problems.push(...ledgerProblems(versions));
     for (const p of problems.slice(0, 40)) console.error(`golden set: ${p}`);
     if (problems.length > 40) console.error(`… and ${problems.length - 40} more`);
     const ok = problems.length === 0;
     console.log(
-      `golden set: ${ok ? 'the reference model reproduces m0/' : `${problems.length} file(s) differ: run --write, review, then --bump`} (${files.size} files, ${Math.round(performance.now() - t0)} ms)`,
+      `golden set: ${ok ? 'the reference model reproduces m0/' : `${problems.length} problem(s): run --write, review, then --bump`} (${files.size} files, ${Math.round(performance.now() - t0)} ms)`,
     );
     return ok ? 0 : 1;
+  }
+
+  // A bump's checks come before anything is written.
+  if (bumpKind !== null) {
+    if (!BUMP_KINDS.includes(bumpKind as BumpKind)) {
+      console.error(`golden set: --bump takes ${BUMP_KINDS.join(' or ')} (decision 14), not "${bumpKind}"`);
+      return 1;
+    }
+    if (why.trim().length < 20) {
+      console.error('golden set: a bump needs a reason of at least 20 characters: what changed, and why');
+      return 1;
+    }
+    if (bumpKind === 'value' && !approval) {
+      console.error('golden set: a value bump names its approval: --approval <review or decision>');
+      return 1;
+    }
+    if (bumpKind === 'mechanical' && latest) {
+      // Mechanical (decision 14): only the tiny atlas changed, or the schema layout did (the hash moved).
+      const old = existsSync(join(M0, MANIFEST))
+        ? (JSON.parse(readFileSync(join(M0, MANIFEST), 'utf8')) as Manifest)
+        : null;
+      const filesChanged = !old || canonical(old.files) !== canonical(table);
+      const contractChanged = !old || canonical(old.contract ?? {}) !== canonical(contract);
+      const schemaMoved = !old || old.schemaHash !== SCHEMA_HASH;
+      if (contractChanged || (filesChanged && !schemaMoved)) {
+        console.error(
+          'golden set: expected values or the contract changed without a schema change: that is a value bump (--bump value --approval …)',
+        );
+        return 1;
+      }
+    }
   }
 
   // --write: replace m0/'s files with the model's.
@@ -144,15 +271,16 @@ function main(): number {
     if (!existsSync(abs) || sha256(readFileSync(abs)) !== sha256(b)) writeFileSync(abs, b);
   }
   let version = latest?.version ?? 0;
-  if (bump !== null) {
+  if (bumpKind !== null) {
     if (latest?.digest === digest) console.log('golden set: unchanged; no new version recorded');
     else {
       version += 1;
       const header =
         versions.length === 0
-          ? '# The golden set\'s versions, append-only (test/golden/README.md "Freezing"): the version, the SHA-256 of\n# MANIFEST.json\'s "files" as canonical JSON, and why it changed. Never edit or delete a line.\n'
+          ? '# The golden set\'s versions, append-only (test/golden/README.md "Freezing"): the version, the SHA-256 of\n# MANIFEST.json\'s tables as canonical JSON, and why it changed. Never edit or delete a line.\n'
           : '';
-      const line = `${version} ${digest} ${bump || 'no reason given'}\n`;
+      const prev = latest ? ` prev=${sha256(latest.line).slice(0, 16)}` : '';
+      const line = `${version} ${digest} kind=${bumpKind} approval=${approval ?? '-'}${prev} ${why}\n`;
       writeFileSync(
         join(M0, VERSIONS),
         `${header}${versions.length === 0 ? '' : readFileSync(join(M0, VERSIONS), 'utf8')}${line}`,
@@ -161,13 +289,13 @@ function main(): number {
   }
   writeFileSync(
     join(M0, MANIFEST),
-    manifestText({ version, schemaHash: SCHEMA_HASH, files: table, external }),
+    manifestText({ version, schemaHash: SCHEMA_HASH, files: table, external, contract }),
   );
   const frozen = readVersions().some((v) => v.version === version && v.digest === digest);
   console.log(
     frozen
       ? `golden set: wrote ${files.size} files, version ${version}`
-      : `golden set: wrote ${files.size} files; they differ from version ${version}: review the diff, then run with --bump "why"`,
+      : `golden set: wrote ${files.size} files; they differ from version ${version}: review the diff, then run with --bump`,
   );
   return 0;
 }

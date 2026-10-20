@@ -1,6 +1,6 @@
 // The fake sim's prototype build in the dev server (10 §15.10, `?sim=fake`): the data stage's M1 filter
-// (belts, inserters, furnaces, assemblers, the keypunch: what the fake sim's factory needs), built in watch mode
-// into .cache/data/m1/ and served under /data/fake/. Requests there wait for it and fail while it has failed,
+// (belts, inserters, furnaces, assemblers, the keypunch: what the fake sim's factory needs) with a complete sound
+// table, built in watch mode into .cache/data/m1/ and served under /data/fake/. Requests there wait for it and fail while it has failed,
 // as /data/ does for the M0 build.
 import { createReadStream, existsSync } from 'node:fs';
 import { join, normalize } from 'node:path';
@@ -17,8 +17,17 @@ export function fakeDataPlugin({ root }: { root: string }): Plugin[] {
       name: 'fake-data',
       root,
       script: 'scripts/data-stage.ts',
-      args: ['--manifest', 'm1', '--allow-incomplete', '--quiet'],
-      watched: dataStageWatched(root),
+      // The fake's build carries a complete sound table (10 §15.6): the audio package's sounds.yaml when it
+      // exists, else the fixture with the same names (test/fixtures/fake/sounds.yaml).
+      args: [
+        '--manifest',
+        'm1',
+        '--allow-incomplete',
+        '--quiet',
+        '--engine-file',
+        'sounds.yaml=test/fixtures/fake/sounds.yaml',
+      ],
+      watched: [...dataStageWatched(root), join(root, 'test', 'fixtures', 'fake', 'sounds.yaml')],
       holdPrefixes: ['/data/fake/'],
       dependsOn: ['schema-gen', 'fake-data'],
       follows: ['schema-gen'],

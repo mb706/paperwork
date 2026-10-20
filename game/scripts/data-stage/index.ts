@@ -9,6 +9,7 @@
 //   4. take the build's prototypes from the current capability manifest, or from a build filter
 //      (capabilities.ts), and check that they close;
 //   5. assign dense ids (model.ts) and emit (emit/).
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { devManifest, manifestText } from '../build-manifest.ts';
 import { fromHex, sha256Bytes, toHex } from '../lib/hash.ts';
@@ -56,6 +57,12 @@ export interface DataStageOptions {
   protocolVersion: number;
   /** Also emit these build filters in memory (a smoke test of the writers over the full data). */
   extraBuilds?: readonly string[];
+  /**
+   * Engine overlay files to read from elsewhere, by name (`sounds.yaml` → an absolute path): fixture builds,
+   * such as the fake sim's (10 §15.10), whose tables must be complete before the owning package adds its file.
+   * A file that exists in game/data/engine wins over its override.
+   */
+  engineFiles?: Readonly<Record<string, string>>;
 }
 
 export interface DataStageResult {
@@ -155,12 +162,19 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
     const abs = join(o.gameDir, 'data', 'engine', name);
     return loadYaml(abs, rel(abs), diags);
   };
+  /** An optional engine file: game/data/engine's, else the caller's override, else none. */
+  const optionalEngine = (name: string) => {
+    const own = join(o.gameDir, 'data', 'engine', name);
+    const abs = existsSync(own) ? own : o.engineFiles?.[name];
+    return abs && existsSync(abs) ? loadYaml(abs, rel(abs), diags) : null;
+  };
   const ovSrc = {
     groups: engine('groups.yaml'),
     defaults: engine('defaults.yaml'),
     mirrors: engine('mirrors.yaml'),
     prototypes: engine('prototypes.yaml'),
     sets: engine('sets.yaml'),
+    sounds: optionalEngine('sounds.yaml'),
   };
   const manifestsSrc = engine('manifests.yaml');
   const capsSrc = engine('capabilities.yaml');

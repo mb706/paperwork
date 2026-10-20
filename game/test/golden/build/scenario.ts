@@ -7,7 +7,11 @@ import type { Action } from '../../../src/shared/gen/actions.ts';
 import type { EntityRef, FinePos, InvSlot, TilePos2 } from '../../../src/shared/gen/types.ts';
 import type { Step } from './stamp.ts';
 
-export const TICKS = 600;
+/**
+ * The closure log's length: the scripted steps, then idle ticks up to 3,600, so the rolling digest covers one
+ * complete cycle of the 3,600 slice shards (§4.8; GATE-r1 finding 6).
+ */
+export const TICKS = 3600;
 
 const ref = (serial: number): EntityRef => ({ a: serial, b: 0, tag: 1 });
 const created = (seq: number, b = 0): EntityRef => ({ a: seq, b, tag: 2 });
@@ -159,7 +163,7 @@ export function script(ids: Ids): Step[] {
       t: 15,
       who: 0,
       a: { type: 'fast_entity_transfer', target: ref(SERIAL.chestA) },
-      why: 'chest A has no room for plates: inventory_full',
+      why: 'chest A has no room below its bar: nothing moves, without a text or refusal (rule 19)',
     },
     {
       t: 16,
@@ -170,8 +174,8 @@ export function script(ids: Ids): Step[] {
     {
       t: 17,
       who: 0,
-      a: { type: 'cursor_transfer', slot: chest(SERIAL.chestA, 5) },
-      why: 'slot 5 is past the bar: cannot_insert',
+      a: { type: 'cursor_split', slot: chest(SERIAL.chestA, 5) },
+      why: 'RMB on slot 5, past the bar: a click ignores the limit, one plate goes in (rule 16)',
     },
     { t: 18, who: 0, a: { type: 'clear_cursor' }, why: 'Q: the rest goes back to its origin slot' },
     {

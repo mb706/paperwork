@@ -12,8 +12,8 @@
 # non-ASCII; and two entries of the same kind ascending by name), chunk_data ([TileId; 1024], lists of
 # structs ordered by key with a negative i32 key, an empty list), and the ABI messages BlobPut (u8[..]),
 # PendingChunks, SubscribeInput (an array of variable-size messages), QueryStepOutput (padded
-# QueryResults), PoolDir (T[..] of structs), TickDigest (four hidden counts, a 22-byte packed struct),
-# LoadInput (SectionFrame and RemapTable arrays; a frame at offset 4 pads from its own start),
+# QueryResults), PoolDir (T[..] of structs), TickDigestBody (two hidden counts) with TickDigestHead and TickDigestTail,
+# LoadInput (SectionFrame and RemapTable arrays, RemovedName messages inside a message; a frame at offset 4 pads from its own start),
 # GenInitInput (a message that ends in a record).
 
 @type new_world                           # nested records, a list of records, every field (strict read)
@@ -1398,37 +1398,45 @@ columns[1].column=2
 columns[1].ptr=65600
 columns[1].len=128
 
-@type TickDigest                          # four hidden counts; PlayerDigest is 22 bytes, packed
-59 02 00 00                               // tick 601
-08 07 06 05 04 03 02 01                   // closure_hash 0x0102030405060708
-01 00 00 00                               // rng_count 1
-78 56 34 12  f0 de bc 9a  01 00 00 00  ff ff ff ff   // rng[0]: s0, s1, s2, s3
+@type TickDigestBody                      # two hidden counts; the middle of d_t's preimage (§4.8)
 03 00 00 00                               // entity_count 3 (not a count of any array: dumped)
 01 00 00 00                               // produced_count 1
 28 00 00 01  00 00 00 00 00 00 00 40      // produced[0]: key 0x01000028, value 2.0
 00 00 00 00                               // consumed_count 0
-01 00 00 00                               // player_count 1
-00 00  00 00 00 00 00 00 e0 3f  00 00 00 00 00 00 f4 bf  11 00 00 00   // players[0]: index 0, x 0.5, y -1.25, inventory_version 17
-ff ff                                     // research_tech 0xFFFF (none)
-00 00 00 00 00 00 00 00                   // research_progress 0.0
 @dump
-tick=601
-closure_hash=72623859790382856
-rng.len=1
-rng[0].s0=305419896
-rng[0].s1=2596069104
-rng[0].s2=1
-rng[0].s3=4294967295
 entity_count=3
 produced.len=1
 produced[0].key=16777256
 produced[0].value=f64:4000000000000000
 consumed.len=0
-players.len=1
-players[0].index=0
-players[0].x=f64:3fe0000000000000
-players[0].y=f64:bff4000000000000
-players[0].inventory_version=17
+
+@type TickDigestHead                      # 12 bytes, packed
+59 02 00 00                               // tick 601
+08 07 06 05 04 03 02 01                   // closure_hash 0x0102030405060708
+@dump
+tick=601
+closure_hash=72623859790382856
+
+@type RngWords                            # one RNG stream in d_t's preimage: four u32 state words
+78 56 34 12  f0 de bc 9a  01 00 00 00  ff ff ff ff   // s0, s1, s2, s3
+@dump
+s0=305419896
+s1=2596069104
+s2=1
+s3=4294967295
+
+@type PlayerDigest                        # 22 bytes, packed: an online player in d_t's preimage
+00 00  00 00 00 00 00 00 e0 3f  00 00 00 00 00 00 f4 bf  11 00 00 00   // index 0, x 0.5, y -1.25, inventory_version 17
+@dump
+index=0
+x=f64:3fe0000000000000
+y=f64:bff4000000000000
+inventory_version=17
+
+@type TickDigestTail                      # 10 bytes, packed
+ff ff                                     // research_tech 0xFFFF (none)
+00 00 00 00 00 00 00 00                   // research_progress 0.0
+@dump
 research_tech=65535
 research_progress=f64:0000000000000000
 
@@ -1441,6 +1449,8 @@ research_progress=f64:0000000000000000
 01 00                                     // kind_count 1 (range [0, 9])
 00 00  03 00 00 00                        // remaps[0]: kind 0 (item), count 3
 00 00  ff ff  01 00                       //   ids: 0 → 0, 1 → removed, 2 → 1
+01 00                                     //   removed_count 1
+0c  63 6f 70 70 65 72 2d 70 6c 61 74 65   //   removed[0]: u8 len 12, "copper-plate" (old id 1's name)
 ef cd ab 89 67 45 23 01                   // r 0x0123456789ABCDEF
 @dump
 sections.len=1
@@ -1456,6 +1466,8 @@ remaps[0].ids.len=3
 remaps[0].ids[0]=0
 remaps[0].ids[1]=65535
 remaps[0].ids[2]=1
+remaps[0].removed.len=1
+remaps[0].removed[0].name=hex:636f707065722d706c617465
 r=81985529216486895
 
 @type GenInitInput                        # a message ending in a record: protos_len, protos, one new_world

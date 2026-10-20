@@ -8,6 +8,7 @@ import type { DecodeError } from '../../src/shared/gen/codec.ts';
 import { readPrototypesBin } from '../../src/shared/gen/protos.ts';
 import { EntityType } from '../../src/shared/gen/types.ts';
 import { edit, messages, options, scratchRepo } from '../../test/helpers/data-stage.ts';
+import { GAME } from '../../test/helpers/paths.ts';
 import { ByteReader } from '../lib/bytes.ts';
 import { sha256Hex } from '../lib/hash.ts';
 import { formatDiagnostic } from './diagnostics.ts';
@@ -248,5 +249,37 @@ describe('diagnostics point at the YAML file, path and line', () => {
     expect(messages(runDataStage(options(game, spec))).join('\n')).toMatch(
       /09-vertical-slice\.md \(§2\.7\):\d+:\d+: slice\.world_objects: the derived key world_objects disagrees with the data; missing: tree/,
     );
+  });
+});
+
+describe('the sound tables (10 §15.6; C1b decision 14)', () => {
+  const fixture = join(GAME, 'test/fixtures/fake/sounds.yaml');
+
+  it('reads sounds.yaml: ids dense and sorted by name, each entity its working sound', () => {
+    const r = runDataStage({
+      ...options(),
+      manifest: 'm1',
+      allowIncomplete: true,
+      engineFiles: { 'sounds.yaml': fixture },
+    });
+    expect(messages(r)).toEqual([]);
+    const json = JSON.parse(new TextDecoder().decode(r.outputs.get(OUTPUT_PATHS.json)));
+    expect(json.sounds).toEqual([...json.sounds].sort());
+    expect(json.sounds).toContain('belt-loop');
+    const bin = readPrototypesBin(r.outputs.get(OUTPUT_PATHS.bin) as Uint8Array, undefined, []);
+    const sound = (entity: string) => bin.entity[bin.names.entity.indexOf(entity)]?.working_sound;
+    expect(sound('transport-belt')).toBe(json.sounds.indexOf('belt-loop'));
+    expect(sound('keypunch')).toBe(json.sounds.indexOf('keypunch-loop'));
+    expect(sound('assembling-machine-1')).toBe(0xffff);
+  });
+
+  it('refuses a working sound that is not declared', () => {
+    const { game, spec } = scratchRepo();
+    const bad = join(game, 'sounds.yaml');
+    writeFileSync(bad, 'sounds:\n  belt-loop: {}\nworking_sounds:\n  transport-belt: hum\n');
+    const out = messages(runDataStage({ ...options(game, spec), engineFiles: { 'sounds.yaml': bad } })).join(
+      '\n',
+    );
+    expect(out).toMatch(/working sound hum of transport-belt is not a declared sound/);
   });
 });

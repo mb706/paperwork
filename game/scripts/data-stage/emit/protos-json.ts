@@ -182,7 +182,7 @@ export function prototypesJson(m: Model, schemaHashHex: string, prototypesHashHe
     subgroups,
     icons,
     localeKeys: LOCALE_KEYS,
-    sounds: [],
+    sounds: ov.sounds.names,
     milestones: m.design.text.milestones.map((x) => x.id).sort(compareCodeUnits),
     treeSpecies: ov.sets.tree_species.map((x) => `object/${x}`),
     decoratives: ov.sets.decoratives.map((x) => `decor/${x}`),

@@ -269,7 +269,9 @@ messages:
 # Subscription kinds (§15.5). cadence: `every` packet, or `slow` (see limits). target: what `target` holds.
 kinds:
   - HUD: {id: 1, cadence: slow, target: none, record: Hud}
-  - CHARACTER: {id: 2, cadence: every, target: player, record: Character, sources: [player inventory version, crafting queue]}
+  # CHARACTER declares no sources (GATE-r1 finding 7): mining and crafting progress, the input generation and the
+  # flags change without the inventory or crafting-queue versions, so it is rebuilt at every extraction.
+  - CHARACTER: {id: 2, cadence: every, target: player, record: Character}
   - INVENTORY: {id: 3, cadence: every, target: entity, params: {p0: InventoryType}, record: Inventory, sources: [inventory version]}
   - ENTITY_PANEL: {id: 4, cadence: every, target: entity, record: EntityPanel}
   - HOVER: {id: 5, cadence: every, target: entity, record: Hover, sources: [inventory version, entity status]}

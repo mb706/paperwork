@@ -1,0 +1,6 @@
+new_lineage=true
+r=5181786730684047353
+removed.len=1
+removed[0].kind=0
+removed[0].name="copper-plate"
+removed[0].count=7

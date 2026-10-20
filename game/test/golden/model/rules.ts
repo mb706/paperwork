@@ -230,9 +230,12 @@ export function applyAction(ctx: Ctx, a: ClosureAction): void {
   const { w } = ctx;
   if (a.system) w.globals.last_system_seq = a.seq;
   else {
-    // A player without state has no last_seq to keep (model decision); preflight treats it as 0.
-    const p = w.player(a.player);
-    if (p) p.last_seq = a.seq;
+    // Every action consumes its seq, refused or not (§15.3 "Identity and seq"), and preflight compares the next
+    // closure's seqs with it, across ticks and saves (D21). So a player index without a record gets one: a
+    // watermark record without a character (PLAYERS `character` 0), offline (GATE-r1 finding 3; rule 12).
+    if (!w.player(a.player))
+      w.players = [...w.players, watermarkPlayer(a.player)].sort((x, y) => x.index - y.index);
+    (w.player(a.player) as Player).last_seq = a.seq;
   }
   const refuse = (r: Refusal, p?: Player): void =>
     emit(ctx, a.seq, a.player, {
@@ -257,7 +260,7 @@ export function applyAction(ctx: Ctx, a: ClosureAction): void {
     return;
   }
   const p = w.player(a.player);
-  if (!p?.online) {
+  if (!p?.online || p.character === 0) {
     refuse(fail(FailReason.player_not_present), p);
     return;
   }
@@ -265,13 +268,20 @@ export function applyAction(ctx: Ctx, a: ClosureAction): void {
     emit(ctx, a.seq, a.player, { type: 'input_fenced' });
     return;
   }
+  // §15.3: "A refusal changes nothing" (GATE-r1 finding 4). The model proves it on every refusal: the saved
+  // state after a refused action equals the state before it, byte for byte (the seq was consumed above).
+  const snapshot = w.sections();
   const before = fingerprint(w, p);
   const r = applyPlayerAction(ctx, p, a.seq, act);
   // With auto-sort on, the main inventory is sorted at every step boundary (model decision; I §3.8).
   sortMain(w, p);
   if (fingerprint(w, p) !== before) p.inventory_version = (p.inventory_version + 1) >>> 0;
-  if (r) refuse(r, p);
-  else p.last_action_tick = ctx.tick;
+  if (r) {
+    const after = w.sections();
+    if (after.some((x, i) => Buffer.compare(x.bytes, (snapshot[i] as { bytes: Uint8Array }).bytes) !== 0))
+      throw new Error(`refused ${act.type} (reason ${r.reason}) at tick ${ctx.tick} changed the state`);
+    refuse(r, p);
+  } else p.last_action_tick = ctx.tick;
 }
 
 function applyPlayerAction(ctx: Ctx, p: Player, seq: number, act: Action): Refusal | null {
@@ -294,19 +304,19 @@ function applyPlayerAction(ctx: Ctx, p: Player, seq: number, act: Action): Refus
     case 'build':
       return build(ctx, p, seq, act);
     case 'clear_cursor':
-      return clearCursor(w, p);
+      return clearCursor(ctx, p, seq);
     case 'cursor_transfer':
       return cursorTransfer(w, p, act.slot, false);
     case 'cursor_split':
       return cursorTransfer(w, p, act.slot, true);
     case 'stack_transfer':
-      return stackTransfer(w, p, act.from, act.to, false);
+      return stackTransfer(ctx, p, seq, act.from, act.to, false);
     case 'stack_split':
-      return stackTransfer(w, p, act.from, act.to, true);
+      return stackTransfer(ctx, p, seq, act.from, act.to, true);
     case 'inventory_transfer':
-      return inventoryTransfer(w, p, act.from, act.to, false);
+      return inventoryTransfer(ctx, p, seq, act.from, act.to, false);
     case 'inventory_split':
-      return inventoryTransfer(w, p, act.from, act.to, true);
+      return inventoryTransfer(ctx, p, seq, act.from, act.to, true);
     case 'fast_entity_transfer':
       return fastTransfer(ctx, p, seq, act.target, false);
     case 'fast_entity_split':
@@ -440,72 +450,87 @@ function mineTick(ctx: Ctx, p: Player): void {
   if (m.progress < UNIT_DONE) m.progress += rate;
   if (m.progress < UNIT_DONE) return;
 
-  const where = target ? entityPos(target) : (m.pos as FinePos);
-  const gains: { key: number; n: number }[] = [];
-  if (target) {
-    const item = (w.protos.entity[target.proto] as { item: number }).item;
-    gains.push({ key: item * 8 + target.quality, n: 1 });
-    const inv = chestInv(w, target);
-    for (const k of keys(w, inv)) gains.push({ key: k, n: count(w, inv, k) });
-  } else if (tile) {
-    const res = w.protos.resource[tile.res.resource] as { yield_id: number };
-    gains.push({ key: res.yield_id * 8, n: 1 });
-  }
-  // 2.0.67: mining whose result does not fit is refused, and nothing drops (I §3.7).
-  if (!fitsAll(w, p, gains)) {
-    emit(ctx, 0, p.index, {
-      type: 'action_failed',
-      reason: FailReason.inventory_full,
-      pos: where,
-      serial: 0,
-    });
-    stopMining(p);
-    return;
-  }
   const main = mainInv(w, p);
-  const merged = new Map<number, number>();
-  for (const g of gains) {
-    insert(w, main, g.key, g.n);
-    merged.set(g.key, (merged.get(g.key) ?? 0) + g.n);
-  }
-  sortMain(w, p);
-  const flying = (): void => {
-    for (const k of [...merged.keys()].sort((a, b) => a - b))
+  const flying = (moved: Map<number, number>): void => {
+    for (const k of [...moved.keys()].sort((a, b) => a - b))
       emit(ctx, 0, p.index, {
         type: 'flying_text',
         text: FlyingText.item_delta,
         item: k,
-        count: merged.get(k) as number,
+        count: moved.get(k) as number,
         total: count(w, mainInv(w, p), k),
         pos: finePos(p.x, p.y),
       });
   };
+  // A unit that cannot deliver its result restarts, and mining goes on while the input is held (rule 23;
+  // Factorio 2.0.67: "Changed manual mining when the inventory is full to not drop the mined result on the ground";
+  // 2.0.77, tested: nothing is removed, "Cannot insert Iron ore. Inventory is full.", the bar restarts).
+  const restart = (): void => {
+    m.progress = m.progress - 1 < 0 ? 0 : m.progress - 1;
+  };
   if (target) {
-    const c = w.chunkAt(target.x2 >> 1, target.y2 >> 1);
-    if (c) {
-      c.rec.rule_version = (c.rec.rule_version + 1) >>> 0;
-      c.view.entities++;
+    // An entity's contents move first, its first slots first, as far as they fit; the entity goes, with its
+    // item, only when everything fits (rule 23; Factorio 0.10.9: "the player gets as many items from the chest
+    // as possible"; 2.0.77, tested).
+    const inv = chestInv(w, target);
+    const moved = new Map<number, number>();
+    let short: { key: number; n: number } | null = null;
+    for (let i = 0; i < inv.size; i++) {
+      const s = w.heap.slot(inv.ref, i);
+      if (s.count === 0) continue;
+      const key = s.key;
+      const n = insert(w, main, key, s.count);
+      if (n > 0) moved.set(key, (moved.get(key) ?? 0) + n);
+      s.count -= n;
+      if (s.count === 0) clear(s);
+      else if (!short) short = { key, n: s.count };
     }
-    emit(ctx, 0, p.index, {
-      type: 'entity_mined',
-      serial: target.serial,
-      proto: target.proto,
-      pos: { x2: target.x2, y2: target.y2 },
-    });
-    w.freeEntity(target);
-    flying();
-    stopMining(p);
+    const itemKey = (w.protos.entity[target.proto] as { item: number }).item * 8 + target.quality;
+    if (!short && room(w, main, itemKey, 1) === 1) {
+      insert(w, main, itemKey, 1);
+      moved.set(itemKey, (moved.get(itemKey) ?? 0) + 1);
+      sortMain(w, p);
+      const c = w.chunkAt(target.x2 >> 1, target.y2 >> 1);
+      if (c) {
+        c.rec.rule_version = (c.rec.rule_version + 1) >>> 0;
+        c.view.entities++;
+      }
+      emit(ctx, 0, p.index, {
+        type: 'entity_mined',
+        serial: target.serial,
+        proto: target.proto,
+        pos: { x2: target.x2, y2: target.y2 },
+      });
+      w.freeEntity(target);
+      flying(moved);
+      stopMining(p);
+      return;
+    }
+    sortMain(w, p);
+    flying(moved);
+    const missing = short ?? { key: itemKey, n: 1 };
+    notFitting(ctx, p, 0, missing.key, missing.n);
+    restart();
     return;
   }
   if (tile) {
+    const res = w.protos.resource[tile.res.resource] as { yield_id: number };
+    const key = res.yield_id * 8;
+    if (room(w, main, key, 1) < 1) {
+      notFitting(ctx, p, 0, key, 1);
+      restart();
+      return;
+    }
     const c = w.chunkAt(tile.tx, tile.ty);
     if (!c) throw new Error('a resource outside every chunk');
+    insert(w, main, key, 1);
+    sortMain(w, p);
     const before = resourceBand(tile.res.amount);
     tile.res.amount -= 1;
     // Mined ore is production (I §4.12: hand-mined items count, §15.5 STATS "hand-mined").
-    for (const [k, n] of merged) add(ctx.counters.produced, itemStat(k), n);
+    add(ctx.counters.produced, itemStat(key), 1);
     c.rec.rule_version = (c.rec.rule_version + 1) >>> 0;
-    flying();
+    flying(new Map([[key, 1]]));
     if (tile.res.amount === 0) {
       c.rec.resources = c.rec.resources.filter((r) => r !== tile.res);
       c.view.resources++;
@@ -636,9 +661,12 @@ function build(ctx: Ctx, p: Player, seq: number, a: Extract<Action, { type: 'bui
 
 /**
  * Q (I §3.2): a ghost cursor clears; a stack goes back to its origin slot first (merging), the rest into the
- * main inventory. Model decision: what does not fit stays in the hand, with "Inventory full".
+ * main inventory. A stack picked up from the player's inventory always fits: its origin slot is reserved (rule 17).
+ * One from a chest puts away what fits and keeps the rest in the hand, with "Cannot put away the Iron plate.
+ * Player inventory is full." (rule 19; Factorio 2.0.77, tested; changelog 0.17.2). It is never a refusal.
  */
-function clearCursor(w: World, p: Player): Refusal | null {
+function clearCursor(ctx: Ctx, p: Player, seq: number): Refusal | null {
+  const { w } = ctx;
   if (p.hand.ghost) {
     p.hand = emptyHand();
     return null;
@@ -660,7 +688,16 @@ function clearCursor(w: World, p: Player): Refusal | null {
   left -= insert(w, mainInv(w, p), key, left);
   p.hand = left > 0 ? { key, ghost: false, origin: NONE16, count: left } : emptyHand();
   sortMain(w, p);
-  return left > 0 ? fail(FailReason.inventory_full) : null;
+  if (left > 0)
+    emit(ctx, seq, p.index, {
+      type: 'flying_text',
+      text: FlyingText.cannot_put_away,
+      item: key,
+      count: left,
+      total: -1,
+      pos: finePos(p.x, p.y),
+    });
+  return null;
 }
 
 /** LMB (`split` false) and RMB (`split` true) on a slot (I §3.8's table). */
@@ -680,8 +717,9 @@ function cursorTransfer(w: World, p: Player, at: InvSlot, split: boolean): Refus
     if (isMain) sortMain(w, p);
     return null;
   }
-  // The hand holds a stack of X.
-  if (index >= inv.bar) return fail(FailReason.cannot_insert, r.owner ? entityPos(r.owner) : undefined);
+  // The hand holds a stack of X. A click puts items into any slot, past the limit bar too: the bar limits
+  // machines and bulk transfers, not the player's hand (rule 16; Factorio 2.0.77, wiki "Stack": "the player is
+  // still free to manually place items in the unused (red) slots").
   const x = p.hand.key;
   const stack = stackSize(w, x);
   if (split) {
@@ -712,7 +750,15 @@ function cursorTransfer(w: World, p: Player, at: InvSlot, split: boolean): Refus
 }
 
 /** Shift+LMB / Shift+RMB: a stack, or half of it rounded up, to the other inventory. */
-function stackTransfer(w: World, p: Player, from: InvSlot, to: EntityRef, split: boolean): Refusal | null {
+function stackTransfer(
+  ctx: Ctx,
+  p: Player,
+  seq: number,
+  from: InvSlot,
+  to: EntityRef,
+  split: boolean,
+): Refusal | null {
+  const { w } = ctx;
   const src = resolveSlot(w, p, from);
   if (isRefusal(src)) return src;
   const dst = resolveOther(w, p, to);
@@ -721,22 +767,41 @@ function stackTransfer(w: World, p: Player, from: InvSlot, to: EntityRef, split:
   const s = w.heap.slot(src.inv.ref, src.index);
   if (s.count === 0) return fail(FailReason.nothing_to_transfer);
   const n = split ? Math.ceil(s.count / 2) : s.count;
-  const moved = insert(w, dst.inv, s.key, n);
-  if (moved === 0) return fail(FailReason.inventory_full, dst.owner ? entityPos(dst.owner) : undefined);
+  const key = s.key;
+  const moved = insert(w, dst.inv, key, n);
   s.count -= moved;
   if (s.count === 0) clear(s);
   sortMain(w, p);
+  // What fits moves (rule 19). Into a chest, Factorio says nothing; into the player's inventory, "Cannot insert …".
+  if (moved < n && dst.owner === null) notFitting(ctx, p, seq, key, n - moved);
   return null;
+}
+
+/**
+ * Factorio's "Cannot insert Iron plate. Inventory is full." (2.0.77): what did not fit the player's inventory,
+ * as a flying text (FlyingText.inventory_full), never a refusal: the action or step did what it could.
+ */
+function notFitting(ctx: Ctx, p: Player, seq: number, key: number, n: number): void {
+  emit(ctx, seq, p.index, {
+    type: 'flying_text',
+    text: FlyingText.inventory_full,
+    item: key,
+    count: n,
+    total: -1,
+    pos: finePos(p.x, p.y),
+  });
 }
 
 /** Ctrl+LMB / Ctrl+RMB: every stack of the slot's item, or of everything on an empty slot; or half, rounded up. */
 function inventoryTransfer(
-  w: World,
+  ctx: Ctx,
   p: Player,
+  seq: number,
   from: InvSlot,
   to: EntityRef,
   split: boolean,
 ): Refusal | null {
+  const { w } = ctx;
   const src = resolveSlot(w, p, from);
   if (isRefusal(src)) return src;
   const dst = resolveOther(w, p, to);
@@ -745,15 +810,18 @@ function inventoryTransfer(
   const s = w.heap.slot(src.inv.ref, src.index);
   const which = s.count > 0 ? [s.key] : keys(w, src.inv);
   if (which.length === 0) return fail(FailReason.nothing_to_transfer);
-  let moved = 0;
+  let short: { key: number; n: number } | null = null;
   for (const k of which) {
     const total = count(w, src.inv, k);
-    const n = insert(w, dst.inv, k, split ? Math.ceil(total / 2) : total);
+    const want = split ? Math.ceil(total / 2) : total;
+    const n = insert(w, dst.inv, k, want);
     remove(w, src.inv, k, n);
-    moved += n;
+    if (n < want && !short) short = { key: k, n: want - n };
   }
   sortMain(w, p);
-  return moved === 0 ? fail(FailReason.inventory_full, dst.owner ? entityPos(dst.owner) : undefined) : null;
+  // What fits moves (rule 19); a message only for the player's inventory, naming the first item that did not fit.
+  if (short && dst.owner === null) notFitting(ctx, p, seq, short.key, short.n);
+  return null;
 }
 
 /** Ctrl+click on an entity in the world (I §3.8 "Fast transfer"), with its flying text per item. */
@@ -773,9 +841,11 @@ function fastTransfer(ctx: Ctx, p: Player, seq: number, target: EntityRef, split
       pos: entityPos(e),
     });
   if (p.hand.count > 0) {
+    // Into the chest, below its bar: what fits; nothing at all happens, without a text, when nothing fits
+    // (Factorio 2.0.77; rule 19).
     const key = p.hand.key;
     const moved = insert(w, chest, key, split ? Math.ceil(p.hand.count / 2) : p.hand.count);
-    if (moved === 0) return fail(FailReason.inventory_full, entityPos(e));
+    if (moved === 0) return null;
     p.hand.count -= moved;
     if (p.hand.count === 0) p.hand = emptyHand();
     text(key, -moved);
@@ -785,15 +855,19 @@ function fastTransfer(ctx: Ctx, p: Player, seq: number, target: EntityRef, split
   if (which.length === 0) return fail(FailReason.nothing_to_transfer, entityPos(e));
   const main = mainInv(w, p);
   const moved: [number, number][] = [];
+  let short: { key: number; n: number } | null = null;
   for (const k of which) {
     const total = count(w, chest, k);
-    const n = insert(w, main, k, split ? Math.ceil(total / 2) : total);
+    const want = split ? Math.ceil(total / 2) : total;
+    const n = insert(w, main, k, want);
     remove(w, chest, k, n);
     if (n > 0) moved.push([k, n]);
+    if (n < want && !short) short = { key: k, n: want - n };
   }
   sortMain(w, p);
-  if (moved.length === 0) return fail(FailReason.inventory_full, entityPos(e));
   for (const [k, n] of moved) text(k, n);
+  // Into the player's inventory: what fits, and "Cannot insert …" for the first item that did not (rule 19).
+  if (short) notFitting(ctx, p, seq, short.key, short.n);
   return null;
 }
 
@@ -869,11 +943,17 @@ function craftTick(ctx: Ctx, p: Player): void {
   const speed = (w.protos.entity[w.protos.character] as { crafting_speed: number }).crafting_speed;
   // Bit-exact: speed / (energy_required × 60), in this order (no bonuses in M0).
   const rate = speed / (r.energy_required * 60);
+  const waited = e.progress >= UNIT_DONE; // completed in an earlier tick: paused since
   if (e.progress < UNIT_DONE) e.progress += rate;
   if (e.progress < UNIT_DONE) return;
   const products = r.products.map((x) => ({ key: x.id * 8, n: x.amount }));
-  // Crafting pauses while the product cannot fit (I §3.9, 0.15); model decision: silently.
-  if (!fitsAll(w, p, products)) return;
+  // Crafting pauses while the product cannot fit (I §3.9; changelog 0.15.0, still in 2.0.77) and says so once,
+  // in the tick the unit completes: "Cannot insert Iron chest. Inventory is full." (rule 25).
+  if (!fitsAll(w, p, products)) {
+    if (!waited)
+      notFitting(ctx, p, 0, (products[0] as { key: number }).key, (products[0] as { n: number }).n);
+    return;
+  }
   const before = fingerprint(w, p);
   const main = mainInv(w, p);
   for (const x of products) insert(w, main, x.key, x.n);
@@ -972,11 +1052,22 @@ function applySystem(ctx: Ctx, act: Action): void {
   switch (act.type) {
     case 'player_joined': {
       const p = w.player(act.player);
-      if (p) {
+      if (p && p.character !== 0) {
         // A returning player gets the same character back (11 §4.5); joining while online changes nothing.
         if (p.online) return;
         p.online = true;
-      } else w.players = [...w.players, newPlayer(w, act.player)].sort((a, b) => a.index - b.index);
+      } else {
+        // A new character (§15.3: "creates or re-activates the player's state and character"). A watermark
+        // record (rule 12) keeps its seq watermark and input generation.
+        const fresh = newPlayer(w, act.player);
+        if (p) {
+          fresh.last_seq = p.last_seq;
+          fresh.input_gen = p.input_gen;
+        }
+        w.players = [...w.players.filter((q) => q.index !== act.player), fresh].sort(
+          (a, b) => a.index - b.index,
+        );
+      }
       emit(ctx, 0, act.player, { type: 'player_joined' });
       return;
     }
@@ -1026,6 +1117,36 @@ function applySystem(ctx: Ctx, act: Action): void {
     default:
       throw new Error(`no rule for system action ${act.type}`);
   }
+}
+
+/**
+ * A player record without a character (rule 12; GATE-r1 finding 3): what the World keeps for a player index
+ * that has sent an action before joining, so that its seqs stay consumed. Offline, every field at its default.
+ */
+function watermarkPlayer(index: number): Player {
+  return {
+    index,
+    online: false,
+    character: 0,
+    input_gen: 0,
+    last_seq: 0,
+    creation_ring: [],
+    inventory_version: 0,
+    main: 0xffffffff, // InvRef none: no inventory without a character
+    hand: emptyHand(),
+    surface: SURFACE,
+    x: 0,
+    y: 0,
+    walking: false,
+    walking_dir: 0,
+    mining: { mode: MiningMode.none, serial: 0, pos: { x: 0, y: 0 }, progress: 0 },
+    picking: false,
+    crafting_queue: [],
+    auto_sort: true,
+    pick_ghost_cursor: false,
+    hand_crafted: 0,
+    last_action_tick: 0,
+  };
 }
 
 /**

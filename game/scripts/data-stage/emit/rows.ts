@@ -335,6 +335,11 @@ export function protosInput(m: Model, schemaHash: Uint8Array): ProtosRows {
     }),
   );
 
+  const sounds = m.overlay.sounds;
+  const soundId = (entity: string): number => {
+    const name = sounds.working.get(entity);
+    return name === undefined ? NONE_U16 : sounds.names.indexOf(name);
+  };
   const entityRows = table('entity', ENTITY_COLUMNS, m.entities, (r): EntityRow => {
     const e = r.data;
     const g = r.engine;
@@ -375,8 +380,8 @@ export function protosInput(m: Model, schemaHash: Uint8Array): ProtosRows {
         pl === undefined ? Placement.none : 'must_be_on' in pl ? Placement.must_be_on : Placement.must_touch,
       placement_resource: pl && 'must_be_on' in pl ? idOr('resource', pl.must_be_on) : NONE_U16,
       placement_tiles: touch.map((t) => idOr('tile', t, NONE_U8)),
-      // Sound ids come from game/data/engine/sounds.yaml (10 §15.6), which the audio package adds.
-      working_sound: NONE_U16,
+      // Sound ids come from game/data/engine/sounds.yaml (10 §15.6; C1b decision 14): dense, sorted by name.
+      working_sound: soundId(e.id),
       running_speed: 0,
       reach_distance: 0,
       build_distance: 0,

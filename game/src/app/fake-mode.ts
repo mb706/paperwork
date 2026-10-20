@@ -19,12 +19,14 @@ interface FakeStatus {
   sections: string[];
   /** The projection kinds with an `ok` record so far (projections.yaml names). */
   projections: string[];
+  /** The `saved` replies so far (save ids, bytes, SHA-256). */
+  saves: { id: number; bytes: number; sha256: string }[];
   errors: string[];
 }
 
 declare global {
   interface Window {
-    __fake?: { step(n: number): void; act(a: Action): void; status(): FakeStatus };
+    __fake?: { step(n: number): void; act(a: Action): void; save(): void; status(): FakeStatus };
   }
 }
 
@@ -87,7 +89,15 @@ export async function runFake(show: Show): Promise<void> {
     name: 'sim',
   });
   const send = (m: MainToSim, transfer: Transferable[] = []) => worker.postMessage(m, { transfer });
-  const status: FakeStatus = { tick: 0, packets: 0, bytes: 0, sections: [], projections: [], errors: [] };
+  const status: FakeStatus = {
+    tick: 0,
+    packets: 0,
+    bytes: 0,
+    sections: [],
+    projections: [],
+    saves: [],
+    errors: [],
+  };
   const seen = new Set<string>();
   const kinds = new Set<string>();
   let targeted = false;
@@ -137,6 +147,11 @@ export async function runFake(show: Show): Promise<void> {
         'sim-status',
         `fake sim · tick ${status.tick} · ${status.packets} packets · ${status.sections.join(' ')}`,
       );
+    } else if (m.t === 'saved') {
+      status.saves.push({ id: m.id, bytes: m.bytes, sha256: m.sha256 });
+    } else if (m.t === 'trap') {
+      status.errors.push(m.message);
+      console.error(m.message);
     } else if (m.t === 'log') {
       (m.level === 'error' ? console.error : m.level === 'warn' ? console.warn : console.info)(m.msg);
     }
@@ -158,7 +173,13 @@ export async function runFake(show: Show): Promise<void> {
     send({ t: 'sub', gen: GEN, subs: [sub(6, 3, chest, 2), sub(7, 4, assembler)] });
     return true;
   };
-  window.__fake = { step: (n) => send({ t: 'seq', op: { step: n } }), act, status: () => status };
+  let saveId = 0;
+  window.__fake = {
+    step: (n) => send({ t: 'seq', op: { step: n } }),
+    act,
+    save: () => send({ t: 'save', id: ++saveId, reason: 'manual' }),
+    status: () => status,
+  };
   // `?fakeDay=N` shortens the fake's day to N ticks (Factorio's is 25,000), to see the night and the lamps.
   const day = Number(new URLSearchParams(location.search).get('fakeDay') ?? 0);
   const build = day > 0 ? { ...manifest, fake: { dayTicks: day } } : manifest;

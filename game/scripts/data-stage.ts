@@ -10,6 +10,8 @@
 //   node scripts/data-stage.ts --hashes   print the SHA-256 of every output as JSON; writes nothing
 //   node scripts/data-stage.ts --manifest m2 [--allow-incomplete]
 //                                         build a milestone filter into .cache/data/m2/
+//   --engine-file <name>=<path>           read an engine overlay file from elsewhere when game/data/engine lacks
+//                                         it (fixture builds: the fake sim's sounds.yaml, 10 §15.10)
 //   --quiet                               print only problems
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -85,6 +87,14 @@ async function main(): Promise<number> {
     schemaHash: SCHEMA_HASH,
     protocolVersion: PROTOCOL_VERSION,
     ...(manifest ? { manifest } : {}),
+    engineFiles: Object.fromEntries(
+      process.argv
+        .flatMap((a, i) => (a === '--engine-file' ? [process.argv[i + 1] ?? ''] : []))
+        .map((x) => {
+          const [name, path] = x.split('=');
+          return [name ?? '', join(GAME, path ?? '')];
+        }),
+    ),
     ...(check ? { extraBuilds: ['m1', 'm2', 'm3', 'm4', 'm5'] } : {}),
   };
   const elsewhere = check && !manifest ? hashesElsewhere() : null;

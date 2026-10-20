@@ -20,9 +20,9 @@
   12  player 0  seq  10  applied                               pick up the ore
   13  player 0  seq  11  applied                               the hand into chest A (its one unlocked slot)
   14  player 0  seq  12  applied                               pick up the plates
-  15  player 0  seq  13  refused: inventory_full               chest A has no room for plates: inventory_full
+  15  player 0  seq  13  applied                               chest A has no room below its bar: nothing moves, without a text or refusal (rule 19)
   16  player 0  seq  14  applied                               half the hand into chest C
-  17  player 0  seq  15  refused: cannot_insert                slot 5 is past the bar: cannot_insert
+  17  player 0  seq  15  applied                               RMB on slot 5, past the bar: a click ignores the limit, one plate goes in (rule 16)
   18  player 0  seq  16  applied                               Q: the rest goes back to its origin slot
   19  player 0  seq  17  applied                               half a stack into chest C
   20  player 0  seq  18  applied                               a chest's stack into the main inventory

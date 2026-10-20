@@ -1,5 +1,5 @@
 header.magic=1263556432
-header.version=1
+header.version=2
 header.flags=1
 header.state_gen=0
 header.tick=0

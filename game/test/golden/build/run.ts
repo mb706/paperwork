@@ -14,8 +14,11 @@ import { blobBytes, type Ids, script, sha256Hex, TICKS } from './scenario.ts';
 import { type Stamped, stamp } from './stamp.ts';
 import { type StartSave, startSave } from './start.ts';
 
-/** Ticks whose canonical state the golden set holds (§15.10: 1, 2, 300 and 600; and the start, 0). */
-export const STATE_TICKS = [0, 1, 2, 300, 600] as const;
+/**
+ * Ticks whose canonical state the golden set holds (§15.10: 1, 2, 300 and 600; the start, 0; and the end of the
+ * shard cycle, 3,600).
+ */
+export const STATE_TICKS = [0, 1, 2, 300, 600, 3600] as const;
 /** Ticks after which the golden packets are extracted (§15.10: 0, 1 and 600). */
 export const PACKET_TICKS = [0, 1, 600] as const;
 
@@ -78,6 +81,12 @@ export interface RunResult {
   start: StartSave;
   stamped: Stamped;
   digests: bigint[];
+  /** Per tick 1 … TICKS: d_t, slice_t and r_t (§4.8). */
+  rolls: { d: bigint; slice: bigint; r: bigint }[];
+  /** tick → the exact bytes d_t hashed (§4.8's sequence). */
+  preimages: Map<number, Uint8Array>;
+  /** tick → the lineage r a save at that tick carries. */
+  lineages: Map<number, bigint>;
   /** tick → the hashed sections as sim_save writes them. */
   states: Map<number, { id: number; bytes: Uint8Array }[]>;
   stateHashes: Map<number, { hash: bigint; sections: { id: number; hash: bigint }[] }>;
@@ -101,8 +110,9 @@ export function ids(model: Protos): Ids {
 
 /** A deep copy of a Sim's World at this tick (through a save and load, which the golden set requires to be exact). */
 function snapshot(model: Protos, sim: Sim): Sim {
-  const copy = new Sim(World.load(model, sim.w.frames()));
+  const copy = new Sim(World.load(model, sim.w.frames()), sim.r);
   copy.lastDigest = sim.lastDigest;
+  copy.lastSlice = sim.lastSlice;
   return copy;
 }
 
@@ -112,15 +122,17 @@ export function run(): RunResult {
   const start = startSave(model, protos.bin);
   // The run starts from the start save's bytes, so loading is part of what the golden set pins.
   const loaded = World.load(model, readSaveContainer(start.bytes).frames);
-  const sim = new Sim(loaded);
+  const sim = new Sim(loaded, start.lineage);
   const stamped = stamp(loaded, script(ids(model)), sha256Hex);
   const states = new Map<number, { id: number; bytes: Uint8Array }[]>();
   const stateHashes = new Map<number, { hash: bigint; sections: { id: number; hash: bigint }[] }>();
   const sims = new Map<number, Sim>();
+  const lineages = new Map<number, bigint>();
   const keep = (t: number) => {
     states.set(t, sim.w.sections());
     stateHashes.set(t, sim.w.stateHash());
     sims.set(t, snapshot(model, sim));
+    lineages.set(t, sim.r);
   };
   keep(0);
 
@@ -131,7 +143,10 @@ export function run(): RunResult {
   if (!x.subscribe(goldenSubs())) throw new Error('the golden subscriptions were refused');
   packets.push({ name: 'tick-0000', tick: 0, bytes: x.extract(sim) });
 
+  const shapes = new Set<string>();
   const digests: bigint[] = [];
+  const rolls: RunResult['rolls'] = [];
+  const preimages = new Map<number, Uint8Array>();
   const events: RunResult['events'] = [];
   for (let t = 1; t <= TICKS; t++) {
     const closure = stamped.closures.get(t) ?? new Uint8Array();
@@ -142,6 +157,13 @@ export function run(): RunResult {
     for (const e of sim.pres.events.queue.slice(before))
       events.push({ tick: t, payload: e.payload, player: e.meta.player, seq: e.meta.seq });
     digests.push(sim.lastDigest);
+    rolls.push({ d: sim.lastDigest, slice: sim.lastSlice, r: sim.r });
+    // The preimage at the state ticks and wherever the digest's lists change shape (README "digests").
+    const shape = previewShape(sim.lastDigestRecord);
+    if ((STATE_TICKS as readonly number[]).includes(t) || !shapes.has(shape)) {
+      shapes.add(shape);
+      preimages.set(t, sim.lastDigestRecord);
+    }
     if ((STATE_TICKS as readonly number[]).includes(t)) keep(t);
     if ((PACKET_TICKS as readonly number[]).includes(t))
       packets.push({ name: `tick-${String(t).padStart(4, '0')}`, tick: t, bytes: x.extract(sim) });
@@ -164,5 +186,28 @@ export function run(): RunResult {
     for (const s of d.sections) if (s.name === 'EVENTS') readEvents(s.bytes, s.count);
   }
   void blobBytes;
-  return { protos, model, start, stamped, digests, states, stateHashes, packets, sims, outcomes, events };
+  return {
+    protos,
+    model,
+    start,
+    stamped,
+    digests,
+    rolls,
+    preimages,
+    lineages,
+    states,
+    stateHashes,
+    packets,
+    sims,
+    outcomes,
+    events,
+  };
+}
+
+/** A digest preimage's shape: its length and its two counter-list lengths (TickDigestBody at offset 12). */
+function previewShape(rec: Uint8Array): string {
+  const v = new DataView(rec.buffer, rec.byteOffset, rec.byteLength);
+  const produced = v.getUint32(16, true);
+  const consumed = v.getUint32(20 + 12 * produced, true);
+  return `${rec.length}:${produced}:${consumed}`;
 }

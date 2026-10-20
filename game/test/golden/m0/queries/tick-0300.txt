@@ -1,4 +1,4 @@
-# Query results at tick 300 (digest: r is masked).
+# Query results at tick 300.
 ## inspect 2
 serial=2
 found=true
@@ -412,14 +412,14 @@ serial=1
 found=false
 fields.len=0
 ## hash
-hash=6349540732227545949
+hash=9403432683562697385
 sections.len=11
 sections[0].section=1
 sections[0].hash=5073887622207372588
 sections[1].section=2
 sections[1].hash=5584185820921060335
 sections[2].section=3
-sections[2].hash=14038491609281314699
+sections[2].hash=12926553555219381055
 sections[3].section=5
 sections[3].hash=17323279227859112499
 sections[4].section=9
@@ -427,7 +427,7 @@ sections[4].hash=4246796580750024372
 sections[5].section=10
 sections[5].hash=4246796580750024372
 sections[6].section=11
-sections[6].hash=5370866752207861067
+sections[6].hash=7020687264052570831
 sections[7].section=13
 sections[7].hash=5344556795043944198
 sections[8].section=16
@@ -438,6 +438,6 @@ sections[10].section=32
 sections[10].hash=17647466670337577979
 ## digest
 tick=300
-d=9870204309206475032
-r=0
+d=3396727469614416123
+r=11774296801115160251
 ## rates (outside M0's manifest): ok=false reason=1

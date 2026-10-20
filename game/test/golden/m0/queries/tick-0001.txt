@@ -1,4 +1,4 @@
-# Query results at tick 1 (digest: r is masked).
+# Query results at tick 1.
 ## inspect 2
 serial=2
 found=true
@@ -166,6 +166,6 @@ sections[10].section=32
 sections[10].hash=9381121816540747682
 ## digest
 tick=1
-d=253316071232602695
-r=0
+d=8246628798501140377
+r=6803587538602395982
 ## rates (outside M0's manifest): ok=false reason=1

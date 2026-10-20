@@ -5,6 +5,7 @@
 versions:
   "abi":
     "1": "b9c56c94d8434208"
+    "2": "68f6b14a86eff9f1"
   "action":
     "1": "8cb9d86145f5b7ff"
   "closure_log":
@@ -15,6 +16,7 @@ versions:
     "1": "62d5db2904af0b4c"
   "packet":
     "1": "3630cc87df614ec8"
+    "2": "ce9aa7176caa0203"
   "protocol":
     "1": "-"
   "protos":
@@ -249,6 +251,8 @@ ids:
     "1": "item_delta"
     "2": "rolled_back"
     "3": "swapped"
+    "4": "inventory_full"
+    "5": "cannot_put_away"
   "enum:FuelCategory":
     "0": "chemical"
     "1": "nuclear"

@@ -1,5 +1,7 @@
 // Drives the fake sim (src/simworker/fake.ts) in-process through the §3.2 protocol, with a manual clock, for
 // tests and for the debug snapshot.
+
+import { join } from 'node:path';
 import { formatDiagnostic } from '../../scripts/data-stage/diagnostics.ts';
 import { runDataStage } from '../../scripts/data-stage/index.ts';
 import { NewWorldCodec } from '../../src/shared/gen/abi.ts';
@@ -13,7 +15,7 @@ import { GAME, SPEC } from '../helpers/paths.ts';
 let cached: PrototypesJson | null = null;
 let cachedBin: Uint8Array | null = null;
 
-/** The fake's prototype build: the data stage's M1 filter, as the dev server serves it at /data/fake/. */
+/** The fake's prototype build: the data stage's M1 filter and the sound fixture, as /data/fake/ serves it. */
 export function fakeProtos(): PrototypesJson {
   if (cached) return cached;
   const r = runDataStage({
@@ -23,6 +25,8 @@ export function fakeProtos(): PrototypesJson {
     allowIncomplete: true,
     schemaHash: SCHEMA_HASH,
     protocolVersion: PROTOCOL_VERSION,
+    // As the dev server builds it (scripts/fake-data-plugin.ts): with a complete sound table.
+    engineFiles: { 'sounds.yaml': join(GAME, 'test', 'fixtures', 'fake', 'sounds.yaml') },
   });
   if (r.diagnostics.errors.length > 0) throw new Error(r.diagnostics.errors.map(formatDiagnostic).join('\n'));
   const bytes = r.outputs.get('public/data/prototypes.json');

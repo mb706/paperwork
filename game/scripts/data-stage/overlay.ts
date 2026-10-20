@@ -41,6 +41,22 @@ const setsFile = z.strictObject({
   town_buildings: z.array(id),
 });
 
+/**
+ * game/data/engine/sounds.yaml (10 §15.6; C1b decision 14): the audio package owns the file and its format. The
+ * data stage reads only the sound names (ids are dense, sorted by name) and the entity → working-sound table;
+ * the rest (events, music, mixing) is the audio module's and passes through unread.
+ */
+const soundsFile = z.looseObject({
+  sounds: z.record(id, z.unknown()),
+  working_sounds: z.record(id, id).optional(),
+});
+
+/** The sound tables a build carries: names by id, and each entity's working sound by name. */
+export interface SoundTables {
+  names: string[];
+  working: Map<string, string>;
+}
+
 const groupsFile = z.strictObject({
   groups: z.array(z.strictObject({ id, order: z.string() })),
   subgroups: z.array(z.strictObject({ id, group: id, order: z.string() })),
@@ -117,6 +133,8 @@ export interface Overlay {
   mirrors: z.infer<typeof mirrorsFile>;
   prototypes: z.infer<typeof prototypesFile>;
   sets: z.infer<typeof setsFile>;
+  /** Empty tables when sounds.yaml does not exist yet. */
+  sounds: SoundTables;
   sources: OverlaySources;
 }
 
@@ -126,6 +144,8 @@ export interface OverlaySources {
   mirrors: SourceFile;
   prototypes: SourceFile;
   sets: SourceFile;
+  /** Optional: absent until the audio package adds it. */
+  sounds: SourceFile | null;
 }
 
 function parseWith<T>(schema: z.ZodType<T>, src: SourceFile, diags: Diagnostics): T | null {
@@ -141,7 +161,17 @@ export function loadOverlay(sources: OverlaySources, diags: Diagnostics): Overla
   const m = parseWith(mirrorsFile, sources.mirrors, diags);
   const p = parseWith(prototypesFile, sources.prototypes, diags);
   const sets = parseWith(setsFile, sources.sets, diags);
-  if (!g || !d || !m || !p || !sets) return null;
+  const snd = sources.sounds ? parseWith(soundsFile, sources.sounds, diags) : { sounds: {} };
+  if (!g || !d || !m || !p || !sets || !snd) return null;
+  // Sound ids are dense and sorted by name, in code-unit order (C1b decision 14; the audio module agrees).
+  const names = Object.keys(snd.sounds).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const working = new Map(Object.entries(snd.working_sounds ?? {}));
+  for (const [entity, sound] of working)
+    if (!(sound in snd.sounds) && sources.sounds)
+      diags.error(
+        `working sound ${sound} of ${entity} is not a declared sound`,
+        at(sources.sounds, ['working_sounds', entity]),
+      );
   const groups = new Map(g.groups.map((x, index) => [x.id, { order: x.order, index }]));
   const subgroups = new Map(g.subgroups.map((x, index) => [x.id, { group: x.group, order: x.order, index }]));
   g.subgroups.forEach((s, i) => {
@@ -165,7 +195,16 @@ export function loadOverlay(sources: OverlaySources, diags: Diagnostics): Overla
     for (const [pid, e] of Object.entries(entries))
       if (e.subgroup) checkSub(e.subgroup, [kind, pid, 'subgroup'], sources.prototypes);
   }
-  return { groups, subgroups, defaults: d, mirrors: m, prototypes: p, sets, sources };
+  return {
+    groups,
+    subgroups,
+    defaults: d,
+    mirrors: m,
+    prototypes: p,
+    sets,
+    sounds: { names, working },
+    sources,
+  };
 }
 
 /** J23: the defaults id is the leading [a-z0-9-]+ token of `mirrors`; `new` means none. */

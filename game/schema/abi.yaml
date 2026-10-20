@@ -20,7 +20,7 @@
 # must fill the input exactly (the length is the input's length − 4), and unknown field ids are refused
 # (ERR_INPUT): the shell and the module are one build.
 
-abi_version: 1        # sim_abi_version(): raise on any change to the sim export table or its records
+abi_version: 2        # sim_abi_version(): raise on any change to the sim export table or its records
 gen_abi_version: 1    # gen_abi_version()
 protocol_version: 1   # PROTOCOL_VERSION of the worker and wire protocols (§3.2, 11 §3.2): raise on any change
 
@@ -135,6 +135,21 @@ structs:
       fields:
         - key: StatKey
         - value: f64
+  - TickDigestHead:
+      doc: >-
+        d_t (§4.8) is XXH64 (seed 0) of exactly §4.8's byte sequence, which these records spell out: TickDigestHead,
+        then RngWords for every stream the world holds (the RNG section's records, none in M0) in RngStream order,
+        then TickDigestBody, then PlayerDigest for every online player in index order, then TickDigestTail. The
+        stream and player lists carry no count (GATE-r1 finding 2): §4.8 states counts only for the counters.
+        The preimage is never stored or decoded
+      fields:
+        - tick: Tick
+        - closure_hash: {type: u64, doc: "XXH64 of the closure's bytes as applied; an empty closure hashes zero bytes"}
+  - TickDigestTail:
+      doc: "The end of d_t's preimage (§4.8): the current research, then the GLOBALS fields state.yaml marks `digest: tick` in declaration order (none in M0)"
+      fields:
+        - research_tech: {type: TechId, doc: "the current research, 0xFFFF none"}
+        - research_progress: f64
   - PlayerDigest:
       doc: "An online player in the per-tick digest: index, the character's position and the inventory version"
       fields:
@@ -169,11 +184,21 @@ messages:
         - remaps: "RemapTable[kind_count]"
         - r: u64
   - RemapTable:
-      doc: "Old id → new id for one ProtoKind (§8.3); 0xFFFF = removed"
+      doc: >-
+        Old id → new id for one ProtoKind (§8.3); 0xFFFF = removed. GATE-r1 finding 11: the load report names what
+        was removed (§15.8), and only the shell has the save's name tables, so the table carries the save's name of
+        every removed id, in ascending old id
       fields:
         - kind: {type: u16, range: [0, 8], doc: "a ProtoKind"}
         - count: u32
         - ids: "u16[count]"
+        - removed_count: u16
+        - removed: {type: "RemovedName[removed_count]", doc: "the save's names of the ids mapped to 0xFFFF, ascending by old id"}
+  - RemovedName:
+      doc: "A removed prototype's name in the save (UTF-8, at most 255 bytes; the load report copies it)"
+      fields:
+        - len: u8
+        - name: "u8[len]"
   - SaveInput:
       fields:
         - flags: SaveFlags
@@ -243,28 +268,17 @@ messages:
         - width: u32
         - height: u32
         - rgba: "u8[..]"
-  - TickDigest:
+  - TickDigestBody:
       doc: >-
-        The per-tick digest's record (§4.8): XXH64 (seed 0) of these bytes is d_t; never stored. C1b decisions: the
-        RNG words are those of every stream the world holds (the RNG section's records, none in M0), in RngStream order; this
-        tick's nonzero counters form two lists, production then consumption, each in ascending key; each list is
-        preceded by its u32 count (§4.8 states the count only for the counters), so the record decodes unambiguously.
-        The GLOBALS fields that state.yaml marks `digest: tick` follow research_progress, in declaration order (none
-        in M0)
+        The middle of the per-tick digest's preimage (§4.8; see TickDigestHead). C1b decision, kept: this tick's
+        nonzero counters form two lists, production then consumption, each in ascending key and preceded by its
+        u32 count (§4.8's "preceded by their u32 count")
       fields:
-        - tick: Tick
-        - closure_hash: {type: u64, doc: "XXH64 of the closure's bytes as applied; an empty closure hashes zero bytes"}
-        - rng_count: u32
-        - rng: "RngWords[rng_count]"
         - entity_count: u32
         - produced_count: u32
         - produced: "StatCounter[produced_count]"
         - consumed_count: u32
         - consumed: "StatCounter[consumed_count]"
-        - player_count: u32
-        - players: "PlayerDigest[player_count]"
-        - research_tech: {type: TechId, doc: "the current research, 0xFFFF none"}
-        - research_progress: f64
 
 records:
   - new_world:

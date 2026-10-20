@@ -9,7 +9,7 @@
 # most once, and the directory's `count` is the number of records in the section (per-chunk sections: the
 # number of chunk records). A decoder refuses a packet that breaks any of these rules.
 
-version: 1             # PACKET_VERSION (u16): raise on any layout change in this file or in events.yaml
+version: 2             # PACKET_VERSION (u16): raise on any layout change in this file or in events.yaml
 magic: 0x4B505750      # "PWPK"
 
 limits:

@@ -31,27 +31,6 @@ export function m0Protos(): ProtoFiles {
   return { bin, json, hash: createHash('sha256').update(bin).digest('hex') };
 }
 
-/**
- * The worldgen data hash in GLOBALS (§4.4: "the hash of the worldgen-relevant tables of prototypes.bin").
- * Model decision: SHA-256 of prototypes.bin's PROTO_RESOURCE, PROTO_TILE and PROTO_WORLD section frames
- * (ids 6–8, consecutive in the file), from the first frame's header to the last frame's padding.
- */
-export function worldgenDataHash(bin: Uint8Array): Uint8Array {
-  const v = new DataView(bin.buffer, bin.byteOffset, bin.byteLength);
-  const count = v.getUint32(48, true);
-  let at = 56;
-  let start = -1;
-  let end = -1;
-  for (let i = 0; i < count; i++) {
-    const id = v.getUint32(at, true);
-    const stored = v.getUint32(at + 12, true);
-    const next = at + 16 + stored + ((8 - (stored % 8)) % 8);
-    if (id === 6) start = at;
-    if (id === 8) end = next;
-    at = next;
-  }
-  if (start < 0 || end < 0) throw new Error('prototypes.bin lacks a worldgen table');
-  return new Uint8Array(createHash('sha256').update(bin.subarray(start, end)).digest());
-}
+export { worldgenDataHash } from '../model/protos.ts';
 
 export const repoPath = (...p: string[]): string => join(GAME, ...p);

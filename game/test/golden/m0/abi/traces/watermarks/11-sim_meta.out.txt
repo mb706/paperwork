@@ -1,0 +1,14 @@
+tick=3
+seed=1945
+last_system_seq=1
+worldgen_version=1
+r=16736199759127845620
+players.len=2
+players[0].index=0
+players[0].online=true
+players[0].last_seq=0
+players[0].input_gen=0
+players[1].index=5
+players[1].online=true
+players[1].last_seq=2
+players[1].input_gen=0

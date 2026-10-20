@@ -25,6 +25,7 @@ import {
 } from '../../shared/gen/packet.ts';
 import {
   CharacterCodec,
+  CharacterFlags,
   DebugCodec,
   DigestResultCodec,
   EntityPanelCodec,
@@ -35,13 +36,15 @@ import {
   ProjectionKind,
   QueryKind,
   StateHashCodec,
-  StatsCodec,
   type SubRequest,
   UiInvalidReason,
   UiRecordCodec,
   UiStatus,
 } from '../../shared/gen/projections.ts';
+import { InventoryType } from '../../shared/gen/types.ts';
 import { fmix32 } from './noise.ts';
+import { handOrigin } from './rules.ts';
+import { type SeriesState, statsRecord } from './stats.ts';
 import { type Char, chunkKeyOf, daylight, type Ent, type FakeWorld, type Line, toChunk } from './world.ts';
 
 const EMPTY = 0xffff;
@@ -76,7 +79,7 @@ interface Sub {
   last: number | null;
   lastEval: number | null;
   /** STATS: per key, the next stream point to send (the series go whole first, then incremental). */
-  next: Map<number, number> | null;
+  next: SeriesState | null;
   refusal: number | null;
 }
 
@@ -93,18 +96,25 @@ export class FakeExtractor {
   private first = true;
   private lastTick: number | null = null;
 
-  /** `sim_subscribe`: false (ERR_INPUT) for sub_id 0, which belongs to the hover projection. */
+  /**
+   * `sim_subscribe`: false (ERR_INPUT) for sub_id 0, which belongs to the hover projection. Each request adds
+   * or replaces its sub_id; the limits (§15.5: 32 besides sub_id 0, at most 4 of them STATS) hold for the set
+   * the request leaves, replacements included, and a request beyond them gets status 2, reason 3, and is
+   * dropped (the subscription it replaced is gone too).
+   */
   subscribe(reqs: readonly SubRequest[]): boolean {
     if (reqs.some((r) => r.sub_id === 0)) return false;
     for (const req of reqs) {
       const supported = SUPPORTED_PROJECTIONS.has(KIND_NAMES.get(req.kind) ?? '');
-      const live = [...this.subs.values()].filter((s) => s.refusal === null);
+      const others = [...this.subs.entries()]
+        .filter(([id, s]) => id !== req.sub_id && s.refusal === null)
+        .map(([, s]) => s);
       let refusal: number | null = supported ? null : UiInvalidReason.unsupported;
-      if (refusal === null && !this.subs.has(req.sub_id)) {
-        if (live.length >= 32) refusal = UiInvalidReason.over_limit;
+      if (refusal === null) {
+        if (others.length + 1 > 32) refusal = UiInvalidReason.over_limit;
         else if (
           req.kind === ProjectionKind.stats &&
-          live.filter((s) => s.req.kind === ProjectionKind.stats).length >= 4
+          others.filter((s) => s.req.kind === ProjectionKind.stats).length + 1 > 4
         )
           refusal = UiInvalidReason.over_limit;
       }
@@ -282,15 +292,16 @@ export class FakeExtractor {
     for (const l of w.lines) {
       const touches = l.chunks.some(inHeld);
       const sent = this.geomSent.get(l.id);
-      if (sent !== undefined && (!touches || sent !== l.geomGen)) {
-        // A line leaving the held set is dropped on both sides without a message; a reshaped one is retired.
+      if (sent !== undefined && (!touches || sent !== l.geomGen || l.removed)) {
+        // A line leaving the held set is dropped on both sides without a message; a reshaped or removed one
+        // (a belt of it was mined) is retired.
         if (touches) {
           BeltRetireCodec.write(retire, { line_id: l.id, geom_gen: sent });
           nr++;
         }
         this.geomSent.delete(l.id);
       }
-      if (touches && this.geomSent.get(l.id) === undefined) {
+      if (touches && !l.removed && this.geomSent.get(l.id) === undefined) {
         BeltGeomCodec.write(geom, {
           line_id: l.id,
           geom_gen: l.geomGen,
@@ -348,7 +359,7 @@ export class FakeExtractor {
     }
 
     // AUDIO_WORKING (§15.6): per working sound, the count, the centroid from the view centre, Σ 1/(1 + (d/R)²).
-    // Sound ids come from the build's working-sound table; until it has one, from FakeProtos.sound's stand-ins.
+    // Sound ids are the build's (prototypes.bin `working_sound`); without the table the section is never sent.
     if (v && (v.flags & (1 << 3)) !== 0) {
       const R = v.audio_half_range > 0 ? v.audio_half_range : 16;
       const cxv = (v.x0 + v.x1) / 2;
@@ -360,7 +371,7 @@ export class FakeExtractor {
         const sounding =
           e.role === 'belt' || ((e.role === 'machine' || e.role === 'radar') && e.working && !e.unpowered);
         if (!sounding) continue;
-        const sound = w.p.sound(e.proto, e.role !== 'belt');
+        const sound = w.p.sound(e.proto);
         if (sound === null) continue;
         const ex = e.x2 / 2;
         const ey = e.y2 / 2;
@@ -532,7 +543,7 @@ function beltItems(l: Line) {
 }
 
 type Built =
-  | { status: 0; body: Uint8Array; next?: Map<number, number> }
+  | { status: 0; body: Uint8Array; next?: SeriesState }
   | { status: 1 }
   | { status: 2; reason: number };
 
@@ -541,7 +552,7 @@ function slotsOf(inv: { key: number; count: number }[]) {
 }
 
 /** A projection's record (§15.5) for the fake world. */
-function record(w: FakeWorld, req: SubRequest, next: Map<number, number> | null): Built {
+function record(w: FakeWorld, req: SubRequest, next: SeriesState | null): Built {
   switch (req.kind) {
     case ProjectionKind.hud:
       return {
@@ -565,24 +576,30 @@ function record(w: FakeWorld, req: SubRequest, next: Map<number, number> | null)
     case ProjectionKind.character: {
       const c: Char | undefined = w.chars.find((x) => x.player === req.target);
       if (!c) return { status: 1 };
+      const origin = handOrigin(c);
       return {
         status: 0,
         body: CharacterCodec.encode({
           player: c.player,
-          flags: (c.online ? 1 : 0) | (c.mining ? 4 : 0) | (c.autoSort ? 8 : 0),
+          flags:
+            (c.online ? CharacterFlags.online : 0) |
+            (c.hand.ghost ? CharacterFlags.hand_ghost : 0) |
+            (c.mining ? CharacterFlags.mining : 0) |
+            (c.autoSort ? CharacterFlags.auto_sort : 0) |
+            (c.pickGhost ? CharacterFlags.pick_ghost_cursor : 0),
           quickbar_page: 0,
           serial: c.serial,
           input_gen: c.inputGen,
-          hand_origin: c.hand.count > 0 ? c.hand.origin : EMPTY,
-          hand_key: c.hand.count > 0 ? c.hand.key : EMPTY,
+          hand_origin: origin >= 0 ? origin : EMPTY,
+          hand_key: c.hand.count > 0 || c.hand.ghost ? c.hand.key : EMPTY,
           hand_count: c.hand.count,
-          mining_progress: c.mining ? c.miningProgress : 0,
+          mining_progress: c.mining ? Math.fround(c.miningProgress) : 0,
           main: slotsOf(c.main),
           quickbar: [],
           queue: c.queue.map((q, i) => ({
             recipe: q.recipe,
             count: q.count,
-            progress: i === 0 ? q.progress : 0,
+            progress: i === 0 ? Math.fround(q.progress) : 0,
             flags: 0,
           })),
         }),
@@ -593,9 +610,10 @@ function record(w: FakeWorld, req: SubRequest, next: Map<number, number> | null)
     case ProjectionKind.hover: {
       const e = w.entities.find((x) => x.serial === req.target);
       if (!e) return { status: 1 };
-      const view = { inv: 2, bar: e.inv.length, slots: slotsOf(e.inv) };
+      const view = { inv: InventoryType.chest, bar: e.bar, slots: slotsOf(e.inv) };
       if (req.kind === ProjectionKind.inventory) {
-        if (req.p0 !== 2 || e.role !== 'chest') return { status: 2, reason: UiInvalidReason.bad_parameters };
+        if (req.p0 !== InventoryType.chest || e.role !== 'chest')
+          return { status: 2, reason: UiInvalidReason.bad_parameters };
         return { status: 0, body: InventoryCodec.encode({ serial: e.serial, view }) };
       }
       if (req.kind === ProjectionKind.hover) {
@@ -629,49 +647,8 @@ function record(w: FakeWorld, req: SubRequest, next: Map<number, number> | null)
       };
     }
     case ProjectionKind.stats: {
-      if (req.p0 > 8 || req.p1 > 3 || (req.p2 & ~1) !== 0)
-        return { status: 2, reason: UiInvalidReason.bad_parameters };
-      const keys = [...w.totals.keys()]
-        .filter((k) => k >>> 24 === [1, 2, 3, 4][req.p1])
-        .sort((a, b) => a - b);
-      const entries = keys.map((key) => {
-        const r = w.rings.get(key)?.[req.p0];
-        let p = 0;
-        let q = 0;
-        if (r) {
-          for (let j = r.points > 300 ? r.points - 300 : 0; j < r.points; j++) {
-            p += r.produced[j % 300] as number;
-            q += r.consumed[j % 300] as number;
-          }
-          p += r.acc[0];
-          q += r.acc[1];
-        }
-        return { key, produced: p, consumed: q };
-      });
-      const nextOut = new Map(next ?? []);
-      const series =
-        (req.p2 & 1) === 0
-          ? []
-          : keys.slice(0, 24).map((key) => {
-              const r = w.rings.get(key)?.[req.p0];
-              const points = r?.points ?? 0;
-              const oldest = points > 300 ? points - 300 : 0;
-              const want = next?.get(key) ?? 0;
-              const from = want > oldest ? want : oldest;
-              const produced: number[] = [];
-              const consumed: number[] = [];
-              for (let j = from; j < points; j++) {
-                produced.push((r as { produced: Float32Array }).produced[j % 300] as number);
-                consumed.push((r as { consumed: Float32Array }).consumed[j % 300] as number);
-              }
-              nextOut.set(key, points);
-              return { key, from: from % 65536, produced, consumed };
-            });
-      return {
-        status: 0,
-        body: StatsCodec.encode({ precision: req.p0, tab: req.p1, flags: req.p2, entries, series }),
-        next: nextOut,
-      };
+      const r = statsRecord(w.stats, req, next);
+      return 'reason' in r ? { status: 2, reason: r.reason } : { status: 0, body: r.body, next: r.next };
     }
     case ProjectionKind.debug:
       return {

@@ -39,7 +39,7 @@ tick 15 (28 bytes)
 tick 16 (28 bytes)
   player 0 seq 14: type=fast_entity_split target.a=4 target.b=0 target.tag=1
 tick 17 (32 bytes)
-  player 0 seq 15: type=cursor_transfer slot.owner.a=2 slot.owner.b=0 slot.owner.tag=1 slot.inv=2 slot.slot=5
+  player 0 seq 15: type=cursor_split slot.owner.a=2 slot.owner.b=0 slot.owner.tag=1 slot.inv=2 slot.slot=5
 tick 18 (20 bytes)
   player 0 seq 16: type=clear_cursor
 tick 19 (40 bytes)

@@ -2,7 +2,7 @@
 # small id instead of a prototype. Each list's index is that id; the set's name is `<namespace>/<entry>`.
 # prototypes.json carries them, and the asset build makes the sets. Empty until worldgen and the asset
 # pipeline need them.
-tree_species: []      # ObjectView kind 0: the species id → object/<species>
+tree_species: [tree-oak]   # ObjectView kind 0: the species id → object/<species> (C6's fixture draws tree-oak)
 decoratives: []       # ObjectView kind 4: the decorative id → decor/<name>
 cliffs: []            # ObjectView kind 2 (M2): the cliff shape id → cliff/<shape>
 town_buildings: []    # town features (10 §15.9): the building id → town/<name>

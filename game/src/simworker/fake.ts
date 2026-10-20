@@ -7,6 +7,14 @@
 // capability manifest (§2.4): unsupported actions, projections and queries are refused as the real sim
 // refuses them. It is deterministic: the same seed, actions and ticks give the same packets (`seq step`
 // runs ticks synchronously, as `__game.step(n)` does in test mode).
+//
+// Every action of M0's capability manifest is live (fake/rules.ts, after the golden set's reference model).
+// Saves: the fake writes its own format, not a §8.1 container, because its world is not a World: the magic
+// "PWFAKSAV", a u32 version, a u32 length, then the fake world's state as canonical JSON with the build's
+// prototypesHash. `save` answers `saved` with its size and SHA-256 and keeps the bytes (`lastSave`), and
+// `world {op: 'load'}` with those bytes restores that world exactly: the ticks after a load produce the same
+// world as an uninterrupted run. Anything else given to `load` is refused explicitly: a `trap` message that
+// says why, and a log line; no world is bound.
 import { decodeAction } from '../shared/gen/actions.ts';
 import { SUPPORTED_ACTIONS } from '../shared/gen/capabilities.ts';
 import { QueryKind } from '../shared/gen/projections.ts';
@@ -16,7 +24,8 @@ import type { MainToSim, SimToMain } from '../shared/protocol.ts';
 import { PACKET_STATE_GEN_OFFSET, PACKET_VIEW_SEQ_OFFSET } from '../shared/protocol.ts';
 import { FakeExtractor } from './fake/extract.ts';
 import { FakeProtos } from './fake/protos.ts';
-import { applyFakeAction, type FakeOptions, FakeWorld } from './fake/world.ts';
+import { applyAction, sortMain } from './fake/rules.ts';
+import { type FakeOptions, type FakeSnapshot, FakeWorld } from './fake/world.ts';
 
 /** Where the dev server serves the fake's prototype build (the M1 filter: belts, inserters, machines). */
 export const FAKE_DATA = '/data/fake/';
@@ -37,6 +46,46 @@ export interface FakeHost {
 const TICK_MS = 1000 / 60;
 const BUFFERS = 3;
 const BUFFER_BYTES = 262144;
+/** The fake save's magic and format version (see the header comment). */
+const SAVE_MAGIC = 'PWFAKSAV';
+const SAVE_VERSION = 1;
+
+/** A fake save's bytes: magic, version, length, canonical JSON. */
+export function encodeFakeSave(prototypesHash: string, snap: FakeSnapshot): Uint8Array {
+  const json = new TextEncoder().encode(JSON.stringify({ prototypesHash, world: snap }));
+  const out = new Uint8Array(16 + json.length);
+  out.set(new TextEncoder().encode(SAVE_MAGIC), 0);
+  const v = new DataView(out.buffer);
+  v.setUint32(8, SAVE_VERSION, true);
+  v.setUint32(12, json.length, true);
+  out.set(json, 16);
+  return out;
+}
+
+/** A fake save's content, or why the bytes are not one. */
+export function decodeFakeSave(
+  bytes: Uint8Array,
+): { prototypesHash: string; world: FakeSnapshot } | { error: string } {
+  if (bytes.length < 16 || new TextDecoder().decode(bytes.subarray(0, 8)) !== SAVE_MAGIC)
+    return { error: 'not a fake save (the fake sim loads only saves it wrote itself, magic PWFAKSAV)' };
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (v.getUint32(8, true) !== SAVE_VERSION) return { error: `fake save version ${v.getUint32(8, true)}` };
+  const len = v.getUint32(12, true);
+  if (16 + len !== bytes.length) return { error: 'a truncated or padded fake save' };
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes.subarray(16))) as {
+      prototypesHash: string;
+      world: FakeSnapshot;
+    };
+  } catch {
+    return { error: 'a fake save whose state does not parse' };
+  }
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes.slice().buffer));
+  return [...d].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 export class FakeSim {
   private readonly host: FakeHost;
@@ -55,6 +104,8 @@ export class FakeSim {
   private tick0 = 0;
   private timer: unknown = null;
   private extractSoon = false;
+  /** The bytes of the last save (the fake has no IO worker: a load passes them back). */
+  lastSave: Uint8Array | null = null;
   /** Options for the next world (the dev page's `?fakeDay=` and the like). */
   options: FakeOptions = {};
 
@@ -65,6 +116,11 @@ export class FakeSim {
 
   get tick(): number {
     return this.world?.tick ?? 0;
+  }
+
+  /** The current world's state (tests compare a loaded world with an uninterrupted one). */
+  snapshot(): FakeSnapshot | null {
+    return this.world?.snapshot() ?? null;
   }
 
   private log(level: 'info' | 'warn' | 'error', msg: string): void {
@@ -79,11 +135,8 @@ export class FakeSim {
         if (opts) this.options = opts;
         const [json, bin] = await Promise.all([this.host.protos(), this.host.protosBin?.() ?? null]);
         this.protos = new FakeProtos(json, bin);
-        if (!this.protos.realSounds)
-          this.log(
-            'info',
-            'the build has no working sounds yet: AUDIO_WORKING carries stand-in sound ids (prototype ids)',
-          );
+        if (!this.protos.hasSounds)
+          this.log('info', 'the build has no working-sound table (sounds.yaml): no AUDIO_WORKING is sent');
         this.host.post({
           t: 'ready',
           abi: ABI_VERSION,
@@ -94,18 +147,33 @@ export class FakeSim {
       }
       case 'world': {
         if (!this.protos) return this.log('error', 'world before boot');
-        if (m.op === 'load') this.log('warn', 'the fake sim cannot load a save: it starts a new world');
+        let world: FakeWorld;
+        if (m.op === 'load') {
+          const save = decodeFakeSave(new Uint8Array(m.sections));
+          const error =
+            'error' in save
+              ? save.error
+              : save.prototypesHash !== this.protos.json.prototypesHash
+                ? `the fake save was written by another build (prototypesHash ${save.prototypesHash.slice(0, 12)}…)`
+                : null;
+          if (error !== null || 'error' in save) {
+            this.log('error', `cannot load: ${error}`);
+            this.host.post({ t: 'trap', gen: m.gen, tick: 0, message: `fake sim: cannot load: ${error}` });
+            return;
+          }
+          world = new FakeWorld(this.protos, 0, this.options, save.world);
+        } else world = new FakeWorld(this.protos, m.settings.seed, this.options);
         this.gen = m.gen;
-        const seed = m.op === 'new' ? m.settings.seed : 1;
-        this.world = new FakeWorld(this.protos, seed, this.options);
+        this.world = world;
         this.x.reset();
         this.pending = [];
-        this.lastSeq = 0;
+        const me = world.chars.find((c) => c.player === 0);
+        this.lastSeq = me?.lastSeq ?? 0;
         this.host.post({
           t: 'bound',
           gen: this.gen,
-          tick: 0,
-          players: this.world.chars.map((c) => ({ index: c.player, lastSeq: 0, inputGen: 0 })),
+          tick: world.tick,
+          players: world.chars.map((c) => ({ index: c.player, lastSeq: c.lastSeq, inputGen: c.inputGen })),
         });
         // The new world's first packet goes out unsolicited, FULL, even while paused (§3.4, B1-r1 12).
         this.extract(true);
@@ -144,9 +212,16 @@ export class FakeSim {
         this.free.push(m.buf);
         if (this.extractSoon) this.soon();
         return;
-      case 'save':
-        // The fake's world is not a World: there is nothing to save, and no `saved` follows.
-        return this.log('warn', 'the fake sim does not save');
+      case 'save': {
+        // The fake's own save format (header comment); the bytes stay here for a later load.
+        if (!this.world || !this.protos) return this.log('error', 'save before a world is bound');
+        const t0 = this.host.now();
+        const bytes = encodeFakeSave(this.protos.json.prototypesHash, this.world.snapshot());
+        this.lastSave = bytes;
+        const sha256 = await sha256Hex(bytes);
+        this.host.post({ t: 'saved', id: m.id, bytes: bytes.length, ms: this.host.now() - t0, sha256 });
+        return;
+      }
       case 'dev': {
         // §3.5's hooks answer as the queries of the same name do (made-up values: the fake has no state hash).
         if (!this.world) return;
@@ -178,7 +253,9 @@ export class FakeSim {
         this.log('error', 'an action runs past the act message');
         return;
       }
-      this.pending.push({ player: 0, seq, type, payload: bytes.slice(at + 4, at + 4 + len) });
+      // A player's action with a system type id never enters a tick: the LocalSequencer drops it (§15.3).
+      if (type >= 0xff00) this.log('error', `seq ${seq}: system action type ${type} from a player: dropped`);
+      else this.pending.push({ player: 0, seq, type, payload: bytes.slice(at + 4, at + 4 + len) });
       this.lastSeq = seq;
       seq++;
       at += 4 + len;
@@ -249,15 +326,15 @@ export class FakeSim {
     for (const a of actions) {
       const c = w.chars.find((x) => x.player === a.player);
       if (!c) continue;
-      c.lastSeq = a.seq;
-      const fail = (reason: number) =>
+      c.lastSeq = a.seq; // consumed first, refused or not (§15.3)
+      const fail = (reason: number, pos?: { x: number; y: number }, serial = 0) =>
         w.emit(
           { seq: a.seq, player: a.player },
           {
             type: 'action_failed',
             reason,
-            pos: { x: Math.round(c.x * 256), y: Math.round(c.y * 256) },
-            serial: 0,
+            pos: pos ?? { x: Math.floor(c.x * 256 + 0.5), y: Math.floor(c.y * 256 + 0.5) },
+            serial,
           },
         );
       let act: ReturnType<typeof decodeAction>;
@@ -271,9 +348,12 @@ export class FakeSim {
         fail(2); // unsupported: outside the capability manifest (§2.4)
         continue;
       }
-      const r = applyFakeAction(w, c, act);
-      if (r === 'not modelled') this.log('info', `${act.type} is not modelled; it changes nothing`);
-      else if (r !== 'applied') fail(r.reason);
+      const r = applyAction(w, c, a.seq, act);
+      if (r) fail(r.reason, r.pos, r.serial ?? 0);
+      else {
+        c.lastActionTick = w.tick;
+        sortMain(w, c); // auto-sort at every step boundary (I §3.8)
+      }
     }
     w.end();
   }

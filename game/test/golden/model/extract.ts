@@ -73,15 +73,20 @@ export class Extractor {
   subscribe(reqs: readonly SubRequest[]): boolean {
     if (reqs.some((r) => r.sub_id === 0)) return false;
     for (const req of reqs) {
-      const replacing = this.subs.has(req.sub_id);
       let refusal: number | null = null;
       if (!kindSupported(req.kind)) refusal = 1;
-      else if (!replacing) {
-        const live = [...this.subs.values()].filter((s) => s.refusal === null);
-        if (live.length >= LIMITS.subscriptions) refusal = 3;
+      else {
+        // The limits hold for the set the request leaves behind (§15.5; GATE-r1 finding 8): a replacement is
+        // checked as if the subscription it replaces were gone. Model decision: a refused replacement drops
+        // the old subscription too (its sub_id ends with the status-2 record), so the main thread never
+        // receives records of a kind it no longer asked for.
+        const others = [...this.subs.entries()]
+          .filter(([id, x]) => id !== req.sub_id && x.refusal === null)
+          .map(([, x]) => x);
+        if (others.length + 1 > LIMITS.subscriptions) refusal = 3;
         else if (
           req.kind === ProjectionKind.stats &&
-          live.filter((s) => s.req.kind === ProjectionKind.stats).length >= LIMITS.stats
+          others.filter((x) => x.req.kind === ProjectionKind.stats).length + 1 > LIMITS.stats
         )
           refusal = 3;
       }

@@ -1,0 +1,2845 @@
+{
+  "version": 1,
+  "note": "README.md \"ABI traces\": replay each trace against a fresh module",
+  "traces": [
+    {
+      "name": "boot-and-order",
+      "why": "call order (§15.8): ERR_ORDER before a world, flags, a plain load and its report, meta, digest, the state hash, an ignored chunk, a save, and the report until the next world call",
+      "calls": [
+        {
+          "call": "sim_load_report",
+          "in": null,
+          "status": "err_order",
+          "out": null,
+          "note": "before sim_init: ERR_ORDER"
+        },
+        {
+          "call": "sim_init",
+          "in": "abi/inputs/sim_init-01.bin",
+          "status": "ok",
+          "out": null
+        },
+        {
+          "call": "sim_load_report",
+          "in": null,
+          "status": "err_order",
+          "out": null,
+          "note": "no world call yet: ERR_ORDER"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "err_order",
+          "out": null,
+          "note": "no world exists yet: ERR_ORDER (tick-before-world)"
+        },
+        {
+          "call": "sim_set_flags",
+          "in": null,
+          "status": "err_input",
+          "out": null,
+          "params": [
+            8
+          ],
+          "note": "SimFlags bit 3: ERR_INPUT (set-flags-undeclared)"
+        },
+        {
+          "call": "sim_load",
+          "in": "abi/inputs/sim_load-02.bin",
+          "status": "ok",
+          "out": null,
+          "note": "the golden start save's sections and lineage, no remap tables"
+        },
+        {
+          "call": "sim_meta",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/boot-and-order/07-sim_meta.out.bin",
+          "state": "unchanged",
+          "note": "tick, seed, last_system_seq, worldgen version, r and the players"
+        },
+        {
+          "call": "sim_load_report",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/boot-and-order/08-sim_load_report.out.bin",
+          "state": "unchanged",
+          "note": "a load without remap tables: the save lineage, nothing removed"
+        },
+        {
+          "call": "sim_digest",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/boot-and-order/09-sim_digest.out.bin",
+          "state": "unchanged",
+          "note": "tick 0: d is 0 (no tick ran), r the save lineage"
+        },
+        {
+          "call": "sim_state_hash",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/boot-and-order/10-sim_state_hash.out.bin",
+          "state": "unchanged"
+        },
+        {
+          "call": "sim_pending_chunks",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/boot-and-order/11-sim_pending_chunks.out.bin",
+          "state": "unchanged",
+          "note": "the golden map is stored whole: nothing pending"
+        },
+        {
+          "call": "sim_supply_chunk",
+          "in": "abi/traces/boot-and-order/12-sim_supply_chunk.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "a chunk no request asked for: ignored, the state is unchanged"
+        },
+        {
+          "call": "sim_set_flags",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "params": [
+            1
+          ],
+          "state": "unchanged",
+          "note": "NO_SLEEP: changes no state"
+        },
+        {
+          "call": "sim_save",
+          "in": "abi/inputs/sim_save-03.bin",
+          "status": "ok",
+          "out": "abi/traces/boot-and-order/14-sim_save.out.bin",
+          "state": "unchanged",
+          "note": "the sections and the lineage"
+        },
+        {
+          "call": "sim_save",
+          "in": "abi/traces/boot-and-order/15-sim_save.in.bin",
+          "status": "ok",
+          "out": "abi/traces/boot-and-order/15-sim_save.out.bin",
+          "state": "unchanged",
+          "note": "BAKE: nothing is pristine here, but a baked save starts a new lineage, XXH64(stateHash ‖ tick)"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 1, an empty closure"
+        },
+        {
+          "call": "sim_digest",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/boot-and-order/17-sim_digest.out.bin",
+          "state": "unchanged",
+          "note": "d_1 and r_1"
+        },
+        {
+          "call": "sim_load_report",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/boot-and-order/18-sim_load_report.out.bin",
+          "state": "unchanged",
+          "note": "still the load: sim_tick is no world call"
+        },
+        {
+          "call": "sim_new_world",
+          "in": "abi/traces/boot-and-order/19-sim_new_world.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "replaces the world"
+        },
+        {
+          "call": "sim_load_report",
+          "in": null,
+          "status": "err_order",
+          "out": null,
+          "state": "unchanged",
+          "note": "the last world call was sim_new_world: ERR_ORDER (load-report-without-load)"
+        }
+      ]
+    },
+    {
+      "name": "queries",
+      "why": "queries (§15.5): at most 4 running (ERR_LIMIT), step 0 finishes none, cancel (an unknown id is ignored), results in arrival order spanning a tick, an unsupported kind",
+      "calls": [
+        {
+          "call": "sim_init",
+          "in": "abi/inputs/sim_init-01.bin",
+          "status": "ok",
+          "out": null,
+          "note": "the golden prototypes"
+        },
+        {
+          "call": "sim_load",
+          "in": "abi/inputs/sim_load-02.bin",
+          "status": "ok",
+          "out": null,
+          "note": "the golden start save's sections and lineage, no remap tables"
+        },
+        {
+          "call": "sim_query",
+          "in": "abi/traces/queries/03-sim_query.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "id 1: the state hash"
+        },
+        {
+          "call": "sim_query",
+          "in": "abi/traces/queries/04-sim_query.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "id 2: the digest"
+        },
+        {
+          "call": "sim_query",
+          "in": "abi/traces/queries/05-sim_query.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "id 3: inspect chest A"
+        },
+        {
+          "call": "sim_query",
+          "in": "abi/traces/queries/06-sim_query.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "id 4: rates, outside M0: an unsupported result"
+        },
+        {
+          "call": "sim_query",
+          "in": "abi/traces/queries/07-sim_query.in.bin",
+          "status": "err_limit",
+          "out": null,
+          "state": "unchanged",
+          "note": "a fifth: ERR_LIMIT (query-limit)"
+        },
+        {
+          "call": "sim_query_step",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/queries/08-sim_query_step.out.bin",
+          "params": [
+            0
+          ],
+          "state": "unchanged",
+          "note": "no work: nothing finishes"
+        },
+        {
+          "call": "sim_query_cancel",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "params": [
+            2
+          ],
+          "state": "unchanged",
+          "note": "drops id 2"
+        },
+        {
+          "call": "sim_query_cancel",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "params": [
+            99
+          ],
+          "state": "unchanged",
+          "note": "an unknown id is ignored"
+        },
+        {
+          "call": "sim_query",
+          "in": "abi/traces/queries/11-sim_query.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "id 6: a character is no entity"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "the queries span a tick"
+        },
+        {
+          "call": "sim_query_step",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/queries/13-sim_query_step.out.bin",
+          "params": [
+            4294967295
+          ],
+          "state": "unchanged",
+          "note": "all finish: 1, 3, 4, 6 in arrival order, first tick 0, last 1"
+        },
+        {
+          "call": "sim_query_step",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/queries/14-sim_query_step.out.bin",
+          "params": [
+            4294967295
+          ],
+          "state": "unchanged",
+          "note": "none left"
+        }
+      ]
+    },
+    {
+      "name": "subscriptions",
+      "why": "subscriptions (§15.5): unsubscribe (and an unknown id), replacement, both limits (32 subscriptions, 4 STATS) including a replacement over the STATS limit",
+      "calls": [
+        {
+          "call": "sim_init",
+          "in": "abi/inputs/sim_init-01.bin",
+          "status": "ok",
+          "out": null,
+          "note": "the golden prototypes"
+        },
+        {
+          "call": "sim_load",
+          "in": "abi/inputs/sim_load-02.bin",
+          "status": "ok",
+          "out": null,
+          "note": "the golden start save's sections and lineage, no remap tables"
+        },
+        {
+          "call": "sim_subscribe",
+          "in": "abi/traces/subscriptions/03-sim_subscribe.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "the golden packets' subscriptions"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/subscriptions/04-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "every subscription answers once"
+        },
+        {
+          "call": "sim_unsubscribe",
+          "in": "abi/traces/subscriptions/05-sim_unsubscribe.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "chest A windows close"
+        },
+        {
+          "call": "sim_unsubscribe",
+          "in": "abi/traces/subscriptions/06-sim_unsubscribe.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "an unknown id is ignored"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/subscriptions/08-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "no record of 3 or 9; unchanged records are not resent"
+        },
+        {
+          "call": "sim_subscribe",
+          "in": "abi/traces/subscriptions/09-sim_subscribe.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "three more STATS: four with sub 6"
+        },
+        {
+          "call": "sim_subscribe",
+          "in": "abi/traces/subscriptions/10-sim_subscribe.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "replacing HUD sub 5 by a fifth STATS: status 2 reason 3, and sub 5 ends"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/subscriptions/11-sim_extract.out.bin",
+          "state": "unchanged"
+        },
+        {
+          "call": "sim_subscribe",
+          "in": "abi/traces/subscriptions/12-sim_subscribe.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "30 HUD subscriptions: those past 32 live ones get status 2 reason 3"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/subscriptions/13-sim_extract.out.bin",
+          "state": "unchanged"
+        },
+        {
+          "call": "sim_subscribe",
+          "in": "abi/traces/subscriptions/14-sim_subscribe.in.bin",
+          "status": "err_input",
+          "out": null,
+          "state": "unchanged",
+          "note": "sub_id 0 is the hover projection: ERR_INPUT, nothing changes"
+        }
+      ]
+    },
+    {
+      "name": "packet-transitions",
+      "why": "retained state across packets (§15.4–§15.6): an entity appears and is removed, subscriptions go gone, a replacement, the hover, held-set eviction and re-entry, MOVERS populated then absent, historical events, an event overflow",
+      "calls": [
+        {
+          "call": "sim_init",
+          "in": "abi/inputs/sim_init-01.bin",
+          "status": "ok",
+          "out": null,
+          "note": "the golden prototypes"
+        },
+        {
+          "call": "sim_load",
+          "in": "abi/inputs/sim_load-02.bin",
+          "status": "ok",
+          "out": null,
+          "note": "the golden start save's sections and lineage, no remap tables"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/packet-transitions/03-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "the FULL packet after a load: header only (rule 31)"
+        },
+        {
+          "call": "sim_subscribe",
+          "in": "abi/traces/packet-transitions/04-sim_subscribe.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/packet-transitions/05-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "tick 0: the chunks, MOVERS, the hover, CHARACTER and HUD"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/packet-transitions/06-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 1"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/packet-transitions/07-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 2"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-05.bin",
+          "status": "ok",
+          "out": "abi/traces/packet-transitions/08-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "chest C appears (CHUNK_ENTITIES), hovered"
+        },
+        {
+          "call": "sim_subscribe",
+          "in": "abi/traces/packet-transitions/09-sim_subscribe.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "chest C's window: INVENTORY and ENTITY_PANEL"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-05.bin",
+          "status": "ok",
+          "out": "abi/traces/packet-transitions/10-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "their first records"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 3, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/packet-transitions/12-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 4"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 5, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 6, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 7, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 8, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 9, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 10, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 11, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 12, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 13, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 14, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 15, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 16, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 17, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 18, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 19, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 20, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 21, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 22, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 23, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 24, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 25, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 26, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 27, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 28, an empty closure"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-05.bin",
+          "status": "ok",
+          "out": "abi/traces/packet-transitions/37-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "chest C is mined"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 29, an empty closure"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-05.bin",
+          "status": "ok",
+          "out": "abi/traces/packet-transitions/39-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "the tick after"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 30, an empty closure"
+        },
+        {
+          "call": "sim_subscribe",
+          "in": "abi/traces/packet-transitions/41-sim_subscribe.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "sub 1 becomes a HUD: its version keeps counting"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/packet-transitions/42-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "the replaced subscription"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/traces/packet-transitions/43-sim_extract.in.bin",
+          "status": "ok",
+          "out": "abi/traces/packet-transitions/43-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "the view leaves every held chunk: MOVERS absent"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-06.bin",
+          "status": "ok",
+          "out": "abi/traces/packet-transitions/44-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "and comes back: every per-chunk record afresh, MOVERS again"
+        },
+        {
+          "call": "sim_unsubscribe",
+          "in": "abi/traces/packet-transitions/45-sim_unsubscribe.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "drops sub 1"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 31, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 32, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 33, an empty closure"
+        },
+        {
+          "call": "sim_set_flags",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "params": [
+            2
+          ],
+          "state": "unchanged",
+          "note": "HISTORICAL on (catch-up, §15.6)"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/packet-transitions/50-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 34"
+        },
+        {
+          "call": "sim_set_flags",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "params": [
+            0
+          ],
+          "state": "unchanged",
+          "note": "HISTORICAL off"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 35, an empty closure"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-06.bin",
+          "status": "ok",
+          "out": "abi/traces/packet-transitions/53-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "tick 34's refusal carries the HISTORICAL flag"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 36, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 37, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 38, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 39, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/packet-transitions/58-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 40"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-06.bin",
+          "status": "ok",
+          "out": "abi/traces/packet-transitions/59-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "9,000 events: EVENTS_DROPPED, the newest 8,192 kept"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 41, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 42, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 43, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 44, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 45, an empty closure"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-06.bin",
+          "status": "ok",
+          "out": "abi/traces/packet-transitions/65-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "the queue is empty again"
+        }
+      ]
+    },
+    {
+      "name": "watermarks",
+      "why": "a never-joined player's refused action consumes its seq, across a save and a load, and survives its join (rule 12)",
+      "calls": [
+        {
+          "call": "sim_init",
+          "in": "abi/inputs/sim_init-01.bin",
+          "status": "ok",
+          "out": null,
+          "note": "the golden prototypes"
+        },
+        {
+          "call": "sim_load",
+          "in": "abi/inputs/sim_load-02.bin",
+          "status": "ok",
+          "out": null,
+          "note": "the golden start save's sections and lineage, no remap tables"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/watermarks/03-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "player 5 has no record: refused (player_not_present), seq 1 consumed"
+        },
+        {
+          "call": "sim_meta",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/watermarks/04-sim_meta.out.bin",
+          "state": "unchanged",
+          "note": "player 5: a watermark record, offline, no character, last_seq 1"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/inputs/sim_tick-07.bin",
+          "status": "err_framing",
+          "out": null,
+          "state": "unchanged",
+          "note": "seq 1 again: ERR_FRAMING, nothing changes"
+        },
+        {
+          "call": "sim_save",
+          "in": "abi/inputs/sim_save-03.bin",
+          "status": "ok",
+          "out": "abi/traces/watermarks/06-sim_save.out.bin",
+          "state": "unchanged",
+          "note": "the watermark is saved state"
+        },
+        {
+          "call": "sim_load",
+          "in": "abi/traces/watermarks/07-sim_load.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "the save at tick 1, with its lineage"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/inputs/sim_tick-07.bin",
+          "status": "err_framing",
+          "out": null,
+          "state": "unchanged",
+          "note": "still consumed after the load: ERR_FRAMING"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/watermarks/09-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "seq 2: refused again (player_not_present), consumed"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/watermarks/10-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "player_joined(5): a character; the watermark stays"
+        },
+        {
+          "call": "sim_meta",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/watermarks/11-sim_meta.out.bin",
+          "state": "unchanged",
+          "note": "player 5 online, last_seq 2"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/watermarks/12-sim_tick.in.bin",
+          "status": "err_framing",
+          "out": null,
+          "state": "unchanged",
+          "note": "seq 2 again: ERR_FRAMING"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/watermarks/13-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "seq 3: player 5 walks"
+        },
+        {
+          "call": "sim_digest",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/watermarks/14-sim_digest.out.bin",
+          "state": "unchanged"
+        }
+      ]
+    },
+    {
+      "name": "capacity",
+      "why": "capacity and fencing branches (rules 16, 19, 23, 25, D22)",
+      "calls": [
+        {
+          "call": "sim_init",
+          "in": "abi/inputs/sim_init-01.bin",
+          "status": "ok",
+          "out": null
+        },
+        {
+          "call": "sim_load",
+          "in": "abi/traces/capacity/02-sim_load.in.bin",
+          "status": "ok",
+          "out": null,
+          "note": "the start state with player 0's inventory full and chest A limited to 4 slots"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/03-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "the FULL packet"
+        },
+        {
+          "call": "sim_subscribe",
+          "in": "abi/traces/capacity/04-sim_subscribe.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "unchanged",
+          "note": "player 0's CHARACTER and chest A's INVENTORY"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/05-sim_extract.out.bin",
+          "state": "unchanged"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/06-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 1: mine the 2-ore tile with no room for ore: refused when the unit completes (tick 120), the tile keeps its ore (rule 23)"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/07-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 1"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/08-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 2: a chest: 8 plates leave; at tick 31 the product finds no room: crafting pauses (rule 25)"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/09-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 2"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 3, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 4, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 5, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 6, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 7, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 8, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 9, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 10, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 11, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 12, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 13, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 14, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 15, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 16, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 17, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 18, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 19, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 20, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 21, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 22, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 23, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 24, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 25, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 26, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 27, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 28, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 29, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 30, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 31"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/39-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 31"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 32, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 33, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 34, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 35, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 36, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 37, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 38, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 39, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/48-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 40: an ore stack into chest A, which has room for 20 under its bar: 20 move, 30 stay (rule 19)"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/49-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 40"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/50-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 41: all ore into chest A, full under its bar: nothing moves, inventory_full"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/51-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 41"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/52-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 42: pick up chest A's slot 0: 50 ore in the hand, no origin slot"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/53-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 42"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/54-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 43: Q with 50 ore and room for 20 (rule 19)"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/55-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 43"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/56-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 44: the hand onto chest A slot 6, past its bar (rule 16)"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/57-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 44"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/58-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 45: whatever is still in the hand into chest A's empty slot 0"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/59-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 45"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/60-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 46: lift chest A's limit"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/61-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 46"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/62-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 47: a plate stack into chest A: a main slot frees, and the paused craft completes in this tick"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/63-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 47"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 48, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 49, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/66-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 50: two chests: 16 plates leave"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/67-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 50"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/68-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 51: take what fits from chest A: the inventory fills, the 16 plates' room too"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/69-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 51"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/70-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 52: cancel both: the refund does not fit (rule 25)"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/71-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 52"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 53, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 54, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 55, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 56, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 57, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 58, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 59, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 60, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 61, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 62, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 63, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 64, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 65, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 66, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 67, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 68, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 69, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 70, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 71, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 72, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 73, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 74, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 75, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 76, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 77, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 78, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 79, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 80, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 81, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 82, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 83, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 84, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 85, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 86, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 87, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 88, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 89, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 90, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 91, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 92, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 93, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 94, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 95, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 96, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 97, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 98, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 99, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 100, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 101, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 102, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 103, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 104, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 105, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 106, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 107, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 108, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 109, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 110, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 111, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 112, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 113, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 114, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 115, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 116, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 117, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 118, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 119, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 120"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/140-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 120"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/141-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 121: thirty chests with plates for 25: 25 are queued, without a message (rule 25)"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/142-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 121"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 122, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 123, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 124, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 125, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 126, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 127, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 128, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 129, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/151-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 130: release (after the mining refusal): the input generation rises"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/152-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 130"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/153-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 131: a fresh start (the new generation): walks"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/154-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 131"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/155-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 132: a stop stamped before the release: fenced, it keeps walking"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/156-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 132"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/157-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 133: a begin stamped before the release: fenced"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/158-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 133"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/159-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 134: a fresh stop: stops"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/160-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 134"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 135, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 136, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 137, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 138, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 139, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/166-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 140: take what fits from chest A again: the inventory is full"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/167-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 140"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/168-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 141: pick up a stack from chest A: no origin slot, no room for it"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/169-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 141"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/170-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 142: leave with a hand that does not fit: it stays in the hand (§5.1)"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/171-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 142"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/172-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 143: return: the same character, the hand still held"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/173-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 143"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 144, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 145, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 146, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 147, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 148, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 149, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/180-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 150: an ore stack into chest A: one main slot frees"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/181-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 150"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/182-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 151: mine chest A: at tick 174 its plates fit, its ore does not: the plates move, chest A stays (rule 23)"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/183-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 151"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 152, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 153, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 154, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 155, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 156, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 157, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 158, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 159, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 160, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 161, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 162, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 163, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 164, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 165, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 166, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 167, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 168, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 169, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 170, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 171, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 172, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 173, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 174, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 175"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/208-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 175"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 176, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 177, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 178, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": null,
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 179, an empty closure"
+        },
+        {
+          "call": "sim_tick",
+          "in": "abi/traces/capacity/213-sim_tick.in.bin",
+          "status": "ok",
+          "out": null,
+          "state": "changed",
+          "note": "tick 180: stop mining"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/214-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "after tick 180"
+        },
+        {
+          "call": "sim_extract",
+          "in": "abi/inputs/sim_extract-04.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/215-sim_extract.out.bin",
+          "state": "unchanged",
+          "note": "the end"
+        },
+        {
+          "call": "sim_meta",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/capacity/216-sim_meta.out.bin",
+          "state": "unchanged",
+          "note": "every player's seqs and input generation"
+        },
+        {
+          "call": "sim_save",
+          "in": "abi/inputs/sim_save-03.bin",
+          "status": "ok",
+          "out": "abi/traces/capacity/217-sim_save.out.bin",
+          "state": "unchanged",
+          "note": "the final state"
+        }
+      ]
+    },
+    {
+      "name": "remap-load",
+      "why": "a load with remap tables (§8.3, §15.8): ids reordered, an item removed with its count, a new lineage over the resulting state",
+      "calls": [
+        {
+          "call": "sim_init",
+          "in": "abi/inputs/sim_init-01.bin",
+          "status": "ok",
+          "out": null
+        },
+        {
+          "call": "sim_load",
+          "in": "abi/traces/remap-load/02-sim_load.in.bin",
+          "status": "ok",
+          "out": null,
+          "note": "item ids remapped; 7 copper plates removed"
+        },
+        {
+          "call": "sim_load_report",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/remap-load/03-sim_load_report.out.bin",
+          "state": "unchanged",
+          "note": "new lineage XXH64(stateHash ‖ tick); removed: copper-plate, 7"
+        },
+        {
+          "call": "sim_state_hash",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/remap-load/04-sim_state_hash.out.bin",
+          "state": "unchanged",
+          "note": "the golden start's state: the remap undid the reordering"
+        },
+        {
+          "call": "sim_digest",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/remap-load/05-sim_digest.out.bin",
+          "state": "unchanged"
+        },
+        {
+          "call": "sim_meta",
+          "in": null,
+          "status": "ok",
+          "out": "abi/traces/remap-load/06-sim_meta.out.bin",
+          "state": "unchanged"
+        }
+      ]
+    }
+  ]
+}

@@ -6,6 +6,14 @@ import { describe, expect, it } from 'vitest';
 import type { Action } from '../../../src/shared/gen/actions.ts';
 import { readSaveContainer } from '../../../src/shared/gen/container.ts';
 import { decodePacket, PacketFlags } from '../../../src/shared/gen/packet.ts';
+import {
+  CONTAINERPOOL_COLUMNS,
+  ENTITYTABLE_COLUMNS,
+  encodeContainerPool,
+  encodeEntityTable,
+} from '../../../src/shared/gen/pools.ts';
+import { StatsCodec } from '../../../src/shared/gen/projections.ts';
+import { encodeSlotHeap } from '../../../src/shared/gen/sections.ts';
 import { decodeAll } from '../../helpers/packets.ts';
 import { M0 } from '../build/main.ts';
 import { stamp } from '../build/stamp.ts';
@@ -14,13 +22,17 @@ import { mainInv, slots } from './inventory.ts';
 import { loadProtos } from './protos.ts';
 import { resourceBand, UNIT_DONE } from './rules.ts';
 import { Sim } from './sim.ts';
+import { type Member, members, sliceHash } from './slices.ts';
 import { allSpan } from './stats.ts';
-import { World } from './world.ts';
+import { SECTION_ID, World } from './world.ts';
 
 const bin = new Uint8Array(readFileSync(join(M0, 'protos/prototypes.bin')));
 const save = new Uint8Array(readFileSync(join(M0, 'start.save')));
 const protos = loadProtos(bin);
-const fresh = () => new Sim(World.load(protos, readSaveContainer(save).frames));
+const fresh = () => {
+  const c = readSaveContainer(save);
+  return new Sim(World.load(protos, c.frames), BigInt(`0x${c.header.lineage}`));
+};
 
 /** Runs `ticks` ticks, with `actions[t]` (player 0 unless given) stamped into tick t. */
 function drive(
@@ -145,6 +157,48 @@ describe('statistics rings (§5.20)', () => {
     expect(allSpan(35999)).toBe(120);
     expect(allSpan(36000)).toBe(240);
   });
+
+  it('sends the `all` series whole again after a doubling, then only appended points (rule 26)', () => {
+    const sim = fresh();
+    const x = new Extractor();
+    x.view = null;
+    x.extract(sim); // the FULL packet
+    const ore = {
+      type: 'begin_mining_terrain' as const,
+      input_gen: 0,
+      kind: 0,
+      pos: { x: 40 * 256 + 128, y: -3 * 256 + 128 },
+    };
+    // Precision `all` (8), items, with series; only iron ore's key in the tail (§15.5).
+    const tail = new Uint8Array(4);
+    new DataView(tail.buffer).setUint32(0, 2 ** 24 + ORE, true);
+    expect(x.subscribe([{ sub_id: 1, kind: 7, flags: 1, target: 0, p0: 8, p1: 0, p2: 1, p3: 0, tail }])).toBe(
+      true,
+    );
+    const series = () => {
+      const p = decodeAll(x.extract(sim));
+      const ui = p.sections.find((s) => s.name === 'UI');
+      const rec = (ui?.records ?? []) as { sub_id: number; body: Uint8Array }[];
+      const body = rec.find((r) => r.sub_id === 1)?.body;
+      return body ? StatsCodec.decode(body) : null;
+    };
+    drive(sim, 1, { 1: [ore] });
+    // A tail key is reported even before it exists, at zero (§15.5: the tail names the keys).
+    expect(series()?.entries).toEqual([{ key: 2 ** 24 + ORE, produced: 0, consumed: 0 }]);
+    drive(sim, 17_000); // past 140 ore: points every 60 ticks
+    const before = series();
+    expect(before?.series[0]?.from).toBe(0);
+    expect(before?.series[0]?.produced.length).toBe(Math.floor(17_001 / 60));
+    drive(sim, 1_100); // past tick 18,000: 300 points of 60 ticks merge into 150 of 120
+    const after = series();
+    expect(after?.series[0]?.from).toBe(0); // whole again
+    expect(after?.series[0]?.produced.length).toBe(150 + Math.floor((18_101 - 18_000) / 120));
+    drive(sim, 240);
+    const appended = series();
+    expect(appended?.series[0]?.from).toBe(150 + Math.floor((18_101 - 18_000) / 120));
+    expect(appended?.series[0]?.produced.length).toBe(2);
+    expect(appended?.entries[0]?.produced).toBe(p0(sim).hand_crafted + count(sim, ORE) - 10); // exact totals
+  }, 120_000);
 });
 
 describe('extraction (§15.4, §15.5)', () => {
@@ -197,5 +251,110 @@ describe('extraction (§15.4, §15.5)', () => {
     x.view = { ...x.view, x0: 30, x1: 40 };
     const back = decodeAll(x.extract(sim));
     expect(back.sections.find((s) => s.name === 'CHUNK_TILES')?.records.length).toBe(3);
+  });
+});
+
+describe('the slice serialization (§4.8 item 2; README rules 37–41)', () => {
+  /** Rebuilds a section's bytes from its members alone. */
+  function rebuild(id: number, ms: Member[]): Uint8Array {
+    const cat = (bs: Uint8Array[]) => Buffer.concat(bs.map((b) => Buffer.from(b)));
+    const bytes = ms.map((m) => m.bytes());
+    if (id === SECTION_ID.GLOBALS || id === SECTION_ID.RNG) return new Uint8Array(cat(bytes));
+    if (id === SECTION_ID.ENTITY_TABLE || id === SECTION_ID.POOL_CONTAINER) {
+      const cols = id === SECTION_ID.ENTITY_TABLE ? ENTITYTABLE_COLUMNS : CONTAINERPOOL_COLUMNS;
+      const rows = bytes.slice(1).map((b) => {
+        const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+        const row: Record<string, number> = {};
+        let at = 4;
+        for (const c of cols) {
+          const read = {
+            1: () => v.getUint8(at),
+            2: () => v.getUint16(at, true),
+            3: () => v.getUint32(at, true),
+            7: () => v.getInt32(at, true),
+          }[c.code as 1 | 2 | 3 | 7];
+          row[c.name] = read();
+          at += c.width;
+        }
+        return { index: v.getUint32(0, true), row };
+      });
+      rows.sort((a, b) => a.index - b.index);
+      expect(new DataView((bytes[0] as Uint8Array).buffer).getUint32(0, true)).toBe(rows.length);
+      return id === SECTION_ID.ENTITY_TABLE
+        ? encodeEntityTable(rows.map((r) => r.row) as never)
+        : encodeContainerPool(rows.map((r) => r.row) as never);
+    }
+    if (id === SECTION_ID.SLOT_HEAP) {
+      const arenas: {
+        class: number;
+        block_slots: number;
+        blocks: number;
+        slots: { key: number; count: number }[];
+      }[] = [];
+      const bars: { inv: number; bar: number }[] = [];
+      const filters: { inv: number; slot: number; key: number }[] = [];
+      ms.forEach((m, i) => {
+        const b = bytes[i] as Uint8Array;
+        const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+        const cls = Number(m.key / 2n ** 32n);
+        const block = Number(m.key % 2n ** 32n) - 1;
+        if (block < 0) {
+          arenas.push({
+            class: v.getUint8(0),
+            block_slots: v.getUint16(1, true),
+            blocks: v.getUint32(3, true),
+            slots: [],
+          });
+          return;
+        }
+        const a = arenas[arenas.length - 1] as (typeof arenas)[number];
+        let at = 0;
+        for (let k = 0; k < a.block_slots; k++, at += 6)
+          a.slots.push({ key: v.getUint16(at, true), count: v.getUint32(at + 2, true) });
+        const nb = v.getUint32(at, true);
+        at += 4;
+        for (let k = 0; k < nb; k++, at += 8)
+          bars.push({ inv: v.getUint32(at, true), bar: v.getUint16(at + 4, true) });
+        const nf = v.getUint32(at, true);
+        at += 4;
+        for (let k = 0; k < nf; k++, at += 8)
+          filters.push({
+            inv: v.getUint32(at, true),
+            slot: v.getUint16(at + 4, true),
+            key: v.getUint16(at + 6, true),
+          });
+        expect(cls).toBe(a.class);
+      });
+      return encodeSlotHeap({ arenas, filters, bars } as never);
+    }
+    return new Uint8Array(cat(bytes)); // `records` sections: the count, then every record in order
+  }
+
+  it('every section is exactly its members, and every member has one shard', () => {
+    const sim = fresh();
+    drive(sim, 60, {
+      1: [{ type: 'craft', recipe: 0, count: 1 }],
+      2: [{ type: 'set_inventory_bar', target: { a: 2, b: 0, tag: 1 }, inv: 2, bar: 3 }],
+    });
+    const ms = members(sim.w);
+    for (const m of ms) expect(m.shard >= 0 && m.shard < 3600 && Number.isInteger(m.shard)).toBe(true);
+    const keys = ms.map((m) => `${m.section}:${m.key}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const { id, bytes } of sim.w.sections()) {
+      const mine = ms
+        .filter((m) => m.section === id)
+        .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+      expect(Buffer.from(rebuild(id, mine)).equals(Buffer.from(bytes)), `section ${id}`).toBe(true);
+    }
+  });
+
+  it('the 3,600 slices of a state hash every member once: a changed member changes exactly its shard', () => {
+    const sim = fresh();
+    const before = Array.from({ length: 3600 }, (_, s) => sliceHash(sim.w, s));
+    const chest = sim.w.entityBySerial(2) as NonNullable<ReturnType<World['entityBySerial']>>;
+    chest.built_tick = 7; // one byte of chest A's entity-table row
+    const after = Array.from({ length: 3600 }, (_, s) => sliceHash(sim.w, s));
+    const changed = after.flatMap((h, s) => (h !== before[s] ? [s] : []));
+    expect(changed).toEqual([2]); // serial 2 mod 3,600
   });
 });

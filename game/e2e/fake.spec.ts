@@ -9,8 +9,9 @@ interface Status {
   errors: string[];
   sections: string[];
   projections: string[];
+  saves: { id: number; bytes: number; sha256: string }[];
 }
-type Fake = { step(n: number): void; status(): Status };
+type Fake = { step(n: number): void; save(): void; status(): Status };
 
 test('the fake sim runs in its worker and its packets decode @smoke', async ({ page }) => {
   const problems = watchConsole(page);
@@ -40,5 +41,9 @@ test('the fake sim runs in its worker and its packets decode @smoke', async ({ p
       'UI',
     ]),
   );
+  // A save completes with `saved` (the fake's own format, SHA-256 from the worker's crypto).
+  await page.evaluate(() => (window as unknown as { __fake?: Fake }).__fake?.save());
+  await expect.poll(async () => (await status()).saves.length).toBe(1);
+  expect((await status()).saves[0]?.sha256).toMatch(/^[0-9a-f]{64}$/);
   expect(problems).toEqual([]);
 });

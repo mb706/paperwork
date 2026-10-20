@@ -2,17 +2,7 @@
 // files are review aids: dumps in the codec fixtures' `path=value` format, compacted where a raw dump would
 // be thousands of lines of zeros (chunk tiles are drawn as a 32 × 32 character map instead).
 import { createHash } from 'node:crypto';
-import {
-  BlobPutCodec,
-  ChunkDataCodec,
-  InitInputCodec,
-  LoadInputCodec,
-  NewWorldCodec,
-  QueryInputCodec,
-  SaveInputCodec,
-  SubscribeInputCodec,
-  UnsubscribeInputCodec,
-} from '../../../src/shared/gen/abi.ts';
+import { SaveOutputCodec, SubscribeInputCodec } from '../../../src/shared/gen/abi.ts';
 import { closureActions, decodeAction, dumpAction } from '../../../src/shared/gen/actions.ts';
 import { Dump, Writer } from '../../../src/shared/gen/codec.ts';
 import {
@@ -31,7 +21,6 @@ import {
   StateHashCodec,
   type SubRequest,
 } from '../../../src/shared/gen/projections.ts';
-import { readPrototypesBin } from '../../../src/shared/gen/protos.ts';
 import { SCHEMA_HASH } from '../../../src/shared/gen/schema.ts';
 import {
   decodeChunks,
@@ -51,10 +40,12 @@ import {
   StatCodec,
 } from '../../../src/shared/gen/state.ts';
 import { dumpPacket, UI_CODECS } from '../../helpers/packets.ts';
+import { Module, saveOutput } from '../model/module.ts';
 import { buildRecord, debugRecord, runQuery } from '../model/projections.ts';
 import { lineage0, Sim, Status } from '../model/sim.ts';
+import { members, sliceHash } from '../model/slices.ts';
 import { World } from '../model/world.ts';
-import { hex64 } from '../model/xxh64.ts';
+import { hex64, xxh64 } from '../model/xxh64.ts';
 import {
   abiCases,
   closureCases,
@@ -69,11 +60,28 @@ import { worldgenDataHash } from './protos.ts';
 import { goldenSubs, goldenView, PACKET_TICKS, type RunResult, run, STATE_TICKS } from './run.ts';
 import { blobBytes, sha256Hex, TICKS } from './scenario.ts';
 import { START } from './start.ts';
+import { traces } from './trace-defs.ts';
+import { dumpOut, type IndexedCall, initInput, invoke, loadInput, record, STATUS_NAME } from './traces.ts';
 
 const text = (s: string): Uint8Array => new TextEncoder().encode(s);
 const pad4 = (t: number) => String(t).padStart(4, '0');
 
-/** u32 count, then each section in the container's framing, codec raw: `sim_save`'s output without the lineage. */
+/** `sim_save`'s output (abi.yaml `SaveOutput`): the sections, then the lineage r the save carries (§4.8 item 4). */
+export function saveOutputBytes(
+  sections: readonly { id: number; bytes: Uint8Array }[],
+  r: bigint,
+): Uint8Array {
+  return saveOutput(
+    sections.map(({ id, bytes }) => {
+      const info = SECTIONS.find((s) => s.id === id);
+      if (!info) throw new Error(`unknown section ${id}`);
+      return { id, version: info.version, flags: info.hashed ? 1 : 0, data: bytes };
+    }),
+    r,
+  );
+}
+
+/** u32 count, then each section in the container's framing, codec raw (SaveOutput without the lineage). */
 export function sectionsBytes(sections: readonly { id: number; bytes: Uint8Array }[]): Uint8Array {
   const w = new Writer();
   w.u32(sections.length, 'sections');
@@ -237,7 +245,7 @@ function projectionFiles(r: RunResult, t: number, files: Map<string, Uint8Array>
       index.push(`## ${head} status=ok bytes=${built.body.length}`, noZeroPoints(d.out).trimEnd());
     } else index.push(`## ${head} status=${built.status === 1 ? 'gone' : `invalid reason=${built.reason}`}`);
   }
-  // DEBUG: memory_bytes, the pools' capacity, r and phase_us are implementation-defined (masked).
+  // DEBUG: memory_bytes, the pools' capacity and phase_us are implementation-defined (masked); d and r are pinned.
   files.set(`projections/tick-${pad4(t)}/debug.bin`, debugRecord(sim));
   const dd = new Dump();
   (UI_CODECS.get(ProjectionKind.debug) as { dump(d: Dump, v: unknown, p: string): void }).dump(
@@ -245,11 +253,11 @@ function projectionFiles(r: RunResult, t: number, files: Map<string, Uint8Array>
     UI_CODECS.get(ProjectionKind.debug)?.decode(debugRecord(sim)),
     '',
   );
-  index.push('## debug kind=debug (masked: memory_bytes, pools[].capacity, r, phase_us)', dd.out.trimEnd());
+  index.push('## debug kind=debug (masked: memory_bytes, pools[].capacity, phase_us)', dd.out.trimEnd());
   files.set(`projections/tick-${pad4(t)}.txt`, text(`${index.join('\n')}\n`));
 
   // Queries (§15.5): inspect each chest and one serial that is no entity, the state hash, the digest.
-  const q: string[] = [`# Query results at tick ${t} (digest: r is masked).`];
+  const q: string[] = [`# Query results at tick ${t}.`];
   const qp = (serial: number) => {
     const b = new Uint8Array(4);
     new DataView(b.buffer).setUint32(0, serial, true);
@@ -311,51 +319,28 @@ function closureLogText(r: RunResult): string {
  * What the generated decoders make of a malformed ABI input (§15.8: a malformed request is ERR_INPUT; records
  * are read strictly, C1b decision 8), or the prototypes check (ERR_PROTOS).
  */
-function abiVerdict(call: string, b: Uint8Array): string {
-  const hash = new Uint8Array(Buffer.from(SCHEMA_HASH, 'hex'));
-  try {
-    switch (call) {
-      case 'sim_init': {
-        const x = InitInputCodec.decode(b);
-        readPrototypesBin(x.protos, hash);
-        return 'ok';
-      }
-      case 'sim_new_world':
-        NewWorldCodec.decode(b, true);
-        return 'ok';
-      case 'sim_load':
-        LoadInputCodec.decode(b);
-        return 'ok';
-      case 'sim_blob_put':
-        BlobPutCodec.decode(b);
-        return 'ok';
-      case 'sim_supply_chunk':
-        ChunkDataCodec.decode(b, true);
-        return 'ok';
-      case 'sim_extract':
-        ViewRequestCodec.decode(b);
-        return 'ok';
-      case 'sim_subscribe':
-        // Model decision: sub_id 0 is the hover projection's.
-        return SubscribeInputCodec.decode(b).subs.some((x) => x.sub_id === 0) ? 'err_input' : 'ok';
-      case 'sim_unsubscribe':
-        UnsubscribeInputCodec.decode(b);
-        return 'ok';
-      case 'sim_query':
-        QueryInputCodec.decode(b);
-        return 'ok';
-      case 'sim_save':
-        SaveInputCodec.decode(b);
-        return 'ok';
-      default:
-        throw new Error(`no decoder for ${call}`);
-    }
-  } catch (e) {
-    const k = (e as { kind?: string }).kind;
-    if (k === 'schema_mismatch' && call === 'sim_init') return 'err_protos';
-    if (k) return 'err_input';
-    throw e;
+/**
+ * An ABI negative case, executed (GATE-r1 finding 11): a fresh Module of the reference model, booted with the
+ * golden prototypes and start save unless the call is sim_init itself, then the call; the status it returns,
+ * after checking that the refusal left the state as it was.
+ */
+function abiVerdict(r: RunResult, call: string, b: Uint8Array): string {
+  const m = new Module();
+  if (call !== 'sim_init' && !call.startsWith('gen_')) {
+    const boot = [
+      invoke(m, { call: 'sim_init', in: initInput(r.protos.bin) }),
+      invoke(m, {
+        call: 'sim_load',
+        in: loadInput(readSaveContainer(r.start.bytes).frames, r.start.lineage),
+      }),
+    ];
+    if (boot.some((x) => x.status !== 0)) throw new Error('the boot failed');
   }
+  const before = m.sim?.w.stateHash().hash ?? null;
+  const res = invoke(m, { call, in: b });
+  const after = m.sim?.w.stateHash().hash ?? null;
+  if (res.status !== 0 && before !== after) throw new Error(`${call}: a refusal changed the state`);
+  return STATUS_NAME.get(res.status) ?? String(res.status);
 }
 
 function negativeFiles(r: RunResult, log: Uint8Array, files: Map<string, Uint8Array>): NegativeCase[] {
@@ -369,7 +354,7 @@ function negativeFiles(r: RunResult, log: Uint8Array, files: Map<string, Uint8Ar
   const build = { worldgenVersion: START.worldgenVersion, worldgenDataHash: worldgenDataHash(r.protos.bin) };
   for (const c of cases) {
     if (c.file?.startsWith('closures/')) {
-      const sim = new Sim(World.load(r.model, readSaveContainer(r.start.bytes).frames));
+      const sim = new Sim(World.load(r.model, readSaveContainer(r.start.bytes).frames), r.start.lineage);
       const res = sim.tick(c.bytes as Uint8Array, new Set());
       const want = STATUS[c.expect as keyof typeof STATUS];
       if (res.status !== want)
@@ -387,9 +372,9 @@ function negativeFiles(r: RunResult, log: Uint8Array, files: Map<string, Uint8Ar
         c.expect = `${k} ${(e as { field: string }).field} @${(e as { at: number }).at}`;
       }
     } else if (c.file?.startsWith('abi/') && c.bytes) {
-      const verdict = abiVerdict(c.call, c.bytes);
+      const verdict = abiVerdict(r, c.call, c.bytes);
       if (verdict !== c.expect)
-        throw new Error(`${c.file}: the generated decoders say ${verdict}, the case expects ${c.expect}`);
+        throw new Error(`${c.file}: the model's module says ${verdict}, the case expects ${c.expect}`);
     } else if (c.file?.startsWith('saves/')) {
       let verdict: string;
       try {
@@ -464,9 +449,37 @@ export function goldenFiles(): Golden {
   files.set(
     'digests.txt',
     text(
-      `# tick d_t (§4.8), XXH64 of the TickDigest record, hex\n${r.digests.map((d, i) => `${i + 1} ${hex64(d)}`).join('\n')}\n`,
+      `# tick, then d_t, slice_t and r_t (§4.8 items 1–3), hex. r_0 = ${hex64(r.start.lineage)} (start.save's lineage); slice t hashes shard t mod 3600 (README rules 37–41)\n${r.rolls.map((x, i) => `${i + 1} ${hex64(x.d)} ${hex64(x.slice)} ${hex64(x.r)}`).join('\n')}\n`,
     ),
   );
+  // The bytes d_t hashes at the state ticks and wherever its lists change shape (§4.8's sequence, exactly).
+  files.set(
+    'digest-preimages.txt',
+    text(
+      `# tick, then the exact bytes XXH64 hashes for d_t (TickDigestHead ‖ RngWords* ‖ TickDigestBody ‖ PlayerDigest* ‖ TickDigestTail), hex\n${[
+        ...r.preimages.entries(),
+      ]
+        .sort((a, b) => a[0] - b[0])
+        .map(([t, b]) => `${t} ${Buffer.from(b).toString('hex')}`)
+        .join('\n')}\n`,
+    ),
+  );
+  // Every shard's slice hash of the state after tick 600, and the members behind them (README rules 37–41).
+  {
+    const sim600 = r.sims.get(600) as Sim;
+    const all = members(sim600.w);
+    const lines = [
+      '# shard, then XXH64 of its members (the slice hash of a tick t with t mod 3600 = shard), hex',
+    ];
+    for (let shard = 0; shard < 3600; shard++) lines.push(`${shard} ${hex64(sliceHash(sim600.w, shard))}`);
+    files.set('slices/tick-0600.txt', text(`${lines.join('\n')}\n`));
+    const ml = ['# section, key, shard, length, XXH64 of the member bytes (hex), in (section, key) order'];
+    for (const m of all) {
+      const b = m.bytes();
+      ml.push(`${m.section} ${m.key} ${m.shard} ${b.length} ${hex64(xxh64(b))}`);
+    }
+    files.set('slices/tick-0600-members.txt', text(`${ml.join('\n')}\n`));
+  }
   // Valid logs a reader must accept (§8.5): the empty log, and the golden log without its digests.
   files.set(
     'logs/empty.pwlog',
@@ -514,13 +527,15 @@ export function goldenFiles(): Golden {
   const hashes: string[] = ["# The full state hash (§4.8) and each section's, at each state tick (hex)."];
   for (const t of STATE_TICKS) {
     const s = r.states.get(t) as { id: number; bytes: Uint8Array }[];
-    files.set(`states/tick-${pad4(t)}.sections`, sectionsBytes(s));
+    files.set(`states/tick-${pad4(t)}.sections`, saveOutputBytes(s, r.lineages.get(t) as bigint));
     files.set(`states/tick-${pad4(t)}.txt`, text(dumpSections(s)));
     const h = r.stateHashes.get(t) as { hash: bigint; sections: { id: number; hash: bigint }[] };
-    hashes.push(`tick ${t} ${hex64(h.hash)} ${h.sections.map((x) => `${x.id}:${hex64(x.hash)}`).join(' ')}`);
+    hashes.push(
+      `tick ${t} ${hex64(h.hash)} r ${hex64(r.lineages.get(t) as bigint)} ${h.sections.map((x) => `${x.id}:${hex64(x.hash)}`).join(' ')}`,
+    );
   }
   hashes.push(
-    `lineage r0 ${hex64(lineage0(START.seed))} (the start save's; r after it is the sim's and masked)`,
+    `lineage r0 ${hex64(lineage0(START.seed))} (start.save's: XXH64(u32 seed ‖ u32 0), §4.8 item 3)`,
   );
   files.set('states/hashes.txt', text(`${hashes.join('\n')}\n`));
 
@@ -531,6 +546,75 @@ export function goldenFiles(): Golden {
   void PACKET_TICKS;
   for (const t of STATE_TICKS) projectionFiles(r, t, files);
   negativeFiles(r, log, files);
+  traceFiles(r, files);
   void SCHEMA_HASH;
   return { files, run: r };
+}
+
+/**
+ * The ABI traces (README "ABI traces"): m0/abi/traces.json indexes every trace's calls; inputs and envelopes
+ * are files beside it (an input shared by several calls is written once, under abi/inputs/), each envelope with
+ * a review dump.
+ */
+function traceFiles(r: RunResult, files: Map<string, Uint8Array>): void {
+  const defs = traces({ protosBin: r.protos.bin, protos: r.model, startSave: r.start.bytes });
+  const inputs = new Map<string, string>(); // sha256 → path
+  const counts = new Map<string, number>();
+  for (const t of defs)
+    for (const c of t.calls)
+      if (c.in && c.in.length > 0) counts.set(sha256Hex(c.in), (counts.get(sha256Hex(c.in)) ?? 0) + 1);
+  let shared = 0;
+  const index = defs.map((t) => {
+    const rec = record(t);
+    const calls: IndexedCall[] = rec.map((c, i) => {
+      const n = String(i + 1).padStart(2, '0');
+      let inPath: string | null = null;
+      if (c.in && c.in.length > 0) {
+        const h = sha256Hex(c.in);
+        inPath = inputs.get(h) ?? null;
+        if (!inPath) {
+          inPath =
+            (counts.get(h) ?? 0) > 1
+              ? `abi/inputs/${c.call}-${String(++shared).padStart(2, '0')}.bin`
+              : `abi/traces/${t.name}/${n}-${c.call}.in.bin`;
+          inputs.set(h, inPath);
+          files.set(inPath, c.in);
+        }
+      }
+      let outPath: string | null = null;
+      if (c.out) {
+        outPath = `abi/traces/${t.name}/${n}-${c.call}.out.bin`;
+        files.set(outPath, c.out);
+        files.set(outPath.replace(/\.bin$/, '.txt'), text(`${reviewDump(c.call, c.out)}\n`));
+      }
+      const e: IndexedCall = { call: c.call, in: inPath, status: c.status, out: outPath };
+      if (c.params) e.params = c.params;
+      if (c.state) e.state = c.state;
+      if (c.note) e.note = c.note;
+      return e;
+    });
+    return { name: t.name, why: t.why, calls };
+  });
+  files.set(
+    'abi/traces.json',
+    text(
+      `${JSON.stringify({ version: 1, note: 'README.md "ABI traces": replay each trace against a fresh module', traces: index }, null, 2)}\n`,
+    ),
+  );
+}
+
+/**
+ * A trace envelope's review dump: a save as its decoded sections (like states/), a packet or record with its
+ * codec, compacted; past 4,000 lines the dump stops (the .bin beside it is complete).
+ */
+function reviewDump(call: string, b: Uint8Array): string {
+  let d: string;
+  if (call === 'sim_save') {
+    const v = SaveOutputCodec.decode(b);
+    d = `lineage r ${hex64(v.r)}\n${dumpSections(v.sections.map((f) => ({ id: f.id, bytes: f.data })))}`;
+  } else d = compactTiles(noZeroPoints(dumpOut(call, b)));
+  const lines = d.trimEnd().split('\n');
+  return lines.length <= 4000
+    ? lines.join('\n')
+    : `${lines.slice(0, 4000).join('\n')}\n… ${lines.length - 4000} more lines (the .bin beside this file is complete)`;
 }

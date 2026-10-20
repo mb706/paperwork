@@ -99,7 +99,7 @@ const LAYOUT: [string, Edit[]][] = [
   ['a packet section id', [['packet', '- DYN: {id: 3,', '- DYN: {id: 18,']]],
   ['a packet section kind', [['packet', '- DYN: {id: 3, kind: snapshot,', '- DYN: {id: 3, kind: delta,']]],
   ['the packet magic', [['packet', 'magic: 0x4B505750', 'magic: 0x4B505751']]],
-  ['the packet version', [['packet', 'version: 1             # PACKET_VERSION', 'version: 2             #']]],
+  ['the packet version', [['packet', 'version: 2             # PACKET_VERSION', 'version: 3             #']]],
   ['a range', [['packet', 'band: {type: u8, range: [0, 7]', 'band: {type: u8, range: [0, 6]']]],
   [
     'a list max',

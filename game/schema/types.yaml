@@ -223,12 +223,17 @@ enums:
       base: u16
       doc: >-
         Flying-text templates (§15.6, 08 §8.3); locale key `flying-text.<name, dashed>`. item_delta is the
-        vanilla "+3 Iron plate (57)": the sign of `count`, the item, and the player's new total
+        vanilla "+3 Iron plate (57)": the sign of `count`, the item, and the player's new total. GATE-r1 (Factorio
+        2.0.77's messages for what does not fit, which are not refusals: the action or step did what it could):
+        inventory_full is "Cannot insert Iron plate. Inventory is full." (`item`; `count` how many did not fit),
+        cannot_put_away is Q's "Cannot put away the Iron plate. Player inventory is full." (`count` left in hand)
       locale: flying-text
       values:
         - item_delta: 1
         - rolled_back: 2
         - swapped: 3
+        - inventory_full: 4
+        - cannot_put_away: 5
   - AlertType:
       base: u16
       doc: "Alert types (07 §22, 08 §8.1); Factorio's own stay, silent until their systems exist. Locale key `alert.<name, dashed>`"

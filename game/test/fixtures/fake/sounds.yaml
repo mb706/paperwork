@@ -1,0 +1,26 @@
+# The fake sim's sound tables (10 §15.6, §15.10), a fixture: the data stage reads it for the fake's build only
+# while game/data/engine/sounds.yaml does not exist (`--engine-file sounds.yaml=…`; the real file always wins).
+# The names and the working sounds are the audio package's (C7's sounds.yaml), so the ids, dense and sorted by
+# name, are the ones its audio module computes; the definitions are left out because the data stage reads only
+# the names. Remove this file once the audio package's sounds.yaml is on `dev`.
+sounds:
+  ui-click: {}
+  ui-hover: {}
+  error: {}
+  build-small: {}
+  build-medium: {}
+  build-large: {}
+  deconstruct: {}
+  mine-ore: {}
+  inserter-swing: {}
+  research-complete: {}
+  alert: {}
+  footstep-grass: {}
+  footstep-concrete: {}
+  keypunch-loop: {}
+  belt-loop: {}
+working_sounds:
+  keypunch: keypunch-loop
+  transport-belt: belt-loop
+  fast-transport-belt: belt-loop
+  express-transport-belt: belt-loop

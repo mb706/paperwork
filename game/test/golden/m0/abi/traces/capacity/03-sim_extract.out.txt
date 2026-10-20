@@ -1,0 +1,9 @@
+header.magic=1263556432
+header.version=2
+header.flags=1
+header.state_gen=0
+header.tick=0
+header.view_seq=0
+header.daylight=65535
+header.section_count=0
+header.byte_length=32

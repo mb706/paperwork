@@ -1,23 +1,23 @@
 // The fake sim's world (10 §15.10): generated terrain, a small factory that runs, and characters driven by
 // actions. Not a simulation: it animates what the renderer, the UI and audio consume, at the rates the real
-// game produces them, deterministically from its seed and the actions it is given. M0's real rules live in the
-// sim and in the golden set's reference model; here only their shapes matter.
+// game produces them, deterministically from its seed and the actions it is given. The player's M0 actions
+// follow the golden set's reference model (rules.ts); the factory around them is scenery with real rates.
 
 import { Writer } from '../../shared/gen/codec.ts';
 import type { EventMeta, EventPayload } from '../../shared/gen/events.ts';
 import { EVENT_QUEUE_MAX_EVENTS, writeEvent } from '../../shared/gen/events.ts';
 import type { BeltSegment, ObjectView } from '../../shared/gen/packet.ts';
+import { emptySlots, type Slot, sortSlots } from './inventory.ts';
 import { fractal, hash, unit } from './noise.ts';
 import type { FakeProtos } from './protos.ts';
+import { characterTick, entityBox, finishEntityMining, overlaps, protoBox } from './rules.ts';
+import { type StatRecord, Stats } from './stats.ts';
+
+export type { Slot } from './inventory.ts';
 
 export interface FakeOptions {
   /** Ticks per day (Factorio: 25,000); the dev page can shorten it to see the night. */
   dayTicks?: number;
-}
-
-export interface Slot {
-  key: number;
-  count: number;
 }
 
 export interface Ent {
@@ -45,6 +45,8 @@ export interface Ent {
   consumes: Slot[];
   recipe: number;
   inv: Slot[];
+  /** A chest's limit bar (set_inventory_bar): slots from it on are limited; `inv.length` when unlimited. */
+  bar: number;
   energyW: number;
 }
 
@@ -62,6 +64,10 @@ export interface Line {
   sinkEvery: number;
   /** The chunks its segments touch (for the held set). */
   chunks: number[];
+  /** The serials of the belts it runs over. */
+  belts: number[];
+  /** A belt of the line was mined: the line is gone (retired at the next packet, never sent again). */
+  removed: boolean;
 }
 
 export interface Ins {
@@ -89,15 +95,24 @@ export interface Char {
   dir: number;
   vx: number;
   vy: number;
-  mining: { x: number; y: number } | null;
+  /** Hand mining (§5.1): a resource tile (with the position the action named) or an entity, by serial. */
+  mining:
+    | { kind: 'tile'; tx: number; ty: number; pos: { x: number; y: number } }
+    | { kind: 'entity'; serial: number }
+    | null;
   miningProgress: number;
   main: Slot[];
-  hand: { key: number; count: number; origin: number };
+  /** The cursor stack (I §3.2): a stack with its origin slot (0xFFFF none), or a ghost cursor (count 0). */
+  hand: { key: number; count: number; origin: number; ghost: boolean };
   queue: { recipe: number; count: number; progress: number }[];
   inputGen: number;
   lastSeq: number;
+  lastActionTick: number;
   autoSort: boolean;
-  /** Player 1 walks a fixed loop around the factory; player 0 follows its actions. */
+  pickGhost: boolean;
+  /** The creation ring (§4.3): the entities this player's recent actions created, by the action's seq. */
+  creation: { seq: number; serial: number }[];
+  /** Player 1 walks a fixed loop around the factory (a puppet: it walks through buildings). */
   scripted: boolean;
 }
 
@@ -109,6 +124,8 @@ export interface ChunkData {
   resources: { tile: number; resource: number; amount: number }[];
   objects: ObjectView[];
   version: { tiles: number; entities: number; objects: number; resources: number };
+  /** Changed since it was generated (its entities, resources or tiles): saved; a pristine chunk regenerates. */
+  modified: boolean;
 }
 
 export const chunkKeyOf = (cx: number, cy: number): number =>
@@ -125,6 +142,24 @@ export function daylight(tick: number, dayTicks: number): number {
   return (t - 0.55) / 0.2;
 }
 
+/** The fake world's state as plain data (the fake's own save format, fake.ts): everything but the protos. */
+export interface FakeSnapshot {
+  seed: number;
+  dayTicks: number;
+  tick: number;
+  nextSerial: number;
+  geomCounter: number;
+  demoChest: number;
+  literature: number;
+  trimmedCollision: boolean;
+  chunks: ChunkData[];
+  entities: Ent[];
+  lines: Line[];
+  inserters: Ins[];
+  chars: Char[];
+  stats: StatRecord[];
+}
+
 export class FakeWorld {
   readonly p: FakeProtos;
   readonly seed: number;
@@ -139,25 +174,142 @@ export class FakeWorld {
   /** Events since the last extraction (§15.6): at most 8,192, oldest dropped. */
   events: Uint8Array[] = [];
   eventsDropped = false;
-  /** Production statistics (§5.20): per stat key, the produced and consumed counts per tick. */
+  /** This tick's production and consumption counters (§5.20), by stat key. */
   readonly produced = new Map<number, number>();
   readonly consumed = new Map<number, number>();
-  readonly totals = new Map<number, { produced: number; consumed: number }>();
-  /** Per stat key and precision: 300 points (see stats in extract.ts). */
-  readonly rings = new Map<
-    number,
-    { produced: Float32Array; consumed: Float32Array; points: number; acc: [number, number] }[]
-  >();
+  /** Every key's totals and rings (phase 15). */
+  readonly stats = new Stats();
   private geomCounter = 0;
   /** The serial of the chest the build-and-mine demo keeps rebuilding, 0 while it is mined. */
   private demoChest = 0;
   literature = 1945;
+  /** The game setting `trimmed_collision` (set_game_setting); the fake's characters do not read it. */
+  trimmedCollision = false;
 
-  constructor(protos: FakeProtos, seed: number, opts: FakeOptions = {}) {
+  /** A new world from its seed, or, with `snap`, the world a fake save holds. */
+  constructor(protos: FakeProtos, seed: number, opts: FakeOptions = {}, snap?: FakeSnapshot) {
     this.p = protos;
+    if (snap) {
+      this.seed = snap.seed;
+      this.dayTicks = snap.dayTicks;
+      this.tick = snap.tick;
+      this.nextSerial = snap.nextSerial;
+      this.geomCounter = snap.geomCounter;
+      this.demoChest = snap.demoChest;
+      this.literature = snap.literature;
+      this.trimmedCollision = snap.trimmedCollision;
+      for (const c of snap.chunks) this.chunks.set(c.key, c);
+      this.entities.push(...snap.entities);
+      this.lines.push(...snap.lines);
+      this.inserters.push(...snap.inserters);
+      this.chars.push(...snap.chars);
+      for (const r of snap.stats) this.stats.records.set(r.key, r);
+      return;
+    }
     this.seed = seed >>> 0;
     this.dayTicks = opts.dayTicks ?? 25000;
     this.layout();
+  }
+
+  /** The state as plain data, deep-copied (the fake's save; events are presentation and are not kept). */
+  snapshot(): FakeSnapshot {
+    const snap: FakeSnapshot = {
+      seed: this.seed,
+      dayTicks: this.dayTicks,
+      tick: this.tick,
+      nextSerial: this.nextSerial,
+      geomCounter: this.geomCounter,
+      demoChest: this.demoChest,
+      literature: this.literature,
+      trimmedCollision: this.trimmedCollision,
+      // Pristine chunks are a pure function of the seed (§4.4): only modified ones are kept.
+      chunks: [...this.chunks.values()].filter((c) => c.modified),
+      entities: this.entities,
+      lines: this.lines,
+      inserters: this.inserters,
+      chars: this.chars,
+      stats: [...this.stats.records.values()],
+    };
+    return JSON.parse(JSON.stringify(snap)) as FakeSnapshot;
+  }
+
+  /** A part of the chunk holding tile (tx, ty) changed: its view version rises and it is no longer pristine. */
+  changed(tx: number, ty: number, part: 'tiles' | 'entities' | 'objects' | 'resources'): void {
+    const c = this.chunk(toChunk(tx), toChunk(ty));
+    c.version[part]++;
+    c.modified = true;
+  }
+
+  entityBySerial(serial: number): Ent | null {
+    return serial === 0 ? null : (this.entities.find((e) => e.serial === serial) ?? null);
+  }
+
+  /** Removes a mined entity, with what animates it: an inserter's hand, the transport lines over a belt. */
+  removeEntity(e: Ent): void {
+    const i = this.entities.indexOf(e);
+    if (i < 0) return;
+    this.entities.splice(i, 1);
+    this.changed(e.x2 >> 1, e.y2 >> 1, 'entities');
+    const k = this.inserters.findIndex((x) => x.serial === e.serial);
+    if (k >= 0) this.inserters.splice(k, 1);
+    if (e.role === 'belt')
+      for (const l of this.lines)
+        if (!l.removed && l.belts.includes(e.serial)) {
+          l.removed = true;
+          l.items = [];
+        }
+    if (e.serial === this.demoChest) this.demoChest = 0;
+  }
+
+  /** An entity a player builds (§5.2): a chest gets an empty inventory; machines stand idle. */
+  addBuilt(proto: number, x2: number, y2: number, dir: number): Ent {
+    const j = this.p.json.entity[proto] as {
+      type: string;
+      inventorySlots: number | null;
+      energyUsageW: number;
+    };
+    const role: Ent['role'] =
+      j.type === 'chest'
+        ? 'chest'
+        : j.type === 'belt' || j.type === 'splitter'
+          ? 'belt'
+          : j.type === 'lamp'
+            ? 'lamp'
+            : j.type === 'inserter' ||
+                j.type === 'electric-pole' ||
+                j.type === 'pipe' ||
+                j.type === 'pipe-to-ground'
+              ? 'static'
+              : j.type === 'underground-belt' || j.type === 'solar-panel'
+                ? 'static'
+                : 'machine';
+    const slots = role === 'chest' ? (j.inventorySlots ?? 16) : 0;
+    const e: Ent = {
+      serial: this.serial(),
+      proto,
+      name: (this.p.json.entity[proto] as { name: string }).name,
+      x2,
+      y2,
+      dir,
+      flags: 0,
+      altIcon: 0xffff,
+      role,
+      working: role === 'belt',
+      unpowered: false,
+      phase: hash(this.seed, x2, y2, 5) & 0xffff,
+      loop: role === 'belt' ? 16 : 60,
+      craftTicks: 0,
+      progress: 0,
+      produces: [],
+      consumes: [],
+      recipe: 0xffff,
+      inv: emptySlots(slots),
+      bar: slots,
+      energyW: j.energyUsageW,
+    };
+    this.entities.push(e);
+    this.changed(x2 >> 1, y2 >> 1, 'entities');
+    return e;
   }
 
   serial(): number {
@@ -213,17 +365,19 @@ export class FakeWorld {
         if (!water && !busy) {
           const h = hash(this.seed, tx, ty, 3);
           const forest = fractal(this.seed + 11, tx, ty, 40);
+          const species = this.p.json.treeSpecies.length;
           if (forest > 0.62 && unit(h) < 0.35) {
-            // Trees (kind 0): the species indexes prototypes.json's treeSpecies, empty until the engine overlay
-            // fills it; the fake uses species 0–3 and every leaf stage (§4.4, §15.7).
-            objects.push({
-              id: h % 4,
-              kind: 0,
-              variant: (h >>> 8) % 5,
-              x: tx * 256 + 64 + ((h >>> 16) % 128),
-              y: ty * 256 + 64 + ((h >>> 24) % 128),
-              count: 0,
-            });
+            // Trees (kind 0): the species indexes prototypes.json's treeSpecies (none without the table);
+            // every leaf stage appears (§4.4, §15.7).
+            if (species > 0)
+              objects.push({
+                id: h % species,
+                kind: 0,
+                variant: (h >>> 8) % 5,
+                x: tx * 256 + 64 + ((h >>> 16) % 128),
+                y: ty * 256 + 64 + ((h >>> 24) % 128),
+                count: 0,
+              });
           } else if (unit(h) > 0.997) {
             const rock = ['big-rock', 'huge-rock', 'big-sand-rock'][h % 3] as string;
             const id = this.p.id('world', rock);
@@ -247,6 +401,7 @@ export class FakeWorld {
       resources,
       objects,
       version: { tiles: 1, entities: 1, objects: 1, resources: 1 },
+      modified: false,
     };
     this.chunks.set(key, c);
     return c;
@@ -318,6 +473,7 @@ export class FakeWorld {
       consumes: [],
       recipe: 0xffff,
       inv: [],
+      bar: 0,
       energyW: e.energyUsageW,
       ...extra,
     };
@@ -359,7 +515,7 @@ export class FakeWorld {
       const key = this.p.key(item);
       if (key !== null && i < size) inv[i] = { key, count: n };
     });
-    return this.place(name, tx, ty, 0, 'chest', { inv });
+    return this.place(name, tx, ty, 0, 'chest', { inv, bar: size });
   }
 
   /** A straight run of belts and its two lanes as transport lines (§5.3: one line per lane). */
@@ -376,8 +532,11 @@ export class FakeWorld {
     if (proto === null) return;
     const [dx, dy] = dir === 0 ? [0, -1] : dir === 4 ? [1, 0] : dir === 8 ? [0, 1] : [-1, 0];
     const n = Math.abs(to[0] - from[0]) + Math.abs(to[1] - from[1]) + 1;
-    for (let i = 0; i < n; i++)
-      this.place(name, from[0] + dx * i, from[1] + dy * i, dir, 'belt', { loop: 16 });
+    const belts: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const b = this.place(name, from[0] + dx * i, from[1] + dy * i, dir, 'belt', { loop: 16 });
+      if (b) belts.push(b.serial);
+    }
     const speedPos = (this.p.json.entity[proto] as { name: string }).name.startsWith('fast') ? 16 : 8;
     for (const lane of [0, 1]) {
       // The lane's centreline lies a quarter tile left (lane 0) or right (lane 1) of the belt's.
@@ -394,7 +553,7 @@ export class FakeWorld {
         turn: 0,
         radius: 0,
       };
-      this.addLine([seg], lane, speedPos, item, sourceEvery, sinkEvery, from, to);
+      this.addLine([seg], lane, speedPos, item, sourceEvery, sinkEvery, from, to, belts);
     }
   }
 
@@ -402,9 +561,13 @@ export class FakeWorld {
   private beltCorner(name: string, x0: number, y: number, cornerX: number, y1: number, item: string): void {
     const proto = this.p.id('entity', name);
     if (proto === null) return;
-    for (let x = x0; x < cornerX; x++) this.place(name, x, y, 4, 'belt', { loop: 16 });
-    this.place(name, cornerX, y, 8, 'belt', { loop: 16 });
-    for (let yy = y + 1; yy <= y1; yy++) this.place(name, cornerX, yy, 8, 'belt', { loop: 16 });
+    const belts: number[] = [];
+    const add = (b: Ent | null) => {
+      if (b) belts.push(b.serial);
+    };
+    for (let x = x0; x < cornerX; x++) add(this.place(name, x, y, 4, 'belt', { loop: 16 }));
+    add(this.place(name, cornerX, y, 8, 'belt', { loop: 16 }));
+    for (let yy = y + 1; yy <= y1; yy++) add(this.place(name, cornerX, yy, 8, 'belt', { loop: 16 }));
     for (const lane of [0, 1]) {
       // Lane 0 is on the left of travel: the outside of a right turn (radius 0.75 tile), lane 1 the inside (0.25).
       const offset = lane === 0 ? -0.25 : 0.25;
@@ -441,7 +604,7 @@ export class FakeWorld {
           radius: 0,
         },
       ];
-      this.addLine(segs, lane, 8, item, 26, 30, [x0, y], [cornerX, y1]);
+      this.addLine(segs, lane, 8, item, 26, 30, [x0, y], [cornerX, y1], belts);
     }
   }
 
@@ -454,6 +617,7 @@ export class FakeWorld {
     sinkEvery: number,
     a: [number, number],
     b: [number, number],
+    belts: number[],
   ): void {
     const length = segments.reduce((s, x) => s + x.len, 0);
     const chunks = new Set<number>();
@@ -472,6 +636,8 @@ export class FakeWorld {
       sourceEvery,
       sinkEvery,
       chunks: [...chunks].sort((x, y) => x - y),
+      belts,
+      removed: false,
     };
     // Start full: items every 64 to 128 positions (a partly compressed belt).
     for (let d = 32; d < length; d += 64 + (hash(this.seed, line.id, d) % 3) * 32)
@@ -573,7 +739,7 @@ export class FakeWorld {
   }
 
   private newChar(player: number, x: number, y: number, scripted: boolean): Char {
-    const main: Slot[] = Array.from({ length: 80 }, () => ({ key: EMPTY, count: 0 }));
+    const main = emptySlots(this.p.char.mainSlots);
     const kit: [string, number][] = [
       ['iron-chest', 10],
       ['transport-belt', 100],
@@ -590,12 +756,14 @@ export class FakeWorld {
       const key = this.p.key(name);
       if (key === null) continue;
       let left = n;
-      while (left > 0 && slot < 80) {
+      while (left > 0 && slot < main.length) {
         const k = left < this.p.stack(key) ? left : this.p.stack(key);
         main[slot++] = { key, count: k };
         left -= k;
       }
     }
+    // Auto-sort is on (D11): the main inventory starts sorted.
+    sortSlots({ slots: main, bar: main.length, origin: -1 }, (k) => this.p.stack(k));
     return {
       player,
       serial: this.serial(),
@@ -609,11 +777,14 @@ export class FakeWorld {
       mining: null,
       miningProgress: 0,
       main,
-      hand: { key: EMPTY, count: 0, origin: EMPTY },
+      hand: { key: EMPTY, count: 0, origin: EMPTY, ghost: false },
       queue: [],
       inputGen: 0,
       lastSeq: 0,
+      lastActionTick: 0,
       autoSort: true,
+      pickGhost: false,
+      creation: [],
       scripted,
     };
   }
@@ -630,7 +801,7 @@ export class FakeWorld {
     }
   }
 
-  private count(m: Map<number, number>, itemKey: number, n: number): void {
+  count(m: Map<number, number>, itemKey: number, n: number): void {
     const k = (1 << 24) + itemKey; // StatKey: (StatKind.item << 24) | item key
     m.set(k, (m.get(k) ?? 0) + n);
   }
@@ -696,199 +867,45 @@ export class FakeWorld {
       l.items.push({ key: l.sourceKey, d: l.length - 32 });
   }
 
-  /** Every 10 s player 1 builds a chest by the spawn point; 5 s later it mines it again. */
+  /**
+   * Every 10 s player 1 builds a chest by the spawn point (unless something stands there), and 5 s later mines
+   * it again by the rules of a player's mining: its item and its seven plates go to player 1's inventory.
+   */
   private demo(): void {
     const t = this.tick % 600;
     const p1 = this.chars[1];
-    const name = 'wooden-chest';
-    const proto = this.p.id('entity', name);
+    const proto = this.p.id('entity', 'wooden-chest');
     if (!p1 || proto === null) return;
     if (t === 0 && this.demoChest === 0) {
-      const e = this.chest(name, -3, 3, [['iron-plate', 7]]);
+      const box = protoBox(this, proto, -5, 7, 0);
+      if (this.entities.some((e) => overlaps(box, entityBox(this, e)))) return;
+      const e = this.chest('wooden-chest', -3, 3, [['iron-plate', 7]]);
       if (!e) return;
       this.demoChest = e.serial;
-      this.chunk(toChunk(-3), toChunk(3)).version.entities++;
+      this.changed(-3, 3, 'entities');
       this.emit(
         { seq: 0, player: 1 },
         { type: 'entity_built', serial: e.serial, proto, dir: 0, flags: 0, pos: { x2: e.x2, y2: e.y2 } },
       );
     } else if (t === 300 && this.demoChest !== 0) {
-      const i = this.entities.findIndex((e) => e.serial === this.demoChest);
-      const e = this.entities[i];
-      if (!e) return;
-      this.entities.splice(i, 1);
-      this.chunk(toChunk(-3), toChunk(3)).version.entities++;
-      this.emit(
-        { seq: 0, player: 1 },
-        { type: 'entity_mined', serial: e.serial, proto, pos: { x2: e.x2, y2: e.y2 } },
-      );
-      this.emit(
-        { seq: 0, player: 1 },
-        {
-          type: 'flying_text',
-          text: 1,
-          item: this.p.key('wooden-chest') ?? 0,
-          count: 1,
-          total: 1,
-          pos: { x: Math.round(p1.x * 256), y: Math.round(p1.y * 256) },
-        },
-      );
-      this.demoChest = 0;
+      const e = this.entityBySerial(this.demoChest);
+      if (e) finishEntityMining(this, p1, e);
     }
   }
 
   private charTick(c: Char): void {
-    if (!c.online) {
-      c.vx = 0;
-      c.vy = 0;
-      return;
-    }
-    if (c.scripted) {
+    if (c.scripted && c.online) {
       // Player 1 walks a rectangle around the factory's south side, turning every 3 s.
       const leg = Math.floor(this.tick / 180) % 4;
       c.dir = [4, 0, 12, 8][leg] as number;
       c.walking = Math.floor(this.tick / 90) % 6 !== 5; // and pauses now and then (the idle clip)
     }
-    c.vx = 0;
-    c.vy = 0;
-    if (c.walking) {
-      const s = Math.SQRT1_2;
-      const dirs: [number, number][] = [
-        [0, -1],
-        [s, -s],
-        [1, 0],
-        [s, s],
-        [0, 1],
-        [-s, s],
-        [-1, 0],
-        [-s, -s],
-      ];
-      const [ux, uy] = dirs[c.dir >> 1] as [number, number];
-      const nx = c.x + 0.15 * ux;
-      const ny = c.y + 0.15 * uy;
-      if (this.walkable(Math.floor(nx), Math.floor(ny))) {
-        c.vx = nx - c.x;
-        c.vy = ny - c.y;
-        c.x = nx;
-        c.y = ny;
-      }
-    }
-    if (c.mining) {
-      c.miningProgress += 0.5 / 60;
-      if (c.miningProgress >= 1 - 1e-9) {
-        c.miningProgress = 0;
-        const tx = Math.floor(c.mining.x);
-        const ty = Math.floor(c.mining.y);
-        const ch = this.chunk(toChunk(tx), toChunk(ty));
-        const r = ch.resources.find((x) => x.tile === (ty - ch.cy * 32) * 32 + (tx - ch.cx * 32));
-        const yieldName = r ? this.p.json.resource[r.resource]?.yields : null;
-        if (r && yieldName && yieldName.kind === 'item') {
-          r.amount -= 1;
-          const key = yieldName.id * 8;
-          this.add(c, key, 1);
-          this.count(this.produced, key, 1);
-          this.emit(
-            { seq: 0, player: c.player },
-            {
-              type: 'flying_text',
-              text: 1,
-              item: key,
-              count: 1,
-              total: this.total(c, key),
-              pos: { x: Math.round(c.x * 256), y: Math.round(c.y * 256) },
-            },
-          );
-        } else c.mining = null;
-      }
-    }
-    const q = c.queue[0];
-    if (q) {
-      const r = this.p.json.recipe[q.recipe];
-      if (r) {
-        q.progress += 1 / (r.time * 60);
-        if (q.progress >= 1 - 1e-9) {
-          q.progress = 0;
-          q.count -= 1;
-          for (const prod of r.products) {
-            const key = prod.id * 8;
-            this.add(c, key, prod.amount);
-            this.count(this.produced, key, prod.amount);
-            this.emit(
-              { seq: 0, player: c.player },
-              {
-                type: 'flying_text',
-                text: 1,
-                item: key,
-                count: prod.amount,
-                total: this.total(c, key),
-                pos: { x: Math.round(c.x * 256), y: Math.round(c.y * 256) },
-              },
-            );
-          }
-          for (const ing of r.ingredients) this.count(this.consumed, ing.id * 8, ing.amount);
-          this.emit({ seq: 0, player: c.player }, { type: 'item_crafted', recipe: q.recipe, count: 1 });
-          if (q.count === 0) c.queue.shift();
-        }
-      }
-    }
+    characterTick(this, c);
   }
 
-  /** Adds items to a character's main inventory: partial stacks, then empty slots. */
-  add(c: Char, key: number, n: number): number {
-    let left = n;
-    const stack = this.p.stack(key);
-    for (const s of c.main)
-      if (left > 0 && s.key === key && s.count < stack) {
-        const k = left < stack - s.count ? left : stack - s.count;
-        s.count += k;
-        left -= k;
-      }
-    for (const s of c.main)
-      if (left > 0 && s.count === 0) {
-        const k = left < stack ? left : stack;
-        s.key = key;
-        s.count = k;
-        left -= k;
-      }
-    return n - left;
-  }
-
-  total(c: Char, key: number): number {
-    return c.main.reduce((n, s) => (s.key === key ? n + s.count : n), 0);
-  }
-
-  /** The statistics rings (§5.20): every key, every tick; points of 1, 12, 120 … ticks, as the golden model's. */
+  /** Phase 15: this tick's counters into every key's totals and rings (stats.ts). */
   private flushStats(): void {
-    const keys = new Set<number>([...this.produced.keys(), ...this.consumed.keys(), ...this.rings.keys()]);
-    const spans = [1, 12, 120, 720, 7200, 36000, 180000, 720000, 60];
-    for (const k of [...keys].sort((a, b) => a - b)) {
-      const p = this.produced.get(k) ?? 0;
-      const q = this.consumed.get(k) ?? 0;
-      const t = this.totals.get(k) ?? { produced: 0, consumed: 0 };
-      t.produced += p;
-      t.consumed += q;
-      this.totals.set(k, t);
-      let rings = this.rings.get(k);
-      if (!rings) {
-        rings = spans.map((T) => ({
-          produced: new Float32Array(300),
-          consumed: new Float32Array(300),
-          points: Math.floor((this.tick - 1) / T),
-          acc: [0, 0] as [number, number],
-        }));
-        this.rings.set(k, rings);
-      }
-      rings.forEach((r, i) => {
-        r.acc[0] += p;
-        r.acc[1] += q;
-        if (this.tick % (spans[i] as number) === 0) {
-          r.produced[r.points % 300] = r.acc[0];
-          r.consumed[r.points % 300] = r.acc[1];
-          r.points++;
-          r.acc = [0, 0];
-        }
-      });
-    }
+    this.stats.flush(this.tick, this.produced, this.consumed);
   }
 
   /** The animated entities' electric draw, for the HUD's music feed (§15.6: activity in W). */
@@ -896,133 +913,5 @@ export class FakeWorld {
     let w = 0;
     for (const e of this.entities) if (e.working && !e.unpowered && e.role === 'machine') w += e.energyW;
     return w;
-  }
-}
-
-// ------------------------------------------------------------------------------------------ actions
-
-/** What the fake does with an action: applies it, refuses it (an `action_failed` reason), or ignores it. */
-export type ActionResult = 'applied' | { reason: number } | 'not modelled';
-
-const FAIL = {
-  malformed: 1,
-  unsupported: 2,
-  nothing_to_mine: 25,
-  not_enough_ingredients: 19,
-  invalid_index: 5,
-  cannot_handcraft: 29,
-};
-
-/**
- * Applies one decoded action of player 0 or 1 (§15.3): walking, mining a resource tile, hand crafting and the
- * cursor's slot clicks on the main inventory are modelled; the other M0 actions are accepted and ignored; the
- * caller refuses malformed and unsupported ones before this.
- */
-export function applyFakeAction(
-  w: FakeWorld,
-  c: Char,
-  a: import('../../shared/gen/actions.ts').Action,
-): ActionResult {
-  switch (a.type) {
-    case 'start_walking':
-      c.walking = true;
-      c.dir = a.dir;
-      return 'applied';
-    case 'stop_walking':
-      c.walking = false;
-      return 'applied';
-    case 'begin_mining_terrain': {
-      const tx = Math.floor(a.pos.x / 256);
-      const ty = Math.floor(a.pos.y / 256);
-      const ch = w.chunk(toChunk(tx), toChunk(ty));
-      const r = ch.resources.find((x) => x.tile === (ty - ch.cy * 32) * 32 + (tx - ch.cx * 32));
-      if (!r) return { reason: FAIL.nothing_to_mine };
-      if (!c.mining || Math.floor(c.mining.x) !== tx || Math.floor(c.mining.y) !== ty) c.miningProgress = 0;
-      c.mining = { x: tx + 0.5, y: ty + 0.5 };
-      return 'applied';
-    }
-    case 'stop_mining':
-      c.mining = null;
-      c.miningProgress = 0;
-      return 'applied';
-    case 'craft': {
-      const r = w.p.json.recipe[a.recipe];
-      if (!r) return { reason: FAIL.invalid_index };
-      if (!r.handcraft) return { reason: FAIL.cannot_handcraft };
-      let can = 65535;
-      for (const ing of r.ingredients) {
-        const k = Math.floor(w.total(c, ing.id * 8) / ing.amount);
-        if (k < can) can = k;
-      }
-      const n = a.count === 0 ? can : a.count < can ? a.count : can;
-      if (n === 0) return { reason: FAIL.not_enough_ingredients };
-      for (const ing of r.ingredients) {
-        let left = n * ing.amount;
-        for (let i = c.main.length - 1; i >= 0 && left > 0; i--) {
-          const s = c.main[i] as Slot;
-          if (s.key !== ing.id * 8) continue;
-          const k = left < s.count ? left : s.count;
-          s.count -= k;
-          left -= k;
-          if (s.count === 0) s.key = EMPTY;
-        }
-      }
-      const last = c.queue[c.queue.length - 1];
-      if (last && last.recipe === a.recipe) last.count += n;
-      else c.queue.push({ recipe: a.recipe, count: n, progress: 0 });
-      return 'applied';
-    }
-    case 'cancel_craft': {
-      const q = c.queue[a.index];
-      if (!q) return { reason: FAIL.invalid_index };
-      const r = w.p.json.recipe[q.recipe];
-      const m = a.count === 0 || a.count > q.count ? q.count : a.count;
-      for (const ing of r?.ingredients ?? []) w.add(c, ing.id * 8, m * ing.amount);
-      q.count -= m;
-      if (q.count === 0) c.queue.splice(a.index, 1);
-      return 'applied';
-    }
-    case 'cursor_transfer':
-    case 'cursor_split': {
-      if (a.slot.owner.tag !== 0) return 'not modelled';
-      const s = c.main[a.slot.slot];
-      if (!s) return { reason: FAIL.invalid_index };
-      const split = a.type === 'cursor_split';
-      if (c.hand.count === 0) {
-        if (s.count === 0) return 'applied';
-        const take = split ? Math.ceil(s.count / 2) : s.count;
-        c.hand = { key: s.key, count: take, origin: a.slot.slot };
-        s.count -= take;
-        if (s.count === 0) s.key = EMPTY;
-      } else if (s.count === 0) {
-        const put = split ? 1 : c.hand.count;
-        s.key = c.hand.key;
-        s.count = put;
-        c.hand.count -= put;
-      } else if (s.key === c.hand.key) {
-        const room = w.p.stack(s.key) - s.count;
-        const put = split ? (room > 0 ? 1 : 0) : room < c.hand.count ? room : c.hand.count;
-        s.count += put;
-        c.hand.count -= put;
-      } else if (!split) {
-        const held = { ...c.hand };
-        c.hand = { key: s.key, count: s.count, origin: a.slot.slot };
-        s.key = held.key;
-        s.count = held.count;
-      }
-      if (c.hand.count === 0) c.hand = { key: EMPTY, count: 0, origin: EMPTY };
-      return 'applied';
-    }
-    case 'clear_cursor':
-      if (c.hand.count > 0) {
-        const left = c.hand.count - w.add(c, c.hand.key, c.hand.count);
-        c.hand = left > 0 ? { ...c.hand, count: left } : { key: EMPTY, count: 0, origin: EMPTY };
-      }
-      return 'applied';
-    case 'set_player_setting':
-      if (a.setting === 1) c.autoSort = a.value === 1;
-      return 'applied';
-    default:
-      return 'not modelled';
   }
 }

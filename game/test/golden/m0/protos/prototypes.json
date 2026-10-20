@@ -407,6 +407,16 @@
         "key": "flying-text.swapped",
         "name": "swapped",
         "value": 3
+      },
+      {
+        "key": "flying-text.inventory-full",
+        "name": "inventory_full",
+        "value": 4
+      },
+      {
+        "key": "flying-text.cannot-put-away",
+        "name": "cannot_put_away",
+        "value": 5
       }
     ],
     "Status": [
@@ -629,7 +639,7 @@
     "model-generation-25",
     "statistical-learning"
   ],
-  "prototypesHash": "9479d0bc398a888375b6f7e94d7565e2e3763ea28e888521e5bec9acdc8961e9",
+  "prototypesHash": "db6d64a69842c21d8afb28993937d391d87e825a645d70eaa7d6d5310397be49",
   "recipe": [
     {
       "category": "crafting",
@@ -674,7 +684,7 @@
       }
     }
   ],
-  "schemaHash": "ff46e043886d7986ef1ee6e039400dff3c3cdd6d7a7b91557b9c206a86644e97",
+  "schemaHash": "bed0caa0b5b03465cddfbab410209d9611f1f8416ba834d7ac0b33304e240444",
   "signal": [],
   "sounds": [],
   "strings": {
@@ -879,6 +889,8 @@
     }
   ],
   "townBuildings": [],
-  "treeSpecies": [],
+  "treeSpecies": [
+    "object/tree-oak"
+  ],
   "world": []
 }

@@ -35,7 +35,7 @@ import { MiningMode, type StatRing } from '../../../src/shared/gen/state.ts';
 import { InventoryType, StatKind } from '../../../src/shared/gen/types.ts';
 import { chestInv, handOrigin, mainInv, slots } from './inventory.ts';
 import type { Sim } from './sim.ts';
-import { ALL_PRECISION, lastPoints, RING_POINTS } from './stats.ts';
+import { ALL_PRECISION, allSpan, lastPoints, RING_POINTS, TICKS_PER_POINT } from './stats.ts';
 import { NONE16, SECTION_ID, type World } from './world.ts';
 
 export type Built = { status: 0; body: Uint8Array } | { status: 1 } | { status: 2; reason: number };
@@ -69,11 +69,15 @@ function chestView(w: World, e: EntityTableRow): InventoryView {
   };
 }
 
-/** The STATS state a subscription keeps between records (§15.5: whole first, then only new points). */
+/**
+ * The STATS state a subscription keeps between records (§15.5: whole first, then only new points): per key, the
+ * next point to send and the span its ring had when it was sent. A ring whose span changed since (the `all`
+ * ring's doubling merged its points) is sent whole again (GATE-r1 finding 14; rule 26).
+ */
 export interface SeriesState {
   whole: boolean;
-  /** Per key: the stream index of the next point to send. */
   next: Map<number, number>;
+  span?: Map<number, number>;
 }
 
 /** The keys a STATS subscription reports: its tail's, or every key of its tab (model decision). */
@@ -133,7 +137,8 @@ export function buildRecord(
       };
     case ProjectionKind.character: {
       const p = w.player(req.target);
-      if (!p) return { built: { status: 1 } };
+      // A watermark record (rule 12) has no character: the window has nothing to show.
+      if (!p || p.character === 0) return { built: { status: 1 } };
       const main = mainInv(w, p);
       const origin = handOrigin(p);
       const flags =
@@ -224,19 +229,24 @@ export function buildRecord(
       });
       const out: StatSeries[] = [];
       const next = new Map(series?.next ?? []);
+      const spans = new Map(series?.span ?? []);
+      // The span of a point now: fixed per precision; the `all` ring's doubles (stats.ts allSpan).
+      const span = req.p0 === ALL_PRECISION ? allSpan(w.tick) : (TICKS_PER_POINT[req.p0] as number);
       if ((req.p2 & 1) !== 0)
         for (const key of ks.slice(0, 24)) {
           const r = w.stats.get(key)?.rings[req.p0];
           const points = r?.points ?? 0;
           const oldest = points > RING_POINTS ? points - RING_POINTS : 0;
-          const want = series && !series.whole ? (series.next.get(key) ?? 0) : 0;
+          const same = series && !series.whole && spans.get(key) === span;
+          const want = same ? (series.next.get(key) ?? 0) : 0;
           const from = want > oldest ? want : oldest;
           const pts = r ? lastPoints(r, from) : { produced: [], consumed: [] };
           out.push({ key, from: from % 65536, produced: pts.produced, consumed: pts.consumed });
           next.set(key, points);
+          spans.set(key, span);
         }
       const body = StatsCodec.encode({ precision: req.p0, tab: req.p1, flags: req.p2, entries, series: out });
-      return { built: ok(body), nextSeries: { whole: false, next } };
+      return { built: ok(body), nextSeries: { whole: false, next, span: spans } };
     }
     case ProjectionKind.debug:
       return { built: ok(debugRecord(sim)) };
@@ -247,8 +257,8 @@ export function buildRecord(
 
 /**
  * DEBUG (§15.5). Implementation-defined fields, which the golden set masks (README.md): `memory_bytes`, the
- * pools' `capacity`, the rolling digest `r` (its slice composition is the sim's, §4.8) and `phase_us`. The
- * model writes 0, the row count, 0 and nothing.
+ * pools' `capacity` and `phase_us`; the model writes 0, the row count and nothing. The digests d and r are
+ * pinned (GATE-r1 finding 6: r's slice serialization is rules 37–41).
  */
 export function debugRecord(sim: Sim): Uint8Array {
   const w = sim.w;
@@ -257,7 +267,7 @@ export function debugRecord(sim: Sim): Uint8Array {
     entity_count: w.liveEntities().length,
     memory_bytes: 0,
     d: sim.lastDigest,
-    r: 0n,
+    r: sim.r,
     pools: [{ pool: 1, rows: w.containers.length, capacity: w.containers.length, active: 0 }],
     phase_us: [],
   });
@@ -286,8 +296,8 @@ export function runQuery(sim: Sim, kind: number, flags: number, params: Uint8Arr
     }
     case QueryKind.digest:
       if (params.length !== 0) return { ok: false, reason: UiInvalidReason.bad_parameters };
-      // r is the sim's (masked in the golden set); d is the last tick's digest, 0 before any tick.
-      return { ok: true, body: DigestResultCodec.encode({ tick: w.tick, d: sim.lastDigest, r: 0n }) };
+      // d is the last tick's digest (0 before any tick of this module instance); r the current lineage.
+      return { ok: true, body: DigestResultCodec.encode({ tick: w.tick, d: sim.lastDigest, r: sim.r }) };
     case QueryKind.inspect: {
       if (params.length !== 4) return { ok: false, reason: UiInvalidReason.bad_parameters };
       const serial = new DataView(params.buffer, params.byteOffset, 4).getUint32(0, true);
