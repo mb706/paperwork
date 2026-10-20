@@ -2,27 +2,21 @@
 // worker's per-tick path allocates nothing") and the boundary audit (§3.6 rule 3: "the shell calls at most a
 // fixed number of exports per tick", never per entity).
 //
-// Allocation is measured on V8's heap with the collector exposed: after a warm-up (so the JIT's own feedback is
-// in place), a collection, then thousands of ticks with extraction, the heap may not grow by more than a few bytes
-// per tick (a per-tick object of 16 bytes over 6,000 ticks would be 96 KB, far below a scavenge). The host here
-// copies nothing and hands each packet buffer straight back, as the main thread's `ack` does.
+// Allocation is measured on V8's heap in a child `node --expose-gc` (test/shell/steady-probe.ts), away from
+// Vitest's own transform and its other tests: after a warm-up (so the JIT's feedback is in place) and a
+// collection, thousands of ticks run, and the heap may grow by a few bytes per tick at most (a per-tick object of
+// 16 bytes would be 16 B/tick) and keep nothing after a collection. The probe's host copies nothing and hands
+// each packet buffer straight back, as the main thread's `ack` does.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { setFlagsFromString } from 'node:v8';
-import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { NewWorldCodec } from '../../src/shared/gen/abi.ts';
-import type { MainToSim, SimToMain } from '../../src/shared/protocol.ts';
+import type { SimToMain } from '../../src/shared/protocol.ts';
 import { handshake, type SimInstance } from '../../src/simworker/module.ts';
 import { type ShellHost, SimShell } from '../../src/simworker/shell.ts';
 import { modelExports } from '../helpers/model-module.ts';
 import { GAME } from '../helpers/paths.ts';
 import { golden, goldenProtos, loadMessage, manifest } from '../helpers/shell-harness.ts';
-import { stubSim } from '../helpers/stubs.ts';
-
-setFlagsFromString('--expose-gc');
-const gc = runInNewContext('gc') as () => void;
 
 /**
  * A shell whose host keeps nothing: a manual clock whose one pending wake the test fires, and packets acked at
@@ -68,43 +62,41 @@ function lean(instantiate?: ShellHost['instantiate']) {
   };
 }
 
+interface Probe {
+  mode: string;
+  ticks: number;
+  packets: number;
+  allocatedPerTick: number;
+  retainedPerTick: number;
+}
+
+function probe(mode: 'frames' | 'step', n: number): Probe {
+  const out = execFileSync(
+    process.execPath,
+    ['--expose-gc', join(GAME, 'test', 'shell', 'steady-probe.ts'), mode, String(n)],
+    { encoding: 'utf8' },
+  );
+  return JSON.parse(out.trim().split('\n').at(-1) as string) as Probe;
+}
+
 describe('the steady-state tick path allocates nothing (A1 open issue 7)', () => {
   it('the clock runs 20,000 frames, a tick and a packet each, acked: nothing retained, a timestamp at most', () => {
-    // In a child Node process (test/shell/steady-probe.ts): Vitest's module transform would add its own garbage.
-    const out = execFileSync(
-      process.execPath,
-      ['--expose-gc', join(GAME, 'test', 'shell', 'steady-probe.ts'), '20000'],
-      {
-        encoding: 'utf8',
-      },
-    );
-    const r = JSON.parse(out.trim().split('\n').at(-1) as string) as {
-      ticks: number;
-      packets: number;
-      allocatedPerFrame: number;
-      retainedPerFrame: number;
-    };
+    const r = probe('frames', 20000);
     expect(r.ticks).toBe(20000);
     expect(r.packets).toBeGreaterThanOrEqual(19990);
     // The clock's timestamps are doubles (performance.now()), which V8 may box: up to two 16-byte numbers per
     // wake; everything else of the wake allocates nothing, and nothing is retained.
-    expect(r.allocatedPerFrame).toBeLessThan(48);
-    expect(r.retainedPerFrame).toBeLessThan(4);
+    expect(r.allocatedPerTick).toBeLessThan(48);
+    expect(r.retainedPerTick).toBeLessThan(4);
   });
 
-  it('the tick path alone (one step of 6,000 ticks): no growth at all beyond noise', async () => {
-    const { shell } = lean();
-    await shell.handle({ t: 'boot', build: manifest(), module: await stubSim(), ioPort: null, genPorts: [] });
-    await shell.handle({ t: 'seq', op: 'pause' });
-    await shell.handle({ t: 'world', gen: 1, op: 'new', settings: { ...NewWorldCodec.defaults(), seed: 1 } });
-    await shell.handle({ t: 'seq', op: { step: 3000 } });
-    const big: MainToSim = { t: 'seq', op: { step: 6000 } };
-    gc();
-    const before = process.memoryUsage().heapUsed;
-    await shell.handle(big);
-    const grown = process.memoryUsage().heapUsed - before;
-    expect(shell.tick).toBe(9000);
-    expect(grown).toBeLessThan(32 * 1024);
+  it('the tick path alone (one step of 20,000 ticks): no growth beyond noise', () => {
+    const r = probe('step', 20000);
+    expect(r.ticks).toBe(20000);
+    expect(r.packets).toBe(1);
+    // Measured at ~2 B/tick, none of it from the shell's code (V8's sampling heap profiler finds no site).
+    expect(r.allocatedPerTick).toBeLessThan(8);
+    expect(r.retainedPerTick).toBeLessThan(4);
   });
 });
 

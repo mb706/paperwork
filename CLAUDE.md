@@ -116,6 +116,24 @@
   shortens the day; `?test=1` pauses it, and `window.__fake.step(n)`, `.act(action)` and `.status()` drive it. Tests
   run it in-process (`test/fake/harness.ts`); `node test/fake/snapshot.ts out.png [ticks]` draws its packet stream.
 
+## The worker shell (`game/src/{simworker,genworker,ioworker}`, `src/app/sim-host.ts`; C3, 10 §3, §8, §15.8–§15.9)
+- **Sim worker:** `simworker/shell.ts` around sim.wasm: the handshake (`module.ts`: ABI, `sim_schema_hash`, the
+  build manifest, prototypes.bin's SHA-256; the M0 scaffold, ABI 0, is refused), the `MemoryLease` (`lease.ts`),
+  the `LocalSequencer` (`sequencer.ts`, with `src/shared/admission.ts` and its fixture
+  `test/fixtures/admission/cases.txt`), clock generations, pooled packets, queries, the closure log and digest
+  ring, replay (`replay` message), the closure port (multiplayer), saves through the IO worker, trap bundles. Its
+  steady-state tick path allocates nothing (`test/shell/steady.test.ts`). Protocol additions are marked (C3) in
+  `src/shared/protocol.ts`; the IO and worldgen protocols are `src/shared/{io,gen}-protocol.ts`.
+- **Main thread:** `src/app/sim-host.ts` allocates state generations and runs the world-replacement protocol (a
+  fresh worker per world, the swap, re-sent view and subscriptions), seqs, saves and autosave, the hidden page and
+  trap recovery with bug bundles; `src/app/inline.ts` runs workers in-process (`?sim=inline`, the Node tests).
+  `window.__game` (`src/dev/game-hooks.ts`) drives it in dev builds or with `?dev=1`.
+- **Tests:** `npx vitest run test/shell` runs the shell on the stub modules (`test/stubs/`, a Rust workspace built
+  on demand into `target/stubs/`; `debug_dump` ids from 0xFFFF0000 are its test commands), on the golden reference
+  model behind the ABI (`test/helpers/model-module.ts`: the golden digests and packets through the shell), and on
+  the real sim.wasm once it lands (`real.test.ts`, skipped while crates/simabi is the scaffold). The browser bench
+  is `/src/dev/shell.html` (`e2e/shell.spec.ts`, @smoke). Playwright on a busy host: set `PW_PORT` to a free port.
+
 ## Assets (`npm run assets`; C6, 10 §9, the *Survey* look of `design/art/DIRECTION.md`)
 - **Sources** (committed): `game/assets/blender/` (`lib/` style, materials, parts, rig, contract; `entities/`,
   `world/`, `movers/`, `items/` model scripts; `greybox.py` + `greybox_table.py`; the Blender entry points

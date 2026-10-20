@@ -1,8 +1,10 @@
 // The steady-state allocation probe (run by test/shell/steady.test.ts in a child `node --expose-gc`, so the shell
-// runs as Node strips its types, close to the bundled worker, not through Vitest's module transform): the sim
-// worker's shell on the stub module, driven by its clock: each frame time moves a tick on and the pending wake
-// runs (the due tick, `sim_tick`, the digest, chunk requests, one extraction, the packet posted and acked with
-// the same buffer). Prints JSON: bytes allocated per frame (heap growth without a collection) and retained
+// runs as Node strips its types, close to the bundled worker, not through Vitest's module transform and beside
+// its other tests): the sim worker's shell on the stub module.
+// - `frames N`: driven by its clock: each frame time moves a tick on and the pending wake runs (the due tick,
+//   `sim_tick`, the digest, chunk requests, one extraction, the packet posted and acked with the same buffer).
+// - `step N`: the tick path alone, one `seq step N` (test mode: N ticks, then one extraction).
+// Prints JSON: the ticks and packets run, bytes allocated per tick (heap growth without a collection) and retained
 // (after one).
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -58,22 +60,38 @@ const frame = () => {
   wake = null;
   f?.();
 };
-const frames = Number(process.argv[2] ?? 6000);
-for (let i = 0; i < 5000; i++) frame();
+const mode = process.argv[2] ?? 'frames';
+const n = Number(process.argv[3] ?? 6000);
+let run: () => void;
+if (mode === 'frames') {
+  for (let i = 0; i < 5000; i++) frame();
+  run = () => {
+    for (let i = 0; i < n; i++) frame();
+  };
+} else if (mode === 'step') {
+  await shell.handle({ t: 'seq', op: 'pause' });
+  await shell.handle({ t: 'seq', op: { step: 3000 } });
+  const step = { t: 'seq', op: { step: n } } as const;
+  // `seq` is a hot message: handled synchronously (an undefined result, no promise).
+  run = () => {
+    if (shell?.handle(step) !== undefined) throw new Error('seq step returned a promise');
+  };
+} else throw new Error(`steady-probe: unknown mode ${mode}`);
 gc();
 const t0 = shell.tick;
 const p0 = packets;
 const before = process.memoryUsage().heapUsed;
-for (let i = 0; i < frames; i++) frame();
+run();
 const after = process.memoryUsage().heapUsed;
 gc();
 const retained = process.memoryUsage().heapUsed;
+const ticks = shell.tick - t0;
 console.log(
   JSON.stringify({
-    frames,
-    ticks: shell.tick - t0,
+    mode,
+    ticks,
     packets: packets - p0,
-    allocatedPerFrame: (after - before) / frames,
-    retainedPerFrame: (retained - before) / frames,
+    allocatedPerTick: (after - before) / ticks,
+    retainedPerTick: (retained - before) / ticks,
   }),
 );

@@ -81,6 +81,13 @@ async function main(): Promise<void> {
   try {
     const b = await host.newGame({ ...NewWorldCodec.defaults(), seed: 1945 });
     show('sim-status', `sim.wasm ABI ${ABI_VERSION}, world bound at tick ${b.tick}`);
+    // §8.4: autosave every 5 minutes into 3 rotating slots, and a save attempted on exit; 07 §19.3: a hidden
+    // page pauses single player (and autosaves if the last save is older than a minute).
+    if (params.get('test') !== '1') host.startAutosave();
+    document.addEventListener('visibilitychange', () => host.setHidden(document.hidden));
+    addEventListener('pagehide', () => {
+      void host.save('exit');
+    });
   } catch (e) {
     // The M0 scaffold module (ABI 0) is refused by the handshake until the sim package's module lands.
     if (e instanceof RefusedError) show('sim-status', `sim.wasm ABI ${e.abi}, refused: ${e.message}`);
