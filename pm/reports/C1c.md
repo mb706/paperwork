@@ -749,7 +749,8 @@ reference model's `applySystem` (§15.3; README rules 8–9):
   slot first) and emits `player_left`.
 - `release_inputs` only releases.
 - Player actions are now checked for presence before fencing: an offline player's action consumes its seq and is
-  refused with `player_not_present`.
+  refused with `player_not_present`. An index without a character is refused the same way, as in the model,
+  instead of being dropped silently.
 - Three regression tests in `test/fake/fencing.test.ts`: an action after a departure is refused and moves nothing;
   a return restores the same character, which then walks; a hand that fits returns on leaving; a new index gets a
   character. All 29 fake tests pass.

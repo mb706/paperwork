@@ -381,15 +381,18 @@ export class FakeSim {
     for (const a of system) applySystem(w, a);
     for (const a of actions) {
       const c = w.chars.find((x) => x.player === a.player);
-      if (!c) continue;
-      c.lastSeq = a.seq; // consumed first, refused or not (§15.3)
+      // Consumed first, refused or not (§15.3). An index without a character is refused below as the model does;
+      // the fake keeps no watermark record for it, since its only client is player 0, whose character never goes.
+      if (c) c.lastSeq = a.seq;
       const fail = (reason: number, pos?: { x: number; y: number }, serial = 0) =>
         w.emit(
           { seq: a.seq, player: a.player },
           {
             type: 'action_failed',
             reason,
-            pos: pos ?? { x: Math.floor(c.x * 256 + 0.5), y: Math.floor(c.y * 256 + 0.5) },
+            pos:
+              pos ??
+              (c ? { x: Math.floor(c.x * 256 + 0.5), y: Math.floor(c.y * 256 + 0.5) } : { x: 0, y: 0 }),
             serial,
           },
         );
@@ -404,8 +407,8 @@ export class FakeSim {
         fail(2); // unsupported: outside the capability manifest (§2.4)
         continue;
       }
-      // Presence (§15.3 "the player must exist and be online"): an offline player's action is refused.
-      if (!c.online) {
+      // Presence (§15.3 "the player must exist and be online"): an absent or offline player's action is refused.
+      if (!c?.online) {
         fail(3); // player_not_present
         continue;
       }
