@@ -1,4 +1,13 @@
 {
+  "external": {
+    "test/fixtures/sprites/cases.json": "2278e0e0a36e3e5633b238b85ecad0f5dd02691811d0457e1ad38ede4efe4afd",
+    "test/fixtures/sprites/colour-core-0.h.ktx2": "94ab98d5424e261317066702cc15564f1eb6fdefe8b1154dce7bdd8a34a9dacc",
+    "test/fixtures/sprites/colour-core-0.n.ktx2": "dc756fd3cc936541a6923b2f52f1cb8afbd7b8bdb7ed6eedcbc5c12d355b8284",
+    "test/fixtures/sprites/icon-core-0.ktx2": "2b79fcf9213e5a321804b9c4386f22a12e1d8f5b0d4e96f7b068803552f4fec0",
+    "test/fixtures/sprites/light-core-0.ktx2": "490c22d9462440efd83332e8d469ce2479f675c20d5fd695b834d05b19ec3b4e",
+    "test/fixtures/sprites/manifest.json": "c93eaeb55ced2259ebed319708bf30067a7084d035ba30c6973fbd789483fc91",
+    "test/fixtures/sprites/shadow-core-0.ktx2": "91f7434b375926861c4ac3745fe2afb7c6612087ec7cf8ac40cfec100f0cd0e3"
+  },
   "files": {
     "closure-log.pwlog": "53c8100ca8b08da4ab212cf5d454f20b1b4fb449bdee985ac8422ad03fe506c1",
     "closure-log.txt": "06661bcc8a92b3439cd307a175f43cfa4bed0a1ded02e54bd2cd6a948beaee12",
@@ -196,18 +205,6 @@
     "queries/tick-0600/inspect-7.bin": "a3f4c46ac844599a977f898bf0fd29fc51e12a05c7ae0359bdd47aec29dd9984",
     "queries/tick-0600/inspect-9.bin": "3cf867dcf32f7d19045041e6f7d609f00a1eca6d625f1ab530cf579fd2ca9c29",
     "scenario.txt": "51137889e572111d40807ee6ec4388e2dcbd8a546cce8e5aac12cf9dd9f82479",
-    "sprites/atlases/colour-core-0.h.ktx2": "0818fbc5b47485bf04b767b38faaca502de47b08efd9b4a1ec7196b089e21328",
-    "sprites/atlases/colour-core-0.n.ktx2": "f3a9af72e591a32e75f927ed40e800a37eab98d86f011d5944346f80c57c5019",
-    "sprites/atlases/colour-core-1.h.ktx2": "47a220a80efaa2cb800b4715f2dd7cf15ac3de1f7fb440185c8e5e4c57fea671",
-    "sprites/atlases/colour-core-1.n.ktx2": "50811cf7194c49112bb7f34f23ad04d137b86a9520f0b0b071ae85078c99f117",
-    "sprites/atlases/colour-core-2.h.ktx2": "970c128cd655f674e48cdf327c726857870737578358ada9181b0aab63917020",
-    "sprites/atlases/colour-core-2.n.ktx2": "fda52fd09aab2f401583de8214edf60515df1dca4915d343a4f432e3fef00b8a",
-    "sprites/atlases/icon-core-0.ktx2": "66e24eeb4eece5bdd89d3936c6842cf5e7d1362a8f9e50501603a07859538ff5",
-    "sprites/atlases/light-core-0.ktx2": "8f8f0cf10df93b5f96f67b8ebabb3c3d6d87941f450e4f3bce3d04864c5c2cdc",
-    "sprites/atlases/shadow-core-0.ktx2": "e60991465ab7714beaa3ca27d975da11a33067b9aac0f683c8a57511bab28252",
-    "sprites/atlases/shadow-core-1.ktx2": "9db5a0a60dc1841a603795fce2644128666b3834b3d1d5d9d34d1340a9cf0696",
-    "sprites/atlases/sprites.json": "58202280c203689707ed1769e949e930189d5b8d48657de5a3ed275d95b9f1be",
-    "sprites/cases.json": "5ca50064a208790a9458a9d7888dfd13d6e11e68e91e83ffa7bce04895093e04",
     "start.save": "5ef6aff0e1652ed4647d73895313d8647524318297419fee44e9bb62922fa2fe",
     "states/hashes.txt": "3288589dc09fa96c7d92f2921008aa467bbf77f834ecb610591fadd5f60b3a9b",
     "states/tick-0000.sections": "14aa1c2ced56efa90dc0bbbcbbd9dc7ec3ee1132cd8aae5d16d7faa0529a5356",
@@ -224,5 +221,5 @@
     "view.bin": "daa6576b55def4e169b3472f0f3370edb84a9182004aa9a63ebc52994a641517"
   },
   "schemaHash": "ff46e043886d7986ef1ee6e039400dff3c3cdd6d7a7b91557b9c206a86644e97",
-  "version": 1
+  "version": 2
 }

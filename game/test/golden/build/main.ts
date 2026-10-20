@@ -23,12 +23,38 @@ export interface Manifest {
   version: number;
   schemaHash: string;
   files: Record<string, string>;
+  /** Files of the set that live elsewhere, by path from game/: the tiny atlas, C6's fixture (§15.7, §15.10). */
+  external: Record<string, string>;
 }
 
-/** The digest a VERSIONS line records: SHA-256 of the files table as canonical JSON (keys sorted). */
-export function filesDigest(files: Record<string, string>): string {
-  const keys = Object.keys(files).sort();
-  return sha256(`{${keys.map((k) => `${JSON.stringify(k)}:${JSON.stringify(files[k])}`).join(',')}}`);
+/** The golden set's parts kept outside m0/: the tiny atlas is the asset pipeline's fixture (README "The tiny atlas"). */
+export const EXTERNAL_DIRS = ['test/fixtures/sprites'];
+export const GAME_DIR = join(M0, '..', '..', '..');
+
+/** The external files and their SHA-256, as they are on disk now. */
+export function externalFiles(): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const dir of EXTERNAL_DIRS)
+    for (const name of readdirSync(join(GAME_DIR, dir)).sort()) {
+      const p = join(dir, name);
+      if (statSync(join(GAME_DIR, p)).isFile()) out[p] = sha256(readFileSync(join(GAME_DIR, p)));
+    }
+  return out;
+}
+
+const canonical = (t: Record<string, string>): string => {
+  const keys = Object.keys(t).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${JSON.stringify(t[k])}`).join(',')}}`;
+};
+
+/**
+ * The digest a VERSIONS line records: SHA-256 of the files table as canonical JSON (keys sorted), and of the
+ * external table when there is one, so a change to the tiny atlas is a change to the set.
+ */
+export function filesDigest(files: Record<string, string>, external: Record<string, string> = {}): string {
+  return sha256(
+    Object.keys(external).length === 0 ? canonical(files) : `${canonical(files)}\n${canonical(external)}`,
+  );
 }
 
 export function readVersions(): { version: number; digest: string; why: string }[] {
@@ -58,12 +84,19 @@ export function committedFiles(): string[] {
 }
 
 function manifestText(m: Manifest): string {
-  const files = Object.fromEntries(
-    Object.keys(m.files)
-      .sort()
-      .map((k) => [k, m.files[k]]),
-  );
-  return `${JSON.stringify({ files, schemaHash: m.schemaHash, version: m.version }, null, 2)}\n`;
+  const sorted = (t: Record<string, string>) =>
+    Object.fromEntries(
+      Object.keys(t)
+        .sort()
+        .map((k) => [k, t[k]]),
+    );
+  const body = {
+    external: sorted(m.external),
+    files: sorted(m.files),
+    schemaHash: m.schemaHash,
+    version: m.version,
+  };
+  return `${JSON.stringify(body, null, 2)}\n`;
 }
 
 function main(): number {
@@ -77,7 +110,8 @@ function main(): number {
   for (const [p, b] of files) table[p] = sha256(b);
   const versions = readVersions();
   const latest = versions[versions.length - 1];
-  const digest = filesDigest(table);
+  const external = externalFiles();
+  const digest = filesDigest(table, external);
 
   if (!write) {
     const problems: string[] = [];
@@ -87,6 +121,12 @@ function main(): number {
       else if (sha256(readFileSync(join(M0, p))) !== sha256(b)) problems.push(`differs: ${p}`);
     }
     for (const p of have) if (!files.has(p)) problems.push(`stale: ${p}`);
+    const recorded = existsSync(join(M0, MANIFEST))
+      ? (JSON.parse(readFileSync(join(M0, MANIFEST), 'utf8')) as Manifest).external
+      : {};
+    for (const [p, h] of Object.entries(external))
+      if (recorded[p] !== h) problems.push(`external file changed: ${p}`);
+    for (const p of Object.keys(recorded)) if (!(p in external)) problems.push(`external file missing: ${p}`);
     for (const p of problems.slice(0, 40)) console.error(`golden set: ${p}`);
     if (problems.length > 40) console.error(`… and ${problems.length - 40} more`);
     const ok = problems.length === 0;
@@ -119,7 +159,10 @@ function main(): number {
       );
     }
   }
-  writeFileSync(join(M0, MANIFEST), manifestText({ version, schemaHash: SCHEMA_HASH, files: table }));
+  writeFileSync(
+    join(M0, MANIFEST),
+    manifestText({ version, schemaHash: SCHEMA_HASH, files: table, external }),
+  );
   const frozen = readVersions().some((v) => v.version === version && v.digest === digest);
   console.log(
     frozen

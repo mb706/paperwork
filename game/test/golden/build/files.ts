@@ -55,7 +55,6 @@ import { buildRecord, debugRecord, runQuery } from '../model/projections.ts';
 import { lineage0, Sim, Status } from '../model/sim.ts';
 import { World } from '../model/world.ts';
 import { hex64 } from '../model/xxh64.ts';
-import { atlasFiles } from './atlas.ts';
 import {
   abiCases,
   closureCases,
@@ -532,7 +531,6 @@ export function goldenFiles(): Golden {
   void PACKET_TICKS;
   for (const t of STATE_TICKS) projectionFiles(r, t, files);
   negativeFiles(r, log, files);
-  for (const [path, bytes] of atlasFiles(r.protos.hash)) files.set(`sprites/${path}`, bytes);
   void SCHEMA_HASH;
   return { files, run: r };
 }
