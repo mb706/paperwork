@@ -9,6 +9,7 @@
       "!**/target",
       "!**/.cache",
       "!**/public/data",
+      "!**/public/audio",
       "!**/public/atlases",
       "!**/public/sheets",
       "!**/public/fonts",

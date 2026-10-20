@@ -1,0 +1,61 @@
+# Sounds are data (10 §15.6, §9.4; A4 DIRECTION §7): the sound definitions, the event-to-sound map, the
+# entities' working sounds and the music feed's tables. The audio module has no per-event code.
+#
+# - The data stage gives every sound a dense u16 id, sorted by name, and writes the entity → working-sound
+#   table into prototypes.bin for extraction and the id → name table into prototypes.json (10 §15.6).
+#   Until it reads this file, the audio module computes the same ids from the names (src/audio/sfx/sounds.ts).
+# - The audio asset build (scripts/assets/audio/build.py) synthesises each sound's variants, encodes them
+#   and writes public/audio/sounds.json from this file.
+#
+# A sound: `source` is its generator in scripts/assets/audio/sfx.py (A4's designs); `bus` its category
+# (I §4.20: gui, effects, alerts, environment, walking, ambient); `rate` [count, window ms] the rate limit
+# (over it, a play is dropped, never queued); `voices` the per-sound cap (the bank holds 24 SFX voices);
+# `priority` the stealing order (lower goes first); `positional` world sounds are attenuated by distance and
+# panned, UI sounds are not (and answer only one's own events). Jitter: pitch ±3 % (UI ±1.5 %), gain ±1.5 dB.
+# M0 ships A4's 15 prototypes; M1c adds the rest of A4 §7.4's list (about 30 sounds, 90 files).
+
+sounds:
+  ui-click: {source: ui_click, bus: gui, pitch_jitter: 0.015, rate: [1, 30], priority: 2, positional: false}
+  ui-hover: {source: ui_hover, bus: gui, pitch_jitter: 0.015, rate: [1, 30], priority: 0, positional: false}
+  error: {source: error, bus: gui, rate: [1, 100], priority: 2, positional: false}
+  build-small: {source: build_small, bus: effects, rate: [3, 100], priority: 1}
+  build-medium: {source: build_medium, bus: effects, rate: [3, 100], priority: 1}
+  build-large: {source: build_large, bus: effects, rate: [3, 100], priority: 1}
+  deconstruct: {source: deconstruct, bus: effects, rate: [3, 100], priority: 1}
+  mine-ore: {source: mine_ore, bus: effects, rate: [2, 100], priority: 1}
+  inserter-swing: {source: inserter_swing, bus: effects, voices: 4, priority: 0}
+  research-complete: {source: research_complete, bus: alerts, rate: [1, 500], pitch_jitter: 0, gain_jitter_db: 0, priority: 3, positional: false}
+  alert: {source: alert, bus: alerts, rate: [1, 500], pitch_jitter: 0, gain_jitter_db: 0, priority: 3, positional: false}
+  footstep-grass: {source: footstep_grass, bus: walking, priority: 0}
+  footstep-concrete: {source: footstep_concrete, bus: walking, priority: 0}
+  # working sounds: loops, one voice per sound id, by proximity and count (10 §15.6)
+  keypunch-loop: {source: keypunch_loop, bus: environment, voices: 1, priority: 1}
+  belt-loop: {source: belt_loop, bus: environment, voices: 1, priority: 1}
+
+# Event type (10 §15.6) → sound: a name, or a rule by entity size (the larger side of the footprint in
+# tiles) or by what was mined. Unlisted events (entity_rotated, item_crafted) are silent until M1c's sounds.
+events:
+  action_failed: error
+  entity_built: {bySize: {small: build-small, medium: build-medium, large: build-large}, smallMax: 1, mediumMax: 3}
+  entity_mined: {byKind: {resource: mine-ore, entity: deconstruct}}
+  research_completed: research-complete
+  alert_raised: alert
+
+# Entity → its working sound (extraction aggregates working entities per sound, 10 §15.6; the schema's
+# `working_sound` column, schema/protos.yaml). The slice's other machines get theirs in M1c (A4 §7.4).
+working_sounds:
+  keypunch: keypunch-loop
+  transport-belt: belt-loop
+  fast-transport-belt: belt-loop
+  express-transport-belt: belt-loop
+
+# The music feed (10 §15.6; A4 §4–§5): eras by Literature year (null = from the start), each era's
+# typical electric consumption (W) for activity, and its bus gain (dB) so that a piece measures −18 LUFS
+# integrated at 100 % music volume (A4 §8). Playtests tune the table.
+music:
+  eras:
+    - {from: null, piece: era1, name: Relays and tubes, typicalWatts: 1.0e6, busDb: 13.6}
+    - {from: 1957, piece: era2, name: Tape and oscillators, typicalWatts: 1.0e7, busDb: 10.7}
+    - {from: 1983, piece: era3, name: FM and MIDI, typicalWatts: 1.0e8, busDb: 10.7}
+    - {from: 2000, piece: era4, name: Samples and grains, typicalWatts: 1.0e9, busDb: 10.7}
+    - {from: 2017, piece: era4, name: The corpus, typicalWatts: 1.0e9, busDb: 10.7}
