@@ -52,7 +52,8 @@ export const defaultMusicState = (): MusicState => ({
 });
 
 /** Channel parameters a piece may automate, as AudioParam automation in the prototype. */
-export type ChannelParam = 'fader' | 'echoFeedback';
+/** A channel's automatable parameters (worklet/protocol.ts `ChannelParam`: the echo's return and erase too). */
+export type ChannelParam = 'fader' | 'echoFeedback' | 'echoReturn' | 'echoErase';
 
 /** What a piece plays through. */
 export interface PieceHost {

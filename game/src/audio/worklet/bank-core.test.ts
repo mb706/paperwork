@@ -446,4 +446,134 @@ describe('the voice bank', () => {
     const [W] = render(core, SR / 2, OUT_WORLD, 2048 + SR);
     expect(peak(W, SR / 4, SR / 2) / g).toBeCloseTo(0.5, 3);
   });
+
+  test('freeing a buffer fades its voices on it, never a cut; its id is free for reuse at once (C7-r1 1)', () => {
+    const core = bankWith();
+    send(core, { t: 'buf', id: 1, chans: [new Int16Array(SR).fill(16384)], rate: SR });
+    notes(core, note({ TIME: 0, SRC: 1 }));
+    const [A] = render(core, 1024);
+    const g = 0.5 * Math.SQRT1_2;
+    expect(A[1000] as number).toBeCloseTo(g, 4);
+    send(core, { t: 'free', id: 1 });
+    // the id at once holds a different sound: the fading voice must not play it
+    send(core, { t: 'buf', id: 1, chans: [new Int16Array(SR).fill(-16384)], rate: SR });
+    const [B] = render(core, 1024, OUT_MUSIC, 1024);
+    expect(B[0] as number).toBeGreaterThan(0.9 * g); // it goes on from its level
+    expect(maxStep(B, 1, 1024)).toBeLessThan(g / 60); // a 3 ms fade (96 steps), not a step to zero
+    expect(Math.min(...B)).toBeGreaterThanOrEqual(0); // never the new buffer's samples
+    expect(peak(B, 200, 1024)).toBe(0);
+    // and a note for the reused id plays the new sound
+    notes(core, note({ TIME: 2048 / SR, SRC: 1 }));
+    const [C] = render(core, 1024, OUT_MUSIC, 2048);
+    expect(C[1000] as number).toBeCloseTo(-g, 4);
+  });
+
+  test("a one-shot never takes a working loop's voice; loops that end unasked are reported (C7-r1 2)", () => {
+    const core = new BankCore({ sampleRate: SR });
+    send(core, { t: 'buf', id: 1, chans: [new Int16Array(SR * 2).fill(4000)], rate: SR });
+    const loop = (h: number) =>
+      note({
+        TIME: 0,
+        SRC: 1,
+        DEST: SFX_DEST + 3,
+        GROUP: GROUP.SFX,
+        TYPE: 100 + h,
+        CAP: 1,
+        PRIO: 0,
+        HANDLE: h,
+        SMOOTH: 1,
+        LOOP_S: 0,
+        LOOP_E: SR,
+        STOP: Number.POSITIVE_INFINITY,
+        OFF: Number.POSITIVE_INFINITY,
+      });
+    const twelve = Array.from({ length: 12 }, (_, i) => i + 1);
+    notes(core, ...twelve.map(loop));
+    render(core, 256, OUT_WORLD);
+    // forty louder one-shots of higher priority, of many sounds
+    notes(
+      core,
+      ...Array.from({ length: 40 }, (_, i) =>
+        note({ TIME: 256 / SR, SRC: 1, DEST: SFX_DEST + 1, GROUP: GROUP.SFX, TYPE: i, CAP: 4, PRIO: 5 }),
+      ),
+    );
+    render(core, 512, OUT_WORLD, 256);
+    expect(core.loopHandles().sort((a, b) => a - b)).toEqual(twelve);
+    expect(core.stats().activeSfx).toBe(24);
+    expect(core.stats().maxSfx).toBe(24);
+    expect(core.takeEnded()).toBeNull();
+    // a loop that cannot start, or loops cleared from under the SFX system, are reported once
+    notes(core, loop(13));
+    render(core, 128, OUT_WORLD, 768); // twelve loops and twelve one-shots: a 13th loop takes a one-shot's voice
+    expect(core.loopHandles()).toContain(13);
+    send(core, { t: 'clear', slot: 'sfx', fade: 0.01 });
+    expect(core.takeEnded()?.handles.sort((a, b) => a - b)).toEqual([...twelve, 13]);
+    expect(core.takeEnded()).toBeNull();
+  });
+
+  test('the harmonic gate: an erased tape plays nothing recorded before the erase (C7-r1 11)', () => {
+    const echo = (time: number) =>
+      bankWith(
+        channel({ index: 0 }),
+        channel({
+          index: 1,
+          feed: {
+            kind: 'echo',
+            from: 0,
+            time,
+            feedback: 0.36,
+            lowpass: 2400,
+            highpass: 220,
+            wowMs: 0,
+            wowHz: 0.35,
+          },
+        }),
+      );
+    const run = (setup: (core: BankCore) => void, at = 0) => {
+      const core = echo(0.5);
+      send(core, { t: 'buf', id: 1, chans: [sineBuf(600, 0.2, 0.5)], rate: SR });
+      send(core, { t: 'taps', list: [{ slot: 0, channel: 1 }] });
+      notes(core, note({ TIME: at, SRC: 1 }));
+      setup(core);
+      return render(core, Math.round(SR * 1.6), OUT_TAPS)[0];
+    };
+    // a burst at 0–0.2 s comes back at 0.5–0.7 s, then fainter at 1.0–1.2 s
+    const open = run(() => {});
+    const repeat = peak(open, 0.5 * SR, 0.75 * SR);
+    expect(repeat).toBeGreaterThan(0.05);
+    // erased at 0.3 s (after the burst, before its repeat): nothing of it ever comes back
+    const erased = run((c) =>
+      send(c, { t: 'auto', slot: 0, channel: 1, param: 'echoErase', events: [[0, 0.3, 1, 0]] }),
+    );
+    expect(peak(erased, 0.3 * SR, 1.6 * SR)).toBe(0);
+    // the feedback alone, A4's gate, still lets the first repeat through: what the review found
+    const fbOnly = run((c) =>
+      send(c, { t: 'auto', slot: 0, channel: 1, param: 'echoFeedback', events: [[1, 0.3, 0, 0.012]] }),
+    );
+    expect(peak(fbOnly, 0.5 * SR, 0.75 * SR)).toBeGreaterThan(0.5 * repeat);
+    // the return fades it out (τ 20 ms from 0.4 s): the repeat is 30 dB down at once and gone soon after
+    const muted = run((c) =>
+      send(c, { t: 'auto', slot: 0, channel: 1, param: 'echoReturn', events: [[1, 0.4, 0, 0.02]] }),
+    );
+    expect(peak(muted, 0.5 * SR, 0.75 * SR)).toBeLessThan(repeat * 0.04);
+    // after an erase the tape records again: a note after it is echoed as before
+    const later = run(
+      (c) => send(c, { t: 'auto', slot: 0, channel: 1, param: 'echoErase', events: [[0, 0.05, 1, 0]] }),
+      0.1,
+    );
+    expect(peak(later, 0.6 * SR, 0.85 * SR)).toBeGreaterThan(0.05);
+  });
+
+  test("a cleared slot's channels stop when its clear has faded: no hiss runs on in silence (C7-r1 15)", () => {
+    const core = bankWith(
+      channel({ index: 0, feed: { kind: 'noise', gainDb: -20, highpass: 500, lowpass: 6000, seed: 7 } }),
+    );
+    send(core, { t: 'taps', list: [{ slot: 0, channel: 0 }] });
+    send(core, { t: 'auto', slot: 0, channel: 0, param: 'fader', events: [[0, 0, 1, 0]] });
+    const [H] = render(core, 4096, OUT_TAPS);
+    expect(peak(H, 2048, 4096)).toBeGreaterThan(1e-3);
+    send(core, { t: 'clear', slot: 0, fade: 0.05 });
+    const [H2] = render(core, SR / 2, OUT_TAPS, 4096);
+    expect(peak(H2, SR / 4, SR / 2)).toBe(0);
+  });
 });

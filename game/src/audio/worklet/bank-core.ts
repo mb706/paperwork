@@ -340,6 +340,11 @@ class Echo {
   readonly coef = new Float64Array(10);
   readonly z = new Float64Array(8);
   readonly fb: Param;
+  /** The return: the echo's output level (the harmonic gate mutes it around a drone change). */
+  readonly ret = new Param(1);
+  /** Frames at which the tape is erased (delay line and filter history), sorted. */
+  private readonly eraseAt = new Float64Array(16);
+  private nErase = 0;
   /** The last frame that wrote a non-silent sample into the loop. */
   lastIn = Number.NEGATIVE_INFINITY;
   readonly tail: number;
@@ -361,6 +366,27 @@ class Echo {
       this.time * Math.ceil(Math.log(1e-4) / Math.log(Math.max(0.05, Math.min(0.95, p.feedback * 1.45))));
   }
 
+  /** Erases the tape at `frame` (outside process()); a full list drops the event. */
+  addErase(frame: number): void {
+    if (this.nErase === this.eraseAt.length) return;
+    let i = this.nErase++;
+    while (i > 0 && this.eraseAt[i - 1]! > frame) {
+      this.eraseAt[i] = this.eraseAt[i - 1]!;
+      i--;
+    }
+    this.eraseAt[i] = frame;
+  }
+
+  /** The tape erased: nothing recorded before this frame can come out again. */
+  private erase(): void {
+    this.bufL.fill(0);
+    this.bufR.fill(0);
+    this.z.fill(0);
+    this.lastIn = Number.NEGATIVE_INFINITY;
+    this.nErase--;
+    this.eraseAt.copyWithin(0, 1, this.nErase + 1);
+  }
+
   /** Adds the echoes of (inL, inR) into (outL, outR). */
   run(
     inL: Float32Array,
@@ -378,8 +404,11 @@ class Echo {
     const z = this.z;
     let w = this.w;
     let ph = this.ph;
+    const ret = this.ret;
     for (let s = 0; s < n; s++) {
+      while (this.nErase > 0 && this.eraseAt[0]! <= f0 + s) this.erase();
       const fb = this.fb.step(f0 + s);
+      const g = ret.pending ? ret.step(f0 + s) : ret.v;
       let rp = w - (this.time + this.depth * lookup(sine, ph));
       if (rp < 0) rp += size;
       const i0 = rp | 0;
@@ -410,8 +439,8 @@ class Echo {
       if (il !== 0 || ir !== 0) this.lastIn = f0 + s;
       bL[w] = il + fb * yl;
       bR[w] = ir + fb * yr;
-      outL[s] = outL[s]! + yl;
-      outR[s] = outR[s]! + yr;
+      outL[s] = outL[s]! + yl * g;
+      outR[s] = outR[s]! + yr * g;
       ph += this.inc;
       if (ph >= 1) ph -= 1;
       w = w + 1 === size ? 0 : w + 1;
@@ -421,8 +450,14 @@ class Echo {
     for (let i = 0; i < 8; i++) if (Math.abs(z[i]!) < 1e-25) z[i] = 0;
   }
 
+  /** Still sounding at frame f: recent input, or a scheduled erase or return change to reach. */
   active(f: number): boolean {
     return f - this.lastIn < this.tail + this.size;
+  }
+
+  /** Something is scheduled (an erase or a return change) that must be run at its time. */
+  get pending(): boolean {
+    return this.nErase > 0 || this.ret.pending;
   }
 
   reset(): void {
@@ -430,6 +465,8 @@ class Echo {
     this.bufR.fill(0);
     this.z.fill(0);
     this.lastIn = Number.NEGATIVE_INFINITY;
+    this.ret.clear(1);
+    this.nErase = 0;
   }
 }
 
@@ -547,6 +584,11 @@ export class BankCore {
   private readonly vSmooth = new Uint8Array(MAXV);
   /** The voice counts against its caps (until it starts fading or ends). */
   private readonly vCounted = new Uint8Array(MAXV);
+  /** The buffer a sample voice plays, held until the voice ends: a freed buffer's voices fade on it. */
+  private readonly vBuf: (SampleBuf | null)[] = new Array(MAXV).fill(null);
+  /** Handles of working loops that ended without a release, for the next `ended` report. */
+  private readonly endedH = new Float64Array(64);
+  private endedN = 0;
   /** Pan gains: mono law [gl, gr], or the stereo law's four terms. Targets, and the smoothed values. */
   private readonly vPan = new Float64Array(MAXV * 4);
   private readonly vPanS = new Float64Array(MAXV * 4);
@@ -588,6 +630,7 @@ export class BankCore {
   private stolen = 0;
   private dropped = 0;
   private maxActive = 0;
+  private maxSfx = 0;
   private quanta = 0;
 
   constructor(o: BankOptions) {
@@ -633,10 +676,22 @@ export class BankCore {
       case 'free': {
         const b = this.bufs[m.id];
         if (!b) return null;
-        // a voice still playing the buffer fades first; then the buffer goes
+        // the voices playing it fade on it (they hold it until they end); the id is free for reuse at once
         for (let i = 0; i < this.nActive; i++) {
           const v = this.active[i]!;
-          if (this.vKind[v] === KIND.SAMPLE && this.vSrc[v] === m.id) this.stopVoice(v, FADE_S);
+          if (this.vKind[v] === KIND.SAMPLE && this.vBuf[v] === b) {
+            this.lose(this.vHandle[v]!);
+            this.stopVoice(v, FADE_S);
+          }
+        }
+        // notes still queued for it would play nothing, or a later buffer under the same id
+        for (let k = 0; k < this.qn; k++) {
+          const o = k * NF;
+          if (this.q[o + F.KIND] === KIND.SAMPLE && this.q[o + F.SRC] === m.id) {
+            this.lose(this.q[o + F.HANDLE]!);
+            this.removeQueued(k);
+            k--;
+          }
         }
         this.bufs[m.id] = null;
         this.bufBytes -= b.len * (b.stereo ? 4 : 2);
@@ -658,7 +713,11 @@ export class BankCore {
       case 'auto': {
         const ch = this.slots[m.slot]?.[m.channel];
         if (!ch) return null;
-        const p = m.param === 'fader' ? ch.fader : ch.echo?.fb;
+        if (m.param === 'echoErase') {
+          for (const e of m.events) ch.echo?.addErase(e[1] * this.sr);
+          return null;
+        }
+        const p = m.param === 'fader' ? ch.fader : m.param === 'echoReturn' ? ch.echo?.ret : ch.echo?.fb;
         if (!p) return null;
         for (const e of m.events) this.addEvent(p, e);
         return null;
@@ -703,6 +762,9 @@ export class BankCore {
         return null;
       case 'stats':
         return this.stats();
+      case 'poll':
+      case 'crash':
+        return null;
       case 'sync':
         return { t: 'sync', seq: m.seq };
     }
@@ -713,6 +775,7 @@ export class BankCore {
       t: 'stats',
       active: this.nActive,
       maxActive: this.maxActive,
+      maxSfx: this.maxSfx,
       activeMusic: this.nMusic,
       activeSfx: this.nSfx,
       stolen: this.stolen,
@@ -739,10 +802,65 @@ export class BankCore {
     p.add(e[0], e[1] * this.sr, e[2], e[3] * this.sr);
   }
 
+  /** Whether a note may start: its source is loaded, and a voice is free or stolen within its caps. */
+  private admit(
+    kind: number,
+    src: number,
+    buf: SampleBuf | null | undefined,
+    group: number,
+    type: number,
+    prio: number,
+    cap: number,
+    isLoop: boolean,
+  ): boolean {
+    if (kind === KIND.SAMPLE && !buf) return false;
+    if (kind === KIND.ORGAN && !this.waves[src]) return false;
+    if (group === GROUP.MUSIC) return this.nMusic < MUSIC_VOICES || this.steal(group, -1, prio);
+    if (
+      type >= 0 &&
+      type < MAX_TYPES &&
+      this.typeCount[type]! >= cap &&
+      !this.steal(group, type, prio, isLoop)
+    )
+      return false;
+    // a full SFX group: a one-shot takes a lower one-shot's voice; a working loop takes the lowest one-shot's
+    // whatever its priority (at most 12 loops, so there is always one)
+    return this.nSfx < SFX_VOICES || this.steal(group, -1, isLoop ? Number.POSITIVE_INFINITY : prio, false);
+  }
+
+  private drop(handle: number): void {
+    this.dropped++;
+    this.lose(handle);
+  }
+
+  /** A working loop's voice ended without a release: reported, so the SFX system starts it again. */
+  private lose(handle: number): void {
+    if (handle > 0 && this.endedN < this.endedH.length) this.endedH[this.endedN++] = handle;
+  }
+
+  /** The `ended` report since the last one, or null (called after each message, never in process()). */
+  takeEnded(): { t: 'ended'; handles: number[] } | null {
+    if (this.endedN === 0) return null;
+    const handles = Array.from(this.endedH.subarray(0, this.endedN));
+    this.endedN = 0;
+    return { t: 'ended', handles };
+  }
+
+  /** The handles of the working loops sounding now (tests, the dev page). */
+  loopHandles(): number[] {
+    const out: number[] = [];
+    for (let i = 0; i < this.nActive; i++) {
+      const v = this.active[i]!;
+      if (this.vHandle[v]! > 0 && this.vPh[v] !== P_FADE) out.push(this.vHandle[v]!);
+    }
+    return out;
+  }
+
   private enqueue(d: Float64Array, n: number): void {
     for (let i = 0; i < n; i++) {
       if (this.qn === QCAP) {
         this.dropped += n - i;
+        for (let j = i; j < n; j++) this.lose(d[j * NF + F.HANDLE]!);
         return;
       }
       const o = this.qn * NF;
@@ -872,7 +990,10 @@ export class BankCore {
       }
     for (let i = 0; i < this.nActive; i++) {
       const v = this.active[i]!;
-      if (isSlot(this.vDest[v]!)) this.stopVoice(v, Math.max(FADE_S, fade));
+      if (isSlot(this.vDest[v]!)) {
+        if (this.vPh[v] !== P_FADE) this.lose(this.vHandle[v]!);
+        this.stopVoice(v, Math.max(FADE_S, fade));
+      }
     }
     if (slot !== 'sfx') {
       const chs = this.slots[slot] as Channel[];
@@ -922,8 +1043,12 @@ export class BankCore {
     }
   }
 
-  /** The voice to steal: the lowest priority, then the quietest, then the oldest. −1: none qualifies. */
-  private victim(group: number, type: number): number {
+  /**
+   * The voice to steal: the lowest priority, then the quietest, then the oldest. −1: none qualifies. A
+   * one-shot never takes a working loop's voice (at most 12 loops share the 24 SFX voices, so one-shots keep
+   * at least 12): a machine's sound does not drop out under a burst of builds (codex C7-r1 finding 2).
+   */
+  private victim(group: number, type: number, loop = true): number {
     let best = -1;
     let bp = Number.POSITIVE_INFINITY;
     let bl = Number.POSITIVE_INFINITY;
@@ -933,6 +1058,7 @@ export class BankCore {
       const ph = this.vPh[v]!;
       if (ph === P_FADE || ph === P_OFF || this.vGroup[v] !== group) continue;
       if (type >= 0 && this.vType[v] !== type) continue;
+      if (!loop && this.vHandle[v]! > 0) continue;
       const p = this.vPrio[v]!;
       const lvl = this.vEnv[v]! * (this.vKind[v] === KIND.SAMPLE ? 32768 : 1);
       const t0 = this.vT0[v]!;
@@ -946,10 +1072,11 @@ export class BankCore {
     return best;
   }
 
-  private steal(group: number, type: number, prio: number): boolean {
-    const v = this.victim(group, type);
+  private steal(group: number, type: number, prio: number, loop = true): boolean {
+    const v = this.victim(group, type, loop);
     if (v < 0 || this.vPrio[v]! > prio) return false;
     this.stolen++;
+    this.lose(this.vHandle[v]!);
     this.stopVoice(v, FADE_S);
     return true;
   }
@@ -962,39 +1089,20 @@ export class BankCore {
     const type = group === GROUP.SFX ? q[o + F.TYPE]! : -1;
     const prio = q[o + F.PRIO]!;
     const src = q[o + F.SRC]!;
+    const handle = q[o + F.HANDLE]!;
+    const isLoop = handle > 0;
     const buf = kind === KIND.SAMPLE ? this.bufs[src] : null;
-    if (kind === KIND.SAMPLE && !buf) {
-      this.dropped++; // a sample that is not loaded: dropped, never queued (10 §9.7, "Late audio")
-      return;
-    }
-    if (kind === KIND.ORGAN && !this.waves[src]) {
-      this.dropped++;
-      return;
-    }
-    if (group === GROUP.MUSIC) {
-      if (this.nMusic >= MUSIC_VOICES && !this.steal(group, -1, prio)) {
-        this.dropped++;
-        return;
-      }
-    } else {
-      const cap = q[o + F.CAP]!;
-      if (type >= 0 && type < MAX_TYPES && this.typeCount[type]! >= cap && !this.steal(group, type, prio)) {
-        this.dropped++;
-        return;
-      }
-      if (this.nSfx >= SFX_VOICES && !this.steal(group, -1, prio)) {
-        this.dropped++;
-        return;
-      }
-    }
+    // a note that cannot start is dropped and counted, never queued (10 §9.7, "Late audio"); a working
+    // loop's is reported, so the SFX system tries it again with the next snapshot
     let v = -1;
-    for (let i = 0; i < MAXV; i++)
-      if (this.vPh[i] === P_OFF) {
-        v = i;
-        break;
-      }
+    if (this.admit(kind, src, buf, group, type, prio, q[o + F.CAP]!, isLoop))
+      for (let i = 0; i < MAXV; i++)
+        if (this.vPh[i] === P_OFF) {
+          v = i;
+          break;
+        }
     if (v < 0) {
-      this.dropped++;
+      this.drop(handle);
       return;
     }
     const sr = this.sr;
@@ -1008,11 +1116,12 @@ export class BankCore {
     const envTarget = smooth || kind === KIND.BELL ? 1 : gain;
     this.vKind[v] = kind;
     this.vSrc[v] = src;
+    this.vBuf[v] = buf ?? null;
     this.vDest[v] = q[o + F.DEST]!;
     this.vGroup[v] = group;
     this.vType[v] = type;
     this.vPrio[v] = prio;
-    this.vHandle[v] = q[o + F.HANDLE]!;
+    this.vHandle[v] = handle;
     this.vT0[v] = t0;
     this.vTOff[v] = q[o + F.OFF]! * sr;
     this.vTStop[v] = q[o + F.STOP]! * sr;
@@ -1070,6 +1179,7 @@ export class BankCore {
     this.vCounted[v] = 1;
     this.active[this.nActive++] = v;
     if (this.nActive > this.maxActive) this.maxActive = this.nActive;
+    if (this.nSfx > this.maxSfx) this.maxSfx = this.nSfx;
   }
 
   /** Renders one voice into its destination for frames [f0, f0 + n). Returns true when the voice is over. */
@@ -1085,7 +1195,7 @@ export class BankCore {
     let srcStereo = false;
     let b: SampleBuf | null = null;
     if (kind === KIND.SAMPLE) {
-      b = this.bufs[this.vSrc[v]!] ?? null;
+      b = this.vBuf[v] ?? null;
       if (!b) return true;
       srcStereo = b.stereo;
     }
@@ -1314,6 +1424,7 @@ export class BankCore {
   private endVoice(v: number): void {
     this.uncount(v);
     this.vPh[v] = P_OFF;
+    this.vBuf[v] = null;
   }
 
   // ------------------------------------------------------------------ the render quantum
@@ -1406,10 +1517,12 @@ export class BankCore {
         oR[off + s] = ch.postR[s]! * ch.dry;
       }
     }
-    // 7. slots whose clear has finished release their channels
+    // 7. slots whose clear has finished: their channels are released, so a cleared hiss or echo stops
+    // running (a new piece sends its layout before its notes)
     for (let sl = 0; sl < MAX_SLOTS; sl++)
       if (this.clearUntil[sl]! !== Number.NEGATIVE_INFINITY && f0 >= this.clearUntil[sl]!) {
-        for (const ch of this.slots[sl] as Channel[]) this.resetChannel(ch, true);
+        for (const ch of this.slots[sl] as Channel[]) this.resetChannel(ch, false);
+        this.slotOrder[sl] = [];
         this.clearUntil[sl] = Number.NEGATIVE_INFINITY;
       }
   }
@@ -1498,7 +1611,7 @@ export class BankCore {
       if (!ch.used) continue;
       const echo = ch.echo;
       const fed =
-        (echo !== null && ((chs[echo.from]?.live ?? false) || echo.active(f0))) ||
+        (echo !== null && ((chs[echo.from]?.live ?? false) || echo.active(f0) || echo.pending)) ||
         (ch.noise !== null && (ch.fader.v > 1e-3 || ch.fader.pending));
       const tailing = f0 - ch.lastVoice < ch.tail;
       if (!ch.wrote && !fed && !tailing && !ch.fader.pending) {

@@ -2113,10 +2113,15 @@
         }
       ]
     },
-    "music/charter.e0f803396670": {
+    "music/charter.efa58336dfae": {
       "licence": "own work (the Paperwork project) from CC0-1.0 sources",
       "sources": [],
       "generator": "render.ts and master.py: the charter recording, an offline render of the game's rule sets with the instrument files above"
+    },
+    "music/era2-1962.b94e46328ba1": {
+      "licence": "own work (the Paperwork project) from CC0-1.0 sources",
+      "sources": [],
+      "generator": "render.ts and master.py: the era2-1962 recording, an offline render of the game's rule sets with the instrument files above"
     },
     "probe": {
       "licence": "own work (the Paperwork project)",

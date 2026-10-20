@@ -8,14 +8,13 @@ true-peak limiter (4x oversampled detection, 2 ms lookahead, 120 ms release) ite
 a 20 ms fade at the end. The target is the in-game music level at 100 % (A4 §8: a piece measures −18 LUFS
 integrated), so a recording and a live piece sound alike; the recording bypasses the music bus's glue
 compressor (src/audio/mixer/graph.ts), so it is not compressed twice. The master is published through the
-asset build's encoder (Opus and AAC, content-hashed) and recorded in .cache/assets/audio/recordings.json,
-which build.py writes into public/audio/music.json.
+asset build's encoder (Opus and AAC, content-hashed). build.py's record step renders and masters the game's
+recordings (RECORDINGS) and writes them into public/audio/music.json; this command masters one by hand.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -76,7 +75,7 @@ def limit(x: np.ndarray, sr: int, ceiling_db: float, look_ms: float = 2.0, rel_m
     return x * out[:, None]
 
 
-def master(src: Path, name: str, lufs: float, tp: float, kbps: int) -> dict:
+def master(src: Path, name: str, lufs: float = -18.0, tp: float = -1.0, kbps: int = 96) -> dict:
     x, sr = sf.read(src, always_2d=True, dtype="float64")
     if sr != 48000:
         raise SystemExit("render recordings at 48 kHz (the masters' rate)")
@@ -100,14 +99,11 @@ def master(src: Path, name: str, lufs: float, tp: float, kbps: int) -> dict:
     out = build.MASTERS / "music" / f"{name}.wav"
     out.parent.mkdir(parents=True, exist_ok=True)
     sf.write(out, y.astype(np.float32), sr, subtype="FLOAT")
-    entry = build.publish(f"music/{name}", out, f"{kbps}k", 2, "CC0-1.0", {})
+    record = {"licence": build.OWN_FROM_CC0, "sources": [], "generator": f"master.py: the {name} recording"}
+    entry = build.publish(f"music/{name}", out, f"{kbps}k", 2, record, {})
     rec = {"file": entry["file"], "seconds": round(len(y) / sr, 2), "lufs": round(integrated_lufs(y), 2),
            "bytes": entry["bytes"]}
-    path = build.CACHE / "recordings.json"
-    recs = json.loads(path.read_text()) if path.exists() else {}
-    recs[name] = rec
-    path.write_text(json.dumps(recs, indent=1))
-    print(f"{name}: {rec['seconds']} s, I {rec['lufs']} LUFS, TP {true_peak_db(y):.2f} dBTP, "
+    print(f"  {name}: {rec['seconds']} s, I {rec['lufs']} LUFS, TP {true_peak_db(y):.2f} dBTP, "
           f"Opus {rec['bytes']['ogg'] / 1024:.0f} KiB, AAC {rec['bytes']['m4a'] / 1024:.0f} KiB")
     return rec
 

@@ -1,13 +1,23 @@
 // One decode path everywhere (10 §9.4, "Decoding"): `decodeAudioData` on an OfflineAudioContext created at
-// 32 kHz, which resamples to 32 kHz itself and decodes off the main thread; at most two files at once, so
-// the temporary Float32 buffers stay small; the main thread converts to Int16 in slices of at most 1 ms
-// and yields between them; the result is aligned to the manifest's canonical timeline (priming that a
-// browser's AAC decoder left in is found by the start fingerprint and trimmed).
+// 32 kHz, which resamples to 32 kHz itself and decodes off the main thread; the main thread converts to
+// Int16 in slices of at most 1 ms and yields between them; the result is aligned to the manifest's
+// canonical timeline (priming that a browser's AAC decoder left in is found by the start fingerprint and
+// trimmed). The temporary Float32 audio is bounded: a file holds its permit from its decode until its
+// conversion ends, at most two files at once and at most `maxBytes` of decoded audio between them (codex
+// C7-r1 finding 9).
 import type { Fingerprint } from './manifest.ts';
 
 export interface Expect {
   len: number;
   fp: Fingerprint;
+  /** The file's channels, for the memory estimate (2 when unknown). */
+  channels?: number;
+}
+
+/** Decoded Float32 bytes a file will need: its canonical length (or, unknown, 32× its compressed size). */
+export function decodedEstimate(bytes: ArrayBuffer, expect: Expect | null): number {
+  if (expect) return (expect.len + 4096) * (expect.channels ?? 2) * 4;
+  return bytes.byteLength * 32;
 }
 
 /** Yields to the event loop without the timer throttling of hidden pages. */
@@ -54,7 +64,11 @@ export function alignOffset(x: Float32Array, len: number, fp: Fingerprint): numb
 export class Decoder {
   private ctx: BaseAudioContext | null = null;
   private running = 0;
-  private readonly queue: (() => void)[] = [];
+  /** Estimated decoded bytes of the files holding permits. */
+  private held = 0;
+  /** The most decoded audio held at once so far (the tests read it). */
+  maxHeld = 0;
+  private readonly queue: { bytes: number; go: () => void }[] = [];
   /** Offsets found (priming left in by this browser's decoder), for the log. */
   readonly misaligned: number[] = [];
 
@@ -62,16 +76,20 @@ export class Decoder {
   private readonly maxConcurrent: number;
   private readonly sliceMs: number;
   private readonly makeContext: (rate: number) => BaseAudioContext;
+  /** Decoded audio held at once, at most (one file larger than this still decodes, alone). */
+  readonly maxBytes: number;
   constructor(
     rate: number = 32000,
     maxConcurrent: number = 2,
     sliceMs: number = 1,
     makeContext: (rate: number) => BaseAudioContext = (r) => new OfflineAudioContext(1, 1, r),
+    maxBytes: number = 16 << 20,
   ) {
     this.rate = rate;
     this.maxConcurrent = maxConcurrent;
     this.sliceMs = sliceMs;
     this.makeContext = makeContext;
+    this.maxBytes = maxBytes;
   }
 
   private context(): BaseAudioContext {
@@ -79,29 +97,47 @@ export class Decoder {
     return this.ctx;
   }
 
-  private async acquire(): Promise<void> {
-    if (this.running < this.maxConcurrent) {
-      this.running++;
-      return;
-    }
-    await new Promise<void>((resolve) => this.queue.push(resolve));
-    this.running++;
+  private fits(bytes: number): boolean {
+    return this.running < this.maxConcurrent && (this.running === 0 || this.held + bytes <= this.maxBytes);
   }
 
-  private release(): void {
+  /** A permit for `bytes` of decoded audio; first come, first served. */
+  private acquire(bytes: number): Promise<void> {
+    if (this.queue.length === 0 && this.fits(bytes)) {
+      this.take(bytes);
+      return Promise.resolve();
+    }
+    return new Promise<void>((go) => this.queue.push({ bytes, go }));
+  }
+
+  private take(bytes: number): void {
+    this.running++;
+    this.held += bytes;
+    if (this.held > this.maxHeld) this.maxHeld = this.held;
+  }
+
+  private release(bytes: number): void {
     this.running--;
-    this.queue.shift()?.();
+    this.held -= bytes;
+    while (this.queue.length > 0 && this.fits((this.queue[0] as { bytes: number }).bytes)) {
+      const next = this.queue.shift() as { bytes: number; go: () => void };
+      this.take(next.bytes);
+      next.go();
+    }
   }
 
   /** Decodes, aligns and converts one file. Throws if the browser cannot decode it. */
   async decode(bytes: ArrayBuffer, expect: Expect | null): Promise<Int16Array[]> {
-    await this.acquire();
-    let buf: AudioBuffer;
+    const need = decodedEstimate(bytes, expect);
+    await this.acquire(need);
     try {
-      buf = await this.context().decodeAudioData(bytes);
+      return await this.convert(await this.context().decodeAudioData(bytes), expect);
     } finally {
-      this.release();
+      this.release(need);
     }
+  }
+
+  private async convert(buf: AudioBuffer, expect: Expect | null): Promise<Int16Array[]> {
     const chans: Float32Array[] = [];
     for (let c = 0; c < buf.numberOfChannels; c++) chans.push(buf.getChannelData(c));
     const len = expect?.len ?? buf.length;

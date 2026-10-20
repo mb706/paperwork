@@ -27,6 +27,7 @@ import type { MusicManifest, SoundsManifest } from './loading/manifest.ts';
 import { type Fetcher, FileLoader, httpFetcher, IdAllocator, PackLoader } from './loading/packs.ts';
 import { MixerGraph } from './mixer/graph.ts';
 import { type AudioSettings, type Category, defaultSettings, sanitizeSettings } from './mixer/volumes.ts';
+import { WorldGate } from './mixer/world-gate.ts';
 import { Conductor, DEFAULT_ERAS, type Era } from './music/conductor.ts';
 import { DEFAULT_BUS_DB, Director, type RecordedMusic, warmUp } from './music/director.ts';
 import { MusicEngine } from './music/engine.ts';
@@ -89,25 +90,49 @@ export interface AudioStatus {
   downloaded: number;
   scheduler: { ticks: number; ms: number; maxMs: number };
   bank: BankStats | null;
-  sfx: { played: number; limited: number; historical: number; unmapped: number; loops: number };
+  sfx: { played: number; limited: number; historical: number; unmapped: number; loops: number; lost: number };
+  /** Reduced audio's native SFX voices sounding now. */
+  nativeVoices: number;
+  /** The world gate: open unless paused or in map view. */
+  world: boolean;
   errors: string[];
 }
 
-class Recordings implements RecordedMusic {
+/** A media play refused for want of a user activation (autoplay rules). */
+const refusedForActivation = (e: unknown) => e instanceof DOMException && e.name === 'NotAllowedError';
+
+/**
+ * The recorded pieces (10 §9.4): one media element each, made on first use. A play the browser refuses
+ * for want of a user activation is remembered and retried on the next gesture (codex C7-r1 finding 7); the
+ * codec follows the probe once it has run (finding 13).
+ */
+export class Recordings implements RecordedMusic {
   readonly players = new Map<string, RecordedPlayer>();
   private current: RecordedPlayer | null = null;
   private readonly manifest: MusicManifest;
-  private readonly url: (file: string) => string;
-  constructor(manifest: MusicManifest, url: (file: string) => string) {
+  private readonly base: string;
+  private codec: Codec;
+  /** The play the browser refused; `unlock()` retries it. */
+  pending: { name: string; loop: boolean } | null = null;
+  /** Called when a play is refused, so the system shows the blocked state. */
+  onBlocked: (() => void) | null = null;
+  private readonly makeElement: (() => HTMLAudioElement) | undefined;
+  constructor(manifest: MusicManifest, base: string, codec: Codec, makeElement?: () => HTMLAudioElement) {
     this.manifest = manifest;
-    this.url = url;
+    this.base = base;
+    this.codec = codec;
+    this.makeElement = makeElement;
+  }
+  private url(name: string): string | null {
+    const r = this.manifest.recordings[name];
+    return r ? `${this.base}${r.file}.${this.codec}` : null;
   }
   player(name: string): RecordedPlayer | null {
-    const r = this.manifest.recordings[name];
-    if (!r) return null;
+    const url = this.url(name);
+    if (!url) return null;
     let p = this.players.get(name);
     if (!p) {
-      p = new RecordedPlayer(this.url(r.file));
+      p = new RecordedPlayer(url, this.makeElement?.());
       this.players.set(name, p);
     }
     return p;
@@ -123,21 +148,43 @@ class Recordings implements RecordedMusic {
   attachAll(ctx: AudioContext, mixer: MixerGraph): void {
     for (const p of this.players.values()) p.attach(ctx, mixer);
   }
+  /** The probe's codec: elements that are not playing switch to it (a playing one evidently decodes). */
+  setCodec(codec: Codec): void {
+    this.codec = codec;
+    for (const [name, p] of this.players) {
+      const url = this.url(name);
+      if (url) p.setSource(url);
+    }
+  }
+  get playing(): boolean {
+    return this.current?.playing ?? false;
+  }
   async play(name: string, loop = false): Promise<boolean> {
     const p = this.player(name);
     if (!p) return false;
-    this.current?.pause();
+    if (this.current && this.current !== p) this.current.pause();
     this.current = p;
     try {
       await p.play(loop, 0);
+      if (this.pending?.name === name) this.pending = null;
       return true;
-    } catch {
+    } catch (e) {
+      if (refusedForActivation(e)) {
+        this.pending = { name, loop };
+        this.onBlocked?.();
+      }
       return false;
     }
+  }
+  /** Inside a gesture: plays the refused recording again; null if none is waiting. */
+  retry(): Promise<boolean> | null {
+    const p = this.pending;
+    return p ? this.play(p.name, p.loop) : null;
   }
   stop(fade: number): void {
     const p = this.current;
     this.current = null;
+    this.pending = null;
     if (p) p.fade(0, fade);
   }
 }
@@ -178,6 +225,11 @@ export class AudioSystem {
   private menuWanted = false;
   private lastFeed = Number.NEGATIVE_INFINITY;
   private readonly steps = new FootstepClock();
+  private decoder: Decoder | null = null;
+  /** The pause and the map view, which both close the world gate. */
+  private readonly gate = new WorldGate();
+  /** The state generation of the last packet (10 §3.4). */
+  private generation = -1;
   private hiddenTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly onVisibility = () => this.visibility();
 
@@ -213,8 +265,13 @@ export class AudioSystem {
         if (eras.length > 0) this.eras = eras;
         for (const e of sounds.music.eras) this.busDb[e.piece] = e.busDb;
         this.activity = new Activity(this.eras);
+        // a manifest built for other prototypes is refused (10 §15.6): its sound ids could name other
+        // sounds; the SFX stay off until the audio build matches the data (codex C7-r1 finding 12)
         const mismatch = SoundTable.check(sounds, this.o.prototypesHash ?? null);
-        if (mismatch) this.error(mismatch);
+        if (mismatch) {
+          this.error(`audio: ${mismatch}; the sound effects are off (run the audio asset build)`);
+          this.sounds = null;
+        }
       }
       if (music) {
         // the media element plays Ogg Opus where the browser says it can; the probe confirms it later
@@ -222,7 +279,8 @@ export class AudioSystem {
           typeof document !== 'undefined' && document.createElement('audio').canPlayType(MIME.ogg)
             ? 'ogg'
             : 'm4a';
-        this.recordings = new Recordings(music, (f) => `${this.base}${f}.${codec}`);
+        this.recordings = new Recordings(music, this.base, codec);
+        this.recordings.onBlocked = () => this.contextState();
         this.recordings.player('charter');
       }
     })();
@@ -257,14 +315,17 @@ export class AudioSystem {
         this.ctx = new AudioContext({ latencyHint: this.o.latencyHint ?? 'balanced' });
       }
       this.mixer = new MixerGraph(this.ctx, this.settings);
+      if (!this.gate.open) this.mixer.setWorld(false, 0);
       this.ctx.addEventListener('statechange', () => this.contextState());
       this.setState('starting');
     }
     const ctx = this.ctx;
     const resumed = ctx.resume();
     if (this.recordings && this.mixer) this.recordings.attachAll(ctx, this.mixer);
-    let played: Promise<unknown> = Promise.resolve();
-    if (this.menuWanted && !this.inGame) played = this.recordings?.play('charter', true) ?? played;
+    // a recording the browser refused before is retried inside this gesture; else the menu loop starts
+    let played: Promise<unknown> = this.recordings?.retry() ?? Promise.resolve();
+    if (!this.recordings?.pending && this.menuWanted && !this.inGame && !this.recordings?.playing)
+      played = this.recordings?.play('charter', true) ?? played;
     Promise.all([resumed, played])
       .then(() => this.init())
       .then(() => this.contextState())
@@ -277,7 +338,9 @@ export class AudioSystem {
     const ctx = this.ctx;
     if (!ctx || this.state === 'closed') return;
     if (ctx.state === 'running') {
-      if (this.state !== 'running') this.setState('running');
+      // a refused recording needs the next gesture as much as a suspended context does
+      if (this.recordings?.pending) this.setState('blocked');
+      else if (this.state !== 'running') this.setState('running');
     } else if (ctx.state === 'closed') this.setState('closed');
     else if (document.visibilityState === 'hidden') this.setState('suspended');
     else this.setState('blocked');
@@ -295,6 +358,7 @@ export class AudioSystem {
     const ctx = this.ctx as AudioContext;
     const mixer = this.mixer as MixerGraph;
     const decoder = new Decoder(ENGINE_RATE);
+    this.decoder = decoder;
     // the codec probe
     const probe = await probeCodec(
       (b) => decoder.decode(b, null),
@@ -305,6 +369,9 @@ export class AudioSystem {
       },
     );
     this.codec = probe.codec;
+    this.recordings?.setCodec(probe.codec);
+    if (this.menuWanted && !this.inGame && !this.recordings?.playing && !this.recordings?.pending)
+      void this.recordings?.play('charter', true);
     // the worklets, or reduced audio
     if (this.o.reduced) this.reduce('reduced audio requested');
     else {
@@ -371,6 +438,23 @@ export class AudioSystem {
       this.bankNode = null;
     }
     this.bank = null;
+    // SFX already loaded into the failed bank move to native voices: the files decode again into them, and
+    // the working loops start again from the next snapshot (codex C7-r1 finding 4)
+    if (this.sfx && this.ctx && this.mixer && this.decoder && this.sounds && this.codec) {
+      this.voices = new NativeVoices(this.ctx, this.mixer);
+      this.files = new FileLoader(
+        this.voices,
+        this.decoder,
+        this.o.fetcher ?? httpFetcher,
+        this.base,
+        new IdAllocator(),
+        this.codec,
+      );
+      this.packs = null;
+      this.table = new SoundTable(this.sounds, this.o.soundIds ?? null);
+      this.sfx.rebind(this.voices, this.table);
+      void this.table.load(this.files, 'high');
+    }
     if (this.director) {
       // a running game continues on recordings
       const wasRunning = this.director.running;
@@ -394,7 +478,18 @@ export class AudioSystem {
     this.menuWanted = false;
     this.recordings?.stop(1);
     this.o.seed = seed;
+    // a game already running (a load, a new game from the pause menu) ends its program and its sounds first
+    this.director?.stop(1.5);
+    this.director = null;
+    this.worldReset();
     void this.init().then(() => this.startDirector(1.2));
+  }
+
+  /** A new world (10 §3.4): no sound of the old one goes on, the activity and feed timing start afresh. */
+  private worldReset(): void {
+    this.sfx?.reset(0.05, true);
+    this.activity.reset();
+    this.lastFeed = Number.NEGATIVE_INFINITY;
   }
 
   private startDirector(delay: number): void {
@@ -437,6 +532,14 @@ export class AudioSystem {
 
   /** Every decoded render packet of the current generation, in order (10 §15.4). */
   onPacket(p: AudioPacketView): void {
+    if (p.generation !== this.generation) {
+      // the SFX system fades the old world's sounds itself; the activity restarts from the next feed
+      if (this.generation >= 0) {
+        this.activity.reset();
+        this.lastFeed = Number.NEGATIVE_INFINITY;
+      }
+      this.generation = p.generation;
+    }
     this.sfx?.onPacket(p);
   }
 
@@ -474,7 +577,8 @@ export class AudioSystem {
 
   setView(v: ListenerView): void {
     if (this.sfx) this.sfx.view = v;
-    this.mixer?.setWorld(!v.mapView, 0.05);
+    const open = this.gate.set({ mapView: v.mapView });
+    if (open !== null) this.mixer?.setWorld(open, 0.05);
   }
 
   setLocalPlayer(index: number): void {
@@ -483,7 +587,8 @@ export class AudioSystem {
 
   /** A paused single-player game fades world sounds and working loops over 0.3 s; UI and music go on. */
   setPaused(paused: boolean): void {
-    this.mixer?.setWorld(!paused, 0.3);
+    const open = this.gate.set({ paused });
+    if (open !== null) this.mixer?.setWorld(open, 0.3);
   }
 
   /** The interface setting "Keep running in background tab" (07 §19.3). */
@@ -606,9 +711,18 @@ export class AudioSystem {
       downloaded: this.files?.downloaded ?? 0,
       scheduler: { ...(this.scheduler?.stats ?? { ticks: 0, ms: 0, maxMs: 0 }) },
       bank,
-      sfx: { ...(this.sfx?.stats ?? { played: 0, limited: 0, historical: 0, unmapped: 0, loops: 0 }) },
+      sfx: {
+        ...(this.sfx?.stats ?? { played: 0, limited: 0, historical: 0, unmapped: 0, loops: 0, lost: 0 }),
+      },
+      nativeVoices: this.voices?.voices ?? 0,
+      world: this.gate.open,
       errors: [...this.errors, ...(this.files?.errors ?? [])],
     };
+  }
+
+  /** A test hook: the voice bank's processor fails, as one can at any time (the reduced path's e2e test). */
+  failWorkletForTest(): void {
+    this.bankNode?.port.postMessage({ t: 'crash' });
   }
 
   /** Tears everything down (a page leaving). */

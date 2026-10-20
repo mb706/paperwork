@@ -1,8 +1,9 @@
 """The audio asset build (10 §9.4, §9.6–§9.7; C7): samples and SFX into public/audio/.
 
-    gamedev-python scripts/assets/audio/build.py [--mirror DIR] [--steps fetch,prep,sfx,encode] [--force]
+    gamedev-python scripts/assets/audio/build.py [--mirror DIR] [--steps fetch,prep,sfx,encode,record] [--force]
 
-Run from game/. Heavy steps belong on socket 1 (`taskset -c 8-15,24-31`).
+Run from game/ (after `npm ci`: the record step renders in headless Chrome). Heavy steps belong on socket 1
+(`taskset -c 8-15,24-31`).
 
 1. fetch: the CC0 sources at pinned commits into .cache/assets/audio/raw (verified against the pinned git
    trees and the SHA-256 lock, game/assets/audio/samples.lock.json). `--mirror` reuses a local copy, e.g.
@@ -11,9 +12,14 @@ Run from game/. Heavy steps belong on socket 1 (`taskset -c 8-15,24-31`).
 3. sfx: A4's SFX prototypes (sfx.py) as 48 kHz masters; loops with 100 ms circular margins.
 4. encode: every master to Ogg Opus and AAC (.m4a) at the pack's bitrate, named by content hash and cached
    in .cache/assets/audio/enc; the canonical 32 kHz length and start fingerprint of each (10 §9.4).
-5. manifests: public/audio/music.json and sounds.json (from game/data/engine/sounds.yaml), the probe,
+5. record: the recordings the game streams (RECORDINGS: the charter piece, and a piece per later era for
+   reduced audio), rendered through the game's own engine in headless Chrome (render.ts), mastered
+   (master.py) and published like every other file. Cached by a key over the render's configuration, the
+   packs and the engine's code, so an unchanged recording is not rendered again.
+6. manifests: public/audio/music.json and sounds.json (from game/data/engine/sounds.yaml), the probe,
    inventory.json (bytes per group) and the build gates: decoded residency of each adjacent era pair
-   ≤ 90 MB, each later era's download ≤ 3 MB, the SFX set ≤ 1 MB.
+   ≤ 90 MB, each later era's download ≤ 3 MB, the SFX set ≤ 1 MB, and a recording for every era (reduced
+   audio would otherwise be silent in it).
 """
 
 from __future__ import annotations
@@ -57,6 +63,16 @@ ERA_PACKS = {
     "era2": ["marimba", "vibes", "piano"],
 }
 GATES = {"pair_mb": 90.0, "later_era_mb": 3.0, "sfx_mb": 1.0}
+
+# The recordings (10 §9.4): the charter piece (the menu loop, a game's first piece, Era I in reduced audio)
+# and a piece per later era for reduced audio. An era's recordings are named `<era>-…` (the charter piece
+# counts for Era I), as the director looks them up (src/audio/music/director.ts).
+RECORDINGS = {
+    "charter": {"piece": "era1", "duration": 150, "tail": 8, "params": {"seed": 1945, "transpose": 0},
+                "activity": 0.5},
+    "era2-1962": {"piece": "era2", "duration": 150, "tail": 8, "params": {"seed": 1962}, "activity": 0.6},
+}
+REC_INDEX = CACHE / "recordings.json"
 
 
 def sha256(path: Path) -> str:
@@ -210,15 +226,68 @@ def probe() -> dict:
 
 
 def recordings() -> dict:
-    """Offline renders published by render.ts (the charter piece), if present."""
-    rec_json = CACHE / "recordings.json"
-    return json.loads(rec_json.read_text()) if rec_json.exists() else {}
+    """The recordings the last record step published (name → manifest entry), for builds without that step."""
+    if not REC_INDEX.exists():
+        return {}
+    index = json.loads(REC_INDEX.read_text())
+    return {name: r["entry"] for name, r in index.items() if name in RECORDINGS and "entry" in r}
+
+
+def engine_digest() -> str:
+    """The engine's code, which a recording depends on: src/audio (tests excluded) and the renderer."""
+    h = hashlib.sha256()
+    files = sorted(p for p in (GAME / "src" / "audio").rglob("*.ts") if not p.name.endswith(".test.ts"))
+    files += [GAME / "src" / "dev" / "audio.ts", Path(__file__).parent / "render.ts"]
+    for p in files:
+        h.update(str(p.relative_to(GAME)).encode())
+        h.update(p.read_bytes())
+    return h.hexdigest()
+
+
+def build_recordings(force: bool) -> dict:
+    """Renders, masters and publishes RECORDINGS (needs public/audio's packs); returns name → entry."""
+    import master  # noqa: PLC0415 (numba: loaded only for this step)
+
+    packs = json.loads((PUBLIC / "music.json").read_text())["packs"]
+    code = engine_digest()
+    index = json.loads(REC_INDEX.read_text()) if REC_INDEX.exists() else {}
+    out = CACHE / "recordings"
+    out.mkdir(parents=True, exist_ok=True)
+    result = {}
+    for name, rc in RECORDINGS.items():
+        cfg = {"name": name, **rc, "sampleRate": 48000, "saveChannels": 2}
+        key = hashlib.sha256(json.dumps([cfg, packs, code], sort_keys=True).encode()).hexdigest()[:16]
+        wav = out / f"{name}.{key}.wav"
+        if force or not wav.exists():
+            work = out / key
+            work.mkdir(parents=True, exist_ok=True)
+            cfg_path = work / f"{name}.json"
+            cfg_path.write_text(json.dumps([cfg]))
+            print(f"  rendering {name} ({rc['piece']}, {rc['duration']} s) through the engine")
+            subprocess.run(["node", "scripts/assets/audio/render.ts", str(cfg_path), "--out", str(work)],
+                           cwd=GAME, check=True)
+            (work / f"{name}.wav").replace(wav)
+            shutil.rmtree(work, ignore_errors=True)
+        entry = master.master(wav, name)
+        index[name] = {"key": key, "entry": entry}
+        result[name] = entry
+    REC_INDEX.write_text(json.dumps(index, indent=1))
+    return result
+
+
+def check_recordings(music: dict) -> None:
+    """Every era needs a recording: reduced audio plays nothing else (codex C7-r1 finding 8)."""
+    missing = [era for era in ERA_PACKS
+               if not any(n.startswith(f"{era}-") or (era == "era1" and n == "charter") for n in music["recordings"])]
+    if missing or "charter" not in music["recordings"]:
+        raise SystemExit("audio build: no recording for " + ", ".join(missing or ["the charter piece"])
+                         + "; run the record step (build.py --steps encode,record)")
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--mirror", type=Path)
-    ap.add_argument("--steps", default="fetch,prep,sfx,encode")
+    ap.add_argument("--steps", default="fetch,prep,sfx,encode,record")
     ap.add_argument("--force", action="store_true")
     a = ap.parse_args()
     steps = set(a.steps.split(","))
@@ -245,13 +314,17 @@ def main() -> None:
         }
         p = probe()
         RECORDS["probe"] = {"licence": OWN, "sources": [], "generator": "build.py probe"}
+        (PUBLIC / "music.json").write_text(json.dumps(music, indent=1) + "\n")
+        (PUBLIC / "sounds.json").write_text(json.dumps(sounds_manifest, indent=1) + "\n")
+        if "record" in steps:
+            music["recordings"] = build_recordings(a.force)
+            (PUBLIC / "music.json").write_text(json.dumps(music, indent=1) + "\n")
+        check_recordings(music)
         for name, r in music["recordings"].items():
             RECORDS[r["file"]] = {"licence": OWN_FROM_CC0, "sources": [],
                                   "generator": f"render.ts and master.py: the {name} recording, an offline render of "
                                                "the game's rule sets with the instrument files above"}
         write_licences()
-        (PUBLIC / "music.json").write_text(json.dumps(music, indent=1) + "\n")
-        (PUBLIC / "sounds.json").write_text(json.dumps(sounds_manifest, indent=1) + "\n")
         clean(music, sounds)
         inventory(music, sounds, p)
     print(f"audio build: done in {time.time() - t0:.1f} s")

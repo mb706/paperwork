@@ -50,13 +50,15 @@ export interface SfxStats {
   historical: number;
   unmapped: number;
   loops: number;
+  /** Working loops whose voices ended unasked and were started again. */
+  lost: number;
 }
 
 export class SfxSystem {
   view: ListenerView = defaultView();
   /** The local player's index (UI sounds play only for one's own events). */
   localPlayer = 0;
-  readonly stats: SfxStats = { played: 0, limited: 0, historical: 0, unmapped: 0, loops: 0 };
+  readonly stats: SfxStats = { played: 0, limited: 0, historical: 0, unmapped: 0, loops: 0, lost: 0 };
   private generation = -1;
   private lastPacket = Number.NEGATIVE_INFINITY;
   private readonly loops = new Map<number, Loop>();
@@ -65,8 +67,8 @@ export class SfxSystem {
   private readonly wr: WorkingRecord = newWorkingRecord();
   private readonly present: { sound: Sound; gain: number; pan: number }[] = [];
 
-  private readonly bank: VoiceEngine;
-  readonly table: SoundTable;
+  private bank: VoiceEngine;
+  table: SoundTable;
   private readonly now: () => number;
   private readonly proto: ProtoInfo;
   private readonly rng: Rng;
@@ -76,6 +78,32 @@ export class SfxSystem {
     this.now = now;
     this.proto = proto;
     this.rng = rng;
+    bank.onEnded = (h) => this.lost(h);
+  }
+
+  /**
+   * Moves to another voice engine (reduced audio after a processor failure) with the table its files were
+   * loaded into. The loops lived on the old engine: they start again from the next snapshot.
+   */
+  rebind(bank: VoiceEngine, table: SoundTable): void {
+    this.bank = bank;
+    this.table = table;
+    bank.onEnded = (h) => this.lost(h);
+    this.loops.clear();
+    this.stats.loops = 0;
+  }
+
+  /**
+   * Working loops whose voices ended unasked (stolen, dropped, their buffer freed): forgotten, so the next
+   * snapshot starts them again (codex C7-r1 finding 2).
+   */
+  private lost(handles: readonly number[]): void {
+    for (const [id, loop] of this.loops)
+      if (handles.includes(loop.handle)) {
+        this.loops.delete(id);
+        this.stats.lost++;
+      }
+    this.stats.loops = this.loops.size;
   }
 
   // ---------------------------------------------------------------- one-shots
@@ -147,7 +175,8 @@ export class SfxSystem {
   /** Everything a packet asks of audio: its events, then its working sounds. */
   onPacket(p: AudioPacketView): void {
     if (p.generation !== this.generation) {
-      this.reset(0.05);
+      // a new world (10 §3.4): nothing of the old one goes on sounding, one-shots included
+      if (this.generation >= 0) this.reset(0.05, true);
       this.generation = p.generation;
     }
     this.lastPacket = this.now();
@@ -265,17 +294,25 @@ export class SfxSystem {
     this.loops.set(s.id, { sound: s, handle, gain, pan, sentGain: gain, sentPan: pan });
   }
 
-  /** Called on the scheduler's tick: no packet for 0.5 s (catch-up, a hidden page) fades every loop. */
+  /**
+   * Called on the scheduler's tick: no packet for 0.5 s (catch-up, a hidden page) fades every loop. While
+   * loops play, it asks the engine which of them ended unasked.
+   */
   tick(): void {
     if (this.loops.size > 0 && this.now() - this.lastPacket > STALE_AFTER) {
       this.reset(LOOP_FADE);
       this.bank.flush();
     }
+    if (this.loops.size > 0) this.bank.poll();
   }
 
-  /** Fades every loop out (a new generation, staleness, leaving a game). */
-  reset(fade = LOOP_FADE): void {
-    for (const loop of this.loops.values()) this.bank.control(loop.handle, 0, loop.pan, true, fade);
+  /**
+   * Fades every loop out (staleness, leaving a game) and forgets the rate limits; `hard` (a new world) also
+   * fades every one-shot and drops the SFX notes not yet started.
+   */
+  reset(fade = LOOP_FADE, hard = false): void {
+    if (hard) this.bank.clear('sfx', fade);
+    else for (const loop of this.loops.values()) this.bank.control(loop.handle, 0, loop.pan, true, fade);
     this.loops.clear();
     for (const s of this.table.byName.values()) s.recent.length = 0;
     this.stats.loops = 0;

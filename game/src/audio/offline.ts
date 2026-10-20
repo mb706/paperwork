@@ -48,6 +48,9 @@ export interface SfxLoad {
   /** Every `burstEvery` seconds, `burst` build events in one packet (a drag-built row). */
   burst?: number;
   burstEvery?: number;
+  /** Inserter swings and footsteps per second (sounds the renderer plays; default: machines / 5, 3.7). */
+  swingsPerSec?: number;
+  stepsPerSec?: number;
 }
 
 export interface RenderConfig {
@@ -89,9 +92,10 @@ export interface RenderResult {
   decodeMs: number;
 }
 
-const NO_PROTO: ProtoInfo = {
-  entitySize: () => 1,
-  minedKind: () => 'entity',
+/** Prototype facts for the load: entity sizes 1 to 5 tiles by id, odd ids are resources (so every sound plays). */
+const LOAD_PROTO: ProtoInfo = {
+  entitySize: (p) => 1 + (p % 5),
+  minedKind: (p) => (p % 2 === 1 ? 'resource' : 'entity'),
   isDeveloperReason: FailReasonCodec.isDeveloper,
 };
 
@@ -192,7 +196,7 @@ async function assemble(
     scheduler.add(spec.create(engine.host(0), { ...cfg.params, duration: cfg.duration, start }));
   }
   if (cfg.sfx && table)
-    scheduler.listeners.add(sfxLoad(cfg.sfx, new SfxSystem(bank, table, now, NO_PROTO, makeRng(7)), table));
+    scheduler.listeners.add(sfxLoad(cfg.sfx, new SfxSystem(bank, table, now, LOAD_PROTO, makeRng(7)), table));
   return { clock, bank, bankNode, mixer, engine, scheduler, files, stems, decodeMs };
 }
 
@@ -276,6 +280,7 @@ export async function playLive(deps: OfflineDeps, cfg: RenderConfig): Promise<Li
       t: 'stats',
       active: 0,
       maxActive: 0,
+      maxSfx: 0,
       activeMusic: 0,
       activeSfx: 0,
       stolen: 0,
@@ -325,40 +330,65 @@ export function withLoopAliases(m: SoundsManifest, n: number): SoundsManifest {
 
 /**
  * A busy factory's SFX (the CPU budget's load, 10 §9.4): `loops` working sounds from `machines` machines in
- * view, one-shots at `shotsPerSec`, and bursts of builds, fed through the SFX system as render packets.
+ * view; one-shot events at `shotsPerSec` across the event map (builds of every size, mining of entities and
+ * resources, errors, alerts, research), bursts of builds, and the sounds the renderer plays (inserter swings,
+ * footsteps), fed through the SFX system as render packets. It saturates the 24 SFX voices (codex C7-r1
+ * finding 14: builds and deconstructs alone reach only 20, their per-sound caps).
  */
 export function sfxLoad(load: SfxLoad, sfx: SfxSystem, table: SoundTable): (t: number) => void {
   const loopSounds = [...table.byName.values()].filter((s) => s.def.loop);
   const rng = makeRng(42);
   const view = new GenPacketView();
-  const kinds = [EVENT.entity_built, EVENT.entity_mined, EVENT.entity_built] as const;
+  // weights: mostly builds and mining, now and then an error, an alert or a research
+  const kinds = [
+    EVENT.entity_built,
+    EVENT.entity_built,
+    EVENT.entity_built,
+    EVENT.entity_mined,
+    EVENT.entity_mined,
+    EVENT.entity_mined,
+    EVENT.action_failed,
+    EVENT.alert_raised,
+    EVENT.research_completed,
+  ] as const;
+  const swings = load.swingsPerSec ?? load.machines / 5;
+  const steps = load.stepsPerSec ?? 3.7;
   let tick = 0;
   let next = 0;
+  let nextSwing = 0;
+  let nextStep = 0;
   let nextBurst = load.burstEvery ?? 5;
   let lastT = -1;
   return (t) => {
     if (lastT < 0) {
       lastT = t;
       next = t;
+      nextSwing = t;
+      nextStep = t;
       nextBurst = t + (load.burstEvery ?? 5);
     }
     tick += Math.max(1, Math.round((t - lastT) * 60));
     lastT = t;
     const events: Parameters<typeof encodePacket>[2][number][] = [];
     while (next < t) {
-      events.push({
-        type: kinds[rng.int(0, 2)] as number,
-        tick,
-        proto: 0,
-        x: rng.range(-20, 20),
-        y: rng.range(-12, 12),
-      });
+      const type = kinds[rng.int(0, kinds.length - 1)] as number;
+      // a reason for errors (out_of_reach) and alerts (entity_destroyed)
+      const reason = type === EVENT.action_failed ? 17 : 1;
+      events.push({ type, tick, proto: rng.int(0, 9), reason, x: rng.range(-20, 20), y: rng.range(-12, 12) });
       next += rng.range(0, 2 / Math.max(0.01, load.shotsPerSec));
     }
     if (load.burst && t >= nextBurst) {
       for (let i = 0; i < load.burst; i++)
-        events.push({ type: EVENT.entity_built, tick, proto: 0, x: i, y: 0 });
+        events.push({ type: EVENT.entity_built, tick, proto: rng.int(0, 9), x: i, y: 0 });
       nextBurst += load.burstEvery ?? 5;
+    }
+    while (nextSwing < t) {
+      sfx.play('inserter-swing', rng.range(-20, 20), rng.range(-12, 12));
+      nextSwing += rng.range(0, 2 / Math.max(0.01, swings));
+    }
+    while (nextStep < t) {
+      sfx.play(rng.next() < 0.5 ? 'footstep-grass' : 'footstep-concrete', 0, 0);
+      nextStep += 1 / Math.max(0.01, steps);
     }
     const working: WorkingRecord[] = [];
     for (let i = 0; i < Math.min(load.loops, loopSounds.length); i++) {

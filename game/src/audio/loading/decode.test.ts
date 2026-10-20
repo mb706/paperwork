@@ -74,4 +74,59 @@ describe('the canonical timeline', () => {
     await Promise.all(Array.from({ length: 7 }, () => dec.decode(new ArrayBuffer(8), null)));
     expect(max).toBe(2);
   });
+
+  test('a file holds its permit until its conversion ends: two decoded buffers at most (C7-r1 9)', async () => {
+    const len = 120_000;
+    let live = 0;
+    let maxLive = 0;
+    const dec = new Decoder(
+      32000,
+      2,
+      0.2, // short slices: conversions yield many times
+      () =>
+        ({
+          decodeAudioData: async () => {
+            live++;
+            // counted after the microtasks already queued (a finished file's own bookkeeping) have run
+            await Promise.resolve();
+            maxLive = Math.max(maxLive, live);
+            return { numberOfChannels: 1, length: len, getChannelData: () => new Float32Array(len) };
+          },
+        }) as unknown as BaseAudioContext,
+    );
+    const fp = { at: 0, data: [] };
+    await Promise.all(
+      Array.from({ length: 10 }, () =>
+        dec.decode(new ArrayBuffer(8), { len, fp, channels: 1 }).then(() => {
+          live--;
+        }),
+      ),
+    );
+    expect(maxLive).toBe(2);
+    expect(dec.maxHeld).toBe(2 * (len + 4096) * 4);
+  });
+
+  test('and at most maxBytes of decoded audio between them (one larger file still decodes, alone)', async () => {
+    const len = 250_000; // about 1 MB of Float32 each
+    const dec = new Decoder(
+      32000,
+      2,
+      1,
+      () =>
+        ({
+          decodeAudioData: async () => ({
+            numberOfChannels: 1,
+            length: len,
+            getChannelData: () => new Float32Array(len),
+          }),
+        }) as unknown as BaseAudioContext,
+      1.5 * 2 ** 20,
+    );
+    const fp = { at: 0, data: [] };
+    const one = (n: number) => dec.decode(new ArrayBuffer(8), { len: n, fp, channels: 1 });
+    await Promise.all([one(len), one(len), one(len)]);
+    expect(dec.maxHeld).toBeLessThanOrEqual(1.5 * 2 ** 20);
+    await one(len * 4); // 4 MB: over the limit, but alone it goes
+    expect(dec.maxHeld).toBeGreaterThan(1.5 * 2 ** 20);
+  });
 });

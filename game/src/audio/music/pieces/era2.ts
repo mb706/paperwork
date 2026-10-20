@@ -36,6 +36,11 @@ export const ERA2_TRIMS = {
 
 const BEAT = 60 / 83;
 const ECHO_FB = 0.36;
+/** The harmonic gate: the echo's return fades from this long before a drone change (s), with this τ. */
+export const ECHO_GATE_LEAD = 0.8;
+export const ECHO_GATE_TAU = 0.15;
+/** The tape is erased this long before the change: inside the rest beat, before the next module starts. */
+export const ECHO_ERASE_LEAD = 0.05;
 const PULSE = BEAT / 4;
 
 /** A4's `setupEra2`. */
@@ -181,10 +186,17 @@ export class Era2Piece implements Piece {
     this.exitB = this.D * 0.6;
     this.plan();
     // harmonic gate on the time-lag accumulator: the feedback is erased from half a second before each
-    // drone change until one delay after it, so no echo tail carries one chord into the next
+    // drone change until one delay after it, so no echo tail carries one chord into the next (A4). Feedback
+    // only shapes later repeats: the first repeat of everything recorded in the last delay before a change
+    // still came off the tape over the new drone (codex C7-r1 finding 11). So the echo's return also fades
+    // out before the change, and the tape is erased in the rest beat before it, when the organ is silent:
+    // nothing recorded over one drone is heard over the next. (A deviation from A4's prototype.)
     for (const c of [0.44, 0.57, 0.68].map((f) => f * this.D)) {
       host.targetParam('echo', 'echoFeedback', this.T0 + c - 0.5, 0, 0.12);
       host.targetParam('echo', 'echoFeedback', this.T0 + c + 4 * BEAT, ECHO_FB, 0.4);
+      host.targetParam('echo', 'echoReturn', this.T0 + c - ECHO_GATE_LEAD, 0, ECHO_GATE_TAU);
+      host.setParam('echo', 'echoErase', this.T0 + c - ECHO_ERASE_LEAD, 1);
+      host.setParam('echo', 'echoReturn', this.T0 + c, 1);
     }
     // the tape hiss comes and goes with the piece
     host.setParam('hiss', 'fader', this.T0, 0.0001);

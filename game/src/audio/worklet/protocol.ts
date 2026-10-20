@@ -132,7 +132,12 @@ export interface ChannelConfig {
 
 /** An automation event on a channel parameter, as `setValueAtTime` (kind 0) or `setTargetAtTime` (1). */
 export type AutoEvent = [kind: 0 | 1, time: number, value: number, tau: number];
-export type ChannelParam = 'fader' | 'echoFeedback';
+/**
+ * Automatable channel parameters. `echoReturn` is the tape echo's output level; an event on `echoErase` erases
+ * the echo's tape (its delay line and filter history) at the event's time, whatever its value (the harmonic
+ * gate, codex C7-r1 finding 11).
+ */
+export type ChannelParam = 'fader' | 'echoFeedback' | 'echoReturn' | 'echoErase';
 
 export type ToBank =
   | { t: 'buf'; id: number; chans: Int16Array[]; rate: number }
@@ -156,12 +161,18 @@ export type ToBank =
   | { t: 'buses'; gains: number[]; at: number; tau: number }
   | { t: 'taps'; list: { slot: number; channel: number }[] }
   | { t: 'stats' }
+  /** Asks for the `ended` report (the SFX system polls while it keeps loops). */
+  | { t: 'poll' }
+  /** A test hook: the processor throws from its next process(), as a failing processor would. */
+  | { t: 'crash' }
   | { t: 'sync'; seq: number };
 
 export interface BankStats {
   t: 'stats';
   active: number;
   maxActive: number;
+  /** The most SFX voices counted at once (the CPU load must reach the 24-voice cap). */
+  maxSfx: number;
   activeMusic: number;
   activeSfx: number;
   stolen: number;
@@ -175,7 +186,12 @@ export interface BankStats {
   quanta: number;
 }
 
-export type FromBank = BankStats | { t: 'sync'; seq: number } | { t: 'error'; message: string };
+export type FromBank =
+  | BankStats
+  | { t: 'sync'; seq: number }
+  | { t: 'error'; message: string }
+  /** Working loops whose voices ended without a release: stolen, dropped, or their buffer freed. */
+  | { t: 'ended'; handles: number[] };
 
 /** FDN reverb configuration (10 §9.4): one reverb per era slot, inside the bank. */
 export interface FdnConfig {

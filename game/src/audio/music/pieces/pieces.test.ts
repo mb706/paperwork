@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 import type { NoteEvent, PieceParams } from '../types.ts';
 import { dryRun, invalidEvents } from './dryrun.ts';
+import { ECHO_ERASE_LEAD, ECHO_GATE_LEAD, ECHO_GATE_TAU } from './era2.ts';
 import { PIECES } from './index.ts';
 
 interface Fixture {
@@ -155,6 +156,62 @@ describe('harmony', () => {
       expect(harsh, `seed ${seed}`).toBeLessThan(0.05);
       expect(index / steps, `seed ${seed}`).toBeLessThan(0.5);
     }
+  });
+
+  // codex C7-r1 finding 11: feedback alone left the first repeat of the last delay before a change on the
+  // tape, over the new drone. The organ's notes are modelled with their echoes: under A4's gate (feedback
+  // only) and under the full gate (the return muted from ECHO_GATE_LEAD before the change, the tape erased
+  // ECHO_ERASE_LEAD before it). No echo of a section may sound over the next drone; A4's gate fails that.
+  test('Era II: no echo of the organ sounds over the next drone (the harmonic gate erases the tape)', () => {
+    const delay = (4 * 60) / 83;
+    const fb = 0.36;
+    let crossedBefore = 0;
+    for (const [seed, duration] of [
+      [99, 360],
+      [1962, 140],
+      [5, 220],
+      [77, 300],
+    ] as const) {
+      const { events, automation } = run('era2', { seed, duration }, 0.7);
+      const T0 = 0.05;
+      const changes = [0.44, 0.57, 0.68].map((f) => T0 + f * duration);
+      const erases = automation.filter((a) => a.param === 'echoErase').map((a) => a.t);
+      const mutes = automation.filter((a) => a.param === 'echoReturn' && a.value === 0).map((a) => a.t);
+      expect(
+        erases.map((t, i) => +((changes[i] as number) - t).toFixed(3)),
+        `seed ${seed}`,
+      ).toEqual(changes.map(() => ECHO_ERASE_LEAD));
+      expect(mutes.map((t, i) => +((changes[i] as number) - t).toFixed(3))).toEqual(
+        changes.map(() => ECHO_GATE_LEAD),
+      );
+      const organ = events
+        .filter((n) => n.inst === 'organ')
+        .map((n) => ({ t: n.t + T0, end: n.t + T0 + n.dur + 0.25 }));
+      for (const [i, c] of changes.entries()) {
+        const erase = erases[i] as number;
+        // the erase falls in the rest beat: every note recorded over the old drone has ended, none of the next
+        // section has begun
+        const before = organ.filter((n) => n.t < c);
+        const after = organ.filter((n) => n.t >= c);
+        if (before.length) expect(Math.max(...before.map((n) => n.end))).toBeLessThanOrEqual(erase);
+        if (after.length) expect(Math.min(...after.map((n) => n.t))).toBeGreaterThanOrEqual(erase);
+        // the old section's echoes once the new drone enters (it fades in from 0.3 s before c)
+        for (const n of before)
+          for (let k = 1, g = fb; g > 10 ** (-30 / 20); k++, g *= fb) {
+            const [t0, t1] = [n.t + k * delay, n.end + k * delay];
+            if (t1 <= c - 0.3) continue;
+            // A4's gate (feedback 0 from c − 0.5 s): a repeat already on the tape still plays, at full level
+            if (k === 1 || n.t + (k - 1) * delay < c - 0.5) crossedBefore++;
+            // the full gate: erased from the erase on; before it, the return's level where the copy sounds
+            const from = Math.max(t0, c - 0.3);
+            const level =
+              from >= erase ? 0 : Math.exp(-Math.max(0, from - (c - ECHO_GATE_LEAD)) / ECHO_GATE_TAU);
+            expect(level, `seed ${seed}, change ${i}, copy at ${t0.toFixed(2)} s`).toBeLessThan(0.04); // −28 dB
+          }
+      }
+    }
+    // the echoes A4's gate let through: seed 99's E5 over the F drone among them
+    expect(crossedBefore).toBeGreaterThan(0);
   });
 
   test('Era II: the echo is erased at every drone change, and the hiss fades with the piece', () => {

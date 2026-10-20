@@ -90,7 +90,7 @@ export class FileLoader {
   private async fetchDecode(f: AudioFile, codec: Codec, priority: Priority): Promise<Int16Array[]> {
     const bytes = await this.fetcher(this.url(f.file, codec), priority);
     this.downloaded += bytes.byteLength;
-    return this.decoder.decode(bytes, { len: f.len, fp: f.fp });
+    return this.decoder.decode(bytes, { len: f.len, fp: f.fp, channels: f.channels });
   }
 
   async load(f: AudioFile, priority: Priority): Promise<LoadedFile | null> {

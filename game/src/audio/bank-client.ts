@@ -28,6 +28,12 @@ export interface VoiceEngine {
   flush(): void;
   buffer(id: number, chans: Int16Array[], rate: number): void;
   free(id: number): void;
+  /** Fades every voice of a music slot, or every SFX voice, and drops its pending notes. */
+  clear(slot: number | 'sfx', fade: number): void;
+  /** Asks for the report of working loops that ended unasked (stolen, dropped, their buffer freed). */
+  poll(): void;
+  /** Receives that report: the loops' handles. */
+  onEnded: ((handles: readonly number[]) => void) | null;
 }
 
 const DEFAULTS: NoteRecord = { RATE: 1, GAIN: 1, OFF: 1e9, STOP: 1e9, RELEASE: 0.35, TYPE: -1, CAP: 4 };
@@ -42,6 +48,7 @@ export class BankClient implements VoiceEngine {
   private statsWaiter: ((s: BankStats) => void) | null = null;
   /** Notes posted since the start (for the scheduler's statistics). */
   posted = 0;
+  onEnded: ((handles: readonly number[]) => void) | null = null;
 
   private readonly port: PortLike;
   constructor(port: PortLike) {
@@ -54,7 +61,7 @@ export class BankClient implements VoiceEngine {
       } else if (m.t === 'stats') {
         this.statsWaiter?.(m);
         this.statsWaiter = null;
-      }
+      } else if (m.t === 'ended') this.onEnded?.(m.handles);
     };
   }
 
@@ -141,6 +148,10 @@ export class BankClient implements VoiceEngine {
   /** The SFX buses' fader gains (linear) from audio time `at`, approached with `tau` (0: at once). */
   buses(gains: number[], at: number, tau: number): void {
     this.port.postMessage({ t: 'buses', gains, at, tau });
+  }
+
+  poll(): void {
+    this.port.postMessage({ t: 'poll' });
   }
 
   taps(list: { slot: number; channel: number }[]): void {

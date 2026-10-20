@@ -17,11 +17,20 @@ import { distanceGain, panFor, placeAt, workingMix, zoomGain } from './spatial.t
 class Recorder implements VoiceEngine {
   notes: NoteRecord[] = [];
   controls: { handle: number; gain: number; pan: number; release: boolean; tau: number }[] = [];
+  clears: { slot: number | 'sfx'; fade: number }[] = [];
+  polls = 0;
+  onEnded: ((handles: readonly number[]) => void) | null = null;
   note(r: NoteRecord) {
     this.notes.push(r);
   }
   control(handle: number, gain: number, pan: number, release = false, tau = 0.3) {
     this.controls.push({ handle, gain, pan, release, tau });
+  }
+  clear(slot: number | 'sfx', fade: number) {
+    this.clears.push({ slot, fade });
+  }
+  poll() {
+    this.polls++;
   }
   flush() {}
   buffer() {}
@@ -288,9 +297,54 @@ describe('working sounds', () => {
     sfx.tick();
     expect(rec.controls.filter((c) => c.release).length).toBe(MAX_LOOPS);
     sfx.onPacket(packet(1, 2, [], recs.slice(0, 3)));
-    const before = rec.controls.length;
+    const notes = rec.notes.length;
     sfx.onPacket(packet(2, 3, [], recs.slice(0, 3)));
-    expect(rec.controls.length - before).toBe(3); // a new generation: the old loops fade, new ones start
+    // a new generation: every SFX voice of the old world fades (one clear), and its loops start anew
+    expect(rec.clears).toEqual([{ slot: 'sfx', fade: 0.05 }]);
+    expect(rec.notes.length - notes).toBe(3);
+  });
+
+  test('a loop whose voice ended unasked starts again from the next snapshot (codex C7-r1 finding 2)', () => {
+    const { sfx, rec, table, clock } = setup();
+    const [a, b] = ids(table) as [number, number];
+    const recs = [
+      { sound: a, n: 10, cx: 0, cy: 0, wsum: 5 },
+      { sound: b, n: 10, cx: 4, cy: 0, wsum: 5 },
+    ];
+    sfx.onPacket(packet(1, 1, [], recs));
+    const lostHandle = (rec.notes[0] as NoteRecord).HANDLE as number;
+    // the dispatcher asks while loops play; the engine answers with the loops it lost
+    clock.t += 0.1;
+    sfx.tick();
+    expect(rec.polls).toBe(1);
+    rec.onEnded?.([lostHandle]);
+    expect(sfx.stats.lost).toBe(1);
+    expect(sfx.stats.loops).toBe(1);
+    sfx.onPacket(packet(1, 2, [], recs));
+    expect(rec.notes.length).toBe(3);
+    const again = rec.notes[2] as NoteRecord;
+    expect(again.TYPE).toBe(a);
+    expect(again.HANDLE).not.toBe(lostHandle);
+    expect(sfx.stats.loops).toBe(2);
+  });
+});
+
+describe('a new world (10 §3.4)', () => {
+  test('one-shots of the old world fade with its loops, and its rate limits are forgotten (finding 3)', () => {
+    const { sfx, rec } = setup();
+    sfx.onPacket(
+      packet(1, 100, [{ type: EVENT.alert_raised, tick: 100, reason: AlertType.entity_destroyed }], null),
+    );
+    sfx.onPacket(packet(1, 101, [{ type: EVENT.entity_built, tick: 101, proto: 1, x: 1, y: 1 }], null));
+    expect(rec.notes.length).toBe(2);
+    expect(rec.clears).toEqual([]);
+    // the same generation again: nothing is cleared
+    sfx.onPacket(packet(1, 102, [], null));
+    expect(rec.clears).toEqual([]);
+    sfx.onPacket(packet(2, 5, [{ type: EVENT.entity_built, tick: 5, proto: 1, x: 1, y: 1 }], null));
+    expect(rec.clears).toEqual([{ slot: 'sfx', fade: 0.05 }]);
+    // the new world's first build plays at once: the rate limit started afresh
+    expect(rec.notes.length).toBe(3);
   });
 });
 
