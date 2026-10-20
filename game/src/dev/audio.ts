@@ -234,6 +234,43 @@ async function save(name: string, data: ArrayBuffer): Promise<void> {
 
 let live: LiveRun | null = null;
 
+/** A busy factory's SFX (the CPU budget's load, 10 §9.4), as the benchmark plays it. */
+const FACTORY = { loops: 12, machines: 100, shotsPerSec: 6, burst: 20, burstEvery: 5 };
+
+$('cpu').addEventListener('click', async () => {
+  const out = $('cpuv');
+  const button = $<HTMLButtonElement>('cpu');
+  button.disabled = true;
+  const rows: string[] = [];
+  try {
+    for (const [label, piece, seed] of [
+      ['Era I', 'era1', 1945],
+      ['Era II', 'era2', 1962],
+    ] as const) {
+      out.textContent = `${rows.join('\n')}${rows.length ? '\n' : ''}Rendering ${label}…`;
+      const r = await dev.render({
+        piece,
+        params: { seed },
+        duration: 150,
+        activity: 0.8,
+        sampleRate: 32000,
+        sfx: FACTORY,
+      });
+      const mean = (100 * r.ms) / 1000 / r.seconds;
+      const worst = Math.max(...r.perSecondMs) / 10;
+      rows.push(
+        `${label} with SFX: ${mean.toFixed(2)} % on average, ${worst.toFixed(2)} % in the worst second`,
+      );
+    }
+    rows.push('Gate (10 §9.4, reference laptop): ≤ 3.5 % on average, ≤ 6.5 % in the worst second.');
+  } catch (e) {
+    rows.push(`Failed: ${e instanceof Error ? e.message : String(e)}`);
+  } finally {
+    button.disabled = false;
+  }
+  out.textContent = rows.join('\n');
+});
+
 const dev = {
   audio,
   /** An offline render through the real engine; saves `<name>.wav` (and notes) through `__save`. */

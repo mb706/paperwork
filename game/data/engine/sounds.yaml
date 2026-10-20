@@ -41,9 +41,9 @@ events:
   research_completed: research-complete
   alert_raised: alert
 
-# Entity → its working sound (extraction aggregates working entities per sound, 10 §15.6). The slice's
-# other machines get theirs in M1c (A4 §7.4).
-working:
+# Entity → its working sound (extraction aggregates working entities per sound, 10 §15.6; the schema's
+# `working_sound` column, schema/protos.yaml). The slice's other machines get theirs in M1c (A4 §7.4).
+working_sounds:
   keypunch: keypunch-loop
   transport-belt: belt-loop
   fast-transport-belt: belt-loop

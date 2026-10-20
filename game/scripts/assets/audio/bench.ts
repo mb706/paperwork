@@ -8,7 +8,7 @@
 // also records the clock of the core each audio thread last ran on (scaling_cur_freq, weighted by the
 // thread's CPU time), and rows give the share both as measured and scaled to 2.6 GHz.
 //
-//   taskset -c 0-7 node scripts/assets/audio/bench.ts <configs.json> [seconds=140] [rounds=2]
+//   taskset -c 0-7 node scripts/assets/audio/bench.ts <configs.json> [seconds=140] [rounds=2] [first round=0]
 //
 // A config: {"name": "era2+sfx", "piece": "era2", "params": {"seed": 1962}, "duration": 150, "activity": 0.7,
 //   "sfx": {"loops": 12, "machines": 100, "shotsPerSec": 6, "burst": 20, "burstEvery": 5}}; "mode": "offline"
@@ -84,6 +84,8 @@ const BASE_MHZ = 2600;
 const cfgPath = process.argv[2] as string;
 const secs = Number(process.argv[3] ?? 140);
 const rounds = Number(process.argv[4] ?? 2);
+// the first round's index: an odd one starts in reverse order (to finish an interrupted session)
+const first = Number(process.argv[5] ?? 0);
 const cfgs = JSON.parse(readFileSync(cfgPath, 'utf8')) as (Record<string, unknown> & {
   name: string;
   mode?: string;
@@ -91,7 +93,7 @@ const cfgs = JSON.parse(readFileSync(cfgPath, 'utf8')) as (Record<string, unknow
 const results: Record<string, unknown>[] = [];
 const { server, url } = await devServer();
 try {
-  for (let r = 0; r < rounds; r++) {
+  for (let r = first; r < first + rounds; r++) {
     for (const cfg of r % 2 === 0 ? cfgs : [...cfgs].reverse()) {
       const { page, close, errors } = await openPage(url);
       try {
@@ -99,7 +101,8 @@ try {
           const m0 = mhz();
           const res = await page.evaluate(
             (c) => (globalThis as unknown as { __audioDev: AudioDev }).__audioDev.render(c),
-            { ...cfg, duration: cfg.duration ?? secs },
+            // no `name`: the page would save the render through a hook only render.ts provides
+            { ...cfg, name: undefined, duration: cfg.duration ?? secs },
           );
           const load = (100 * res.ms) / 1000 / res.seconds;
           const worst = Math.max(...res.perSecondMs) / 10;

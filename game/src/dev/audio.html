@@ -106,6 +106,13 @@
         <button type="button" id="map">Map view</button>
         <button type="button" id="paused">Paused</button>
       </section>
+      <section>
+        <h2>CPU</h2>
+        <button type="button" id="cpu">Offline load: Eras I and II with a factory's sounds</button>
+        <pre id="cpuv">Renders 150 s of each era at 32 kHz with 12 working loops, 100 machines and bursts, as fast as it can,
+and reports the render time as a share of the audio's duration. 10 §9.4's gate, on the reference laptop:
+at most 3.5 % on average and 6.5 % in the worst second.</pre>
+      </section>
       <pre data-testid="audio-status" id="status"></pre>
     </main>
     <script type="module" src="./audio.ts"></script>

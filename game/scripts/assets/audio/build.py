@@ -240,7 +240,7 @@ def main() -> None:
             "prototypesHash": proto_hash,
             "sounds": sounds,
             "events": {k: v for k, v in cfg["events"].items()},
-            "working": cfg.get("working", {}),
+            "working": cfg.get("working_sounds", {}),
             "music": {"eras": cfg["music"]["eras"]},
         }
         p = probe()
