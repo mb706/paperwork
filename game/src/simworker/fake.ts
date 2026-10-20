@@ -30,6 +30,7 @@ import { ABI_VERSION, SCHEMA_HASH } from '../shared/gen/schema.ts';
 import type { MainToSim, SimToMain } from '../shared/protocol.ts';
 import { PACKET_STATE_GEN_OFFSET, PACKET_VIEW_SEQ_OFFSET } from '../shared/protocol.ts';
 import { FakeExtractor } from './fake/extract.ts';
+import { insert, room } from './fake/inventory.ts';
 import { FakeProtos } from './fake/protos.ts';
 import { applyAction, sortMain } from './fake/rules.ts';
 import { type FakeOptions, type FakeSnapshot, FakeWorld } from './fake/world.ts';
@@ -377,17 +378,7 @@ export class FakeSim {
     const system = this.system;
     this.system = [];
     w.begin();
-    for (const a of system) {
-      const c = w.chars.find((x) => 'player' in a && x.player === a.player);
-      if (!c) continue;
-      if (a.type === 'release_inputs' || a.type === 'player_left') {
-        // §15.3: stop walking, mining and picking; raise the input generation (wrapping).
-        c.walking = false;
-        c.mining = null;
-        c.miningProgress = 0;
-        c.inputGen = (c.inputGen + 1) & 0xffff;
-      }
-    }
+    for (const a of system) applySystem(w, a);
     for (const a of actions) {
       const c = w.chars.find((x) => x.player === a.player);
       if (!c) continue;
@@ -411,6 +402,11 @@ export class FakeSim {
       }
       if (!SUPPORTED_ACTIONS.has(act.type)) {
         fail(2); // unsupported: outside the capability manifest (§2.4)
+        continue;
+      }
+      // Presence (§15.3 "the player must exist and be online"): an offline player's action is refused.
+      if (!c.online) {
+        fail(3); // player_not_present
         continue;
       }
       // Input fencing (§15.3, D22): a held input of another generation is a no-op with an event; its seq is consumed.
@@ -458,4 +454,72 @@ export class FakeSim {
     v.setUint32(PACKET_VIEW_SEQ_OFFSET, first ? 0 : this.viewSeq, true);
     this.host.post({ t: 'pkt', buf }, [buf]);
   }
+}
+
+/**
+ * A system action of the closure (§15.3), as the reference model applies it (test/golden/model/rules.ts
+ * `applySystem`; README rules 8–9; GATE-r3 #3): `player_joined` creates a character or brings an offline one back
+ * (joining while online changes nothing); `player_left` releases held inputs, marks the player offline and returns
+ * the hand to the main inventory only if all of it fits (§5.1); `release_inputs` releases held inputs. Releasing
+ * stops walking and mining and raises the input generation, also for an offline player.
+ */
+function applySystem(w: FakeWorld, a: Action): void {
+  if (!('player' in a)) return; // snapshot_marker, debug_dump: nothing in the World
+  const c = w.chars.find((x) => x.player === a.player);
+  const release = (ch: NonNullable<typeof c>): void => {
+    ch.walking = false;
+    ch.mining = null;
+    ch.miningProgress = 0;
+    ch.inputGen = (ch.inputGen + 1) & 0xffff;
+  };
+  switch (a.type) {
+    case 'player_joined':
+      if (c) {
+        if (c.online) return;
+        c.online = true;
+      } else w.join(a.player);
+      w.emit({ seq: 0, player: a.player }, { type: 'player_joined' });
+      return;
+    case 'player_left': {
+      if (!c) return;
+      release(c);
+      if (!c.online) return;
+      c.online = false;
+      returnHand(w, c);
+      w.emit({ seq: 0, player: a.player }, { type: 'player_left' });
+      return;
+    }
+    case 'release_inputs':
+      if (c) release(c);
+      return;
+    default:
+      return;
+  }
+}
+
+/** The hand back into the main inventory if all of it fits, the origin slot first (§5.1; rule 9); else it stays. */
+function returnHand(w: FakeWorld, c: FakeWorld['chars'][number]): void {
+  if (c.hand.ghost) {
+    c.hand = { key: 0xffff, count: 0, origin: 0xffff, ghost: false };
+    return;
+  }
+  if (c.hand.count === 0) return;
+  const key = c.hand.key;
+  const stack = w.p.stack(key);
+  const free = { slots: c.main, bar: c.main.length, origin: -1 };
+  if (room(free, key, c.hand.count, stack) < c.hand.count) return;
+  let left = c.hand.count;
+  const origin = c.hand.origin !== 0xffff ? c.hand.origin : -1;
+  if (origin >= 0) {
+    const s = c.main[origin];
+    if (s && (s.count === 0 || s.key === key)) {
+      const k = Math.min(left, stack - s.count);
+      s.key = key;
+      s.count += k;
+      left -= k;
+    }
+  }
+  c.hand = { key: 0xffff, count: 0, origin: 0xffff, ghost: false };
+  insert(free, key, left, stack);
+  sortMain(w, c);
 }

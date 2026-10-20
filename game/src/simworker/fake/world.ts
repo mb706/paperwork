@@ -738,6 +738,14 @@ export class FakeWorld {
     this.place('splitter', 6, 7, 4, 'belt', { loop: 16 });
   }
 
+  /** A new player's character (player_joined, §15.3): at the spawn point, with the fake's start kit. */
+  join(player: number): Char {
+    const c = this.newChar(player, 0.5, 0.5, false);
+    this.chars.push(c);
+    this.chars.sort((a, b) => a.player - b.player);
+    return c;
+  }
+
   private newChar(player: number, x: number, y: number, scripted: boolean): Char {
     const main = emptySlots(this.p.char.mainSlots);
     const kit: [string, number][] = [

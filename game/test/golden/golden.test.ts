@@ -25,6 +25,7 @@ import {
   M0,
   type Manifest,
   readVersions,
+  reviewedSchemaHash,
 } from './build/main.ts';
 import { dumpOut, type IndexedCall, replay } from './build/traces.ts';
 import { loadProtos } from './model/protos.ts';
@@ -79,8 +80,24 @@ describe('the golden set is frozen', () => {
     const versions = readVersions();
     const latest = versions[versions.length - 1] ?? null;
     const same = { files: m.files, external: m.external, contract: m.contract, schemaHash: m.schemaHash };
-    const ask = (kind: string, next = same, baseline: Manifest | null = m, approval: string | null = null) =>
-      bumpProblems({ kind, approval, why: 'a reason long enough to pass the check', baseline, latest, next });
+    const schema = reviewedSchemaHash(m);
+    expect(schema, "the frozen prototypes.bin carries the manifest's schema hash").toBe(m.schemaHash);
+    const ask = (
+      kind: string,
+      next = same,
+      baseline: Manifest | null = m,
+      approval: string | null = null,
+      baselineSchema: string | null = schema,
+    ) =>
+      bumpProblems({
+        kind,
+        approval,
+        why: 'a reason long enough to pass the check',
+        baseline,
+        baselineSchema,
+        latest,
+        next,
+      });
     expect(ask('mechanical')).toEqual([]);
     // A changed expected value is not mechanical, and a value bump needs an approval.
     const changedFile = { ...same, files: { ...m.files, 'digests.txt': '0'.repeat(64) } };
@@ -102,6 +119,16 @@ describe('the golden set is frozen', () => {
     // A manifest that a regeneration rewrote is no baseline: it no longer hashes to the latest ledger line.
     expect(ask('mechanical', changedFile, { ...m, files: changedFile.files }).join()).toMatch(
       /restore it from git/,
+    );
+    // The schemaHash field lies outside the ledger digest (GATE-r3 #4): a doctored one neither verifies nor turns
+    // a changed expected value into a "schema move", and without authenticated prototypes nothing counts as moved.
+    const doctored = { ...m, schemaHash: '2'.repeat(64) };
+    expect(ask('mechanical', changedFile, doctored).join()).toMatch(
+      /schemaHash is not the one its frozen prototypes.bin carries/,
+    );
+    expect(ask('mechanical', changedFile, doctored).join()).toMatch(/that is a value bump/);
+    expect(ask('mechanical', { ...changedFile, schemaHash: '1'.repeat(64) }, m, null, null).join()).toMatch(
+      /that is a value bump/,
     );
   });
 
