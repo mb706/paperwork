@@ -1,14 +1,18 @@
 // `?sim=fake` on the placeholder page (10 §15.10): boots the fake sim worker on the dev server's fake prototype
 // build, plays the main thread's part of §3.2 and §3.4 (a state generation, the view and the subscriptions after
 // the FULL packet, acks), decodes every packet with the generated decoder and shows what arrives. WASD walks the
-// character. The renderer, UI and audio packages replace this page; `window.__fake` drives it in tests
-// (`step(n)` in `?test=1`, `act(action)`, `status()`).
+// character. The renderer draws the world under the page (world-view.ts, C4): every packet goes to its view model
+// with the view request it answers, and the camera's visible tiles become the view request. The UI and audio
+// packages replace the rest of this page; `window.__fake` drives it in tests (`step(n)` in `?test=1`,
+// `act(action)`, `status()`), `window.__render` the renderer.
 import { NewWorldCodec } from '../shared/gen/abi.ts';
 import { type Action, actionBytes } from '../shared/gen/actions.ts';
 import { Reader } from '../shared/gen/codec.ts';
 import { ChunkEntitiesCodec, decodePacket, PacketFlags, type ViewRequest } from '../shared/gen/packet.ts';
 import { ProjectionKind, readUiRecords, type SubRequest } from '../shared/gen/projections.ts';
+import type { PrototypesJson } from '../shared/gen/protos.ts';
 import type { MainToSim, SimToMain } from '../shared/protocol.ts';
+import { createWorldView, type WorldView } from './world-view.ts';
 
 type Show = (id: string, text: string) => void;
 
@@ -80,10 +84,48 @@ export async function runFake(show: Show): Promise<void> {
   const test = new URLSearchParams(location.search).get('test') === '1';
   const [manifest, protos] = await Promise.all([
     json<{ build: string; buildHash: string; dev: boolean }>('/data/fake/build-manifest.json'),
-    json<{ build: string; entity: { type: string }[]; item: unknown[] }>('/data/fake/prototypes.json'),
+    json<PrototypesJson>('/data/fake/prototypes.json'),
   ]);
   show('build-status', `${manifest.build} (fake sim's build) · ${manifest.buildHash.slice(0, 12)}`);
   show('data-status', `${protos.build}: ${protos.item.length} items, ${protos.entity.length} entities`);
+  // The view requests sent, by view_seq: a packet's held set is the one of the request it answers (§3.4, §15.4).
+  let view: ViewRequest = VIEW;
+  const views = new Map<number, ViewRequest>();
+  let viewSeq = 0;
+  const sendView = (v: ViewRequest) => {
+    view = { ...v, view_seq: ++viewSeq };
+    views.set(view.view_seq, view);
+    if (views.size > 64) views.delete(views.keys().next().value as number);
+    send({ t: 'view', gen: GEN, v: view });
+  };
+  const params = new URLSearchParams(location.search);
+  const render = (params.get('render') ?? (test ? 'on-demand' : 'continuous')) as
+    | 'continuous'
+    | 'on-demand'
+    | 'none';
+  let world: WorldView | null = null;
+  let bound = false;
+  const worldReady = createWorldView({
+    container: document.body,
+    manifestUrl: '/atlases/sprites.json',
+    base: '/',
+    protos,
+    protosBin: await fetch('/data/fake/prototypes.bin').then((r) =>
+      r.ok ? r.arrayBuffer().then((b) => new Uint8Array(b)) : null,
+    ),
+    fake: true,
+    render,
+    onView: (r) => {
+      if (bound) sendView({ ...view, x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1, zoom: r.zoom });
+    },
+  }).then(
+    (w) => {
+      world = w;
+    },
+    (e: unknown) =>
+      console.info(`no world view: ${e instanceof Error ? e.message : String(e)} (run npm run assets)`),
+  );
+  await worldReady;
   const worker = new Worker(new URL('./workers/fake-sim.ts', import.meta.url), {
     type: 'module',
     name: 'sim',
@@ -119,6 +161,11 @@ export async function runFake(show: Show): Promise<void> {
       try {
         const p = decodePacket(new Uint8Array(m.buf, 0, len));
         if (p.header.state_gen === GEN) {
+          const full = (p.header.flags & PacketFlags.full) !== 0;
+          (world as WorldView | null)?.applyPacket(
+            new Uint8Array(m.buf, 0, len),
+            full ? null : (views.get(p.header.view_seq) ?? undefined),
+          );
           status.packets += 1;
           status.bytes += len;
           status.tick = p.header.tick;
@@ -132,9 +179,11 @@ export async function runFake(show: Show): Promise<void> {
           status.sections = [...seen].sort();
           status.projections = [...kinds].sort();
           // The new generation's first packet: (re)send the view and every subscription (§3.4 step 3).
-          if ((p.header.flags & PacketFlags.full) !== 0) {
+          if (full) {
             targeted = false;
-            send({ t: 'view', gen: GEN, v: VIEW });
+            bound = true;
+            const r = (world as WorldView | null)?.renderer?.visibleTiles();
+            sendView(r ? { ...VIEW, ...r } : VIEW);
             send({ t: 'sub', gen: GEN, subs: SUBS });
           }
         }
@@ -169,7 +218,7 @@ export async function runFake(show: Show): Promise<void> {
         if (type === 'assembler' && assembler === 0) assembler = e.serial;
       }
     if (chest === 0 || assembler === 0) return false;
-    send({ t: 'view', gen: GEN, v: { ...VIEW, view_seq: 2, hovered_serial: chest } });
+    sendView({ ...view, hovered_serial: chest });
     send({ t: 'sub', gen: GEN, subs: [sub(6, 3, chest, 2), sub(7, 4, assembler)] });
     return true;
   };
