@@ -55,6 +55,8 @@ export interface RendererOptions {
   mode?: ResolutionMode;
   /** Formats the probe must refuse (tests force the fallbacks). */
   denyFormats?: GpuFormat[];
+  /** What the asset worker's transcoder can make (its 'ready' message); absent: assume everything. */
+  transcodable?: { xubc7: string[]; etc1s: string[] };
   /** Terrain material names in their array's layer order (the manifest's `terrain.tiles`, sorted). */
   terrainTiles?: string[];
   /** A lost context could not be recovered. */
@@ -111,7 +113,8 @@ interface GlState {
   lightT: Target | null;
 }
 
-const CONTEXT_ATTRS: WebGLContextAttributes = {
+/** The context's attributes (the app's WebGL2 check creates the context with the same ones). */
+export const CONTEXT_ATTRS: WebGLContextAttributes = {
   alpha: false,
   antialias: false,
   depth: false,
@@ -186,7 +189,7 @@ export class Renderer {
     this.look = new Lookups(opts.atlas, opts.protos, opts.beltSpeed);
     this.scene = new Scene(opts.atlas, this.look);
     this.terrainTiles = opts.terrainTiles ?? Object.keys(opts.atlas.json.terrain?.tiles ?? {}).sort();
-    this.probe = probeFormats(gl, opts.denyFormats ?? []);
+    this.probe = probeFormats(gl, opts.denyFormats ?? [], opts.transcodable);
     this.allocation = this.choose(gl);
     this.g = this.initGl(gl);
     this.listen(this.canvas);
@@ -644,7 +647,7 @@ export class Renderer {
   private recover(gl: WebGL2RenderingContext): void {
     if (this.restoreTimer !== null) clearTimeout(this.restoreTimer);
     this.restoreTimer = null;
-    this.probe = probeFormats(gl, this.opts.denyFormats ?? []);
+    this.probe = probeFormats(gl, this.opts.denyFormats ?? [], this.opts.transcodable);
     this.allocation = this.choose(gl);
     this.g = this.initGl(gl);
     this.lost = false;

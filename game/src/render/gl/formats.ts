@@ -97,7 +97,11 @@ export function glFormat(gl: WebGL2RenderingContext, f: GpuFormat): number {
  * Probes every format on its own (10 §9.2): the extension must exist, and uploading one block into a 4×4 texture
  * array must leave getError() at 0. `deny` drops formats (tests force the fallbacks with it).
  */
-export function probeFormats(gl: WebGL2RenderingContext, deny: readonly GpuFormat[] = []): FormatProbe {
+export function probeFormats(
+  gl: WebGL2RenderingContext,
+  deny: readonly GpuFormat[] = [],
+  transcodable?: { xubc7: readonly string[]; etc1s: readonly string[] },
+): FormatProbe {
   const results = {} as FormatProbe['results'];
   for (const name of Object.keys(FORMATS) as GpuFormat[]) {
     const info = FORMATS[name];
@@ -138,8 +142,12 @@ export function probeFormats(gl: WebGL2RenderingContext, deny: readonly GpuForma
     gl.deleteTexture(tex);
     results[name] = err === gl.NO_ERROR ? 'ok' : `upload error ${err}`;
   }
-  const first = (order: readonly GpuFormat[]) => order.find((f) => results[f] === 'ok') ?? 'rgba8';
-  return { results, colour: first(COLOUR_ORDER), shadow: first(SHADOW_ORDER) };
+  // the first format the GPU took that the transcoder can also make (rgba8 and r8 need no transcoder)
+  const can = (f: GpuFormat, from: readonly string[] | undefined) =>
+    f === 'rgba8' || f === 'r8' || from === undefined || from.includes(f);
+  const colour = COLOUR_ORDER.find((f) => results[f] === 'ok' && can(f, transcodable?.xubc7)) ?? 'rgba8';
+  const shadow = SHADOW_ORDER.find((f) => results[f] === 'ok' && can(f, transcodable?.etc1s)) ?? 'r8';
+  return { results, colour, shadow };
 }
 
 /** Bytes of one level of a `size`² layer in format f (compressed formats round up to 4×4 blocks). */

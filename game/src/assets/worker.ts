@@ -7,7 +7,7 @@
 import { loadBasis, TRANSCODER } from './worker/basis.ts';
 import type { AssetRequest, FromWorker, TargetFormat, ToWorker } from './worker/protocol.ts';
 import { FetchQueue, type Job } from './worker/queue.ts';
-import { type BasisModule, transcodeFile } from './worker/transcode.ts';
+import { type BasisModule, transcodable, transcodeFile } from './worker/transcode.ts';
 
 const CACHE_LIMIT = 64 * 1024 * 1024;
 
@@ -112,19 +112,25 @@ function pump(): void {
   if (Number.isFinite(wake)) timer = setTimeout(pump, Math.max(0, wake - performance.now()) + 5);
 }
 
+// The transcoder loads at once, in parallel with the main thread's start-up; 'ready' says what it can make, so the
+// renderer allocates its arrays in formats both the GPU and the transcoder support.
+const t0 = performance.now();
+basis = loadBasis();
+basis.then(
+  (B) => post({ t: 'ready', ms: performance.now() - t0, transcoder: TRANSCODER, supports: transcodable(B) }),
+  (err: unknown) => {
+    basis = null;
+    post({ t: 'error', message: `transcoder: ${err instanceof Error ? err.message : String(err)}` });
+    post({ t: 'ready', ms: performance.now() - t0, transcoder: 'none', supports: { xubc7: [], etc1s: [] } });
+  },
+);
+
 self.addEventListener('message', (e: MessageEvent<ToWorker>) => {
   const m = e.data;
   if (m.t === 'init') {
     colour = m.colour;
     shadow = m.shadow;
     base = m.base;
-    const t0 = performance.now();
-    basis = loadBasis();
-    basis.then(
-      () => post({ t: 'ready', ms: performance.now() - t0, transcoder: TRANSCODER }),
-      (err: unknown) =>
-        post({ t: 'error', message: `transcoder: ${err instanceof Error ? err.message : String(err)}` }),
-    );
   } else if (m.t === 'want') {
     queue.want(m.reqs);
     pump();

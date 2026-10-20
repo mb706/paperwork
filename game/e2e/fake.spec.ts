@@ -15,7 +15,9 @@ type Fake = { step(n: number): void; save(): void; status(): Status };
 
 test('the fake sim runs in its worker and its packets decode @smoke', async ({ page }) => {
   const problems = watchConsole(page);
-  await page.goto('/?sim=fake&test=1');
+  // The page draws the world since C4; this test is the fake sim's, so it runs without the renderer, which needs
+  // `npm run assets` (e2e/render.spec.ts draws it) and WebGL2 (headless Firefox here has none).
+  await page.goto('/?sim=fake&test=1&render=none');
   await expect(page.getByTestId('sim-status')).toHaveText(/^fake sim · tick 0 · /);
   await expect(page.getByTestId('data-status')).toHaveText(/^m1: /);
   await page.evaluate(() => (window as unknown as { __fake?: Fake }).__fake?.step(120));

@@ -39,6 +39,7 @@ export interface AssetRequest {
 }
 
 export type ToWorker =
+  /** The formats the renderer allocated its arrays in (probe ∧ transcoder), and the files' base URL. */
   | { t: 'init'; colour: TargetFormat; shadow: TargetFormat; base: string }
   /** Adds requests, or re-prioritises those already known (by id). */
   | { t: 'want'; reqs: AssetRequest[] }
@@ -51,8 +52,12 @@ export interface TranscodedLevel {
   data: ArrayBuffer;
 }
 
+/** What the transcoder can make from each supercompressed codec (rgba8 and r8 always work). */
+export type Transcodable = Record<'xubc7' | 'etc1s', TargetFormat[]>;
+
 export type FromWorker =
-  | { t: 'ready'; ms: number; transcoder: string }
+  /** Sent once the transcoder is loaded, before any request: the main thread picks formats it can make. */
+  | { t: 'ready'; ms: number; transcoder: string; supports: Transcodable }
   | {
       t: 'file';
       id: number;

@@ -8,11 +8,12 @@
 // timings HUD (I §4.21). `window.__render` drives it in tests (on-demand frames, the camera, stats, context loss).
 
 import { AssetLoader, type LoadedFile, type LoaderManifest } from '../assets/loader.ts';
-import type { TargetFormat } from '../assets/worker/protocol.ts';
+import type { FromWorker, TargetFormat } from '../assets/worker/protocol.ts';
 import { debugHud } from '../render/debug.ts';
 import { deriveBeltMasks } from '../render/fake-belts.ts';
+import type { GpuFormat } from '../render/gl/formats.ts';
 import { Atlas, type SpriteManifest } from '../render/manifest.ts';
-import { Renderer } from '../render/renderer.ts';
+import { CONTEXT_ATTRS, Renderer } from '../render/renderer.ts';
 import type { NO_DEBUG } from '../render/scene.ts';
 import type { ViewRequest } from '../shared/gen/packet.ts';
 import type { PrototypesJson } from '../shared/gen/protos.ts';
@@ -100,26 +101,47 @@ export async function createWorldView(o: WorldViewOptions): Promise<WorldView> {
     'position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0;touch-action:none';
   o.container.prepend(canvas);
   let loader: AssetLoader | null = null;
+  // WebGL2 first (headless Firefox here has none: then nothing else starts); the same attributes as the renderer's
+  if (canvas.getContext('webgl2', CONTEXT_ATTRS) === null) {
+    canvas.remove();
+    console.info('WebGL2 is not available: the world is not drawn (render=none)');
+    return none;
+  }
+  // the asset worker loads the transcoder at once and says what it can make; the renderer then allocates its
+  // arrays in formats both the GPU and the transcoder support (10 §9.2)
+  const worker = new Worker(new URL('../assets/worker.ts', import.meta.url), {
+    type: 'module',
+    name: 'assets',
+  });
+  const hello = await new Promise<Extract<FromWorker, { t: 'ready' }>>((resolve) => {
+    const on = (e: MessageEvent<FromWorker>) => {
+      if (e.data.t !== 'ready') return;
+      worker.removeEventListener('message', on);
+      resolve(e.data);
+    };
+    worker.addEventListener('message', on);
+  });
   const renderer = Renderer.create({
     canvas,
     atlas,
     protos: o.protos,
     ...(beltSpeed ? { beltSpeed } : {}),
+    transcodable: hello.supports,
+    // `?deny=bc7,astc` makes the format probe refuse formats, so tests reach the fallbacks (10 §9.2)
+    denyFormats: (new URLSearchParams(location.search).get('deny') ?? '')
+      .split(',')
+      .filter(Boolean) as GpuFormat[],
     onFatal: (message) => fatal(o.container, message),
     onRestored: () => loader?.replay(),
     onCanvas: (c) => attachInput(c),
   });
   if (renderer === null) {
+    worker.terminate();
     canvas.remove();
-    console.info('WebGL2 is not available: the world is not drawn (render=none)');
     return none;
   }
   renderer.mode = o.render === 'on-demand' ? 'on-demand' : 'continuous';
   const textures = renderer.textures;
-  const worker = new Worker(new URL('../assets/worker.ts', import.meta.url), {
-    type: 'module',
-    name: 'assets',
-  });
   loader = new AssetLoader({
     worker,
     manifest: manifest as unknown as LoaderManifest,
@@ -154,9 +176,11 @@ export async function createWorldView(o: WorldViewOptions): Promise<WorldView> {
   let frames = 0;
   const missedKeys: number[] = [];
   const level0Keys: number[] = [];
+  // what the renderer drew without its art (or wants at High) goes to the loader: every 10th frame when running,
+  // every frame on demand (tests wait for the result)
   const afterFrame = () => {
     frames++;
-    if (frames % 10 === 0 && loader) {
+    if ((renderer.mode === 'on-demand' || frames % 10 === 0) && loader) {
       missedKeys.length = 0;
       level0Keys.length = 0;
       const missed = renderer.scene.missed;
@@ -219,13 +243,16 @@ export async function createWorldView(o: WorldViewOptions): Promise<WorldView> {
   attachInput(canvas);
   addEventListener('keydown', onKey);
 
+  // ready: core delivered, then frames until nothing is pending — no upload, no shore texture, and no file the
+  // frames asked for (High level 0 where k > 0.5) still on its way
   const ready = async () => {
     await loader?.ready('core');
-    // delivered; now wait until the renderer has uploaded them
-    for (;;) {
-      if (renderer.mode === 'on-demand') renderer.frame();
-      if (renderer.pending() === 0) return;
-      await new Promise((r) => setTimeout(r, 16));
+    for (let quiet = 0; quiet < 2; ) {
+      if (renderer.mode === 'on-demand' && renderer.frame()) afterFrame();
+      const busy =
+        renderer.pending() > 0 || (loader !== null && loader.stats.delivered < loader.stats.requested);
+      quiet = busy ? 0 : quiet + 1;
+      if (quiet < 2) await new Promise((r) => setTimeout(r, 16));
     }
   };
   if (import.meta.env.DEV || new URLSearchParams(location.search).get('dev') === '1')

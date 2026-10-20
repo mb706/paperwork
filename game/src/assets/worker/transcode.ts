@@ -8,6 +8,8 @@ import type { FileCodec, TargetFormat } from './protocol.ts';
 /** The parts of Basis Universal 2.50's `basis_transcoder` the worker uses (embind). */
 export interface BasisModule {
   initializeBasis(): void;
+  isFormatSupported(format: number, basisTexFormat: number): boolean;
+  basis_tex_format: Record<string, { value: number }>;
   KTX2File: new (data: Uint8Array) => BasisKtx2File;
   transcoder_texture_format: Record<string, { value: number }>;
 }
@@ -45,6 +47,24 @@ const BASIS_FORMAT: Record<TargetFormat, string> = {
   eac_r11: 'cTFETC2_EAC_R11',
   r8: 'cTFRGBA32',
 };
+
+const TARGETS: TargetFormat[] = ['bc7', 'astc', 'bc3', 'etc2', 'rgba8', 'bc4', 'eac_r11', 'r8'];
+
+/**
+ * The targets the transcoder can make from XUBC7 and ETC1S. The stock 2.50 build cannot make EAC R11 from ETC1S
+ * (measured: isFormatSupported is false and transcodeImage fails), so shadows fall back from BC4 straight to R8.
+ */
+export function transcodable(B: BasisModule): Record<'xubc7' | 'etc1s', TargetFormat[]> {
+  const T = B.basis_tex_format;
+  const F = B.transcoder_texture_format;
+  const of = (src: string) =>
+    TARGETS.filter((t) => {
+      const f = F[BASIS_FORMAT[t]]?.value;
+      const s = T[src]?.value;
+      return f !== undefined && s !== undefined && B.isFormatSupported(f, s);
+    });
+  return { xubc7: of('cXUBC7'), etc1s: of('cETC1S') };
+}
 
 export interface Level {
   width: number;
