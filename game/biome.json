@@ -12,6 +12,7 @@
       "!**/public/audio",
       "!**/test-results",
       "!**/playwright-report",
+      "!test/golden/m0",
       "!package-lock.json"
     ]
   },
@@ -20,7 +21,7 @@
     "indentStyle": "space",
     "indentWidth": 2,
     "lineWidth": 110,
-    "includes": ["**", "!src/shared/gen", "!crates"]
+    "includes": ["**", "!src/shared/gen/**", "!crates/**"]
   },
   "javascript": {
     "formatter": {
@@ -31,7 +32,11 @@
     }
   },
   "json": { "formatter": { "lineWidth": 110 } },
-  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } },
+  "assist": {
+    "enabled": true,
+    "includes": ["**", "!src/shared/gen/**"],
+    "actions": { "source": { "organizeImports": "on" } }
+  },
   "linter": {
     "enabled": true,
     "rules": {

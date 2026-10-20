@@ -1,0 +1,283 @@
+# The render packet (10 §15.4): one transferable buffer per extraction. The module writes the whole
+# packet, header included, leaving state_gen and view_seq zero; the shell fills those two (§3.2).
+#
+#   header (32 bytes) | section directory (section_count × 16 bytes) | sections
+#
+# Offsets in the directory count from the start of the packet. Sections start at multiples of 8, with zero
+# padding between them; a section's byte_length counts its records (each record's own padding included)
+# and not the padding after it. C1b decision (§15.4 is silent): sections appear in ascending type, each at
+# most once, and the directory's `count` is the number of records in the section (per-chunk sections: the
+# number of chunk records). A decoder refuses a packet that breaks any of these rules.
+
+version: 1             # PACKET_VERSION (u16): raise on any layout change in this file or in events.yaml
+magic: 0x4B505750      # "PWPK"
+
+limits:
+  buffers: 3                    # the shell's packet buffers (§15.4 "Pooling")
+  buffer_initial_bytes: 262144  # 256 KiB, doubling on demand
+
+flags:
+  - PacketFlags:
+      base: u16
+      bits:
+        - full: 0             # drop everything held for this world before applying (§15.4)
+        - events_dropped: 1
+        - coalesced: 2        # ticks passed without extraction
+  - ViewFlags:
+      base: u16
+      bits:
+        - thermal_overlay: 0
+        - staffing_overlay: 1
+        - chart: 2
+        - audio: 3
+        - alt_mode: 4
+
+enums:
+  - SectionKind:
+      base: u8
+      doc: "How the main thread applies a section (§15.4, B1-r1 13)"
+      values:
+        - snapshot: 0
+        - event: 1
+        - delta: 2
+
+structs:
+  - PacketHeader:
+      fields:
+        - magic: u32
+        - version: u16
+        - flags: PacketFlags
+        - state_gen: StateGen
+        - tick: {type: Tick, doc: "the tick after which this was extracted"}
+        - view_seq: {type: u32, doc: "the view request this packet answers"}
+        - daylight: {type: u16, doc: "the daylight factor (§5.7) × 65,535"}
+        - section_count: u16
+        - byte_length: {type: u32, doc: "the whole packet"}
+        - reserved: u32
+  - SectionEntry:
+      fields:
+        - type: PacketSection
+        - record_version: u16
+        - offset: u32
+        - byte_length: u32
+        - count: u32
+  - ViewRequest:
+      doc: >-
+        main → shell → sim_extract (52 bytes). The visible rectangle in tiles (no margin, upper bounds exclusive),
+        and the chart rectangle in chunks (upper bounds exclusive; read only with ViewFlags.chart). The held set is
+        `held_chunks` of it (generated in both languages)
+      fields:
+        - view_seq: u32
+        - surface: SurfaceIndex
+        - flags: ViewFlags
+        - x0: i32
+        - y0: i32
+        - x1: i32
+        - y1: i32
+        - zoom: f32
+        - hovered_serial: {type: Serial, doc: "0 none; drives the hover projection, sub_id 0"}
+        - audio_half_range: {type: f32, doc: "tiles: half the view's width, at most 64 (§15.6)"}
+        - chart_x0: i32
+        - chart_y0: i32
+        - chart_x1: i32
+        - chart_y1: i32
+  - ChunkTiles:
+      doc: "CHUNK_TILES (1,036 bytes)"
+      fields:
+        - chunk_key: ChunkKey
+        - surface: SurfaceIndex
+        - flags: u16
+        - version: u32
+        - tiles: {type: "[TileId; 1024]", doc: "row-major: index = (y mod 32) × 32 + (x mod 32)"}
+  - EntityView:
+      doc: "24 bytes (§15.4); for a ghost, `proto` is the prototype it will build"
+      fields:
+        - serial: Serial
+        - x2: i32
+        - y2: i32
+        - proto: EntityId
+        - alt_icon: {type: IconIndex, doc: "alt-mode's recipe or product (§15.7's icon table), 0xFFFF none"}
+        - dir: Direction
+        - flip: u8
+        - quality: u8
+        - variant: {type: u8, doc: "the connection mask of belts, pipes, walls and heat pipes"}
+        - status: Status
+        - flags: EntityViewFlags
+        - reserved: u16
+  - Dyn:
+      doc: "DYN (20 bytes)"
+      fields:
+        - x2: i32
+        - y2: i32
+        - serial: Serial
+        - proto: EntityId
+        - phase: {type: u16, doc: "animation phase of the entity's loop × 65,536"}
+        - dir: Direction
+        - state: DynState
+        - light: {type: u8, doc: "emitter strength 0–255"}
+        - quality: u8
+  - InserterHand:
+      doc: "HANDS (24 bytes)"
+      fields:
+        - x2: i32
+        - y2: i32
+        - serial: Serial
+        - proto: EntityId
+        - held: {type: ItemKey, doc: "0xFFFF none"}
+        - theta: {type: u16, doc: "turns × 65,536, from north, clockwise (Factorio's orientation; §15.7 draws it)"}
+        - ext: {type: u16, doc: "tiles × 4,096"}
+        - dir: Direction
+        - held_count: u8
+        - reserved: u16
+  - BeltSegment:
+      doc: "One segment of a BELT_GEOM line (20 bytes): its downstream end point on the lane's centreline"
+      fields:
+        - x: {type: i32, doc: "1/256 tile"}
+        - y: {type: i32, doc: "1/256 tile"}
+        - len: {type: i32, doc: "positions"}
+        - dir: Direction
+        - turn: {type: i8, doc: "-1 left arc, +1 right arc, 0 straight"}
+        - reserved: u16
+        - radius: {type: i32, doc: "1/256 tile; arcs only"}
+  - Mover:
+      doc: "MOVERS (32 bytes); the renderer extrapolates from base_tick (§6.8)"
+      fields:
+        - serial: Serial
+        - proto: EntityId
+        - kind: MoverKind
+        - flags: MoverFlags
+        - x: {type: i32, doc: "1/256 tile"}
+        - y: {type: i32, doc: "1/256 tile"}
+        - vx: {type: i16, doc: "1/256 tile per tick"}
+        - vy: {type: i16, doc: "1/256 tile per tick"}
+        - base_tick: Tick
+        - orientation: {type: u16, doc: "turns × 65,536, from north, clockwise"}
+        - aux: {type: u16, doc: "the player index for characters, the held ItemKey for agents"}
+        - reserved: u32
+  - OverlayChunk:
+      fields:
+        - chunk_key: ChunkKey
+        - surface: SurfaceIndex
+        - flags: u16
+        - temperature: {type: f32, doc: "°C"}
+  - OverlayStaffing:
+      fields:
+        - x0: {type: i32, doc: "campus corner, tiles"}
+        - y0: i32
+        - radius: u16
+        - hue: u8
+        - flags: u8
+  - ChartChunk:
+      doc: "CHART (4,108 bytes); also the format of gen_chart's output and of the `chart` message (§3.2)"
+      fields:
+        - chunk_key: ChunkKey
+        - surface: SurfaceIndex
+        - reserved: u16
+        - version: u32
+        - rgba: {type: "[u8; 4096]", doc: "32 × 32 RGBA8, row-major"}
+  - AudioWorking:
+      doc: "AUDIO_WORKING (16 bytes, §15.6)"
+      fields:
+        - sound: SoundId
+        - n: u16
+        - cx: {type: f32, doc: "centroid relative to the view centre, tiles"}
+        - cy: f32
+        - wsum: f32
+  - ObjectView:
+      doc: "16 bytes (§15.4)"
+      fields:
+        - id: {type: u16, doc: "a world-object, tree-species, decorative or item key, by kind"}
+        - kind: ObjectKind
+        - variant: {type: u8, doc: "a tree's leaf stages left (4 full … 0 bare), else a variant index"}
+        - x: {type: i32, doc: "1/256 tile"}
+        - y: {type: i32, doc: "1/256 tile"}
+        - count: {type: u16, doc: "ground items"}
+        - reserved: u16
+  - ResourceView:
+      doc: "8 bytes (§15.4)"
+      fields:
+        - tile: {type: u16, doc: "index in the chunk, as ChunkTiles"}
+        - resource: ResourceId
+        - band: {type: u8, range: [0, 7], doc: "the richness band that picks the sprite"}
+        - reserved: u8
+        - reserved2: u16
+  - BeltRetire:
+      fields:
+        - line_id: u32
+        - geom_gen: u32
+  - ChartPristine:
+      fields:
+        - chunk_key: ChunkKey
+        - surface: SurfaceIndex
+        - reserved: u16
+
+messages:
+  - ChunkEntities:
+      doc: "CHUNK_ENTITIES: per chunk, a 16-byte header, then `count` EntityViews; replaces the chunk's records"
+      fields:
+        - chunk_key: ChunkKey
+        - surface: SurfaceIndex
+        - count: u16
+        - version: u32
+        - reserved: u32
+        - entities: "EntityView[count]"
+  - ChunkObjects:
+      fields:
+        - chunk_key: ChunkKey
+        - surface: SurfaceIndex
+        - count: u16
+        - version: u32
+        - reserved: u32
+        - objects: "ObjectView[count]"
+  - ChunkResources:
+      fields:
+        - chunk_key: ChunkKey
+        - surface: SurfaceIndex
+        - count: u16
+        - version: u32
+        - reserved: u32
+        - resources: "ResourceView[count]"
+  - BeltGeom:
+      doc: "BELT_GEOM: per line, a 16-byte header, then seg_count segments from the line's downstream end"
+      fields:
+        - line_id: u32
+        - geom_gen: u32
+        - seg_count: u16
+        - lane: u8
+        - speed: {type: u8, doc: "positions per tick"}
+        - length: {type: u32, doc: "positions"}
+        - segments: "BeltSegment[seg_count]"
+  - BeltItems:
+      doc: >-
+        BELT_ITEMS: per line, `count` item keys and `count − 1` gaps (none when count is 0), padded to 4. Item i lies
+        at d_i from the line's end: d_0 = front_gap, d_i = d_(i−1) + 64 + gap[i] (§15.4)
+      pad_to: 4
+      fields:
+        - line_id: u32
+        - geom_gen: u32
+        - front_gap: i32
+        - count: u16
+        - reserved: u16
+        - keys: "ItemKey[count]"
+        - gaps: "i16[count-1]"
+
+# Section types (§15.4): ids append-only. `record` names a struct (fixed records), a message (variable
+# records), or `events` / `ui` (the record streams of events.yaml and projections.yaml).
+sections:
+  - CHUNK_TILES: {id: 1, kind: delta, record: ChunkTiles}
+  - CHUNK_ENTITIES: {id: 2, kind: delta, record: ChunkEntities}
+  - DYN: {id: 3, kind: snapshot, record: Dyn}
+  - HANDS: {id: 4, kind: snapshot, record: InserterHand}
+  - BELT_GEOM: {id: 5, kind: delta, record: BeltGeom}
+  - BELT_ITEMS: {id: 6, kind: snapshot, record: BeltItems}
+  - MOVERS: {id: 7, kind: snapshot, record: Mover}
+  - OVERLAY_CHUNK: {id: 8, kind: delta, record: OverlayChunk}
+  - OVERLAY_STAFFING: {id: 9, kind: delta, record: OverlayStaffing}
+  - CHART: {id: 10, kind: delta, record: ChartChunk}
+  - EVENTS: {id: 11, kind: event, record: events}
+  - UI: {id: 12, kind: delta, record: ui}
+  - AUDIO_WORKING: {id: 13, kind: snapshot, record: AudioWorking}
+  - CHUNK_OBJECTS: {id: 14, kind: delta, record: ChunkObjects}
+  - CHUNK_RESOURCES: {id: 15, kind: delta, record: ChunkResources}
+  - BELT_RETIRE: {id: 16, kind: delta, record: BeltRetire}
+  - CHART_PRISTINE: {id: 17, kind: delta, record: ChartPristine}

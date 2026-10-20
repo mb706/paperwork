@@ -1,0 +1,50 @@
+# Shared structs (types.yaml; actions.yaml's headers; 10 §15.3).
+#
+# Hand-written from the README, types.yaml and actions.yaml only. EntityRef is `u32 a, u16 b, u8 tag,
+# u8 reserved` with `check: entity_ref` (tag 0: a = b = 0; tag 1: a = a serial, not 0, b = 0; tag 2:
+# a = an earlier seq of the same player, b = the index among its creations). readme.hex has tag 1.
+#
+# Covers: EntityRef with tag 0 and tag 2 (b at its maximum), BatchHeader (a system batch), ActionHeader.
+
+@type EntityRef                           # tag 0 (none): a and b zero
+00 00 00 00                               // a 0
+00 00                                     // b 0
+00                                        // tag 0 (none)
+00                                        // reserved
+@dump
+a=0
+b=0
+tag=0
+
+@type EntityRef                           # tag 2 (creation id): seq 7, index 65535
+07 00 00 00                               // a 7 (the creating action's seq)
+ff ff                                     // b 65535 (the index among its creations)
+02                                        // tag 2 (creation)
+00                                        // reserved
+@dump
+a=7
+b=65535
+tag=2
+
+@type BatchHeader                         # 16 bytes: a system batch
+01                                        // version 1
+01                                        // flags 1 (system)
+ff ff                                     // player 0xFFFF
+64 00 00 00                               // tick 100
+0b 00 00 00                               // first_seq 11
+01 00                                     // count 1
+00 00                                     // reserved
+@dump
+version=1
+flags=1
+player=65535
+tick=100
+first_seq=11
+count=1
+
+@type ActionHeader                        # rotate_entity's header
+15 00                                     // type 21
+09 00                                     // len 9
+@dump
+type=21
+len=9

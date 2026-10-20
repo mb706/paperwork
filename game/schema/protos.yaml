@@ -1,0 +1,376 @@
+# The prototype data path (10 §15.2, §2.4): prototypes.bin, the simulation's tables, and prototypes.json,
+# what the UI and the renderer read. The generator emits the data stage's writer
+# (src/shared/gen/protos.ts: typed rows in, bytes out), Rust's loader (crates/schema/src/protos.rs:
+# `Protos::load`, which refuses a malformed file with ERR_PROTOS), and prototypes.json's types and
+# validator. Only the columns listed here go into prototypes.bin; each names its source in the data.
+#
+#   header (56 bytes): magic "PWPROTO\0", u32 format_version, u8 schema_hash[32], u32 data_version,
+#                      u32 section_count, u32 reserved (pads the header to a multiple of 8)
+#   sections: the save container's framing (sections.yaml's SectionFrame, codec raw, version 1, flags 0),
+#             ascending by id; every section below is present, the kind tables with 0 rows when the build
+#             has none of that kind
+#
+# Column tables (§8.1's encoding) are indexed by dense id; their directories must list exactly the columns
+# below, in this order, with these types. A `list<Entry>` column is two columns, `<name>_off` (u32: a byte
+# offset into LISTS, a multiple of 8) and `<name>_count` (u16); an empty list is (0, 0). `optional` marks an
+# enum or id column whose "none" is the all-ones value of its width (0xFF, 0xFFFF). An `ExprRef` column holds
+# 0xFFFFFFFF or the offset of an expression program in EXPR.
+
+magic: "PWPROTO\0"
+format_version: 1       # prototypes.bin's formatVersion (C1a: 1)
+data_version: 2         # design/spec/data/SCHEMA.md's "v2"
+section_version: 1
+
+sections:
+  - PROTO_ITEM: {id: 1, kind: item}
+  - PROTO_FLUID: {id: 2, kind: fluid}
+  - PROTO_RECIPE: {id: 3, kind: recipe}
+  - PROTO_ENTITY: {id: 4, kind: entity}
+  - PROTO_TECH: {id: 5, kind: technology}
+  - PROTO_RESOURCE: {id: 6, kind: resource}
+  - PROTO_TILE: {id: 7, kind: tile}
+  - PROTO_WORLD: {id: 8, kind: world_object}
+  - PROTO_SIGNAL: {id: 9, kind: signal}
+  - LISTS: {id: 16}         # the variable-length parts, each list starting at a multiple of 8
+  - META: {id: 17}          # typed records: u32 count, then per record u16 type, u32 length and its triples, ascending by type
+  - EXPR: {id: 18}          # expression programs, packed, no padding; identical programs are stored once
+  - NAMES: {id: 19}         # per ProtoKind in order: u16 count, then per name u16 length and UTF-8, in id order
+
+structs:
+  - ProtosHeader:
+      fields:
+        - magic: "[u8; 8]"
+        - format_version: u32
+        - schema_hash: Hash256
+        - data_version: u32
+        - section_count: u32
+        - reserved: u32
+  - IngredientEntry:
+      doc: "16 bytes"
+      fields:
+        - kind: StackKind
+        - reserved: u8
+        - id: {type: u16, ref_kind: kind, doc: "an ItemId or FluidId, by kind"}
+        - reserved2: u32
+        - amount: f64
+  - ProductEntry:
+      doc: "32 bytes"
+      fields:
+        - kind: StackKind
+        - flags: ProductFlags
+        - id: {type: u16, ref_kind: kind}
+        - amount_expr: {type: ExprRef, formula: amounts_by_j, doc: "amounts_by_j (03 §2.1), else none"}
+        - amount: f64
+        - probability: f64
+        - catalyst: f64
+  - PackEntry:
+      doc: "16 bytes, in tier order"
+      fields:
+        - item: ItemId
+        - reserved: u16
+        - reserved2: u32
+        - per_unit: f64
+  - YieldEntry:
+      doc: "12 bytes, by item id"
+      fields:
+        - item: ItemId
+        - reserved: u16
+        - min: u32
+        - max: u32
+
+# The kind tables (`kind_tables`). `from` documents the source in the design data (or the overlay); `path` is the field of
+# the prototype's YAML that a bad value points at (data-stage diagnostics).
+kind_tables:
+  - item:
+      section: PROTO_ITEM
+      columns:
+        - stack_size: {type: u32, from: items.stack, path: [stack]}
+        - places_entity: {type: EntityId, optional: true, from: "items.places"}
+        - places_tile: {type: TileId, optional: true, from: "items.places_tile"}
+        - fuel_value: {type: f64, from: "items.fuel_value (MJ → J)", path: [fuel_value]}
+        - fuel_category: {type: FuelCategory, optional: true, from: items.fuel_category}
+        - tier: {type: Tier, optional: true, from: items.tier}
+        - tags: {type: ItemTags, from: items.tags}
+  - fluid:
+      section: PROTO_FLUID
+      columns:
+        - default_temperature: {type: f64, from: "items.default_temperature (°C; 15 when absent, ISO)", path: [default_temperature]}
+        - max_temperature: {type: f64, from: "items.max_temperature (°C; the default temperature when absent)", path: [max_temperature]}
+        - heat_capacity: {type: f64, from: "items.heat_capacity_kj_per_k (kJ/K → J/K; 1 kJ/K when absent)", path: [heat_capacity_kj_per_k]}
+        - tier: {type: Tier, optional: true, from: items.tier}
+  - recipe:
+      section: PROTO_RECIPE
+      columns:
+        - category: {type: CraftingCategory, from: recipes.category}
+        - energy_required: {type: f64, from: "recipes.time (s at crafting speed 1)", path: [time]}
+        - ingredients: {type: "list<IngredientEntry>", from: recipes.ingredients}
+        - products: {type: "list<ProductEntry>", from: recipes.products}
+        - handcraft: {type: bool, from: "recipes.handcraft (default: category is crafting)"}
+        - allow_productivity: {type: bool, from: "recipes.allow_productivity (default false)"}
+        - container: {type: ContainerKind, from: recipes.container}
+        - enabled_at_start: {type: bool, from: "prior-art's unlocks and meta.start.recipes"}
+  - entity:
+      section: PROTO_ENTITY
+      columns:
+        - type: {type: EntityType, from: entities.type}
+        - size_w: {type: u8, from: "entities.size[0]", path: [size, 0]}
+        - size_h: {type: u8, from: "entities.size[1]", path: [size, 1]}
+        - item: {type: ItemId, optional: true, from: "entities.item (placed by, mined into)"}
+        - collision_x0: {type: f64, from: "overlay collision_box[0]"}
+        - collision_y0: {type: f64, from: "overlay collision_box[1]"}
+        - collision_x1: {type: f64, from: "overlay collision_box[2]"}
+        - collision_y1: {type: f64, from: "overlay collision_box[3]"}
+        - selection_x0: {type: f64, from: "overlay selection_box[0]"}
+        - selection_y0: {type: f64, from: "overlay selection_box[1]"}
+        - selection_x1: {type: f64, from: "overlay selection_box[2]"}
+        - selection_y1: {type: f64, from: "overlay selection_box[3]"}
+        - mining_time: {type: f64, from: "overlay mining_time (s, by hand)"}
+        - selection_priority: {type: u8, from: overlay selection_priority}
+        - rotatable: {type: bool, from: overlay rotatable}
+        - flippable: {type: bool, from: overlay flippable}
+        - energy_source: {type: EnergySource, from: entities.energy.source}
+        - energy_usage: {type: f64, from: "entities.energy.kw (kW → W)", path: [energy, kw]}
+        - drain: {type: f64, from: "entities.energy.drain_kw (kW → W)", path: [energy, drain_kw]}
+        - crafting_speed: {type: f64, from: "entities.crafting_speed (0 when absent; the character's from the overlay)", path: [crafting_speed]}
+        - mining_speed: {type: f64, from: "entities.mining_speed (0 when absent; the character's from the overlay)", path: [mining_speed]}
+        - module_slots: {type: u8, from: entities.module_slots, path: [module_slots]}
+        - inventory_slots: {type: u16, from: "entities.extra.slots (chests, wagons); the character's inventory_size", path: [extra, slots]}
+        - belt_speed: {type: u16, from: "entities.extra.items_per_s of a belt, as positions per tick (15 → 8)", path: [extra, items_per_s]}
+        - computing: {type: bool, from: "entities.heat.class is set (10 §5.9)"}
+        - t_star: {type: f64, from: "meta.heat.classes[entities.heat.class] (°C; 0 when not computing)"}
+        - placement: {type: Placement, from: entities.placement}
+        - placement_resource: {type: ResourceId, optional: true, from: entities.placement.must_be_on}
+        - placement_tiles: {type: "list<TileId>", from: entities.placement.must_touch}
+        - working_sound: {type: SoundId, optional: true, from: "game/data/engine/sounds.yaml working_sounds (§15.6)"}
+        - running_speed: {type: f64, from: "the character's running_speed, tiles per tick (overlay; 0 otherwise)"}
+        - reach_distance: {type: f64, from: "the character's reach_distance (overlay; 0 otherwise)"}
+        - build_distance: {type: f64, from: "the character's build_distance (overlay; 0 otherwise)"}
+        - resource_reach_distance: {type: f64, from: "the character's resource_reach_distance (overlay; 0 otherwise)"}
+        - item_pickup_distance: {type: f64, from: "the character's item_pickup_distance (overlay; 0 otherwise)"}
+  - technology:
+      section: PROTO_TECH
+      columns:
+        - count: {type: f64, from: "technologies.cost.count (0 with a count_formula or a trigger)", path: [cost, count]}
+        - count_expr: {type: ExprRef, formula: count_formula, from: technologies.count_formula}
+        - time: {type: f64, from: "technologies.cost.time (s per unit)", path: [cost, time]}
+        - first_level: {type: u32, from: "technologies.first_level (1)"}
+        - max_level: {type: u32, from: "technologies.max_level, or an infinite technology's level cap (§2.4)"}
+        - infinite: {type: bool, from: "technologies.max_level == infinite"}
+        - packs: {type: "list<PackEntry>", from: technologies.cost.packs}
+        - prerequisites: {type: "list<TechId>", from: technologies.prerequisites}
+        - unlock_recipes: {type: "list<RecipeId>", from: technologies.unlocks.recipes}
+        - trigger_type: {type: TriggerType, optional: true, from: technologies.trigger.type}
+        - trigger_target_kind: {type: ProtoKind, optional: true, from: "the trigger target's kind"}
+        - trigger_target: {type: u16, ref_kind: trigger_target_kind, from: "technologies.trigger.item, .entity or .recipe (an id of trigger_target_kind; 0xFFFF none)"}
+        - trigger_count: {type: u32, from: "technologies.trigger.count (1)", path: [trigger, count]}
+        - field_year_expr: {type: ExprRef, formula: field_year, from: technologies.field_year}
+        - regime: {type: Regime, from: technologies.regime}
+        - hidden: {type: bool, from: technologies.hidden}
+        - essential: {type: bool, from: technologies.essential}
+        - upgrade: {type: bool, from: technologies.upgrade}
+  - resource:
+      section: PROTO_RESOURCE
+      columns:
+        - kind: {type: ResourceKind, from: resources.kind}
+        - yield_kind: {type: StackKind, optional: true, from: resources.yields}
+        - yield_id: {type: u16, ref_kind: yield_kind, from: "resources.yields (an ItemId or FluidId by yield_kind; 0xFFFF none)"}
+        - mining_time: {type: f64, from: "resources.mining_time (s at mining speed 1; 0 for fluids)", path: [mining_time]}
+        - infinite: {type: bool, from: resources.infinite}
+        - requires_fluid: {type: FluidId, optional: true, from: resources.requires_fluid}
+  - tile:
+      section: PROTO_TILE
+      columns:
+        - kappa_per_s: {type: f64, from: "tiles.kappa_per_s (0 when null)", path: [kappa_per_s]}
+        - has_kappa: {type: bool, from: "tiles.kappa_per_s is not null"}
+        - walking_speed: {type: f64, from: "tiles.walking_speed (0 when null)", path: [walking_speed]}
+        - walkable: {type: bool, from: "tiles.walking_speed is not null"}
+        - buildable: {type: bool, from: tiles.buildable}
+        - map_color: {type: u32, from: "tiles.map_color (0xRRGGBB)"}
+        - placed_by: {type: ItemId, optional: true, from: tiles.placed_by}
+        - minable_back: {type: bool, from: tiles.minable_back}
+        - town: {type: bool, from: tiles.town}
+        - biomes: {type: Biomes, from: tiles.biome}
+        - placed_on: {type: "list<TileId>", from: tiles.placed_on}
+  - world_object:
+      section: PROTO_WORLD
+      columns:
+        - kind: {type: WorldKind, from: world.kind}
+        - size_w: {type: u8, from: "world.size[0]", path: [size, 0]}
+        - size_h: {type: u8, from: "world.size[1]", path: [size, 1]}
+        - mining_time: {type: f64, from: "world.mining_time (0: not minable)", path: [mining_time]}
+        - collides: {type: bool, from: world.collides}
+        - selectable: {type: bool, from: world.selectable}
+        - cosmetic: {type: bool, from: world.cosmetic}
+        - leaf_stages: {type: u8, from: "world.leaf_stages (0)", path: [leaf_stages]}
+        - yields: {type: "list<YieldEntry>", from: world.yields}
+  - signal:
+      section: PROTO_SIGNAL
+      columns: []
+
+# META's typed records (C1a-r1 finding 5): `contents` says what the file carries and omits; a consumer
+# refuses a file that omits a part it reads (game/data/engine/capabilities.yaml's `data`).
+meta:
+  - start: {type: 1, record: meta_start, block: start.inventory}
+  - contents: {type: 2, record: meta_contents}
+
+records:
+  - meta_start:
+      doc: "meta.start (02): the start inventory, by item id"
+      fields:
+        - inventory: {id: 1, type: "list<start_item>", max: 65535, order: key}
+  - start_item:
+      fields:
+        - item: {id: 1, type: ItemId}
+        - count: {id: 2, type: u32}
+  - meta_contents:
+      doc: "The META blocks the file carries, and the parts of the design data it omits (both sorted)"
+      fields:
+        - meta: {id: 1, type: "list<str>", max: 4096, item_max: 255, order: key}
+        - omitted: {id: 2, type: "list<str>", max: 4096, item_max: 255, order: key}
+
+# Expressions (§15.2): an ExprRef points at `u16 byte_count` (the op stream that follows, END included),
+# `u8 var_count`, `u8 max_stack`, then the ops. Protos::load refuses a file whose EXPR section holds a
+# malformed program (an unknown op, a missing operand, a non-finite CONST (D6), a VAR index not below
+# var_count, a stack that underflows or passes max_stack, or an op stream that does not end in END with one
+# value), or an ExprRef that does not point at the start of one.
+expr:
+  max_stack: 16
+  powi_limit: 1024
+  ops:
+    - CONST: {code: 0x01, operand: f64}
+    - VAR: {code: 0x02, operand: u8}
+    - ADD: {code: 0x10}
+    - SUB: {code: 0x11}
+    - MUL: {code: 0x12}
+    - DIV: {code: 0x13}
+    - NEG: {code: 0x14}
+    - POWI: {code: 0x20}
+    - END: {code: 0xFF}
+
+# Formula fields (§2.4 step 2, §15.2): variables in bytecode order and the declared result range, which the
+# interpreter clamps to. Moved from C1a's FIELDS in scripts/data-stage/expr.ts.
+formulas:
+  - count_formula: {vars: [L], range: [1, 9007199254740992], doc: "costs ≥ 1 unit, ≤ 2^53 (the largest level cap)"}
+  - field_year: {vars: [L], range: [0, 9999]}
+  - amounts_by_j: {vars: [j], range: [0, 65535], doc: "a u16 product amount"}
+  - speed_factor: {vars: [sigma, c], range: [0, 1], doc: "meta.world.model_collapse (not in prototypes.bin before M2)"}
+
+# prototypes.json (§15.2): canonical JSON (keys sorted). Types: string, number, integer, boolean, hex32
+# (64 lowercase hex digits), `T?` (or null), `T[]`, a nested mapping, or the name of a type below. Every key
+# is present; the validator refuses missing and unknown keys.
+json:
+  format_version: 1
+  types:
+    Contents: {meta: "string[]", omitted: "string[]"}
+    Stack: {kind: string, id: integer}
+    Ingredient: {kind: string, id: integer, amount: number}
+    Product: {kind: string, id: integer, amount: number, probability: number, catalyst: number}
+    Group: {name: string, order: string}
+    Subgroup: {name: string, group: integer, order: string}
+    LocaleKey: {value: integer, name: string, key: "string?"}
+    Item:
+      name: string
+      localeName: "string?"
+      localeDescription: "string?"
+      localeHandbook: "string?"
+      group: integer
+      subgroup: integer
+      order: string
+      icon: string
+      stack: "integer?"
+      places: "integer?"
+      placesTile: "integer?"
+      fuelValueJ: "number?"
+    Recipe:
+      name: string
+      localeName: "string?"
+      localeHandbook: "string?"
+      group: integer
+      subgroup: integer
+      order: string
+      icon: string
+      category: string
+      time: number
+      handcraft: boolean
+      enabledAtStart: boolean
+      ingredients: "Ingredient[]"
+      products: "Product[]"
+    Entity:
+      name: string
+      localeName: "string?"
+      localeDescription: "string?"
+      localeHandbook: "string?"
+      type: string
+      size: "integer[]"
+      item: "integer?"
+      sprite: string
+      collisionBox: "number[]"
+      selectionBox: "number[]"
+      selectionPriority: integer
+      rotatable: boolean
+      energySource: string
+      energyUsageW: number
+      inventorySlots: "integer?"
+    Technology:
+      name: string
+      localeName: "string?"
+      localeDescription: "string?"
+      localeNote: "string?"
+      localeHandbook: "string?"
+      regime: string
+      firstLevel: integer
+      maxLevel: integer
+      infinite: boolean
+      prerequisites: "integer[]"
+    Resource:
+      name: string
+      localeName: "string?"
+      sprite: string
+      kind: string
+      yields: "Stack?"
+      miningTime: "number?"
+    Tile:
+      name: string
+      localeName: "string?"
+      mapColor: string
+      buildable: boolean
+      walkable: boolean
+    WorldObject:
+      name: string
+      localeName: "string?"
+      sprite: string
+      kind: string
+      size: "integer[]"
+      miningTime: "number?"
+    LocaleKeys:
+      FailReason: "LocaleKey[]"
+      FlyingText: "LocaleKey[]"
+      AlertType: "LocaleKey[]"
+      Status: "LocaleKey[]"
+  root:
+    formatVersion: integer
+    schemaHash: hex32
+    prototypesHash: hex32
+    build: string
+    character: boolean
+    contents: Contents
+    item: "Item[]"
+    fluid: "Item[]"
+    recipe: "Recipe[]"
+    entity: "Entity[]"
+    technology: "Technology[]"
+    resource: "Resource[]"
+    tile: "Tile[]"
+    world: "WorldObject[]"
+    signal: "string[]"
+    groups: "Group[]"
+    subgroups: "Subgroup[]"
+    icons: "string[]"
+    localeKeys: LocaleKeys
+    treeSpecies: "string[]"
+    decoratives: "string[]"
+    cliffs: "string[]"
+    townBuildings: "string[]"
+    sounds: "string[]"
+    milestones: "string[]"
+    strings: "{string}"

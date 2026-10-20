@@ -1,0 +1,291 @@
+# Projections, subscriptions and queries (10 §15.5). The UI never reads simulation state: windows
+# subscribe, and the sim answers in the packet's UI section; one-off reads are queries.
+#
+# Records are packed in declaration order and may hold several lists (each a u16 count, then its items);
+# decoders read them in order. Kind and query ids are append-only. Kinds and queries outside the current
+# capability manifest are answered with status 2 (invalid), reason `unsupported`; those without a record
+# below arrive with later milestones.
+
+limits:
+  subscriptions: 32            # besides sub_id 0 (hover)
+  stats_subscriptions: 4
+  record_max: 65536            # bytes per record; the generator checks every kind's maximum against it
+  ui_section_max: 262144       # bytes of UI records per packet
+  slow_cadence_ticks: 60       # `slow` kinds: on subscribing, then at the first extraction ≥ 60 ticks later
+  queries_running: 4
+  query_result_max: 1048576
+  query_step_ms: 2             # the shell's per-wake budget for query steps (§15.5)
+  stats_keys: 256
+  stats_series_keys: 24        # §15.5 (C1b decision 3): 32 series of 300 f32 pairs (76.8 kB) would exceed the 64 KiB record cap
+
+flags:
+  - SubFlags:
+      base: u16
+      bits:
+        - tail: 0
+  - HudFlags:
+      base: u8
+      bits:
+        - closed: 0           # the loop has closed (M4)
+        - victory: 1
+  - CharacterFlags:
+      base: u8
+      bits:
+        - online: 0
+        - hand_ghost: 1       # the hand holds a ghost cursor (I §3.2)
+        - mining: 2
+        - auto_sort: 3        # the player's rule-affecting settings (D11)
+        - pick_ghost_cursor: 4
+  - CraftFlags:
+      base: u8
+      bits:
+        - intermediate: 0     # queued by chain crafting ("promised", I §3.9)
+  - PanelFlags:
+      base: u8
+      bits:
+        - has_recipe: 0
+        - has_energy: 1
+        - has_progress: 2
+  - StatsFlags:
+      base: u8
+      bits:
+        - series: 0           # p2 bit 0: send the series of each key
+  - QueryResultFlags:
+      base: u8
+      bits:
+        - truncated: 0
+
+enums:
+  - UiStatus:
+      base: u16
+      values:
+        - ok: 0
+        - gone: 1
+        - invalid: 2
+  - UiInvalidReason:
+      base: u16
+      doc: "Developer reasons without player-facing text (§15.5); the shell logs them. Also the body of a failed query"
+      values:
+        - unsupported: 1
+        - bad_parameters: 2
+        - over_limit: 3
+        - not_found: 4
+
+structs:
+  - UiRecordHeader:
+      doc: "A UI record (16 bytes), then the kind's record (`len` bytes, padded to 4). A status-2 record's body is a UiInvalidReason"
+      fields:
+        - sub_id: SubId
+        - kind: ProjectionKind
+        - status: UiStatus
+        - version: {type: u32, doc: "counts the records sent for this subscription"}
+        - len: u32
+  - AlertCount:
+      fields:
+        - alert: AlertType
+        - count: u16
+  - CraftQueueView:
+      fields:
+        - recipe: RecipeId
+        - count: {type: u16, doc: "units left"}
+        - progress: {type: f32, doc: "the head unit's progress, 0–1 (0 for later entries)"}
+        - flags: CraftFlags
+        - reserved: u8
+        - reserved2: u16
+  - ItemCount:
+      fields:
+        - key: ItemKey
+        - reserved: u16
+        - count: i32
+  - StatEntry:
+      fields:
+        - key: StatKey
+        - produced: {type: f64, doc: "over the precision's window"}
+        - consumed: f64
+  - PoolStat:
+      fields:
+        - pool: PoolKind
+        - reserved: u8
+        - reserved2: u16
+        - rows: u32
+        - capacity: u32
+        - active: u32
+  - QueryHeader:
+      doc: "A query: kind and flags, then the kind's parameters (§15.5)"
+      fields:
+        - kind: QueryKind
+        - flags: u16
+  - InspectParams:
+      fields:
+        - serial: Serial
+  - DigestResult:
+      doc: "sim_digest's output and the `digest` query's result (§15.8): d and r, each as a u64 (low word first)"
+      fields:
+        - tick: Tick
+        - d: u64
+        - r: u64
+  - SectionHash:
+      fields:
+        - section: u32
+        - hash: u64
+
+messages:
+  - UiRecord:
+      doc: "One record of the UI section: the header, the kind's record (`len` bytes; a UiInvalidReason when status is 2), padding to 4"
+      pad_to: 4
+      fields:
+        - sub_id: SubId
+        - kind: ProjectionKind
+        - status: UiStatus
+        - version: u32
+        - len: u32
+        - body: "u8[len]"
+  - SubRequest:
+      doc: "A subscription request (§15.5): main → shell → sim_subscribe. Sending an existing sub_id replaces it"
+      fields:
+        - sub_id: SubId
+        - kind: ProjectionKind
+        - flags: SubFlags
+        - target: {type: u32, doc: "an entity serial, a player index or 0, by kind"}
+        - p0: u32
+        - p1: u32
+        - p2: u32
+        - p3: u32
+        - tail: {type: bytes, max: 4096, when: flags.tail, doc: "list parameters (STATS: up to 256 u32 StatKeys)"}
+  - Hud:
+      fields:
+        - tick: Tick
+        - research_tech: {type: TechId, doc: "the research in progress, 0xFFFF none"}
+        - research_level: u16
+        - research_progress: {type: f32, doc: "0–1"}
+        - takeoff_level: u16
+        - flags: HudFlags
+        - reserved: u8
+        - field: {type: f64, doc: "W, the world strip's Field (§5.11)"}
+        - literature: {type: f64, doc: "the Literature year; also the music feed's era (§15.6)"}
+        - your_year: f64
+        - years_ahead: f64
+        - activity_w: {type: f64, doc: "mean electric consumption over 60 s, W; the audio module normalises it (§15.6)"}
+        - doubling_time_s: {type: f64, doc: "0 when none"}
+        - alerts: {type: "list<AlertCount>", max: 64}
+  - Character:
+      fields:
+        - player: PlayerIndex
+        - flags: CharacterFlags
+        - quickbar_page: u8
+        - serial: {type: Serial, doc: "the character"}
+        - input_gen: u16
+        - hand_origin: {type: u16, doc: "the hand's origin slot in the main inventory, 0xFFFF none"}
+        - hand_key: ItemKey
+        - reserved: u16
+        - hand_count: i32
+        - mining_progress: {type: f32, doc: "0–1, 0 while not mining"}
+        - main: {type: "list<SlotView>", max: 1024}
+        - quickbar: {type: "list<ItemKey>", max: 100, doc: "10 pages × 10 links (I §4.2)"}
+        - queue: {type: "list<CraftQueueView>", max: 256}
+  - InventoryView:
+      fields:
+        - inv: InventoryType
+        - reserved: u8
+        - bar: {type: u16, doc: "slots from bar on are locked; the slot count when there is no limit"}
+        - slots: {type: "list<SlotView>", max: 1024}
+  - Inventory:
+      fields:
+        - serial: Serial
+        - view: InventoryView
+  - EntityPanel:
+      doc: "M0 fills the chest's fields; modules, fluid boxes and the kind-specific tail arrive with their systems"
+      fields:
+        - serial: Serial
+        - proto: EntityId
+        - status: Status
+        - flags: PanelFlags
+        - recipe: RecipeId
+        - reserved: u16
+        - progress: f32
+        - crafts_per_s: f32
+        - productivity_bar: f32
+        - energy_satisfaction: f32
+        - energy_buffer_j: f64
+        - energy_draw_w: f64
+        - inventories: {type: "list<InventoryView>", max: 6}
+  - Hover:
+      fields:
+        - serial: Serial
+        - proto: EntityId
+        - status: Status
+        - reserved: u8
+        - contents: {type: "list<ItemCount>", max: 64, doc: "the entity's items summed per key, in key order"}
+  - StatSeries:
+      doc: >-
+        Points p_from … p_(from+count−1) of a key's series at the record's precision. `from` is the point's index in
+        the precision's stream since the world began, mod 65,536: a whole series is the last min(300, n) points, an
+        incremental one the points appended since the previous record (§15.5, B1-r1 15)
+      fields:
+        - key: StatKey
+        - from: u16
+        - count: {type: u16, range: [0, 300]}
+        - produced: "f32[count]"
+        - consumed: "f32[count]"
+  - Stats:
+      fields:
+        - precision: StatPrecision
+        - tab: StatTab
+        - flags: StatsFlags
+        - reserved: u8
+        - entries: {type: "list<StatEntry>", max: 256}
+        - series: {type: "list<StatSeries>", max: 24}
+  - Debug:
+      fields:
+        - tick: Tick
+        - entity_count: u32
+        - memory_bytes: u32
+        - reserved: u32
+        - d: {type: u64, doc: "this tick's digest"}
+        - r: {type: u64, doc: "the rolling digest"}
+        - pools: {type: "list<PoolStat>", max: 64}
+        - phase_us: {type: "list<f32>", max: 16, doc: "per-phase µs in dev builds; empty otherwise"}
+  - InspectField:
+      fields:
+        - section: u32
+        - type: TypeCode
+        - reserved: u8
+        - name: {type: str, max: 64}
+        - value: {type: bytes, max: 4096}
+  - InspectResult:
+      fields:
+        - serial: Serial
+        - found: bool
+        - reserved: u8
+        - reserved2: u16
+        - fields: {type: "list<InspectField>", max: 256}
+  - StateHash:
+      doc: "sim_state_hash's output and the `hash` query's result (§15.8): the full state hash, then each section's (low word first)"
+      fields:
+        - hash: u64
+        - count: u32
+        - sections: "SectionHash[count]"
+
+# Subscription kinds (§15.5). cadence: `every` packet, or `slow` (see limits). target: what `target` holds.
+kinds:
+  - HUD: {id: 1, cadence: slow, target: none, record: Hud}
+  - CHARACTER: {id: 2, cadence: every, target: player, record: Character, sources: [player inventory version, crafting queue]}
+  - INVENTORY: {id: 3, cadence: every, target: entity, params: {p0: InventoryType}, record: Inventory, sources: [inventory version]}
+  - ENTITY_PANEL: {id: 4, cadence: every, target: entity, record: EntityPanel}
+  - HOVER: {id: 5, cadence: every, target: entity, record: Hover, sources: [inventory version, entity status]}
+  - RESEARCH: {id: 6, cadence: slow, target: none}
+  - STATS: {id: 7, cadence: slow, target: none, params: {p0: StatPrecision, p1: StatTab, p2: StatsFlags, tail: "u32 StatKeys, at most 256 (24 with series)"}, record: Stats}
+  - ELECTRIC: {id: 8, cadence: slow, target: entity}
+  - WORLD: {id: 9, cadence: slow, target: none}
+  - DEBUG: {id: 10, cadence: every, target: none, record: Debug}
+
+# Query kinds (§15.5): `query` = QueryHeader then the params; the result is in sim_query_step's envelope.
+queries:
+  - rates: {id: 1}
+  - map_search: {id: 2}
+  - total_raw: {id: 3}
+  - where_made: {id: 4}
+  - patch_info: {id: 5}
+  - inspect: {id: 6, dev: true, params: InspectParams, result: InspectResult}
+  - hash: {id: 7, dev: true, result: StateHash}
+  - digest: {id: 8, dev: true, result: DigestResult}

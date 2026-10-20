@@ -1,0 +1,274 @@
+# Actions (10 §15.3; actions.yaml): `u16 type, u16 len`, then `len` bytes of payload packed in declaration
+# order. A held action (`held: true`) starts its payload with the generated `u16 input_gen` field.
+#
+# Hand-written from the README, actions.yaml and types.yaml only. Covers held actions (with and without
+# fields of their own; one with an enum, a reserved byte and a FinePos), build (every field, i32 negative,
+# both flag kinds), rotate_entity with a creation id, nested structs (InvSlot holding an EntityRef, with
+# tag 1 and tag 0), an empty payload, the `range` maximum, `str` (JSON escapes, characters JSON leaves
+# alone ("/", DEL), non-ASCII and a 4-byte UTF-8 sequence, empty, and exactly `max` bytes), distribute's
+# `list<EntityRef>` (two items and none), place_blueprint's `blob_or_bytes` (tag 0 with bytes, tag 0
+# empty, tag 1) and system actions.
+# Refusals are in refusals.hex.
+
+# ---- held inputs -----------------------------------------------------------------------------------------
+
+@action                                   # start_walking (held)
+01 00 03 00                               // type 1 start_walking, len 3
+07 00                                     // input_gen 7
+04                                        // dir 4 (east; allowed: even directions)
+@dump
+type=start_walking
+input_gen=7
+dir=4
+
+@action                                   # stop_walking: held, no fields of its own
+02 00 02 00                               // type 2 stop_walking, len 2
+ff ff                                     // input_gen 65535
+@dump
+type=stop_walking
+input_gen=65535
+
+@action                                   # begin_mining_terrain (held, enum + reserved + FinePos)
+0b 00 0c 00                               // type 11 begin_mining_terrain, len 12
+03 00                                     // input_gen 3
+01                                        // kind 1 (world_object)
+00                                        // reserved
+80 fd ff ff                               // pos.x -640 (-2.5 tiles)
+40 0a 00 00                               // pos.y 2624 (10.25 tiles)
+@dump
+type=begin_mining_terrain
+input_gen=3
+kind=1
+pos.x=-640
+pos.y=2624
+
+# ---- building and entities -------------------------------------------------------------------------------
+
+@action                                   # build: every field
+14 00 12 00                               // type 20 build, len 18
+28 00                                     // item 40 = (5 << 3) | quality 0
+fd ff ff ff  07 00 00 00                  // pos.x2 -3, pos.y2 7
+04                                        // dir 4
+01                                        // flip true
+01                                        // mode 1 (ghost)
+01                                        // flags 1 (smart_belt)
+78 56 34 12                               // drag_id 0x12345678
+@dump
+type=build
+item=40
+pos.x2=-3
+pos.y2=7
+dir=4
+flip=true
+mode=1
+flags=1
+drag_id=305419896
+
+@action                                   # rotate_entity naming a creation id (tag 2)
+15 00 09 00                               // type 21 rotate_entity, len 9
+09 00 00 00  01 00  02  00                // target: a = seq 9, b = index 1, tag 2 (creation), reserved
+00                                        // reverse false
+@dump
+type=rotate_entity
+target.a=9
+target.b=1
+target.tag=2
+reverse=false
+
+# ---- cursor and inventory --------------------------------------------------------------------------------
+
+@action                                   # cursor_transfer: InvSlot nests an EntityRef
+3c 00 0c 00                               // type 60 cursor_transfer, len 12
+4d 00 00 00  00 00  01  00                // slot.owner: serial 77
+02                                        // slot.inv 2 (chest)
+00                                        // slot.reserved
+0f 00                                     // slot.slot 15
+@dump
+type=cursor_transfer
+slot.owner.a=77
+slot.owner.b=0
+slot.owner.tag=1
+slot.inv=2
+slot.slot=15
+
+@action                                   # stack_transfer: InvSlot then EntityRef
+3e 00 14 00                               // type 62 stack_transfer, len 20
+00 00 00 00  00 00  00  00                // from.owner: none (the acting player's own inventory)
+01  00  03 00                             // from.inv 1 (main), reserved, from.slot 3
+4d 00 00 00  00 00  01  00                // to: serial 77
+@dump
+type=stack_transfer
+from.owner.a=0
+from.owner.b=0
+from.owner.tag=0
+from.inv=1
+from.slot=3
+to.a=77
+to.b=0
+to.tag=1
+
+@action                                   # clear_cursor: an empty payload
+29 00 00 00                               // type 41 clear_cursor, len 0
+@dump
+type=clear_cursor
+
+@action                                   # quick_bar_pick_slot at its range maximum
+2b 00 01 00                               // type 43 quick_bar_pick_slot, len 1
+63                                        // slot 99 (range [0, 99])
+@dump
+type=quick_bar_pick_slot
+slot=99
+
+# ---- strings ---------------------------------------------------------------------------------------------
+
+@action                                   # console_command: a str with characters JSON escapes
+7a 00 09 00                               // type 122 console_command, len 9
+07 00                                     // text: 7 bytes
+61 22 62 5c 63 0a 01                      // a  "  b  \  c  LF  U+0001
+@dump
+type=console_command
+text="a\"b\\c\n\u0001"
+
+@action                                   # console_command: "/" and DEL (0x7F), which JSON leaves unescaped (the dump line holds a raw 0x7F)
+7a 00 06 00                               // type 122 console_command, len 6
+04 00                                     // text: 4 bytes
+2f 78 7f 79                               // /  x  DEL  y
+@dump
+type=console_command
+text="/xy"
+
+@action                                   # console_command: the empty string
+7a 00 02 00                               // type 122, len 2
+00 00                                     // text: 0 bytes
+@dump
+type=console_command
+text=""
+
+@action                                   # rename: non-ASCII text, including a 4-byte UTF-8 sequence
+90 00 18 00                               // type 144 rename, len 24
+4d 00 00 00  00 00  01  00                // target: serial 77
+0e 00                                     // text: 14 bytes
+43 61 66 c3 a9 20 e2 86 92 20 f0 9f 98 80 // "Café → 😀" (é = c3 a9, → = e2 86 92, 😀 = f0 9f 98 80)
+@dump
+type=rename
+target.a=77
+target.b=0
+target.tag=1
+text="Café → 😀"
+
+@action                                   # rename: exactly max (200) bytes
+90 00 d2 00                               // type 144 rename, len 210 = 8 + 2 + 200
+4d 00 00 00  00 00  01  00                // target: serial 77
+c8 00                                     // text: 200 bytes of "a"
+61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+61 61 61 61 61 61 61 61                   // (6 × 32 + 8 = 200)
+@dump
+type=rename
+target.a=77
+target.b=0
+target.tag=1
+text="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+# ---- lists and blob_or_bytes -----------------------------------------------------------------------------
+
+@action                                   # distribute: list<EntityRef> with two items
+8e 00 18 00                               // type 142 distribute, len 24
+29 00                                     // item 41 = (5 << 3) | quality 1
+0a 00 00 00                               // count 10
+02 00                                     // entities: u16 count 2
+64 00 00 00  00 00  01  00                //   [0] serial 100
+07 00 00 00  03 00  02  00                //   [1] creation id (seq 7, index 3)
+@dump
+type=distribute
+item=41
+count=10
+entities.len=2
+entities[0].a=100
+entities[0].b=0
+entities[0].tag=1
+entities[1].a=7
+entities[1].b=3
+entities[1].tag=2
+
+@action                                   # distribute: an empty list
+8e 00 08 00                               // type 142 distribute, len 8
+29 00  0a 00 00 00                        // item 41, count 10
+00 00                                     // entities: count 0
+@dump
+type=distribute
+item=41
+count=10
+entities.len=0
+
+@action                                   # place_blueprint: blob_or_bytes tag 0 (inline bytes)
+8f 00 14 00                               // type 143 place_blueprint, len 20
+0a 00 00 00  fc ff ff ff                  // pos.x2 10, pos.y2 -4
+08                                        // dir 8 (south)
+00                                        // flip false
+02                                        // mode 2 (superforced)
+00                                        // reserved
+00                                        // record: tag 0 (bytes)
+05 00                                     //   u16 length 5
+01 02 03 04 05                            //   the bytes
+@dump
+type=place_blueprint
+pos.x2=10
+pos.y2=-4
+dir=8
+flip=false
+mode=2
+record.bytes=hex:0102030405
+
+@action                                   # place_blueprint: tag 0 with no bytes
+8f 00 0f 00                               // type 143, len 15
+00 00 00 00  00 00 00 00  00 00 00 00     // pos (0, 0), dir 0, flip false, mode 0, reserved
+00  00 00                                 // record: tag 0, length 0
+@dump
+type=place_blueprint
+pos.x2=0
+pos.y2=0
+dir=0
+flip=false
+mode=0
+record.bytes=hex:
+
+@action                                   # place_blueprint: blob_or_bytes tag 1 (a blob's SHA-256)
+8f 00 2d 00                               // type 143, len 45
+fe ff ff ff  02 00 00 00                  // pos.x2 -2, pos.y2 2
+0c  01  00  00                            // dir 12 (west), flip true, mode 0, reserved
+01                                        // record: tag 1 (blob)
+e3 b0 c4 42 98 fc 1c 14 9a fb f4 c8 99 6f b9 24 27 ae 41 e4 64 9b 93 4c a4 95 99 1b 78 52 b8 55   // SHA-256("")
+@dump
+type=place_blueprint
+pos.x2=-2
+pos.y2=2
+dir=12
+flip=true
+mode=0
+record.blob=hex:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+# ---- system actions (ids from 0xFF00) --------------------------------------------------------------------
+
+@action                                   # player_joined
+01 ff 04 00                               // type 0xFF01 player_joined, len 4
+03 00                                     // player 3
+01                                        // flags 1 (returning)
+00                                        // reserved
+@dump
+type=player_joined
+player=3
+flags=1
+
+@action                                   # snapshot_marker: the donor at the top of its range
+04 ff 06 00                               // type 0xFF04 snapshot_marker, len 6
+ef be ad de                               // snapshot_id 0xDEADBEEF
+1f 00                                     // donor 31
+@dump
+type=snapshot_marker
+snapshot_id=3735928559
+donor=31

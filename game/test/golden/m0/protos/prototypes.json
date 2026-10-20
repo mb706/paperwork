@@ -1,0 +1,884 @@
+{
+  "build": "m0",
+  "character": true,
+  "cliffs": [],
+  "contents": {
+    "meta": [
+      "start.inventory"
+    ],
+    "omitted": [
+      "enemies",
+      "entities.allowed_effects",
+      "entities.categories",
+      "entities.consumes",
+      "entities.deploys",
+      "entities.effect_receiver",
+      "entities.energy.fuel_categories",
+      "entities.energy.per_movement_kj",
+      "entities.energy.per_rotation_kj",
+      "entities.energy.priority",
+      "entities.extra.every type-specific field except chests and wagons slots and belts items_per_s",
+      "entities.heat.coolant_in_min_c",
+      "entities.heat.coolant_out_c",
+      "entities.heat.emission",
+      "entities.heat.full_rate_dt_k",
+      "entities.heat.liquid_cooling",
+      "entities.heat.removes_kw",
+      "entities.heat.waste_heat",
+      "entities.heat.water_per_mj",
+      "entities.heat.while",
+      "entities.produces",
+      "entities.staff_demand",
+      "entities.staff_slots",
+      "items.ammo",
+      "items.armor",
+      "items.equipment",
+      "items.module",
+      "items.spoil",
+      "items.staff",
+      "meta.damage_categories",
+      "meta.effects",
+      "meta.endgame",
+      "meta.heat.every block except classes (carried as each entity t_star)",
+      "meta.hollow_work",
+      "meta.quality",
+      "meta.runaways",
+      "meta.staffing",
+      "meta.start.guarantees",
+      "meta.start.salvage",
+      "meta.town_classes",
+      "meta.world",
+      "meta.world_settings",
+      "recipes.victory",
+      "technologies.branch",
+      "technologies.citation",
+      "technologies.unlocks.effects",
+      "text.achievements",
+      "text.milestones.kind",
+      "text.milestones.target",
+      "text.tips",
+      "text.tips_and_tricks",
+      "text.town_names",
+      "text.world_text",
+      "world.gui"
+    ]
+  },
+  "decoratives": [],
+  "entity": [
+    {
+      "collisionBox": [
+        -0.35,
+        -0.35,
+        0.35,
+        0.35
+      ],
+      "energySource": "none",
+      "energyUsageW": 0,
+      "inventorySlots": 32,
+      "item": 0,
+      "localeDescription": null,
+      "localeHandbook": null,
+      "localeName": "entity-name.iron-chest",
+      "name": "iron-chest",
+      "rotatable": false,
+      "selectionBox": [
+        -0.5,
+        -0.5,
+        0.5,
+        0.5
+      ],
+      "selectionPriority": 50,
+      "size": [
+        1,
+        1
+      ],
+      "sprite": "entity/iron-chest",
+      "type": "chest"
+    },
+    {
+      "collisionBox": [
+        -0.2,
+        -0.2,
+        0.2,
+        0.2
+      ],
+      "energySource": "none",
+      "energyUsageW": 0,
+      "inventorySlots": 80,
+      "item": null,
+      "localeDescription": null,
+      "localeHandbook": null,
+      "localeName": null,
+      "name": "character",
+      "rotatable": false,
+      "selectionBox": [
+        -0.4,
+        -1.4,
+        0.4,
+        0.2
+      ],
+      "selectionPriority": 50,
+      "size": [
+        0,
+        0
+      ],
+      "sprite": "mover/character",
+      "type": "character"
+    }
+  ],
+  "fluid": [],
+  "formatVersion": 1,
+  "groups": [
+    {
+      "name": "logistics",
+      "order": "a"
+    },
+    {
+      "name": "production",
+      "order": "b"
+    },
+    {
+      "name": "intermediate-products",
+      "order": "c"
+    },
+    {
+      "name": "combat",
+      "order": "d"
+    },
+    {
+      "name": "fluids",
+      "order": "e"
+    },
+    {
+      "name": "signals",
+      "order": "f"
+    },
+    {
+      "name": "other",
+      "order": "z"
+    }
+  ],
+  "icons": [
+    "item/iron-chest",
+    "item/iron-ore",
+    "item/iron-plate"
+  ],
+  "item": [
+    {
+      "fuelValueJ": null,
+      "group": 0,
+      "icon": "item/iron-chest",
+      "localeDescription": null,
+      "localeHandbook": null,
+      "localeName": "item-name.iron-chest",
+      "name": "iron-chest",
+      "order": "0127",
+      "places": 0,
+      "placesTile": null,
+      "stack": 50,
+      "subgroup": 0
+    },
+    {
+      "fuelValueJ": null,
+      "group": 2,
+      "icon": "item/iron-ore",
+      "localeDescription": null,
+      "localeHandbook": null,
+      "localeName": "item-name.iron-ore",
+      "name": "iron-ore",
+      "order": "0002",
+      "places": null,
+      "placesTile": null,
+      "stack": 50,
+      "subgroup": 15
+    },
+    {
+      "fuelValueJ": null,
+      "group": 2,
+      "icon": "item/iron-plate",
+      "localeDescription": null,
+      "localeHandbook": null,
+      "localeName": "item-name.iron-plate",
+      "name": "iron-plate",
+      "order": "0015",
+      "places": null,
+      "placesTile": null,
+      "stack": 100,
+      "subgroup": 17
+    }
+  ],
+  "localeKeys": {
+    "AlertType": [
+      {
+        "key": "alert.entity-destroyed",
+        "name": "entity_destroyed",
+        "value": 1
+      },
+      {
+        "key": "alert.entity-under-attack",
+        "name": "entity_under_attack",
+        "value": 2
+      },
+      {
+        "key": "alert.not-enough-construction-agents",
+        "name": "not_enough_construction_agents",
+        "value": 3
+      },
+      {
+        "key": "alert.no-material-for-construction",
+        "name": "no_material_for_construction",
+        "value": 4
+      },
+      {
+        "key": "alert.no-storage",
+        "name": "no_storage",
+        "value": 5
+      },
+      {
+        "key": "alert.train-out-of-fuel",
+        "name": "train_out_of_fuel",
+        "value": 6
+      },
+      {
+        "key": "alert.fluid-mixing",
+        "name": "fluid_mixing",
+        "value": 7
+      },
+      {
+        "key": "alert.thermal-throttling",
+        "name": "thermal_throttling",
+        "value": 32
+      },
+      {
+        "key": "alert.compromised",
+        "name": "compromised",
+        "value": 33
+      },
+      {
+        "key": "alert.no-evaluation-sets",
+        "name": "no_evaluation_sets",
+        "value": 34
+      },
+      {
+        "key": "alert.closed-to-crawlers",
+        "name": "closed_to_crawlers",
+        "value": 35
+      },
+      {
+        "key": "alert.escaped",
+        "name": "escaped",
+        "value": 36
+      },
+      {
+        "key": "alert.entity-dismantled",
+        "name": "entity_dismantled",
+        "value": 37
+      },
+      {
+        "key": "alert.being-dismantled",
+        "name": "being_dismantled",
+        "value": 38
+      },
+      {
+        "key": "alert.field-run",
+        "name": "field_run",
+        "value": 39
+      }
+    ],
+    "FailReason": [
+      {
+        "key": null,
+        "name": "malformed",
+        "value": 1
+      },
+      {
+        "key": null,
+        "name": "unsupported",
+        "value": 2
+      },
+      {
+        "key": null,
+        "name": "player_not_present",
+        "value": 3
+      },
+      {
+        "key": null,
+        "name": "invalid_setting",
+        "value": 4
+      },
+      {
+        "key": null,
+        "name": "invalid_index",
+        "value": 5
+      },
+      {
+        "key": "fail-reason.target-gone",
+        "name": "target_gone",
+        "value": 16
+      },
+      {
+        "key": "fail-reason.out-of-reach",
+        "name": "out_of_reach",
+        "value": 17
+      },
+      {
+        "key": "fail-reason.inventory-full",
+        "name": "inventory_full",
+        "value": 18
+      },
+      {
+        "key": "fail-reason.not-enough-ingredients",
+        "name": "not_enough_ingredients",
+        "value": 19
+      },
+      {
+        "key": "fail-reason.entity-in-the-way",
+        "name": "entity_in_the_way",
+        "value": 20
+      },
+      {
+        "key": "fail-reason.cannot-build-on-tile",
+        "name": "cannot_build_on_tile",
+        "value": 21
+      },
+      {
+        "key": "fail-reason.out-of-map",
+        "name": "out_of_map",
+        "value": 22
+      },
+      {
+        "key": "fail-reason.no-item-in-hand",
+        "name": "no_item_in_hand",
+        "value": 23
+      },
+      {
+        "key": "fail-reason.not-minable",
+        "name": "not_minable",
+        "value": 24
+      },
+      {
+        "key": "fail-reason.nothing-to-mine",
+        "name": "nothing_to_mine",
+        "value": 25
+      },
+      {
+        "key": "fail-reason.cannot-insert",
+        "name": "cannot_insert",
+        "value": 26
+      },
+      {
+        "key": "fail-reason.nothing-to-transfer",
+        "name": "nothing_to_transfer",
+        "value": 27
+      },
+      {
+        "key": "fail-reason.recipe-locked",
+        "name": "recipe_locked",
+        "value": 28
+      },
+      {
+        "key": "fail-reason.cannot-handcraft",
+        "name": "cannot_handcraft",
+        "value": 29
+      },
+      {
+        "key": "fail-reason.compromised",
+        "name": "compromised",
+        "value": 30
+      },
+      {
+        "key": "fail-reason.needs-weight-transplant",
+        "name": "needs_weight_transplant",
+        "value": 31
+      }
+    ],
+    "FlyingText": [
+      {
+        "key": "flying-text.item-delta",
+        "name": "item_delta",
+        "value": 1
+      },
+      {
+        "key": "flying-text.rolled-back",
+        "name": "rolled_back",
+        "value": 2
+      },
+      {
+        "key": "flying-text.swapped",
+        "name": "swapped",
+        "value": 3
+      }
+    ],
+    "Status": [
+      {
+        "key": "entity-status.none",
+        "name": "none",
+        "value": 0
+      },
+      {
+        "key": "entity-status.working",
+        "name": "working",
+        "value": 1
+      },
+      {
+        "key": "entity-status.normal",
+        "name": "normal",
+        "value": 2
+      },
+      {
+        "key": "entity-status.no-power",
+        "name": "no_power",
+        "value": 3
+      },
+      {
+        "key": "entity-status.low-power",
+        "name": "low_power",
+        "value": 4
+      },
+      {
+        "key": "entity-status.no-fuel",
+        "name": "no_fuel",
+        "value": 5
+      },
+      {
+        "key": "entity-status.not-plugged-in",
+        "name": "not_plugged_in",
+        "value": 6
+      },
+      {
+        "key": "entity-status.no-recipe",
+        "name": "no_recipe",
+        "value": 7
+      },
+      {
+        "key": "entity-status.item-ingredient-shortage",
+        "name": "item_ingredient_shortage",
+        "value": 8
+      },
+      {
+        "key": "entity-status.fluid-ingredient-shortage",
+        "name": "fluid_ingredient_shortage",
+        "value": 9
+      },
+      {
+        "key": "entity-status.full-output",
+        "name": "full_output",
+        "value": 10
+      },
+      {
+        "key": "entity-status.waiting-for-source-items",
+        "name": "waiting_for_source_items",
+        "value": 11
+      },
+      {
+        "key": "entity-status.waiting-for-space-in-destination",
+        "name": "waiting_for_space_in_destination",
+        "value": 12
+      },
+      {
+        "key": "entity-status.no-minable-resources",
+        "name": "no_minable_resources",
+        "value": 13
+      },
+      {
+        "key": "entity-status.missing-science-packs",
+        "name": "missing_science_packs",
+        "value": 14
+      },
+      {
+        "key": "entity-status.no-research-in-progress",
+        "name": "no_research_in_progress",
+        "value": 15
+      },
+      {
+        "key": "entity-status.marked-for-deconstruction",
+        "name": "marked_for_deconstruction",
+        "value": 16
+      },
+      {
+        "key": "entity-status.disabled-by-control-behavior",
+        "name": "disabled_by_control_behavior",
+        "value": 17
+      },
+      {
+        "key": "entity-status.low-input-fluid",
+        "name": "low_input_fluid",
+        "value": 18
+      },
+      {
+        "key": "entity-status.charging",
+        "name": "charging",
+        "value": 19
+      },
+      {
+        "key": "entity-status.pipeline-overextended",
+        "name": "pipeline_overextended",
+        "value": 20
+      },
+      {
+        "key": "entity-status.working-researcher",
+        "name": "working_researcher",
+        "value": 64
+      },
+      {
+        "key": "entity-status.working-linked",
+        "name": "working_linked",
+        "value": 65
+      },
+      {
+        "key": "entity-status.watching",
+        "name": "watching",
+        "value": 66
+      },
+      {
+        "key": "entity-status.cleaning",
+        "name": "cleaning",
+        "value": 67
+      },
+      {
+        "key": "entity-status.understaffed",
+        "name": "understaffed",
+        "value": 68
+      },
+      {
+        "key": "entity-status.throttled-by-heat",
+        "name": "throttled_by_heat",
+        "value": 69
+      },
+      {
+        "key": "entity-status.no-hot-coolant",
+        "name": "no_hot_coolant",
+        "value": 70
+      },
+      {
+        "key": "entity-status.not-linked",
+        "name": "not_linked",
+        "value": 71
+      },
+      {
+        "key": "entity-status.no-staff",
+        "name": "no_staff",
+        "value": 72
+      },
+      {
+        "key": "entity-status.closed-to-crawlers",
+        "name": "closed_to_crawlers",
+        "value": 73
+      },
+      {
+        "key": "entity-status.compromised",
+        "name": "compromised",
+        "value": 74
+      },
+      {
+        "key": "entity-status.missing-accelerators",
+        "name": "missing_accelerators",
+        "value": 75
+      },
+      {
+        "key": "entity-status.no-weights",
+        "name": "no_weights",
+        "value": 76
+      },
+      {
+        "key": "entity-status.no-evaluation-sets",
+        "name": "no_evaluation_sets",
+        "value": 77
+      },
+      {
+        "key": "entity-status.no-university-in-range",
+        "name": "no_university_in_range",
+        "value": 78
+      }
+    ]
+  },
+  "milestones": [
+    "basic-research",
+    "deep-learning",
+    "expected-utility",
+    "first-accelerator",
+    "first-archive-depleted",
+    "first-article",
+    "first-assembling-machine-1",
+    "first-assembling-machine-2",
+    "first-assembling-machine-3",
+    "first-checkpoint",
+    "first-crawler",
+    "first-electric-mining-drill",
+    "first-endpoint",
+    "first-exchange-closed",
+    "first-frontier-cluster",
+    "first-frontier-run",
+    "first-memo",
+    "first-model-card",
+    "first-preprint",
+    "first-proceedings",
+    "first-report",
+    "first-research-hall",
+    "first-researcher",
+    "first-seminar",
+    "first-solar-panel",
+    "first-steam-engine",
+    "first-system-card",
+    "first-token",
+    "first-trainer",
+    "game-theory",
+    "in-context-learning",
+    "linear-programming",
+    "loop-closed",
+    "model-generation-25",
+    "statistical-learning"
+  ],
+  "prototypesHash": "9479d0bc398a888375b6f7e94d7565e2e3763ea28e888521e5bec9acdc8961e9",
+  "recipe": [
+    {
+      "category": "crafting",
+      "enabledAtStart": true,
+      "group": 0,
+      "handcraft": true,
+      "icon": "item/iron-chest",
+      "ingredients": [
+        {
+          "amount": 8,
+          "id": 2,
+          "kind": "item"
+        }
+      ],
+      "localeHandbook": null,
+      "localeName": "recipe-name.iron-chest",
+      "name": "iron-chest",
+      "order": "0127",
+      "products": [
+        {
+          "amount": 1,
+          "catalyst": 0,
+          "id": 0,
+          "kind": "item",
+          "probability": 1
+        }
+      ],
+      "subgroup": 0,
+      "time": 0.5
+    }
+  ],
+  "resource": [
+    {
+      "kind": "solid",
+      "localeName": "resource-name.iron-ore-patch",
+      "miningTime": 1,
+      "name": "iron-ore-patch",
+      "sprite": "resource/iron-ore-patch",
+      "yields": {
+        "id": 1,
+        "kind": "item"
+      }
+    }
+  ],
+  "schemaHash": "ff46e043886d7986ef1ee6e039400dff3c3cdd6d7a7b91557b9c206a86644e97",
+  "signal": [],
+  "sounds": [],
+  "strings": {
+    "entity-name.iron-chest": "Iron chest",
+    "item-name.iron-chest": "Iron chest",
+    "item-name.iron-ore": "Iron ore",
+    "item-name.iron-plate": "Iron plate",
+    "recipe-name.iron-chest": "Iron chest",
+    "resource-name.iron-ore-patch": "Iron ore",
+    "tile-name.deep-water": "Deep water",
+    "tile-name.dirt": "Dirt",
+    "tile-name.grass": "Grass",
+    "tile-name.out-of-map": "Out of map",
+    "tile-name.sand": "Sand",
+    "tile-name.water": "Water"
+  },
+  "subgroups": [
+    {
+      "group": 0,
+      "name": "storage",
+      "order": "a"
+    },
+    {
+      "group": 0,
+      "name": "belt",
+      "order": "b"
+    },
+    {
+      "group": 0,
+      "name": "inserter",
+      "order": "c"
+    },
+    {
+      "group": 0,
+      "name": "energy-pipe-distribution",
+      "order": "d"
+    },
+    {
+      "group": 0,
+      "name": "train-transport",
+      "order": "e"
+    },
+    {
+      "group": 0,
+      "name": "transport",
+      "order": "f"
+    },
+    {
+      "group": 0,
+      "name": "logistic-network",
+      "order": "g"
+    },
+    {
+      "group": 0,
+      "name": "circuit-network",
+      "order": "h"
+    },
+    {
+      "group": 0,
+      "name": "terrain",
+      "order": "i"
+    },
+    {
+      "group": 1,
+      "name": "tool",
+      "order": "a"
+    },
+    {
+      "group": 1,
+      "name": "energy",
+      "order": "b"
+    },
+    {
+      "group": 1,
+      "name": "extraction-machine",
+      "order": "c"
+    },
+    {
+      "group": 1,
+      "name": "smelting-machine",
+      "order": "d"
+    },
+    {
+      "group": 1,
+      "name": "production-machine",
+      "order": "e"
+    },
+    {
+      "group": 1,
+      "name": "module",
+      "order": "f"
+    },
+    {
+      "group": 2,
+      "name": "raw-resource",
+      "order": "a"
+    },
+    {
+      "group": 2,
+      "name": "raw-material",
+      "order": "b"
+    },
+    {
+      "group": 2,
+      "name": "intermediate-product",
+      "order": "c"
+    },
+    {
+      "group": 2,
+      "name": "science-pack",
+      "order": "d"
+    },
+    {
+      "group": 3,
+      "name": "gun",
+      "order": "a"
+    },
+    {
+      "group": 3,
+      "name": "ammo",
+      "order": "b"
+    },
+    {
+      "group": 3,
+      "name": "capsule",
+      "order": "c"
+    },
+    {
+      "group": 3,
+      "name": "armor",
+      "order": "d"
+    },
+    {
+      "group": 3,
+      "name": "equipment",
+      "order": "e"
+    },
+    {
+      "group": 3,
+      "name": "defensive-structure",
+      "order": "f"
+    },
+    {
+      "group": 3,
+      "name": "turret",
+      "order": "g"
+    },
+    {
+      "group": 4,
+      "name": "fluid",
+      "order": "a"
+    },
+    {
+      "group": 6,
+      "name": "other",
+      "order": "z"
+    }
+  ],
+  "technology": [],
+  "tile": [
+    {
+      "buildable": false,
+      "localeName": "tile-name.deep-water",
+      "mapColor": "#264766",
+      "name": "deep-water",
+      "walkable": false
+    },
+    {
+      "buildable": true,
+      "localeName": "tile-name.dirt",
+      "mapColor": "#6b5436",
+      "name": "dirt",
+      "walkable": true
+    },
+    {
+      "buildable": true,
+      "localeName": "tile-name.grass",
+      "mapColor": "#4f6b2b",
+      "name": "grass",
+      "walkable": true
+    },
+    {
+      "buildable": false,
+      "localeName": "tile-name.out-of-map",
+      "mapColor": "#000000",
+      "name": "out-of-map",
+      "walkable": false
+    },
+    {
+      "buildable": true,
+      "localeName": "tile-name.sand",
+      "mapColor": "#b49d63",
+      "name": "sand",
+      "walkable": true
+    },
+    {
+      "buildable": false,
+      "localeName": "tile-name.water",
+      "mapColor": "#33597a",
+      "name": "water",
+      "walkable": false
+    }
+  ],
+  "townBuildings": [],
+  "treeSpecies": [],
+  "world": []
+}

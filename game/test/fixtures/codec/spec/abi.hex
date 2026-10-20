@@ -1,0 +1,1540 @@
+# The WebAssembly ABI's records and messages (10 §15.8, §15.9; abi.yaml).
+#
+# Hand-written from the README and abi.yaml only (the record hex was laid out with a throwaway helper from
+# field ids and types read off abi.yaml; every byte is annotated). Records (`records:`) use the field-id
+# encoding: u32 L, then L bytes of (u16 id, u32 len, value) triples in ascending id; a nested record's value
+# is its whole encoding; in a record a list is a u32 count, then its items (a record item is a whole
+# record), a str is a u16 length and UTF-8, and `bool`, enums and ids take their base width. @type decodes a
+# record strictly, so every field is present. Records dump every field.
+#
+# Covers: new_world (nested map_settings / world_settings / game_settings, a list of two resource_settings
+# records), sim_meta (u64, list<player_meta>), load_report (list<removed_proto>, a str in a record with
+# non-ASCII; and two entries of the same kind ascending by name), chunk_data ([TileId; 1024], lists of
+# structs ordered by key with a negative i32 key, an empty list), and the ABI messages BlobPut (u8[..]),
+# PendingChunks, SubscribeInput (an array of variable-size messages), QueryStepOutput (padded
+# QueryResults), PoolDir (T[..] of structs), TickDigest (four hidden counts, a 22-byte packed struct),
+# LoadInput (SectionFrame and RemapTable arrays; a frame at offset 4 pads from its own start),
+# GenInitInput (a message that ends in a record).
+
+@type new_world                           # nested records, a list of records, every field (strict read)
+1e 02 00 00                                            // new_world: L = 542
+01 00 04 00 00 00  ee ff c0 00                         // id 1 seed, len 4: 12648430
+02 00 36 01 00 00                                      // id 2 map, len 310:
+  32 01 00 00                                          //   map_settings: L = 306
+  01 00 04 00 00 00  00 01 00 00                       //   id 1 width, len 4: 256
+  02 00 04 00 00 00  c0 00 00 00                       //   id 2 height, len 4: 192
+  03 00 08 00 00 00  00 00 00 00 00 00 f4 3f           //   id 3 starting_area, len 8: 1.25
+  04 00 70 00 00 00                                    //   id 4 resources, len 112:
+    02 00 00 00                                        //     list: u32 count 2
+      32 00 00 00                                      //       [0] resource_settings: L = 50
+      01 00 02 00 00 00  00 00                         //       [0] id 1 resource, len 2: 0
+      02 00 08 00 00 00  00 00 00 00 00 00 f0 3f       //       [0] id 2 frequency, len 8: 1.0
+      03 00 08 00 00 00  00 00 00 00 00 00 e0 3f       //       [0] id 3 size, len 8: 0.5
+      04 00 08 00 00 00  00 00 00 00 00 00 00 40       //       [0] id 4 richness, len 8: 2.0
+      32 00 00 00                                      //       [1] resource_settings: L = 50
+      01 00 02 00 00 00  03 00                         //       [1] id 1 resource, len 2: 3
+      02 00 08 00 00 00  00 00 00 00 00 00 e8 3f       //       [1] id 2 frequency, len 8: 0.75
+      03 00 08 00 00 00  00 00 00 00 00 00 f0 3f       //       [1] id 3 size, len 8: 1.0
+      04 00 08 00 00 00  00 00 00 00 00 00 f0 3f       //       [1] id 4 richness, len 8: 1.0
+  05 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 5 water_scale, len 8: 1.0
+  06 00 08 00 00 00  00 00 00 00 00 00 e0 3f           //   id 6 water_coverage, len 8: 0.5
+  07 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 7 trees_frequency, len 8: 1.0
+  08 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 8 trees_size, len 8: 1.0
+  09 00 08 00 00 00  00 00 00 00 00 00 00 00           //   id 9 cliffs_frequency, len 8: 0.0
+  0a 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 10 cliffs_continuity, len 8: 1.0
+  0b 00 08 00 00 00  00 00 00 00 00 00 00 40           //   id 11 towns_frequency, len 8: 2.0
+  0c 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 12 towns_size, len 8: 1.0
+  0d 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 13 archives_size, len 8: 1.0
+  0e 00 08 00 00 00  00 00 00 00 00 00 08 40           //   id 14 archives_richness, len 8: 3.0
+  0f 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 15 exchanges_richness, len 8: 1.0
+03 00 c1 00 00 00                                      // id 3 world, len 193:
+  bd 00 00 00                                          //   world_settings: L = 189
+  01 00 01 00 00 00  01                                //   id 1 heat, len 1: true
+  02 00 01 00 00 00  00                                //   id 2 staffing, len 1: false
+  03 00 01 00 00 00  02                                //   id 3 runaways, len 1: 2 (wild)
+  04 00 08 00 00 00  a3 f4 07 83 28 5a fb 3f           //   id 4 returns_to_research, len 8: 1.7095112913514547
+  05 00 01 00 00 00  01                                //   id 5 race_mode, len 1: 1 (race)
+  06 00 01 00 00 00  01                                //   id 6 scooped, len 1: true
+  07 00 01 00 00 00  01                                //   id 7 hollow_work, len 1: true
+  08 00 01 00 00 00  00                                //   id 8 climate_compass, len 1: false
+  09 00 08 00 00 00  00 00 00 00 00 00 00 40           //   id 9 tech_price_multiplier, len 8: 2.0
+  0a 00 08 00 00 00  00 00 00 00 00 00 00 00           //   id 10 field_pace, len 8: 0.0
+  0b 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 11 leak_rate_multiplier, len 8: 1.0
+  0c 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 12 staffing_radius, len 8: 1.0
+  0d 00 08 00 00 00  00 00 00 00 00 00 d0 3f           //   id 13 staffing_supply, len 8: 0.25
+  0e 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 14 heat_diffusion_share, len 8: 1.0
+  0f 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 15 heat_min_diffuse, len 8: 1.0
+  10 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 16 heat_cooling_multiplier, len 8: 1.0
+  11 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 17 heat_tree_damage_threshold, len 8: 1.0
+04 00 0b 00 00 00                                      // id 4 game, len 11:
+  07 00 00 00                                          //   game_settings: L = 7
+  01 00 01 00 00 00  01                                //   id 1 trimmed_collision, len 1: true
+@dump
+seed=12648430
+map.width=256
+map.height=192
+map.starting_area=f64:3ff4000000000000
+map.resources.len=2
+map.resources[0].resource=0
+map.resources[0].frequency=f64:3ff0000000000000
+map.resources[0].size=f64:3fe0000000000000
+map.resources[0].richness=f64:4000000000000000
+map.resources[1].resource=3
+map.resources[1].frequency=f64:3fe8000000000000
+map.resources[1].size=f64:3ff0000000000000
+map.resources[1].richness=f64:3ff0000000000000
+map.water_scale=f64:3ff0000000000000
+map.water_coverage=f64:3fe0000000000000
+map.trees_frequency=f64:3ff0000000000000
+map.trees_size=f64:3ff0000000000000
+map.cliffs_frequency=f64:0000000000000000
+map.cliffs_continuity=f64:3ff0000000000000
+map.towns_frequency=f64:4000000000000000
+map.towns_size=f64:3ff0000000000000
+map.archives_size=f64:3ff0000000000000
+map.archives_richness=f64:4008000000000000
+map.exchanges_richness=f64:3ff0000000000000
+world.heat=true
+world.staffing=false
+world.runaways=2
+world.returns_to_research=f64:3ffb5a288307f4a3
+world.race_mode=1
+world.scooped=true
+world.hollow_work=true
+world.climate_compass=false
+world.tech_price_multiplier=f64:4000000000000000
+world.field_pace=f64:0000000000000000
+world.leak_rate_multiplier=f64:3ff0000000000000
+world.staffing_radius=f64:3ff0000000000000
+world.staffing_supply=f64:3fd0000000000000
+world.heat_diffusion_share=f64:3ff0000000000000
+world.heat_min_diffuse=f64:3ff0000000000000
+world.heat_cooling_multiplier=f64:3ff0000000000000
+world.heat_tree_damage_threshold=f64:3ff0000000000000
+game.trimmed_collision=true
+
+@type sim_meta                            # u64, list<player_meta> ascending by index
+8a 00 00 00                                            // sim_meta: L = 138
+01 00 04 00 00 00  58 02 00 00                         // id 1 tick, len 4: 600
+02 00 04 00 00 00  ee ff c0 00                         // id 2 seed, len 4: 12648430
+03 00 04 00 00 00  03 00 00 00                         // id 3 last_system_seq, len 4: 3
+04 00 04 00 00 00  01 00 00 00                         // id 4 worldgen_version, len 4: 1
+05 00 08 00 00 00  ef cd ab 89 67 45 23 01             // id 5 r, len 8: 81985529216486895
+06 00 4e 00 00 00                                      // id 6 players, len 78:
+  02 00 00 00                                          //   list: u32 count 2
+    21 00 00 00                                        //     [0] player_meta: L = 33
+    01 00 02 00 00 00  00 00                           //     [0] id 1 index, len 2: 0
+    02 00 01 00 00 00  01                              //     [0] id 2 online, len 1: true
+    03 00 04 00 00 00  2a 00 00 00                     //     [0] id 3 last_seq, len 4: 42
+    04 00 02 00 00 00  01 00                           //     [0] id 4 input_gen, len 2: 1
+    21 00 00 00                                        //     [1] player_meta: L = 33
+    01 00 02 00 00 00  05 00                           //     [1] id 1 index, len 2: 5
+    02 00 01 00 00 00  00                              //     [1] id 2 online, len 1: false
+    03 00 04 00 00 00  07 00 00 00                     //     [1] id 3 last_seq, len 4: 7
+    04 00 02 00 00 00  ff ff                           //     [1] id 4 input_gen, len 2: 65535
+@dump
+tick=600
+seed=12648430
+last_system_seq=3
+worldgen_version=1
+r=81985529216486895
+players.len=2
+players[0].index=0
+players[0].online=true
+players[0].last_seq=42
+players[0].input_gen=1
+players[1].index=5
+players[1].online=false
+players[1].last_seq=7
+players[1].input_gen=65535
+
+@type load_report                         # list<removed_proto>: str in a record (u16 length), non-ASCII
+6c 00 00 00                                            // load_report: L = 108
+01 00 01 00 00 00  01                                  // id 1 new_lineage, len 1: true
+02 00 08 00 00 00  10 32 54 76 98 ba dc fe             // id 2 r, len 8: 18364758544493064720
+03 00 51 00 00 00                                      // id 3 removed, len 81:
+  02 00 00 00                                          //   list: u32 count 2
+    21 00 00 00                                        //     [0] removed_proto: L = 33
+    01 00 01 00 00 00  00                              //     [0] id 1 kind, len 1: 0
+    02 00 0a 00 00 00  08 00  6f 6c 64 2d 67 65 61 72  //     [0] id 2 name, len 10: str: u16 length 8, "old-gear"
+    03 00 04 00 00 00  0c 00 00 00                     //     [0] id 3 count, len 4: 12
+    24 00 00 00                                        //     [1] removed_proto: L = 36
+    01 00 01 00 00 00  03                              //     [1] id 1 kind, len 1: 3
+    02 00 0d 00 00 00  0b 00  43 61 66 c3 a9 2d 63 68 65 73 74 //     [1] id 2 name, len 13: str: u16 length 11, "Café-chest"
+    03 00 04 00 00 00  01 00 00 00                     //     [1] id 3 count, len 4: 1
+@dump
+new_lineage=true
+r=18364758544493064720
+removed.len=2
+removed[0].kind=0
+removed[0].name="old-gear"
+removed[0].count=12
+removed[1].kind=3
+removed[1].name="Café-chest"
+removed[1].count=1
+
+@type load_report                         # same kind, names ascending: 10 §15.8 says "ascending by kind and name"
+62 00 00 00                                            // load_report: L = 98
+01 00 01 00 00 00  00                                  // id 1 new_lineage, len 1: false
+02 00 08 00 00 00  05 00 00 00 00 00 00 00             // id 2 r, len 8: 5
+03 00 47 00 00 00                                      // id 3 removed, len 71:
+  02 00 00 00                                          //   list: u32 count 2
+    1e 00 00 00                                        //     [0] removed_proto: L = 30
+    01 00 01 00 00 00  00                              //     [0] id 1 kind, len 1: 0
+    02 00 07 00 00 00  05 00  61 6c 70 68 61           //     [0] id 2 name, len 7: str: u16 length 5, "alpha"
+    03 00 04 00 00 00  01 00 00 00                     //     [0] id 3 count, len 4: 1
+    1d 00 00 00                                        //     [1] removed_proto: L = 29
+    01 00 01 00 00 00  00                              //     [1] id 1 kind, len 1: 0
+    02 00 06 00 00 00  04 00  62 65 74 61              //     [1] id 2 name, len 6: str: u16 length 4, "beta"
+    03 00 04 00 00 00  02 00 00 00                     //     [1] id 3 count, len 4: 2
+@dump
+new_lineage=false
+r=5
+removed.len=2
+removed[0].kind=0
+removed[0].name="alpha"
+removed[0].count=1
+removed[1].kind=0
+removed[1].name="beta"
+removed[1].count=2
+
+@type chunk_data                          # [TileId; 1024] (an id array: one line per tile), lists of structs, an empty list
+b6 04 00 00                                            // chunk_data: L = 1206
+01 00 08 00 00 00  ff ee dd cc bb aa 99 88             // id 1 world_hash, len 8: 9843086184167632639
+02 00 02 00 00 00  00 00                               // id 2 surface, len 2: 0
+03 00 04 00 00 00  00 80 00 80                         // id 3 key, len 4: 2147516416 (cx 0, cy 0)
+04 00 00 04 00 00                                      // id 4 tiles, len 1024:
+  02 00 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[0..31] (tiles[0] 2, [1] 0)
+  ff 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[32..63] (tiles[32] 255 = none)
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[64..95]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[96..127]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[128..159]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[160..191]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[192..223]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[224..255]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[256..287]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[288..319]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[320..351]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[352..383]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[384..415]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[416..447]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[448..479]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[480..511]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[512..543]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[544..575]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[576..607]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[608..639]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[640..671]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[672..703]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[704..735]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[736..767]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[768..799]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[800..831]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[832..863]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[864..895]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[896..927]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[928..959]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 //   tiles[960..991]
+  01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 01 03 //   tiles[992..1023] (tiles[1023] 3)
+05 00 08 00 00 00  00 00 00 00 00 00 2e 40             // id 5 theta, len 8: 15.0
+06 00 08 00 00 00  00 00 00 00 00 00 e8 3f             // id 6 sunlight, len 8: 0.75
+07 00 14 00 00 00                                      // id 7 resources, len 20:
+  02 00 00 00                                          //   list: u32 count 2
+    05 00  00 00  dc 05 00 00                          //     [0] ResourceTile {tile 5, resource 0, amount 1500}
+    25 00  00 00  d0 07 00 00                          //     [1] ResourceTile {tile 37, resource 0, amount 2000}
+08 00 1c 00 00 00                                      // id 8 trees, len 28:
+  02 00 00 00                                          //   list: u32 count 2
+    00 ff ff ff  00 02 00 00  02 00  04  01            //     [0] TreeState {x -256, y 512, species 2, stage 4, variant 1}
+    00 01 00 00  00 00 00 00  00 00  00  03            //     [1] TreeState {x 256, y 0, species 0, stage 0, variant 3}
+09 00 10 00 00 00                                      // id 9 objects, len 16:
+  01 00 00 00                                          //   list: u32 count 1
+    00 04 00 00  00 04 00 00  05 00  00  00            //     [0] ObjectState {x 1024, y 1024, object 5, variant 0}
+0a 00 04 00 00 00  00 00 00 00                         // id 10 cliffs, len 4: list: u32 count 0
+0b 00 08 00 00 00                                      // id 11 town_features, len 8:
+  01 00 00 00                                          //   list: u32 count 1
+    ff 03  07 00                                       //     [0] TownFeature {tile 1023, building 7}
+0c 00 04 00 00 00  ef be ad de                         // id 12 decor_seed, len 4: 3735928559
+@dump
+world_hash=9843086184167632639
+surface=0
+key=2147516416
+tiles[0]=2
+tiles[1]=0
+tiles[2]=1
+tiles[3]=1
+tiles[4]=1
+tiles[5]=1
+tiles[6]=1
+tiles[7]=1
+tiles[8]=1
+tiles[9]=1
+tiles[10]=1
+tiles[11]=1
+tiles[12]=1
+tiles[13]=1
+tiles[14]=1
+tiles[15]=1
+tiles[16]=1
+tiles[17]=1
+tiles[18]=1
+tiles[19]=1
+tiles[20]=1
+tiles[21]=1
+tiles[22]=1
+tiles[23]=1
+tiles[24]=1
+tiles[25]=1
+tiles[26]=1
+tiles[27]=1
+tiles[28]=1
+tiles[29]=1
+tiles[30]=1
+tiles[31]=1
+tiles[32]=255
+tiles[33]=1
+tiles[34]=1
+tiles[35]=1
+tiles[36]=1
+tiles[37]=1
+tiles[38]=1
+tiles[39]=1
+tiles[40]=1
+tiles[41]=1
+tiles[42]=1
+tiles[43]=1
+tiles[44]=1
+tiles[45]=1
+tiles[46]=1
+tiles[47]=1
+tiles[48]=1
+tiles[49]=1
+tiles[50]=1
+tiles[51]=1
+tiles[52]=1
+tiles[53]=1
+tiles[54]=1
+tiles[55]=1
+tiles[56]=1
+tiles[57]=1
+tiles[58]=1
+tiles[59]=1
+tiles[60]=1
+tiles[61]=1
+tiles[62]=1
+tiles[63]=1
+tiles[64]=1
+tiles[65]=1
+tiles[66]=1
+tiles[67]=1
+tiles[68]=1
+tiles[69]=1
+tiles[70]=1
+tiles[71]=1
+tiles[72]=1
+tiles[73]=1
+tiles[74]=1
+tiles[75]=1
+tiles[76]=1
+tiles[77]=1
+tiles[78]=1
+tiles[79]=1
+tiles[80]=1
+tiles[81]=1
+tiles[82]=1
+tiles[83]=1
+tiles[84]=1
+tiles[85]=1
+tiles[86]=1
+tiles[87]=1
+tiles[88]=1
+tiles[89]=1
+tiles[90]=1
+tiles[91]=1
+tiles[92]=1
+tiles[93]=1
+tiles[94]=1
+tiles[95]=1
+tiles[96]=1
+tiles[97]=1
+tiles[98]=1
+tiles[99]=1
+tiles[100]=1
+tiles[101]=1
+tiles[102]=1
+tiles[103]=1
+tiles[104]=1
+tiles[105]=1
+tiles[106]=1
+tiles[107]=1
+tiles[108]=1
+tiles[109]=1
+tiles[110]=1
+tiles[111]=1
+tiles[112]=1
+tiles[113]=1
+tiles[114]=1
+tiles[115]=1
+tiles[116]=1
+tiles[117]=1
+tiles[118]=1
+tiles[119]=1
+tiles[120]=1
+tiles[121]=1
+tiles[122]=1
+tiles[123]=1
+tiles[124]=1
+tiles[125]=1
+tiles[126]=1
+tiles[127]=1
+tiles[128]=1
+tiles[129]=1
+tiles[130]=1
+tiles[131]=1
+tiles[132]=1
+tiles[133]=1
+tiles[134]=1
+tiles[135]=1
+tiles[136]=1
+tiles[137]=1
+tiles[138]=1
+tiles[139]=1
+tiles[140]=1
+tiles[141]=1
+tiles[142]=1
+tiles[143]=1
+tiles[144]=1
+tiles[145]=1
+tiles[146]=1
+tiles[147]=1
+tiles[148]=1
+tiles[149]=1
+tiles[150]=1
+tiles[151]=1
+tiles[152]=1
+tiles[153]=1
+tiles[154]=1
+tiles[155]=1
+tiles[156]=1
+tiles[157]=1
+tiles[158]=1
+tiles[159]=1
+tiles[160]=1
+tiles[161]=1
+tiles[162]=1
+tiles[163]=1
+tiles[164]=1
+tiles[165]=1
+tiles[166]=1
+tiles[167]=1
+tiles[168]=1
+tiles[169]=1
+tiles[170]=1
+tiles[171]=1
+tiles[172]=1
+tiles[173]=1
+tiles[174]=1
+tiles[175]=1
+tiles[176]=1
+tiles[177]=1
+tiles[178]=1
+tiles[179]=1
+tiles[180]=1
+tiles[181]=1
+tiles[182]=1
+tiles[183]=1
+tiles[184]=1
+tiles[185]=1
+tiles[186]=1
+tiles[187]=1
+tiles[188]=1
+tiles[189]=1
+tiles[190]=1
+tiles[191]=1
+tiles[192]=1
+tiles[193]=1
+tiles[194]=1
+tiles[195]=1
+tiles[196]=1
+tiles[197]=1
+tiles[198]=1
+tiles[199]=1
+tiles[200]=1
+tiles[201]=1
+tiles[202]=1
+tiles[203]=1
+tiles[204]=1
+tiles[205]=1
+tiles[206]=1
+tiles[207]=1
+tiles[208]=1
+tiles[209]=1
+tiles[210]=1
+tiles[211]=1
+tiles[212]=1
+tiles[213]=1
+tiles[214]=1
+tiles[215]=1
+tiles[216]=1
+tiles[217]=1
+tiles[218]=1
+tiles[219]=1
+tiles[220]=1
+tiles[221]=1
+tiles[222]=1
+tiles[223]=1
+tiles[224]=1
+tiles[225]=1
+tiles[226]=1
+tiles[227]=1
+tiles[228]=1
+tiles[229]=1
+tiles[230]=1
+tiles[231]=1
+tiles[232]=1
+tiles[233]=1
+tiles[234]=1
+tiles[235]=1
+tiles[236]=1
+tiles[237]=1
+tiles[238]=1
+tiles[239]=1
+tiles[240]=1
+tiles[241]=1
+tiles[242]=1
+tiles[243]=1
+tiles[244]=1
+tiles[245]=1
+tiles[246]=1
+tiles[247]=1
+tiles[248]=1
+tiles[249]=1
+tiles[250]=1
+tiles[251]=1
+tiles[252]=1
+tiles[253]=1
+tiles[254]=1
+tiles[255]=1
+tiles[256]=1
+tiles[257]=1
+tiles[258]=1
+tiles[259]=1
+tiles[260]=1
+tiles[261]=1
+tiles[262]=1
+tiles[263]=1
+tiles[264]=1
+tiles[265]=1
+tiles[266]=1
+tiles[267]=1
+tiles[268]=1
+tiles[269]=1
+tiles[270]=1
+tiles[271]=1
+tiles[272]=1
+tiles[273]=1
+tiles[274]=1
+tiles[275]=1
+tiles[276]=1
+tiles[277]=1
+tiles[278]=1
+tiles[279]=1
+tiles[280]=1
+tiles[281]=1
+tiles[282]=1
+tiles[283]=1
+tiles[284]=1
+tiles[285]=1
+tiles[286]=1
+tiles[287]=1
+tiles[288]=1
+tiles[289]=1
+tiles[290]=1
+tiles[291]=1
+tiles[292]=1
+tiles[293]=1
+tiles[294]=1
+tiles[295]=1
+tiles[296]=1
+tiles[297]=1
+tiles[298]=1
+tiles[299]=1
+tiles[300]=1
+tiles[301]=1
+tiles[302]=1
+tiles[303]=1
+tiles[304]=1
+tiles[305]=1
+tiles[306]=1
+tiles[307]=1
+tiles[308]=1
+tiles[309]=1
+tiles[310]=1
+tiles[311]=1
+tiles[312]=1
+tiles[313]=1
+tiles[314]=1
+tiles[315]=1
+tiles[316]=1
+tiles[317]=1
+tiles[318]=1
+tiles[319]=1
+tiles[320]=1
+tiles[321]=1
+tiles[322]=1
+tiles[323]=1
+tiles[324]=1
+tiles[325]=1
+tiles[326]=1
+tiles[327]=1
+tiles[328]=1
+tiles[329]=1
+tiles[330]=1
+tiles[331]=1
+tiles[332]=1
+tiles[333]=1
+tiles[334]=1
+tiles[335]=1
+tiles[336]=1
+tiles[337]=1
+tiles[338]=1
+tiles[339]=1
+tiles[340]=1
+tiles[341]=1
+tiles[342]=1
+tiles[343]=1
+tiles[344]=1
+tiles[345]=1
+tiles[346]=1
+tiles[347]=1
+tiles[348]=1
+tiles[349]=1
+tiles[350]=1
+tiles[351]=1
+tiles[352]=1
+tiles[353]=1
+tiles[354]=1
+tiles[355]=1
+tiles[356]=1
+tiles[357]=1
+tiles[358]=1
+tiles[359]=1
+tiles[360]=1
+tiles[361]=1
+tiles[362]=1
+tiles[363]=1
+tiles[364]=1
+tiles[365]=1
+tiles[366]=1
+tiles[367]=1
+tiles[368]=1
+tiles[369]=1
+tiles[370]=1
+tiles[371]=1
+tiles[372]=1
+tiles[373]=1
+tiles[374]=1
+tiles[375]=1
+tiles[376]=1
+tiles[377]=1
+tiles[378]=1
+tiles[379]=1
+tiles[380]=1
+tiles[381]=1
+tiles[382]=1
+tiles[383]=1
+tiles[384]=1
+tiles[385]=1
+tiles[386]=1
+tiles[387]=1
+tiles[388]=1
+tiles[389]=1
+tiles[390]=1
+tiles[391]=1
+tiles[392]=1
+tiles[393]=1
+tiles[394]=1
+tiles[395]=1
+tiles[396]=1
+tiles[397]=1
+tiles[398]=1
+tiles[399]=1
+tiles[400]=1
+tiles[401]=1
+tiles[402]=1
+tiles[403]=1
+tiles[404]=1
+tiles[405]=1
+tiles[406]=1
+tiles[407]=1
+tiles[408]=1
+tiles[409]=1
+tiles[410]=1
+tiles[411]=1
+tiles[412]=1
+tiles[413]=1
+tiles[414]=1
+tiles[415]=1
+tiles[416]=1
+tiles[417]=1
+tiles[418]=1
+tiles[419]=1
+tiles[420]=1
+tiles[421]=1
+tiles[422]=1
+tiles[423]=1
+tiles[424]=1
+tiles[425]=1
+tiles[426]=1
+tiles[427]=1
+tiles[428]=1
+tiles[429]=1
+tiles[430]=1
+tiles[431]=1
+tiles[432]=1
+tiles[433]=1
+tiles[434]=1
+tiles[435]=1
+tiles[436]=1
+tiles[437]=1
+tiles[438]=1
+tiles[439]=1
+tiles[440]=1
+tiles[441]=1
+tiles[442]=1
+tiles[443]=1
+tiles[444]=1
+tiles[445]=1
+tiles[446]=1
+tiles[447]=1
+tiles[448]=1
+tiles[449]=1
+tiles[450]=1
+tiles[451]=1
+tiles[452]=1
+tiles[453]=1
+tiles[454]=1
+tiles[455]=1
+tiles[456]=1
+tiles[457]=1
+tiles[458]=1
+tiles[459]=1
+tiles[460]=1
+tiles[461]=1
+tiles[462]=1
+tiles[463]=1
+tiles[464]=1
+tiles[465]=1
+tiles[466]=1
+tiles[467]=1
+tiles[468]=1
+tiles[469]=1
+tiles[470]=1
+tiles[471]=1
+tiles[472]=1
+tiles[473]=1
+tiles[474]=1
+tiles[475]=1
+tiles[476]=1
+tiles[477]=1
+tiles[478]=1
+tiles[479]=1
+tiles[480]=1
+tiles[481]=1
+tiles[482]=1
+tiles[483]=1
+tiles[484]=1
+tiles[485]=1
+tiles[486]=1
+tiles[487]=1
+tiles[488]=1
+tiles[489]=1
+tiles[490]=1
+tiles[491]=1
+tiles[492]=1
+tiles[493]=1
+tiles[494]=1
+tiles[495]=1
+tiles[496]=1
+tiles[497]=1
+tiles[498]=1
+tiles[499]=1
+tiles[500]=1
+tiles[501]=1
+tiles[502]=1
+tiles[503]=1
+tiles[504]=1
+tiles[505]=1
+tiles[506]=1
+tiles[507]=1
+tiles[508]=1
+tiles[509]=1
+tiles[510]=1
+tiles[511]=1
+tiles[512]=1
+tiles[513]=1
+tiles[514]=1
+tiles[515]=1
+tiles[516]=1
+tiles[517]=1
+tiles[518]=1
+tiles[519]=1
+tiles[520]=1
+tiles[521]=1
+tiles[522]=1
+tiles[523]=1
+tiles[524]=1
+tiles[525]=1
+tiles[526]=1
+tiles[527]=1
+tiles[528]=1
+tiles[529]=1
+tiles[530]=1
+tiles[531]=1
+tiles[532]=1
+tiles[533]=1
+tiles[534]=1
+tiles[535]=1
+tiles[536]=1
+tiles[537]=1
+tiles[538]=1
+tiles[539]=1
+tiles[540]=1
+tiles[541]=1
+tiles[542]=1
+tiles[543]=1
+tiles[544]=1
+tiles[545]=1
+tiles[546]=1
+tiles[547]=1
+tiles[548]=1
+tiles[549]=1
+tiles[550]=1
+tiles[551]=1
+tiles[552]=1
+tiles[553]=1
+tiles[554]=1
+tiles[555]=1
+tiles[556]=1
+tiles[557]=1
+tiles[558]=1
+tiles[559]=1
+tiles[560]=1
+tiles[561]=1
+tiles[562]=1
+tiles[563]=1
+tiles[564]=1
+tiles[565]=1
+tiles[566]=1
+tiles[567]=1
+tiles[568]=1
+tiles[569]=1
+tiles[570]=1
+tiles[571]=1
+tiles[572]=1
+tiles[573]=1
+tiles[574]=1
+tiles[575]=1
+tiles[576]=1
+tiles[577]=1
+tiles[578]=1
+tiles[579]=1
+tiles[580]=1
+tiles[581]=1
+tiles[582]=1
+tiles[583]=1
+tiles[584]=1
+tiles[585]=1
+tiles[586]=1
+tiles[587]=1
+tiles[588]=1
+tiles[589]=1
+tiles[590]=1
+tiles[591]=1
+tiles[592]=1
+tiles[593]=1
+tiles[594]=1
+tiles[595]=1
+tiles[596]=1
+tiles[597]=1
+tiles[598]=1
+tiles[599]=1
+tiles[600]=1
+tiles[601]=1
+tiles[602]=1
+tiles[603]=1
+tiles[604]=1
+tiles[605]=1
+tiles[606]=1
+tiles[607]=1
+tiles[608]=1
+tiles[609]=1
+tiles[610]=1
+tiles[611]=1
+tiles[612]=1
+tiles[613]=1
+tiles[614]=1
+tiles[615]=1
+tiles[616]=1
+tiles[617]=1
+tiles[618]=1
+tiles[619]=1
+tiles[620]=1
+tiles[621]=1
+tiles[622]=1
+tiles[623]=1
+tiles[624]=1
+tiles[625]=1
+tiles[626]=1
+tiles[627]=1
+tiles[628]=1
+tiles[629]=1
+tiles[630]=1
+tiles[631]=1
+tiles[632]=1
+tiles[633]=1
+tiles[634]=1
+tiles[635]=1
+tiles[636]=1
+tiles[637]=1
+tiles[638]=1
+tiles[639]=1
+tiles[640]=1
+tiles[641]=1
+tiles[642]=1
+tiles[643]=1
+tiles[644]=1
+tiles[645]=1
+tiles[646]=1
+tiles[647]=1
+tiles[648]=1
+tiles[649]=1
+tiles[650]=1
+tiles[651]=1
+tiles[652]=1
+tiles[653]=1
+tiles[654]=1
+tiles[655]=1
+tiles[656]=1
+tiles[657]=1
+tiles[658]=1
+tiles[659]=1
+tiles[660]=1
+tiles[661]=1
+tiles[662]=1
+tiles[663]=1
+tiles[664]=1
+tiles[665]=1
+tiles[666]=1
+tiles[667]=1
+tiles[668]=1
+tiles[669]=1
+tiles[670]=1
+tiles[671]=1
+tiles[672]=1
+tiles[673]=1
+tiles[674]=1
+tiles[675]=1
+tiles[676]=1
+tiles[677]=1
+tiles[678]=1
+tiles[679]=1
+tiles[680]=1
+tiles[681]=1
+tiles[682]=1
+tiles[683]=1
+tiles[684]=1
+tiles[685]=1
+tiles[686]=1
+tiles[687]=1
+tiles[688]=1
+tiles[689]=1
+tiles[690]=1
+tiles[691]=1
+tiles[692]=1
+tiles[693]=1
+tiles[694]=1
+tiles[695]=1
+tiles[696]=1
+tiles[697]=1
+tiles[698]=1
+tiles[699]=1
+tiles[700]=1
+tiles[701]=1
+tiles[702]=1
+tiles[703]=1
+tiles[704]=1
+tiles[705]=1
+tiles[706]=1
+tiles[707]=1
+tiles[708]=1
+tiles[709]=1
+tiles[710]=1
+tiles[711]=1
+tiles[712]=1
+tiles[713]=1
+tiles[714]=1
+tiles[715]=1
+tiles[716]=1
+tiles[717]=1
+tiles[718]=1
+tiles[719]=1
+tiles[720]=1
+tiles[721]=1
+tiles[722]=1
+tiles[723]=1
+tiles[724]=1
+tiles[725]=1
+tiles[726]=1
+tiles[727]=1
+tiles[728]=1
+tiles[729]=1
+tiles[730]=1
+tiles[731]=1
+tiles[732]=1
+tiles[733]=1
+tiles[734]=1
+tiles[735]=1
+tiles[736]=1
+tiles[737]=1
+tiles[738]=1
+tiles[739]=1
+tiles[740]=1
+tiles[741]=1
+tiles[742]=1
+tiles[743]=1
+tiles[744]=1
+tiles[745]=1
+tiles[746]=1
+tiles[747]=1
+tiles[748]=1
+tiles[749]=1
+tiles[750]=1
+tiles[751]=1
+tiles[752]=1
+tiles[753]=1
+tiles[754]=1
+tiles[755]=1
+tiles[756]=1
+tiles[757]=1
+tiles[758]=1
+tiles[759]=1
+tiles[760]=1
+tiles[761]=1
+tiles[762]=1
+tiles[763]=1
+tiles[764]=1
+tiles[765]=1
+tiles[766]=1
+tiles[767]=1
+tiles[768]=1
+tiles[769]=1
+tiles[770]=1
+tiles[771]=1
+tiles[772]=1
+tiles[773]=1
+tiles[774]=1
+tiles[775]=1
+tiles[776]=1
+tiles[777]=1
+tiles[778]=1
+tiles[779]=1
+tiles[780]=1
+tiles[781]=1
+tiles[782]=1
+tiles[783]=1
+tiles[784]=1
+tiles[785]=1
+tiles[786]=1
+tiles[787]=1
+tiles[788]=1
+tiles[789]=1
+tiles[790]=1
+tiles[791]=1
+tiles[792]=1
+tiles[793]=1
+tiles[794]=1
+tiles[795]=1
+tiles[796]=1
+tiles[797]=1
+tiles[798]=1
+tiles[799]=1
+tiles[800]=1
+tiles[801]=1
+tiles[802]=1
+tiles[803]=1
+tiles[804]=1
+tiles[805]=1
+tiles[806]=1
+tiles[807]=1
+tiles[808]=1
+tiles[809]=1
+tiles[810]=1
+tiles[811]=1
+tiles[812]=1
+tiles[813]=1
+tiles[814]=1
+tiles[815]=1
+tiles[816]=1
+tiles[817]=1
+tiles[818]=1
+tiles[819]=1
+tiles[820]=1
+tiles[821]=1
+tiles[822]=1
+tiles[823]=1
+tiles[824]=1
+tiles[825]=1
+tiles[826]=1
+tiles[827]=1
+tiles[828]=1
+tiles[829]=1
+tiles[830]=1
+tiles[831]=1
+tiles[832]=1
+tiles[833]=1
+tiles[834]=1
+tiles[835]=1
+tiles[836]=1
+tiles[837]=1
+tiles[838]=1
+tiles[839]=1
+tiles[840]=1
+tiles[841]=1
+tiles[842]=1
+tiles[843]=1
+tiles[844]=1
+tiles[845]=1
+tiles[846]=1
+tiles[847]=1
+tiles[848]=1
+tiles[849]=1
+tiles[850]=1
+tiles[851]=1
+tiles[852]=1
+tiles[853]=1
+tiles[854]=1
+tiles[855]=1
+tiles[856]=1
+tiles[857]=1
+tiles[858]=1
+tiles[859]=1
+tiles[860]=1
+tiles[861]=1
+tiles[862]=1
+tiles[863]=1
+tiles[864]=1
+tiles[865]=1
+tiles[866]=1
+tiles[867]=1
+tiles[868]=1
+tiles[869]=1
+tiles[870]=1
+tiles[871]=1
+tiles[872]=1
+tiles[873]=1
+tiles[874]=1
+tiles[875]=1
+tiles[876]=1
+tiles[877]=1
+tiles[878]=1
+tiles[879]=1
+tiles[880]=1
+tiles[881]=1
+tiles[882]=1
+tiles[883]=1
+tiles[884]=1
+tiles[885]=1
+tiles[886]=1
+tiles[887]=1
+tiles[888]=1
+tiles[889]=1
+tiles[890]=1
+tiles[891]=1
+tiles[892]=1
+tiles[893]=1
+tiles[894]=1
+tiles[895]=1
+tiles[896]=1
+tiles[897]=1
+tiles[898]=1
+tiles[899]=1
+tiles[900]=1
+tiles[901]=1
+tiles[902]=1
+tiles[903]=1
+tiles[904]=1
+tiles[905]=1
+tiles[906]=1
+tiles[907]=1
+tiles[908]=1
+tiles[909]=1
+tiles[910]=1
+tiles[911]=1
+tiles[912]=1
+tiles[913]=1
+tiles[914]=1
+tiles[915]=1
+tiles[916]=1
+tiles[917]=1
+tiles[918]=1
+tiles[919]=1
+tiles[920]=1
+tiles[921]=1
+tiles[922]=1
+tiles[923]=1
+tiles[924]=1
+tiles[925]=1
+tiles[926]=1
+tiles[927]=1
+tiles[928]=1
+tiles[929]=1
+tiles[930]=1
+tiles[931]=1
+tiles[932]=1
+tiles[933]=1
+tiles[934]=1
+tiles[935]=1
+tiles[936]=1
+tiles[937]=1
+tiles[938]=1
+tiles[939]=1
+tiles[940]=1
+tiles[941]=1
+tiles[942]=1
+tiles[943]=1
+tiles[944]=1
+tiles[945]=1
+tiles[946]=1
+tiles[947]=1
+tiles[948]=1
+tiles[949]=1
+tiles[950]=1
+tiles[951]=1
+tiles[952]=1
+tiles[953]=1
+tiles[954]=1
+tiles[955]=1
+tiles[956]=1
+tiles[957]=1
+tiles[958]=1
+tiles[959]=1
+tiles[960]=1
+tiles[961]=1
+tiles[962]=1
+tiles[963]=1
+tiles[964]=1
+tiles[965]=1
+tiles[966]=1
+tiles[967]=1
+tiles[968]=1
+tiles[969]=1
+tiles[970]=1
+tiles[971]=1
+tiles[972]=1
+tiles[973]=1
+tiles[974]=1
+tiles[975]=1
+tiles[976]=1
+tiles[977]=1
+tiles[978]=1
+tiles[979]=1
+tiles[980]=1
+tiles[981]=1
+tiles[982]=1
+tiles[983]=1
+tiles[984]=1
+tiles[985]=1
+tiles[986]=1
+tiles[987]=1
+tiles[988]=1
+tiles[989]=1
+tiles[990]=1
+tiles[991]=1
+tiles[992]=1
+tiles[993]=1
+tiles[994]=1
+tiles[995]=1
+tiles[996]=1
+tiles[997]=1
+tiles[998]=1
+tiles[999]=1
+tiles[1000]=1
+tiles[1001]=1
+tiles[1002]=1
+tiles[1003]=1
+tiles[1004]=1
+tiles[1005]=1
+tiles[1006]=1
+tiles[1007]=1
+tiles[1008]=1
+tiles[1009]=1
+tiles[1010]=1
+tiles[1011]=1
+tiles[1012]=1
+tiles[1013]=1
+tiles[1014]=1
+tiles[1015]=1
+tiles[1016]=1
+tiles[1017]=1
+tiles[1018]=1
+tiles[1019]=1
+tiles[1020]=1
+tiles[1021]=1
+tiles[1022]=1
+tiles[1023]=3
+theta=f64:402e000000000000
+sunlight=f64:3fe8000000000000
+resources.len=2
+resources[0].tile=5
+resources[0].resource=0
+resources[0].amount=1500
+resources[1].tile=37
+resources[1].resource=0
+resources[1].amount=2000
+trees.len=2
+trees[0].x=-256
+trees[0].y=512
+trees[0].species=2
+trees[0].stage=4
+trees[0].variant=1
+trees[1].x=256
+trees[1].y=0
+trees[1].species=0
+trees[1].stage=0
+trees[1].variant=3
+objects.len=1
+objects[0].x=1024
+objects[0].y=1024
+objects[0].object=5
+objects[0].variant=0
+cliffs.len=0
+town_features.len=1
+town_features[0].tile=1023
+town_features[0].building=7
+decor_seed=3735928559
+
+@type BlobPut                             # Hash256, then u8[..] (the rest)
+ba 78 16 bf 8f 01 cf ea 41 41 40 de 5d ae 22 23 b0 03 61 a3 96 17 7a 9c b4 10 ff 61 f2 00 15 ad   // sha256 = SHA-256("abc")
+61 62 63                                  // bytes "abc"
+@dump
+sha256.bytes=hex:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+bytes=hex:616263
+
+@type PendingChunks                       # u32 count, ChunkRequest[count]
+02 00 00 00                               // count 2
+00 00  00 00  ff ff ff ff  02 00 00 00  62 02 00 00   // [0] surface 0, reserved, cx -1, cy 2, commit_tick 610
+00 00  00 00  00 00 00 00  00 00 00 00  64 02 00 00   // [1] surface 0, reserved, cx 0, cy 0, commit_tick 612
+@dump
+requests.len=2
+requests[0].surface=0
+requests[0].cx=-1
+requests[0].cy=2
+requests[0].commit_tick=610
+requests[1].surface=0
+requests[1].cx=0
+requests[1].cy=0
+requests[1].commit_tick=612
+
+@type SubscribeInput                      # u16 count, SubRequest[count]: variable-size items (one with a tail)
+02 00                                     // count 2
+05 00 00 00  03 00  00 00  4d 00 00 00    // subs[0]: sub_id 5, kind 3 (INVENTORY), flags 0, target 77
+02 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00   //   p0 2 (chest), p1 0, p2 0, p3 0 (no tail)
+06 00 00 00  07 00  01 00  00 00 00 00    // subs[1]: sub_id 6, kind 7 (STATS), flags 1 (tail), target 0
+00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00   //   p0 0, p1 0, p2 0, p3 0
+04 00  28 00 00 01                        //   tail: 4 bytes (StatKey 0x01000028)
+@dump
+subs.len=2
+subs[0].sub_id=5
+subs[0].kind=3
+subs[0].flags=0
+subs[0].target=77
+subs[0].p0=2
+subs[0].p1=0
+subs[0].p2=0
+subs[0].p3=0
+subs[1].sub_id=6
+subs[1].kind=7
+subs[1].flags=1
+subs[1].target=0
+subs[1].p0=0
+subs[1].p1=0
+subs[1].p2=0
+subs[1].p3=0
+subs[1].tail=hex:28000001
+
+@type QueryStepOutput                     # u32 count, QueryResult[count], each padded to 4
+02 00 00 00                               // count 2
+09 00 00 00  01  01  00 00                // results[0]: id 9, ok true, flags 1 (truncated), reserved
+58 02 00 00  58 02 00 00  14 00 00 00     //   first_tick 600, last_tick 600, len 20
+58 02 00 00  01 00 00 00 00 00 00 00  02 00 00 00 00 00 00 00   //   body: a DigestResult (tick 600, d 1, r 2); 20 + 20 = 40 bytes, no padding
+0a 00 00 00  00  00  00 00                // results[1]: id 10, ok false, flags 0, reserved
+59 02 00 00  5a 02 00 00  02 00 00 00     //   first_tick 601, last_tick 602, len 2
+04 00                                     //   body: UiInvalidReason 4 (not_found)
+00 00                                     //   padding: 20 + 2 = 22 → 24
+@dump
+results.len=2
+results[0].id=9
+results[0].ok=true
+results[0].flags=1
+results[0].first_tick=600
+results[0].last_tick=600
+results[0].body=hex:5802000001000000000000000200000000000000
+results[1].id=10
+results[1].ok=false
+results[1].flags=0
+results[1].first_tick=601
+results[1].last_tick=602
+results[1].body=hex:0400
+
+@type PoolDir                             # PoolColumn[..]: whole 12-byte items to the end
+01 00 00 00  00 00 01 00  40 00 00 00     // [0] column 1, ptr 0x10000, len 64
+02 00 00 00  40 00 01 00  80 00 00 00     // [1] column 2, ptr 0x10040, len 128
+@dump
+columns.len=2
+columns[0].column=1
+columns[0].ptr=65536
+columns[0].len=64
+columns[1].column=2
+columns[1].ptr=65600
+columns[1].len=128
+
+@type TickDigest                          # four hidden counts; PlayerDigest is 22 bytes, packed
+59 02 00 00                               // tick 601
+08 07 06 05 04 03 02 01                   // closure_hash 0x0102030405060708
+01 00 00 00                               // rng_count 1
+78 56 34 12  f0 de bc 9a  01 00 00 00  ff ff ff ff   // rng[0]: s0, s1, s2, s3
+03 00 00 00                               // entity_count 3 (not a count of any array: dumped)
+01 00 00 00                               // produced_count 1
+28 00 00 01  00 00 00 00 00 00 00 40      // produced[0]: key 0x01000028, value 2.0
+00 00 00 00                               // consumed_count 0
+01 00 00 00                               // player_count 1
+00 00  00 00 00 00 00 00 e0 3f  00 00 00 00 00 00 f4 bf  11 00 00 00   // players[0]: index 0, x 0.5, y -1.25, inventory_version 17
+ff ff                                     // research_tech 0xFFFF (none)
+00 00 00 00 00 00 00 00                   // research_progress 0.0
+@dump
+tick=601
+closure_hash=72623859790382856
+rng.len=1
+rng[0].s0=305419896
+rng[0].s1=2596069104
+rng[0].s2=1
+rng[0].s3=4294967295
+entity_count=3
+produced.len=1
+produced[0].key=16777256
+produced[0].value=f64:4000000000000000
+consumed.len=0
+players.len=1
+players[0].index=0
+players[0].x=f64:3fe0000000000000
+players[0].y=f64:bff4000000000000
+players[0].inventory_version=17
+research_tech=65535
+research_progress=f64:0000000000000000
+
+@type LoadInput                           # SectionFrame[section_count], RemapTable[kind_count], u64
+01 00 00 00                               // section_count 1
+09 00 00 00  01 00  00  01                // sections[0]: id 9 (TIMERS), version 1, codec 0 (raw), flags 1 (hashed)
+04 00 00 00  04 00 00 00                  //   raw_length 4, stored_length 4
+00 00 00 00                               //   data: a records section holding 0 records
+00 00 00 00                               //   padding: 20 → 24
+01 00                                     // kind_count 1 (range [0, 9])
+00 00  03 00 00 00                        // remaps[0]: kind 0 (item), count 3
+00 00  ff ff  01 00                       //   ids: 0 → 0, 1 → removed, 2 → 1
+ef cd ab 89 67 45 23 01                   // r 0x0123456789ABCDEF
+@dump
+sections.len=1
+sections[0].id=9
+sections[0].version=1
+sections[0].codec=0
+sections[0].flags=1
+sections[0].raw_length=4
+sections[0].data=hex:00000000
+remaps.len=1
+remaps[0].kind=0
+remaps[0].ids.len=3
+remaps[0].ids[0]=0
+remaps[0].ids[1]=65535
+remaps[0].ids[2]=1
+r=81985529216486895
+
+@type GenInitInput                        # a message ending in a record: protos_len, protos, one new_world
+08 00 00 00                                            // protos_len 8 (hidden: protos carries it)
+50 57 50 52 4f 54 4f 00                                // protos: 8 bytes ("PWPROTO\0", a stand-in)
+b2 01 00 00                                            // world: new_world: L = 434
+01 00 04 00 00 00  00 00 00 00                         // id 1 seed, len 4: 0
+02 00 ca 00 00 00                                      // id 2 map, len 202:
+  c6 00 00 00                                          //   map_settings: L = 198
+  01 00 04 00 00 00  00 00 00 00                       //   id 1 width, len 4: 0 (unbounded)
+  02 00 04 00 00 00  00 00 00 00                       //   id 2 height, len 4: 0 (unbounded)
+  03 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 3 starting_area, len 8: 1.0
+  04 00 04 00 00 00  00 00 00 00                       //   id 4 resources, len 4: list: u32 count 0
+  05 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 5 water_scale, len 8: 1.0
+  06 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 6 water_coverage, len 8: 1.0
+  07 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 7 trees_frequency, len 8: 1.0
+  08 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 8 trees_size, len 8: 1.0
+  09 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 9 cliffs_frequency, len 8: 1.0
+  0a 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 10 cliffs_continuity, len 8: 1.0
+  0b 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 11 towns_frequency, len 8: 1.0
+  0c 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 12 towns_size, len 8: 1.0
+  0d 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 13 archives_size, len 8: 1.0
+  0e 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 14 archives_richness, len 8: 1.0
+  0f 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 15 exchanges_richness, len 8: 1.0
+03 00 c1 00 00 00                                      // id 3 world, len 193:
+  bd 00 00 00                                          //   world_settings: L = 189
+  01 00 01 00 00 00  01                                //   id 1 heat, len 1: true
+  02 00 01 00 00 00  01                                //   id 2 staffing, len 1: true
+  03 00 01 00 00 00  01                                //   id 3 runaways, len 1: 1 (contained)
+  04 00 08 00 00 00  a3 f4 07 83 28 5a fb 3f           //   id 4 returns_to_research, len 8: 1.7095112913514547
+  05 00 01 00 00 00  00                                //   id 5 race_mode, len 1: 0 (off)
+  06 00 01 00 00 00  00                                //   id 6 scooped, len 1: false
+  07 00 01 00 00 00  01                                //   id 7 hollow_work, len 1: true
+  08 00 01 00 00 00  01                                //   id 8 climate_compass, len 1: true
+  09 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 9 tech_price_multiplier, len 8: 1.0
+  0a 00 08 00 00 00  00 00 00 00 00 00 00 00           //   id 10 field_pace, len 8: 0.0
+  0b 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 11 leak_rate_multiplier, len 8: 1.0
+  0c 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 12 staffing_radius, len 8: 1.0
+  0d 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 13 staffing_supply, len 8: 1.0
+  0e 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 14 heat_diffusion_share, len 8: 1.0
+  0f 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 15 heat_min_diffuse, len 8: 1.0
+  10 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 16 heat_cooling_multiplier, len 8: 1.0
+  11 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 17 heat_tree_damage_threshold, len 8: 1.0
+04 00 0b 00 00 00                                      // id 4 game, len 11:
+  07 00 00 00                                          //   game_settings: L = 7
+  01 00 01 00 00 00  00                                //   id 1 trimmed_collision, len 1: false
+@dump
+protos=hex:505750524f544f00
+world.seed=0
+world.map.width=0
+world.map.height=0
+world.map.starting_area=f64:3ff0000000000000
+world.map.resources.len=0
+world.map.water_scale=f64:3ff0000000000000
+world.map.water_coverage=f64:3ff0000000000000
+world.map.trees_frequency=f64:3ff0000000000000
+world.map.trees_size=f64:3ff0000000000000
+world.map.cliffs_frequency=f64:3ff0000000000000
+world.map.cliffs_continuity=f64:3ff0000000000000
+world.map.towns_frequency=f64:3ff0000000000000
+world.map.towns_size=f64:3ff0000000000000
+world.map.archives_size=f64:3ff0000000000000
+world.map.archives_richness=f64:3ff0000000000000
+world.map.exchanges_richness=f64:3ff0000000000000
+world.world.heat=true
+world.world.staffing=true
+world.world.runaways=1
+world.world.returns_to_research=f64:3ffb5a288307f4a3
+world.world.race_mode=0
+world.world.scooped=false
+world.world.hollow_work=true
+world.world.climate_compass=true
+world.world.tech_price_multiplier=f64:3ff0000000000000
+world.world.field_pace=f64:0000000000000000
+world.world.leak_rate_multiplier=f64:3ff0000000000000
+world.world.staffing_radius=f64:3ff0000000000000
+world.world.staffing_supply=f64:3ff0000000000000
+world.world.heat_diffusion_share=f64:3ff0000000000000
+world.world.heat_min_diffuse=f64:3ff0000000000000
+world.world.heat_cooling_multiplier=f64:3ff0000000000000
+world.world.heat_tree_damage_threshold=f64:3ff0000000000000
+world.game.trimmed_collision=false

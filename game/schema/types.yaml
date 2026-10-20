@@ -1,0 +1,616 @@
+# Shared scalars, ids, enums, flag sets and small fixed records (10 §15.1, §15.3, §4.2–§4.3).
+#
+# Every declaration is a list entry `- Name: {…}`; order inside `values`, `bits` and `fields` is the wire
+# order. Enum values and flag bits are explicit, append-only and never reused. Field types are the
+# scalars `u8 u16 u32 u64 i8 i16 i32 i64 f32 f64 bool`, the names declared in game/schema/, fixed arrays
+# `[T; N]`, and in messages and records `str`, `bytes`, `list<T>`, `blob`, `blob_or_bytes` (each with a
+# `max`). A field named `reserved…` is always zero: writers write zero and readers refuse anything else.
+# game/schema/README.md explains the format; scripts/schema-gen.ts validates it.
+
+# Raised with every change that alters a save section's layout (§15.1 "Versions"); `since` refers to it,
+# and every save records it per section (§8.1). M0 is format 1.
+schema_version: 1
+
+ids:
+  - Serial: {base: u32, none: 0, doc: "An entity's creation serial (§4.3): never reused; every reference across the boundary. 0 = none"}
+  - EntityHandle: {base: u32, none: 0, doc: "(generation << 22) | slot (§4.3). Runtime only: saves store the referenced entity's Serial (§4.5), and handles never leave the module. 0 = none (slot 0 of generation 0 is never handed out)"}
+  - ItemKey: {base: u16, none: 0xFFFF, doc: "(item id << 3) | quality index 0–4 (§4.3): belts, slots, hands, filters"}
+  - ItemId: {base: u16, none: 0xFFFF, doc: "Dense item prototype id (§2.4 step 5)"}
+  - FluidId: {base: u16, none: 0xFFFF, doc: "Dense fluid prototype id"}
+  - RecipeId: {base: u16, none: 0xFFFF, doc: "Dense recipe prototype id"}
+  - EntityId: {base: u16, none: 0xFFFF, doc: "Dense entity prototype id (the `EntityProto` of §4.5)"}
+  - TechId: {base: u16, none: 0xFFFF, doc: "Dense technology prototype id"}
+  - ResourceId: {base: u16, none: 0xFFFF, doc: "Dense resource prototype id"}
+  - TileId: {base: u8, none: 0xFF, doc: "Dense tile prototype id (§4.3: at most 255 tile types)"}
+  - WorldObjectId: {base: u16, none: 0xFFFF, doc: "Dense world-object prototype id (world.yaml)"}
+  - SignalId: {base: u16, none: 0xFFFF, doc: "Dense virtual-signal id (M2)"}
+  - PlayerIndex: {base: u16, none: 0xFFFF, doc: "0–31 for players (11 §6.5); 0xFFFF for the system and for none"}
+  - Tick: {base: u32, doc: "A world tick (§4.2)"}
+  - Seq: {base: u32, doc: "An action's sequence number within its player's stay in a world (§4.3, §15.3)"}
+  - ChunkKey: {base: u32, doc: "(cx + 2^15) × 2^16 + (cy + 2^15) (§4.4); `chunk_key` and `chunk_xy` convert"}
+  - SurfaceIndex: {base: u16, doc: "A surface (§4.3): fewer than 256, so the entity table and event headers store it in a u8"}
+  - ExprRef: {base: u32, none: 0xFFFFFFFF, doc: "Byte offset of an expression program in prototypes.bin's EXPR section (§15.2)"}
+  - IconIndex: {base: u16, none: 0xFFFF, doc: "Index into prototypes.json's `icons` table (§15.2, §15.7)"}
+  - SoundId: {base: u16, none: 0xFFFF, doc: "Dense sound id from game/data/engine/sounds.yaml, sorted by name (§15.6)"}
+  - MilestoneId: {base: u16, none: 0xFFFF, doc: "Dense id of text.yaml's milestones, assigned by the data stage (§15.6)"}
+  - InvRef: {base: u32, none: 0xFFFFFFFF, doc: "A slot-heap block (§4.5): (size class << 24) | block index"}
+  - StatKey: {base: u32, doc: "A production-statistics key (§5.20): (StatKind << 24) | id, the id being an ItemKey, FluidId or EntityId; `stat_key` builds it"}
+  - StateGen: {base: u32, doc: "The main thread's state generation (§3.4)"}
+  - SubId: {base: u32, doc: "A subscription id (§15.5): 1 upwards, never reused within a state generation; 0 is the hover projection"}
+  - QueryId: {base: u32, doc: "A query id (§15.5), chosen by the main thread"}
+
+enums:
+  - Direction:
+      base: u8
+      doc: "Factorio 2.0's defines.direction (§4.2): 16 directions, clockwise from north; most entities use 0/4/8/12"
+      values:
+        - north: 0
+        - north_north_east: 1
+        - north_east: 2
+        - east_north_east: 3
+        - east: 4
+        - east_south_east: 5
+        - south_east: 6
+        - south_south_east: 7
+        - south: 8
+        - south_south_west: 9
+        - south_west: 10
+        - west_south_west: 11
+        - west: 12
+        - west_north_west: 13
+        - north_west: 14
+        - north_north_west: 15
+  - ProtoKind:
+      base: u8
+      doc: "The prototype kinds (§8.3): the order of prototypes.bin's kind sections and NAMES tables, and of remap tables"
+      values:
+        - item: 0
+        - fluid: 1
+        - recipe: 2
+        - entity: 3
+        - technology: 4
+        - resource: 5
+        - tile: 6
+        - world_object: 7
+        - signal: 8
+  - EntityRefTag:
+      base: u8
+      doc: "EntityRef's tag (§15.3)"
+      values:
+        - none: 0
+        - serial: 1
+        - creation: 2
+  - BuildMode:
+      base: u8
+      doc: "build's mode (I §8.2)"
+      values:
+        - normal: 0
+        - ghost: 1
+        - superforced: 2
+  - FlipAxis:
+      base: u8
+      doc: "flip_entity's axis (I §8.2; Factorio 2.0 mirroring)"
+      values:
+        - horizontal: 0
+        - vertical: 1
+  - WireKind:
+      base: u8
+      doc: "wire_dragging's wire (M1 copper, M2 circuit)"
+      values:
+        - copper: 0
+        - red: 1
+        - green: 2
+  - MiningTarget:
+      base: u8
+      doc: >-
+        What begin_mining_terrain mines at its position (C1b decision; §15.3 allows positions for mining a tile, a
+        resource or an object): world objects and ground items are named by their exact position as the packet
+        gave it (ObjectView x, y), resource tiles and placed tiles by any position inside the tile
+      values:
+        - resource_tile: 0
+        - world_object: 1
+        - ground_item: 2
+        - tile: 3
+  - InventoryType:
+      base: u8
+      doc: "Inventory types (§4.5), each with its own acceptance rule; values are ours, not Factorio's per-entity defines.inventory"
+      values:
+        - main: 1
+        - chest: 2
+        - input: 3
+        - output: 4
+        - fuel: 5
+        - burnt_result: 6
+        - modules: 7
+        - staff: 8
+        - accelerators: 9
+        - weights: 10
+        - rollback_input: 11
+        - trash: 12
+  - SplitterPriority:
+      base: u8
+      doc: "set_splitter_priority's sides (ISO)"
+      values:
+        - none: 0
+        - left: 1
+        - right: 2
+  - PlayerSetting:
+      base: u16
+      doc: "Rule-affecting personal settings (§7.6, D11), set by set_player_setting; values 0 or 1"
+      values:
+        - auto_sort_inventory: 1
+        - pick_ghost_cursor: 2
+  - GameSetting:
+      base: u16
+      doc: "Rule-affecting game settings changed at runtime (§7.6, D11), set by set_game_setting; values 0 or 1"
+      values:
+        - trimmed_collision: 1
+  - Status:
+      base: u8
+      doc: >-
+        Entity status codes (§5.5): Factorio's entity_status vocabulary (I §3.12) plus ours. Internal codes, not
+        display text (08 §8.2 has the strings); locale key `entity-status.<name, dashed>`. Entities without a
+        status (chests) report none
+      locale: entity-status
+      values:
+        - none: 0
+        - working: 1
+        - normal: 2
+        - no_power: 3
+        - low_power: 4
+        - no_fuel: 5
+        - not_plugged_in: 6
+        - no_recipe: 7
+        - item_ingredient_shortage: 8
+        - fluid_ingredient_shortage: 9
+        - full_output: 10
+        - waiting_for_source_items: 11
+        - waiting_for_space_in_destination: 12
+        - no_minable_resources: 13
+        - missing_science_packs: 14
+        - no_research_in_progress: 15
+        - marked_for_deconstruction: 16
+        - disabled_by_control_behavior: 17
+        - low_input_fluid: 18
+        - charging: 19
+        - pipeline_overextended: 20
+        - working_researcher: 64
+        - working_linked: 65
+        - watching: 66
+        - cleaning: 67
+        - understaffed: 68
+        - throttled_by_heat: 69
+        - no_hot_coolant: 70
+        - not_linked: 71
+        - no_staff: 72
+        - closed_to_crawlers: 73
+        - compromised: 74
+        - missing_accelerators: 75
+        - no_weights: 76
+        - no_evaluation_sets: 77
+        - no_university_in_range: 78
+  - FailReason:
+      base: u16
+      doc: >-
+        Why an action was refused (§15.3, §15.6). Each value's locale key is `fail-reason.<name, dashed>`
+        (prototypes.json's localeKeys.FailReason), except the developer reasons, which have no text and play
+        nothing. The comment on each value names its intended string (I §3.7–§3.9, 08 §8.3)
+      locale: fail-reason
+      developer: [malformed, unsupported, player_not_present, invalid_setting, invalid_index]
+      values:
+        - malformed: 1            # developer: field validation failed (§15.3)
+        - unsupported: 2          # developer: outside the capability manifest (§2.4)
+        - player_not_present: 3   # developer: the acting player does not exist or is offline (§15.3 semantic validation)
+        - invalid_setting: 4      # developer: a setting value out of its range
+        - invalid_index: 5        # developer: a slot, queue or quickbar index out of range
+        - target_gone: 16         # "Target gone" (§15.3: a missing serial or creation id)
+        - out_of_reach: 17        # "Cannot reach" (I §3.1)
+        - inventory_full: 18      # "Inventory full" (I §3.7: mining is refused, 2.0.67)
+        - not_enough_ingredients: 19   # "Not enough ingredients" (I §3.9)
+        - entity_in_the_way: 20   # "{entity} in the way": the event's serial names it
+        - cannot_build_on_tile: 21     # "Cannot build on {tile}" (water, town tiles)
+        - out_of_map: 22          # "Cannot build outside the map" (§5.18)
+        - no_item_in_hand: 23     # building needs the item in the hand (I §3.3)
+        - not_minable: 24         # "Cannot mine this"
+        - nothing_to_mine: 25     # no object, resource or ground item at the position
+        - cannot_insert: 26       # "Cannot insert this item" (acceptance rule, §4.5)
+        - nothing_to_transfer: 27 # a fast transfer found nothing to move
+        - recipe_locked: 28       # the recipe is not enabled yet
+        - cannot_handcraft: 29    # "Cannot craft by hand" (I §3.9's red slots)
+        - compromised: 30         # "Compromised. Cut its power." (08 §8.3; M3)
+        - needs_weight_transplant: 31  # "Needs Weight transplant" (08 §8.3; M4)
+  - FlyingText:
+      base: u16
+      doc: >-
+        Flying-text templates (§15.6, 08 §8.3); locale key `flying-text.<name, dashed>`. item_delta is the
+        vanilla "+3 Iron plate (57)": the sign of `count`, the item, and the player's new total
+      locale: flying-text
+      values:
+        - item_delta: 1
+        - rolled_back: 2
+        - swapped: 3
+  - AlertType:
+      base: u16
+      doc: "Alert types (07 §22, 08 §8.1); Factorio's own stay, silent until their systems exist. Locale key `alert.<name, dashed>`"
+      locale: alert
+      values:
+        - entity_destroyed: 1
+        - entity_under_attack: 2
+        - not_enough_construction_agents: 3
+        - no_material_for_construction: 4
+        - no_storage: 5
+        - train_out_of_fuel: 6
+        - fluid_mixing: 7
+        - thermal_throttling: 32
+        - compromised: 33
+        - no_evaluation_sets: 34
+        - closed_to_crawlers: 35
+        - escaped: 36
+        - entity_dismantled: 37
+        - being_dismantled: 38
+        - field_run: 39
+  - MoverKind:
+      base: u8
+      doc: "MOVERS' kind (§15.4)"
+      values:
+        - character: 0
+        - agent: 1
+        - rolling_stock: 2
+        - unit: 3
+        - projectile: 4
+  - ObjectKind:
+      base: u8
+      doc: "ObjectView's kind (§15.4)"
+      values:
+        - tree: 0
+        - world_object: 1
+        - cliff: 2
+        - ground_item: 3
+        - decorative: 4
+  - DynState:
+      base: u8
+      doc: "DYN's state (§15.4)"
+      values:
+        - idle: 0
+        - working: 1
+        - no_power: 2
+  - PoolKind:
+      base: u8
+      doc: "The entity table's `kind`: which system pool holds the entity's row (§4.5). M0 has chests only"
+      values:
+        - container: 1
+  - StatKind:
+      base: u8
+      doc: "The namespace of a StatKey (§5.20)"
+      values:
+        - item: 1
+        - fluid: 2
+        - entity: 3
+        - heat: 4
+        - papers: 5
+  - StatPrecision:
+      base: u8
+      doc: >-
+        Production-statistics time ranges (I §4.12, 07 §11): 5 s, 1 m, 10 m, 1 h, 10 h, 50 h, 250 h, 1000 h, All.
+        §15.5: p0 is 0–8, the nine ranges (C1b decision 4)
+      values:
+        - s5: 0
+        - m1: 1
+        - m10: 2
+        - h1: 3
+        - h10: 4
+        - h50: 5
+        - h250: 6
+        - h1000: 7
+        - all: 8
+  - StatTab:
+      base: u8
+      doc: "STATS' p1: the statistics window's tab (07 §11)"
+      values:
+        - items: 0
+        - fluids: 1
+        - buildings: 2
+        - heat: 3
+  - RngStream:
+      base: u16
+      doc: "Stateful RNG streams (§4.3): xoshiro128** seeded from rand(stream, 0, 0, 0xFFFFFFFF)"
+      values:
+        - worldgen_regions: 1
+        - ambient: 2
+        - town_names: 3
+        - decoratives: 4
+        - wild_units: 16
+        - wild_expansion: 17
+  - RngPurpose:
+      base: u32
+      doc: "The fourth key of a counter-based draw rand(a, b, c, purpose) (§4.3); 0xFFFFFFFF is reserved for seeding streams"
+      values:
+        - product: 0
+        - quality: 1
+        - selector: 2
+        - wild: 3
+        - object_yield: 4
+        - seeding: 0xFFFFFFFF
+  - TimerEvent:
+      base: u16
+      doc: "Work timers (§4.6); M0 has none, the values arrive with their systems"
+      values:
+        - ghost_expiry: 1
+        - spread: 2
+        - escape: 3
+        - agent_arrival: 4
+        - publication_release: 5
+  - EntityType:
+      base: u8
+      doc: >-
+        Entity types (design/spec/data/SCHEMA.md `type`), plus `character` for the engine's character (§5.1;
+        game/data/engine/prototypes.yaml). The data stage maps the YAML names (with `-` for `_`) to these values
+      values:
+        - assembler: 0
+        - furnace: 1
+        - mining_drill: 2
+        - offshore_pump: 3
+        - pumpjack: 4
+        - lab: 5
+        - belt: 6
+        - underground_belt: 7
+        - splitter: 8
+        - inserter: 9
+        - chest: 10
+        - pipe: 11
+        - pipe_to_ground: 12
+        - pump: 13
+        - storage_tank: 14
+        - boiler: 15
+        - generator: 16
+        - solar_panel: 17
+        - accumulator: 18
+        - reactor: 19
+        - heat_pipe: 20
+        - heat_exchanger: 21
+        - electric_pole: 22
+        - roboport: 23
+        - logistic_chest: 24
+        - rail: 25
+        - train_stop: 26
+        - rail_signal: 27
+        - locomotive: 28
+        - cargo_wagon: 29
+        - fluid_wagon: 30
+        - beacon: 31
+        - radar: 32
+        - wall: 33
+        - gate: 34
+        - turret: 35
+        - rocket_silo: 36
+        - combinator: 37
+        - lamp: 38
+        - cooler: 39
+        - other: 40
+        - character: 64
+  - EnergySource:
+      base: u8
+      doc: "entities.energy.source"
+      values:
+        - none: 0
+        - electric: 1
+        - burner: 2
+        - heat: 3
+  - TriggerType:
+      base: u8
+      doc: "technologies.trigger.type (the trigger-technology registry, §2.4 step 4)"
+      values:
+        - start: 0
+        - craft_item: 1
+        - craft_recipe: 2
+        - mine_entity: 3
+        - build_entity: 4
+        - research: 5
+        - launch: 6
+  - Regime:
+      base: u8
+      doc: "technologies.regime (05)"
+      values:
+        - cited: 0
+        - infrastructure: 1
+        - beyond: 2
+  - ResourceKind:
+      base: u8
+      doc: "resources.kind"
+      values:
+        - solid: 0
+        - fluid: 1
+        - offshore: 2
+  - WorldKind:
+      base: u8
+      doc: "world.kind"
+      values:
+        - tree: 0
+        - rock: 1
+        - town_building: 2
+        - campus: 3
+        - landmark: 4
+  - Tier:
+      base: u8
+      doc: "meta.tiers, in their order: the data stage refuses data whose list differs"
+      values:
+        - memo: 0
+        - report: 1
+        - article: 2
+        - proceedings: 3
+        - preprint: 4
+        - model_card: 5
+        - system_card: 6
+  - CraftingCategory:
+      base: u8
+      doc: "meta.crafting_categories: the data stage maps names and refuses unknown ones"
+      values:
+        - centrifuging: 0
+        - chemistry: 1
+        - crafting: 2
+        - crafting_with_fluid: 3
+        - data_processing: 4
+        - data_refining: 5
+        - frontier_run: 6
+        - launch: 7
+        - recycling: 8
+        - research_run: 9
+        - serving: 10
+        - smelting: 11
+        - training: 12
+        - transcription: 13
+  - FuelCategory:
+      base: u8
+      doc: "meta.fuel_categories"
+      values:
+        - chemical: 0
+        - nuclear: 1
+        - fusion: 2
+  - StackKind:
+      base: u8
+      doc: "An ingredient's or product's namespace in prototypes.bin's lists"
+      values:
+        - item: 0
+        - fluid: 1
+  - Placement:
+      base: u8
+      doc: "entities.placement (§2.4 step 3)"
+      values:
+        - none: 0
+        - must_be_on: 1
+        - must_touch: 2
+  - ContainerKind:
+      base: u8
+      doc: "recipes.container"
+      values:
+        - none: 0
+        - fill: 1
+        - empty: 2
+
+flags:
+  - EntityFlags:
+      base: u32
+      doc: "The entity table's flags (§4.5)"
+      bits:
+        - ghost: 0
+        - deconstruct: 1
+        - upgrade: 2
+        - compromised: 3
+        - indestructible: 4
+  - EntityViewFlags:
+      base: u8
+      doc: "EntityView's flags (§15.4)"
+      bits:
+        - ghost: 0
+        - deconstruct: 1
+        - upgrade: 2
+        - compromised: 3
+  - ItemTags:
+      base: u16
+      doc: "items.tags"
+      bits:
+        - raw: 0
+        - intermediate: 1
+        - science_pack: 2
+        - building: 3
+        - fluid: 4
+        - fuel: 5
+        - module: 6
+        - ammo: 7
+        - final: 8
+        - equipment: 9
+        - armor: 10
+        - installed: 11
+        - staff: 12
+  - Biomes:
+      base: u8
+      doc: "tiles.biome: the biomes whose worldgen uses the tile (01 §2)"
+      bits:
+        - tundra: 0
+        - boreal: 1
+        - temperate: 2
+        - steppe: 3
+        - desert: 4
+        - any: 5
+  - BuildFlags:
+      base: u8
+      doc: "build's flags: the smart-belt flag travels in the action (§7.6, D11)"
+      bits:
+        - smart_belt: 0
+  - JoinFlags:
+      base: u8
+      doc: "player_joined's flags (§15.3)"
+      bits:
+        - returning: 0
+  - MoverFlags:
+      base: u8
+      doc: "MOVERS' flags (§15.4, §15.7's clip)"
+      bits:
+        - mining: 0
+  - ProductFlags:
+      base: u8
+      doc: "A product entry's flags in prototypes.bin (L5)"
+      bits:
+        - not_affected_by_quality: 0
+  - SimFlags:
+      base: u32
+      doc: "sim_set_flags and sim_init's flags (§15.8); other bits are ERR_INPUT"
+      bits:
+        - no_sleep: 0
+        - historical: 1
+        - profile: 2
+
+structs:
+  - EntityRef:
+      doc: >-
+        An entity named by identity (§15.3, D23). Tag 0 none (a and b zero); tag 1 an existing entity, a = its
+        serial (not 0), b zero; tag 2 a creation id: a = the seq of an earlier action by the same player, b = the
+        index among the entities it created
+      check: entity_ref
+      fields:
+        - a: u32
+        - b: u16
+        - tag: EntityRefTag
+        - reserved: u8
+  - TilePos2:
+      doc: "A building centre in doubled tile units (§4.2)"
+      fields:
+        - x2: i32
+        - y2: i32
+  - FinePos:
+      doc: "A position in 1/256 tile (§4.2)"
+      fields:
+        - x: i32
+        - y: i32
+  - InvSlot:
+      doc: >-
+        A slot of an inventory (C1b decision for I §8.2's transfers: the sim has no notion of an open window, so
+        an action names the inventory). owner tag 0 is the acting player's own inventory
+      fields:
+        - owner: EntityRef
+        - inv: InventoryType
+        - reserved: u8
+        - slot: u16
+  - Slot:
+      doc: "One slot of the slot heap (§4.5); count 0 means empty, and an empty slot's key is ItemKey none"
+      fields:
+        - key: ItemKey
+        - count: i32
+  - SlotView:
+      doc: "A slot as the UI sees it (§15.5 INVENTORY): its item, filter and count"
+      fields:
+        - key: ItemKey
+        - filter: ItemKey
+        - count: i32
+  - ChunkRequest:
+      doc: "A worldgen request (§15.9), also WORLDGEN_PENDING's entry (§8.1)"
+      fields:
+        - surface: SurfaceIndex
+        - reserved: u16
+        - cx: i32
+        - cy: i32
+        - commit_tick: Tick
+  - Hash256:
+      doc: "A SHA-256 digest"
+      fields:
+        - bytes: "[u8; 32]"

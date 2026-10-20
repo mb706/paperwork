@@ -1,0 +1,233 @@
+# The simulation's saved state for M0 (10 §4.4–§4.5, §8.1): the entity table, the pools, and the records
+# the save sections hold (sections.yaml). Generated into crates/sim/src/gen/ (the pools, records and
+# section codecs only the sim uses) and src/shared/gen/state.ts (read views, and writers for the IO
+# worker, tools and the golden set).
+#
+# Field attributes (§15.1): every field states `saved` (D20); an unsaved field states `derived: <the Rust
+# function that rebuilds it on load>` or `presentation: true`. Record fields carry `id` (u16, stable, never
+# reused). List-valued fields state `order` (D3): `key` (ascending by the items' leading fields), `saved`
+# (the stored order is state), `set` (written sorted by encoded bytes) or `none` (unsaved only). `default`
+# is the value when not zero; `since` marks fields added after format 1; `wraps` counters that wrap (D7);
+# `view` exports a pool column to the TypeScript read views; `digest: tick` puts a GLOBALS field in the
+# per-tick digest (§4.8); `keep: true` marks a table column that keeps its value when its row is freed
+# (every other column of a free row is at its default, which loading checks, §4.5).
+#
+# C1b decisions (§4.4 and §5.1 leave them open):
+#   - The character is not an entity-table row: it is a mover with a serial from the serial counter, and its
+#     state (position, walking, mining) lives in the player record. Buildings are the entity table.
+#   - The hand's origin-slot marker lives in the player record (`hand.origin`); filters and limit bars are
+#     the slot heap's sparse lists (§4.5).
+#   - M0 declares only M0's sections; sections.yaml reserves the ids of the later ones.
+
+tables:
+  - entity_table:
+      doc: "One row per building (§4.5), lowest free slot first; a row is live when its serial is not 0"
+      section: ENTITY_TABLE
+      live: serial
+      max_rows: 4194304     # 2^22: an EntityHandle's slot bits (§4.3)
+      fields:
+        - proto: {type: EntityId, saved: true, view: true}
+        - kind: {type: PoolKind, saved: true, view: true}
+        - surface: {type: u8, saved: true, view: true, doc: "a SurfaceIndex"}
+        - dir: {type: Direction, saved: true, view: true}
+        - flip: {type: u8, saved: true, view: true, doc: "0 or 1: mirrored (Factorio 2.0)"}
+        - quality: {type: u8, saved: true, view: true}
+        - built_by: {type: u8, saved: true, view: true, doc: "0 unknown, 1 agent, 2 Constructor, 16 + i player i (S1)"}
+        - x2: {type: i32, saved: true, view: true}
+        - y2: {type: i32, saved: true, view: true}
+        - chunk: {type: ChunkKey, saved: false, derived: entity_table::rebuild_chunk, view: true, doc: "the chunk holding (x2, y2)"}
+        - pool_slot: {type: u32, saved: true, view: true, doc: "the row in its kind's pool"}
+        - flags: {type: EntityFlags, saved: true, view: true}
+        - serial: {type: Serial, saved: true, view: true}
+        - gen: {type: u16, saved: true, view: true, wraps: true, keep: true, doc: "handle generation (10 bits used): kept when the row is freed, so stale handles stay detectable (§4.5)"}
+        - built_tick: {type: Tick, saved: true, view: true}
+  - container:
+      doc: "Chests (§4.5): their inventory is one slot-heap block"
+      section: POOL_CONTAINER
+      live: entity
+      max_rows: 4194304     # at most one row per entity-table slot
+      fields:
+        - entity: {type: EntityHandle, saved: true, view: true, doc: "saved as the entity's serial"}
+        - inv: {type: InvRef, saved: true, view: true, default: 0xFFFFFFFF}
+        - inv_version: {type: u32, saved: false, presentation: true, wraps: true, doc: "raised by every change to the inventory (§15.5 source revisions)"}
+
+structs:
+  - CreationEntry:
+      doc: "A creation-ring entry (§4.3)"
+      fields:
+        - seq: Seq
+        - first_serial: Serial
+        - count: u16
+        - reserved: u16
+  - Hand:
+      doc: "The cursor stack (I §3.2): an item stack with its origin slot, or a ghost cursor (count 0)"
+      fields:
+        - key: ItemKey
+        - ghost: bool
+        - reserved: u8
+        - origin: {type: u16, doc: "the origin slot in the main inventory, 0xFFFF none"}
+        - count: i32
+  - MiningState:
+      doc: "The character's hand mining (§5.1): what it mines and the current unit's progress"
+      fields:
+        - mode: MiningMode
+        - reserved: u8
+        - reserved2: u16
+        - serial: {type: Serial, doc: "mode entity"}
+        - pos: {type: FinePos, doc: "the other modes, as begin_mining_terrain gave it"}
+        - progress: {type: f64, doc: "fraction of the current unit, 0–1"}
+  - CraftEntry:
+      doc: "A crafting-queue entry (I §3.9); ingredients were removed at enqueue time"
+      fields:
+        - recipe: RecipeId
+        - count: {type: u16, doc: "units left"}
+        - flags: CraftFlags
+        - reserved: u8
+        - parent: {type: u16, doc: "the entry this intermediate feeds (cascade refunds), 0xFFFF none"}
+        - progress: {type: f64, doc: "the head unit's progress, 0–1"}
+  - HiddenTile:
+      doc: "The tile under a placed tile (§4.4)"
+      fields:
+        - tile: {type: u16, range: [0, 1023]}
+        - id: TileId
+        - reserved: u8
+  - SlotFilter:
+      fields:
+        - inv: InvRef
+        - slot: u16
+        - key: ItemKey
+  - InvBar:
+      fields:
+        - inv: InvRef
+        - bar: u16
+        - reserved: u16
+  - StatRing:
+      doc: >-
+        One precision's ring of 300 points (§5.20), f32 display data. Point j of the stream is at index j mod 300;
+        `points` counts the points ever written. The accumulators hold the samples of the next point
+      fields:
+        - precision: StatPrecision
+        - reserved: u8
+        - reserved2: u16
+        - points: u32
+        - acc_count: u32
+        - reserved3: u32
+        - acc_produced: f64
+        - acc_consumed: f64
+        - produced: "[f32; 300]"
+        - consumed: "[f32; 300]"
+
+enums:
+  - MiningMode:
+      base: u8
+      values:
+        - none: 0
+        - entity: 1
+        - resource_tile: 2
+        - world_object: 3
+        - ground_item: 4
+        - tile: 5
+
+records:
+  - globals:
+      doc: "GLOBALS (§4.4, §8.1): the world's identity, settings and counters; M0's fields"
+      fields:
+        - tick: {id: 1, type: Tick, saved: true}
+        - seed: {id: 2, type: u32, saved: true}
+        - map: {id: 3, type: map_settings, saved: true}
+        - world: {id: 4, type: world_settings, saved: true}
+        - game: {id: 5, type: game_settings, saved: true}
+        - surfaces: {id: 6, type: "list<surface>", max: 255, order: key, saved: true}
+        - worldgen_version: {id: 7, type: u32, saved: true, doc: "raised by hand whenever a chunk's output could change (§4.4)"}
+        - worldgen_data_hash: {id: 8, type: Hash256, saved: true, doc: "the hash of prototypes.bin's worldgen-relevant tables (§4.4)"}
+        - next_serial: {id: 9, type: Serial, saved: true, default: 1, doc: "the serial counter: the next serial to hand out"}
+        - last_system_seq: {id: 10, type: Seq, saved: true}
+  - surface:
+      doc: "A surface's parameters (§4.4); M7 adds the thermal parameters"
+      fields:
+        - index: {id: 1, type: SurfaceIndex, saved: true}
+  - player:
+      doc: "PLAYERS: one PlayerState per player (§4.4, S1)"
+      fields:
+        - index: {id: 1, type: PlayerIndex, saved: true, range: [0, 31]}
+        - online: {id: 2, type: bool, saved: true}
+        - character: {id: 3, type: Serial, saved: true, doc: "the character's serial, 0 = none"}
+        - input_gen: {id: 4, type: u16, saved: true, wraps: true}
+        - last_seq: {id: 5, type: Seq, saved: true}
+        - creation_ring: {id: 6, type: "list<CreationEntry>", max: 256, order: saved, saved: true}
+        - inventory_version: {id: 7, type: u32, saved: true, wraps: true, doc: "raised by every change to the main inventory or the hand (§4.8)"}
+        - main: {id: 8, type: InvRef, saved: true, doc: "the main inventory's slot-heap block"}
+        - hand: {id: 9, type: Hand, saved: true}
+        - surface: {id: 10, type: SurfaceIndex, saved: true}
+        - x: {id: 11, type: f64, saved: true, unit: tile}
+        - y: {id: 12, type: f64, saved: true, unit: tile}
+        - walking: {id: 13, type: bool, saved: true}
+        - walking_dir: {id: 14, type: Direction, saved: true}
+        - mining: {id: 15, type: MiningState, saved: true}
+        - picking: {id: 16, type: bool, saved: true}
+        - crafting_queue: {id: 17, type: "list<CraftEntry>", max: 256, order: saved, saved: true}
+        - auto_sort: {id: 18, type: bool, saved: true, default: true, doc: "D11 (I §4.20: on by default)"}
+        - pick_ghost_cursor: {id: 19, type: bool, saved: true, doc: "D11 (I §4.20: off by default)"}
+        - hand_crafted: {id: 20, type: f64, saved: true, doc: "items this player hand-crafted, integer-valued (§5.20)"}
+        - last_action_tick: {id: 21, type: Tick, saved: true, doc: "08 §8.5"}
+  - slot_arena:
+      doc: "One size class of the slot heap (§4.5): `blocks` blocks of `block_slots` slots, block-major"
+      fields:
+        - class: {id: 1, type: u8, saved: true}
+        - block_slots: {id: 2, type: u16, saved: true}
+        - blocks: {id: 3, type: u32, saved: true, doc: "the high-water mark: blocks ever used"}
+        - slots: {id: 4, type: "list<Slot>", max: 16777216, order: slot, saved: true}
+  - slot_heap:
+      doc: "SLOT_HEAP: the arenas, then the sparse lists keyed by (block, slot); freed blocks are zero"
+      fields:
+        - arenas: {id: 1, type: "list<slot_arena>", max: 255, order: key, saved: true}
+        - filters: {id: 2, type: "list<SlotFilter>", max: 16777216, order: key, saved: true}
+        - bars: {id: 3, type: "list<InvBar>", max: 16777216, order: key, saved: true}
+  - chunk:
+      doc: "CHUNKS: a modified chunk (§4.4, §8.1); occupancy and κ are rebuilt on load"
+      fields:
+        - surface: {id: 1, type: SurfaceIndex, saved: true}
+        - key: {id: 2, type: ChunkKey, saved: true}
+        - tiles: {id: 3, type: "[TileId; 1024]", saved: true}
+        - hidden_tiles: {id: 4, type: "list<HiddenTile>", max: 1024, order: key, saved: true}
+        - resources: {id: 5, type: "list<ResourceTile>", max: 1024, order: key, saved: true}
+        - trees: {id: 6, type: "list<TreeState>", max: 4096, order: key, saved: true}
+        - objects: {id: 7, type: "list<ObjectState>", max: 4096, order: key, saved: true}
+        - ground_items: {id: 8, type: "list<GroundItem>", max: 4096, order: key, saved: true}
+        - leaf_timer: {id: 9, type: f64, saved: true, unit: s, doc: "seconds spent above 45 °C (§5.9)"}
+        - rule_version: {id: 10, type: u32, saved: true, wraps: true}
+  - generated_chunk:
+      doc: "GENERATED: every generated chunk, with the climate values that save regenerating it (§4.4)"
+      fields:
+        - surface: {id: 1, type: SurfaceIndex, saved: true}
+        - key: {id: 2, type: ChunkKey, saved: true}
+        - kappa: {id: 3, type: f64, saved: true}
+        - theta: {id: 4, type: f64, saved: true}
+        - sunlight: {id: 5, type: f64, saved: true}
+  - worldgen_request:
+      doc: "WORLDGEN_PENDING (§5.18): a requested chunk and its commit tick"
+      fields:
+        - commit_tick: {id: 1, type: Tick, saved: true}
+        - surface: {id: 2, type: SurfaceIndex, saved: true}
+        - cx: {id: 3, type: i32, saved: true}
+        - cy: {id: 4, type: i32, saved: true}
+  - rng_state:
+      doc: "RNG: one xoshiro128** stream's state (§4.3)"
+      fields:
+        - stream: {id: 1, type: RngStream, saved: true}
+        - state: {id: 2, type: "[u32; 4]", saved: true}
+  - timer:
+      doc: "TIMERS: a timer that does work (§4.6); wake timers are derived"
+      fields:
+        - due: {id: 1, type: Tick, saved: true}
+        - serial: {id: 2, type: Serial, saved: true}
+        - event: {id: 3, type: TimerEvent, saved: true}
+        - owner: {id: 4, type: u32, saved: true}
+  - stat:
+      doc: "STATS: one statistics key (§5.20): exact totals and the display rings"
+      fields:
+        - key: {id: 1, type: StatKey, saved: true}
+        - produced_total: {id: 2, type: f64, saved: true}
+        - consumed_total: {id: 3, type: f64, saved: true}
+        - handcrafted_total: {id: 4, type: f64, saved: true}
+        - rings: {id: 5, type: "list<StatRing>", max: 9, order: key, saved: true, doc: "at a tick boundary phase 15 has flushed every per-tick counter into the totals and rings, so nothing else is pending"}

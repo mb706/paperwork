@@ -76,15 +76,23 @@
   on port 5191), `npm run ci` (all of it, then the e2e smoke and the release path: release wasm + feature gate,
   `vite build`, `scripts/check-release.ts`, a preview smoke on port 5193; ~30 s warm, ~35 s from a clean clone).
   On a busy host: `taskset -c 0-15 npm run ci`. `npm run format` applies Biome's fixes.
+- **Schema (C1b):** `schema/*.yaml` declares every record that crosses the Rust/TypeScript boundary, every saved field
+  and every wire record; `schema/README.md` is the guide (declaration language, byte encoding, recipes, versions and
+  `SCHEMA_HASH`, fixtures). `npm run gen` (≈4 s) regenerates `crates/schema/src/`, `crates/sim/src/gen/`,
+  `src/shared/gen/`, `crates/sim/tests/codec_fixtures/generated.rs` and `test/fixtures/codec/`; after a schema edit
+  run `npm run gen`, then `npm run data`, and commit the outputs. Codec fixtures: `cargo test -p sim --test
+  codec_fixtures` and `npx vitest run test/codec`.
 - **Data stage:** `npm run data` turns `design/spec/data` + `game/data/engine/*.yaml` into `public/data/` (gitignored)
-  and refreshes the committed `src/shared/gen/proto-ids.ts` and `test/fixtures/expr/cases.txt`: run it after any data
-  edit and commit those two. Errors name the file, line and path. `--manifest m1…m5 [--allow-incomplete]` builds a
-  milestone filter into `.cache/data/`. `data/engine/manifests.yaml` must equal 10 §12's block.
+  and refreshes the committed `src/shared/gen/proto-ids.ts`, `test/fixtures/expr/cases.txt` and
+  `test/fixtures/protos/m0.bin`: run it after any data or schema edit and commit them. Errors name the file, line and
+  path. `--manifest m1…m5 [--allow-incomplete]` builds a milestone filter into `.cache/data/`.
+  `data/engine/manifests.yaml` must equal 10 §12's block. The engine's character is `data/engine/prototypes.yaml`'s
+  `character` (the last entity id).
 - **Where things live** (10 §2.2): `crates/` (schema, det, worldgen, sim, simabi, genabi, simtool), `src/<layer>/`
   (layer boundaries enforced by `scripts/check-arch.ts`), `scripts/` (data stage, schema-gen, check-arch, plugins,
-  `ci.ts`), `schema/` (C1b), `test/`, `e2e/`. Files in `src/shared/gen/`, `crates/schema/src/` and
-  `crates/sim/src/gen/` are generated: their header hash refuses hand edits. A justified exception to a check-arch
-  rule is a comment on the line before: `// check-arch-ignore <rule>: <reason>`.
+  `ci.ts`), `schema/`, `test/`, `e2e/`. Files in `src/shared/gen/`, `crates/schema/src/` and `crates/sim/src/gen/`
+  (and `crates/sim/tests/codec_fixtures/generated.rs`) are generated: their header hash refuses hand edits. A
+  justified exception to a check-arch rule is a comment on the line before: `// check-arch-ignore <rule>: <reason>`.
 
 ## Audio (`game/src/audio/`; M0 by C7)
 - **Assets:** `gamedev-python -I scripts/assets/audio/build.py` (fetch → prep → sfx → encode; minutes cold, seconds

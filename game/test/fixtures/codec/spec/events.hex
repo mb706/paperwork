@@ -1,0 +1,185 @@
+# Events (10 §15.6; events.yaml): the EVENTS section's records and the event payloads.
+#
+# Hand-written from the README and events.yaml only. EventHeader is a 16-byte struct (u16 type, u16 len,
+# u32 tick, u32 seq, u16 player, u8 flags (bit 0 historical), u8 surface): as a struct its `len` is an
+# ordinary field and is dumped. EventRecord is the message (the same fields, then `payload: u8[len]`, then
+# zero padding to a multiple of 4): there `len` is a hidden count and the payload dumps as hex. The event
+# type is the generated enum of `events:` (ids 1–14); §15.6 gives its width (u16). Payload messages are the
+# event name in PascalCase + `Event`.
+#
+# Covers: EventHeader; EventRecord with a 20-byte payload (no padding), a 2-byte payload (2 padding bytes,
+# the historical flag, player 0xFFFF), a `len` other than the type's payload size (the record codec is
+# framing only, per events.yaml) and an empty payload; the payload messages of flying_text (negative
+# counts), entity_built, action_failed, entity_rotated (two reserved fields); and, through the event
+# readers (`@event`), flying_text and player_joined (no payload). Refusals are in refusals.hex.
+
+@type EventHeader                         # a flying_text header
+02 00                                     // type 2 (flying_text)
+14 00                                     // len 20
+e8 03 00 00                               // tick 1000
+0c 00 00 00                               // seq 12
+00 00                                     // player 0
+00                                        // flags 0
+00                                        // surface 0
+@dump
+type=2
+len=20
+tick=1000
+seq=12
+player=0
+flags=0
+surface=0
+
+@type EventRecord                         # flying_text with its payload: 16 + 20 bytes, already a multiple of 4
+02 00  14 00  e8 03 00 00  0c 00 00 00  00 00  00  00   // type 2, len 20, tick 1000, seq 12, player 0, flags 0, surface 0
+01 00                                     // payload: text 1 (item_delta)
+28 00                                     //          item 40
+03 00 00 00                               //          count 3
+39 00 00 00                               //          total 57
+00 05 00 00  00 fd ff ff                  //          pos (1280, -768)
+@dump
+type=2
+tick=1000
+seq=12
+player=0
+flags=0
+surface=0
+payload=hex:0100280003000000390000000005000000fdffff
+
+@type EventRecord                         # milestone: a 2-byte payload, then 2 bytes of padding
+08 00                                     // type 8 (milestone)
+02 00                                     // len 2
+10 27 00 00                               // tick 10000
+00 00 00 00                               // seq 0 (no action)
+ff ff                                     // player 0xFFFF (none)
+01                                        // flags 1 (historical)
+00                                        // surface 0
+05 00                                     // payload: milestone 5
+00 00                                     // padding to 4
+@dump
+type=8
+tick=10000
+seq=0
+player=65535
+flags=1
+surface=0
+payload=hex:0500
+
+@type EventRecord                         # framing only: a milestone record with len 4 (its payload is 2 bytes) decodes
+08 00  04 00                              // type 8 (milestone), len 4: events.yaml leaves the type-size check to read_event/readEvent
+10 27 00 00  00 00 00 00                  // tick 10000, seq 0
+ff ff  01  00                             // player 0xFFFF, flags 1 (historical), surface 0
+05 00 00 00                               // payload: 4 bytes (already a multiple of 4: no padding)
+@dump
+type=8
+tick=10000
+seq=0
+player=65535
+flags=1
+surface=0
+payload=hex:05000000
+
+@type EventRecord                         # player_joined: no payload (the player is in the header)
+0a 00  00 00                              // type 10 (player_joined), len 0
+01 00 00 00                               // tick 1
+00 00 00 00                               // seq 0
+02 00                                     // player 2
+00  01                                    // flags 0, surface 1
+@dump
+type=10
+tick=1
+seq=0
+player=2
+flags=0
+surface=1
+payload=hex:
+
+@type FlyingTextEvent                     # "-3 Iron plate", no total shown (-1)
+01 00                                     // text 1 (item_delta)
+28 00                                     // item 40
+fd ff ff ff                               // count -3
+ff ff ff ff                               // total -1
+00 05 00 00  00 fd ff ff                  // pos (1280, -768)
+@dump
+text=1
+item=40
+count=-3
+total=-1
+pos.x=1280
+pos.y=-768
+
+@type EntityBuiltEvent
+92 10 00 00                               // serial 4242
+07 00                                     // proto 7
+0c                                        // dir 12 (west)
+01                                        // flags 1 (ghost)
+fb ff ff ff  09 00 00 00                  // pos (-5, 9) in doubled tiles
+@dump
+serial=4242
+proto=7
+dir=12
+flags=1
+pos.x2=-5
+pos.y2=9
+
+@type ActionFailedEvent
+14 00                                     // reason 20 (entity_in_the_way)
+00 00                                     // reserved
+00 02 00 00  00 02 00 00                  // pos (512, 512)
+92 10 00 00                               // serial 4242 (the entity in the way)
+@dump
+reason=20
+pos.x=512
+pos.y=512
+serial=4242
+
+@type EntityRotatedEvent                  # two reserved fields, neither dumped
+92 10 00 00                               // serial 4242
+04                                        // dir 4
+00                                        // reserved
+00 00                                     // reserved2
+01 00 00 00  02 00 00 00                  // pos (1, 2)
+@dump
+serial=4242
+dir=4
+pos.x2=1
+pos.y2=2
+
+# ---- through the event readers (@event: `len` checked against the type) -------------------------------------
+
+@event                                    # flying_text: header, then its 20-byte payload
+02 00  14 00                              // header: type 2 (flying_text), len 20
+e8 03 00 00  0c 00 00 00                  //         tick 1000, seq 12
+00 00  00  00                             //         player 0, flags 0, surface 0
+01 00  28 00                              // text 1 (item_delta), item 40
+03 00 00 00  39 00 00 00                  // count 3, total 57
+00 05 00 00  00 fd ff ff                  // pos (1280, -768)
+@dump
+header.type=2
+header.len=20
+header.tick=1000
+header.seq=12
+header.player=0
+header.flags=0
+header.surface=0
+type=flying_text
+text=1
+item=40
+count=3
+total=57
+pos.x=1280
+pos.y=-768
+
+@event                                    # player_joined: a type without fields, len 0
+0a 00  00 00                              // header: type 10 (player_joined), len 0
+01 00 00 00  00 00 00 00                  //         tick 1, seq 0
+02 00  01  01                             //         player 2, flags 1 (historical), surface 1
+@dump
+header.type=10
+header.len=0
+header.tick=1
+header.seq=0
+header.player=2
+header.flags=1
+header.surface=1
+type=player_joined

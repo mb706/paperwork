@@ -1,13 +1,15 @@
 // What the outputs carry and what they do not (C1a-r1 finding 5). The data stage emits only part of the
-// design data so far: the kind tables of emit/tables.ts and META's start record. Everything else is
-// declared omitted here, and every output says so, so that a consumer refuses a build that lacks what it
-// needs instead of reading silent zeros:
+// design data so far: the kind tables of schema/protos.yaml and META's start record, and in
+// prototypes.json the display data and text.yaml's milestone ids. Everything else is declared omitted
+// here, and every output says so, so that a consumer refuses a build that lacks what it needs instead of
+// reading silent zeros:
 //   - prototypes.bin: META record 2 (`contents`): field 1 the META blocks it carries, field 2 the omitted
 //     parts, both lists of strings;
 //   - prototypes.json and build-manifest.json: `contents: {meta, omitted}`;
 //   - capabilities.yaml: `data` lists the parts a milestone's engine reads; the stage refuses a manifest
 //     that needs an omitted part.
-// The schema package (C1b, gate item 1) declares these blocks in schema/protos.yaml and emits them.
+// schema/protos.yaml declares the blocks (`meta`); a part moves from omitted to carried when its
+// milestone's engine needs it and the schema grows the column or block (C1b emitted what M0 reads).
 // scripts/data-stage/contents.test.ts checks that every field of every kind's schema is classified here.
 import { compareCodeUnits, sortedEntries } from '../../lib/canonical.ts';
 
@@ -134,10 +136,10 @@ export const FIELD_STATUS: Record<string, Record<string, FieldStatus>> = {
     walking_speed: 'both',
     map_color: 'both',
     minable_back: 'bin',
-    biome: 'omitted',
+    biome: 'bin',
     placed_by: 'bin',
     town: 'bin',
-    placed_on: 'omitted',
+    placed_on: 'bin',
   },
   world: {
     ...DOCS,
@@ -154,6 +156,16 @@ export const FIELD_STATUS: Record<string, Record<string, FieldStatus>> = {
     mirrors: 'doc',
     leaf_stages: 'bin',
     gui: 'omitted',
+  },
+  text: {
+    ...DOCS,
+    tips: 'omitted',
+    tips_and_tricks: 'omitted',
+    milestones: 'partial',
+    achievements: 'omitted',
+    town_names: 'omitted',
+    world_text: 'omitted',
+    condition_types: 'doc',
   },
   meta: {
     ...DOCS,
@@ -193,12 +205,13 @@ export const PARTIAL: Record<string, readonly string[]> = {
     'coolant_out_c',
   ],
   'technologies.unlocks': ['effects'],
+  'text.milestones': ['kind', 'target'],
   'meta.start': ['salvage', 'guarantees'],
   'meta.heat': ['every block except classes (carried as each entity t_star)'],
 };
 
 /** Whole design files that no output carries yet: enemies have no PROTO kind in 10 §15.2. */
-export const OMITTED_FILES = ['enemies', 'text'] as const;
+export const OMITTED_FILES = ['enemies'] as const;
 
 /** The META blocks prototypes.bin carries. */
 export const EMITTED_META = ['start.inventory'] as const;

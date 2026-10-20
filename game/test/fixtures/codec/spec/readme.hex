@@ -1,0 +1,40 @@
+# The examples of game/schema/README.md ("Fixtures"), so that they stay true.
+
+@type EntityRef                 # a struct, message or record (records strictly)
+39 30 00 00  00 00  01  00      // a = 12345, b = 0, tag 1 (entity), reserved
+@dump
+a=12345
+b=0
+tag=1
+
+@action                         # u16 type, u16 len, payload: rotate_entity
+15 00 09 00  39300000 0000 01 00  02
+@error bad_bool                 # a kind alone, or the full verdict: bad_bool RotateEntityAction.reverse @8
+
+@action
+15 00 09 00  39300000 0000 01 00  02
+@error bad_bool RotateEntityAction.reverse @8
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=
+01 00 0000 07000000 05000000 0100 0000  0200 0200 0000
+@ok batches=1 actions=1         # or: @error framing @<offset> / @error blob_missing @<offset>
+
+# An EVENTS record through the event readers: milestone (id 8) carries one MilestoneId (u16), so `len` is 2.
+@event
+08 00 02 00  07 00 00 00  00 00 00 00  ff ff  00  00   // header: type 8, len 2, tick 7, seq 0, player none, flags 0, surface 0
+05 00  00 00                                           // milestone 5, padding to 4
+@dump
+header.type=8
+header.len=2
+header.tick=7
+header.seq=0
+header.player=65535
+header.flags=0
+header.surface=0
+type=milestone
+milestone=5
+
+@event                          # the same record with len 4: refused before the payload is read
+08 00 04 00  07 00 00 00  00 00 00 00  ff ff  00  00
+05 00  00 00
+@error bad_length EventHeader.len @2

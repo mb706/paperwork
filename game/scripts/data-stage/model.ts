@@ -5,6 +5,7 @@ import type { BuildSet } from './capabilities.ts';
 import type { Diagnostics } from './diagnostics.ts';
 import type { Formulas, TechLevels } from './formulas.ts';
 import {
+  type CharacterEngine,
   type EntityEngine,
   itemOrdering,
   type Ordering,
@@ -62,6 +63,16 @@ export interface TechRec extends Ranked<Technology> {
   levels: TechLevels;
 }
 
+/** The engine's character (overlay `character`): the last entity id, after every design entity. */
+export interface CharacterRec {
+  id: 'character';
+  index: number;
+  engine: CharacterEngine;
+}
+
+/** The character's name in the entity NAMES table and in prototypes.json (schema/registries.yaml well_known). */
+export const CHARACTER = 'character';
+
 export interface Model {
   build: BuildSet;
   items: ItemRec[];
@@ -73,7 +84,9 @@ export interface Model {
   tiles: Ranked<Tile>[];
   world: Ranked<WorldObject>[];
   signals: Ranked<never>[];
-  /** Dense id per kind and name. */
+  /** The character, when the build includes it: entity id `entities.length`. */
+  character: CharacterRec | null;
+  /** Dense id per kind and name (the character's entity id under `character`). */
   ids: Record<ProtoKind, Map<string, number>>;
   formulas: Formulas;
   design: DesignData;
@@ -161,6 +174,7 @@ export function buildModel(
     tiles: byId(build.tiles, ix.tiles, 'tiles'),
     world: byId(build.worldObjects, ix.world, 'world'),
     signals: [],
+    character: null,
     ids: {} as Model['ids'],
     formulas,
     design: d,
@@ -179,11 +193,27 @@ export function buildModel(
     signal: model.signals,
   };
   for (const k of PROTO_KINDS) model.ids[k] = new Map(lists[k].map((r, i) => [r.id, i]));
+  if (build.character) {
+    const engine = ov.prototypes.character;
+    if (!engine)
+      diags.error(
+        `${build.name} includes the character, but the overlay defines none (prototypes.yaml \`character\`)`,
+        {
+          file: 'game/data/engine/prototypes.yaml',
+        },
+      );
+    else if (model.ids.entity.has(CHARACTER))
+      diags.error(`the design data has an entity named ${CHARACTER}, the name of the engine's character`);
+    else {
+      model.character = { id: CHARACTER, index: entities.length, engine };
+      model.ids.entity.set(CHARACTER, entities.length);
+    }
+  }
   const limits: Partial<Record<ProtoKind, number>> = { item: MAX_ITEMS, tile: NONE_U8 };
   for (const k of PROTO_KINDS) {
     const max = limits[k] ?? NONE_U16;
-    if (lists[k].length > max)
-      diags.error(`${build.name} holds ${lists[k].length} ${k} prototypes; ids allow at most ${max}`);
+    const n = model.ids[k].size;
+    if (n > max) diags.error(`${build.name} holds ${n} ${k} prototypes; ids allow at most ${max}`);
   }
   return model;
 }

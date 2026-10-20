@@ -334,4 +334,20 @@ describe('generated-file ownership (C1a-r1 finding 11)', () => {
     expect(msgs[1]).toMatch('generated from schema bbbbbbbbbbbb…, but the schema is aaaaaaaaaaaa…');
     expect(msgs[2]).toMatch('missing');
   });
+  it('checks an inventory file outside the generated directories too (C1b: the Rust fixture dispatch)', () => {
+    const { root, header } = setup();
+    const path = 'crates/sim/tests/codec_fixtures/generated.rs';
+    const inv: Expected[] = [
+      { path, generator: 'scripts/schema-gen.ts', source: 'schema/', schemaHash: 'a'.repeat(64) },
+    ];
+    expect(checkGeneratedFiles(root, inv).map((v) => v.message)).toEqual([
+      'missing: scripts/schema-gen.ts writes it (run npm run gen, npm run data)',
+    ]);
+    mkdirSync(join(root, 'crates/sim/tests/codec_fixtures'), { recursive: true });
+    const text = header('scripts/schema-gen.ts', 'schema/', 'pub const A: u32 = 1;\n', 'a'.repeat(64));
+    writeFileSync(join(root, path), text);
+    expect(checkGeneratedFiles(root, inv)).toEqual([]);
+    writeFileSync(join(root, path), text.replace('A: u32 = 1', 'A: u32 = 2'));
+    expect(checkGeneratedFiles(root, inv).map((v) => v.message)[0]).toMatch(/content hash|edited/);
+  });
 });

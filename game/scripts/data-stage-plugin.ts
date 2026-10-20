@@ -47,6 +47,12 @@ export function schemaGenPlugin({ root }: { root: string }): Plugin {
     name: 'schema-gen',
     root,
     script: 'scripts/schema-gen.ts',
-    watched: [join(root, 'schema'), join(root, 'scripts', 'schema-gen.ts'), join(root, 'scripts', 'lib')],
+    watched: [
+      join(root, 'schema'),
+      join(root, 'scripts', 'schema-gen.ts'),
+      join(root, 'scripts', 'schema-gen'),
+      join(root, 'scripts', 'lib'),
+      join(root, 'data', 'engine', 'capabilities.yaml'),
+    ],
   });
 }
