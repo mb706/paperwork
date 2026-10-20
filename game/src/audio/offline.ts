@@ -1,5 +1,6 @@
 // Rendering one piece (and an SFX load) through the runtime's own engine, offline or live (A4 §6.1, §6.3;
-// 10 §9.4): the voice bank and FDN worklets, the native mixer, the scheduler and the rule sets.
+// 10 §9.4): the voice bank worklet (with the rooms' FDN reverbs), the native mixer, the scheduler and the
+// rule sets.
 // - Offline (OfflineAudioContext): the menu loop and recorded fallbacks, the analysis renders that check the
 //   engine against A4's approved demos, and bench.html's offline load on the player's machine (§9.4: the
 //   render time as a share of the audio's duration, on average and in the worst second).
@@ -23,10 +24,10 @@ import type { PieceParams } from './music/types.ts';
 import { SfxSystem } from './sfx/sfx.ts';
 import { SoundTable } from './sfx/sounds.ts';
 import { BankCore } from './worklet/bank-core.ts';
-import { type BankStats, MAX_SLOTS, OUT_TAPS } from './worklet/protocol.ts';
+import { type BankStats, OUT_TAPS, TAP_REVERB } from './worklet/protocol.ts';
 
 export interface OfflineDeps {
-  worklets: { bank: string; fdn: string };
+  worklets: { bank: string };
   baseUrl: string;
   music: MusicManifest | null;
   sounds: SoundsManifest | null;
@@ -66,6 +67,8 @@ export interface RenderConfig {
   step?: number;
   /** Live only: the AudioContext's latency hint. */
   latencyHint?: AudioContextLatencyCategory;
+  /** Live only: a running context without the engine (the benchmark's baseline). */
+  bare?: boolean;
 }
 
 export interface RenderResult {
@@ -113,29 +116,21 @@ async function assemble(
   const spec = cfg.piece ? PIECES[cfg.piece] : undefined;
   if (cfg.piece && !spec) throw new Error(`no rule set ${cfg.piece}`);
   const taps = merger && spec ? spec.layout.channels.length : 0;
+  // stems: a tap per channel, and the reverb's return
+  const nTaps = taps > 0 ? taps + 1 : 0;
   const clock = NO_SIM();
   await ctx.audioWorklet.addModule(deps.worklets.bank);
-  await ctx.audioWorklet.addModule(deps.worklets.fdn);
   const settings = defaultSettings();
   settings.volume.music = 1;
   const mixer = new MixerGraph(ctx, settings, out);
   const bankNode = new AudioWorkletNode(ctx, 'paperwork-bank', {
     numberOfInputs: 0,
-    numberOfOutputs: BankCore.outputs(taps),
-    outputChannelCount: Array(BankCore.outputs(taps)).fill(2),
-    processorOptions: { taps },
+    numberOfOutputs: BankCore.outputs(nTaps),
+    outputChannelCount: Array(BankCore.outputs(nTaps)).fill(2),
+    processorOptions: { taps: nTaps },
   });
-  for (let s = 0; s < MAX_SLOTS; s++) {
-    const node = new AudioWorkletNode(ctx, 'paperwork-fdn', {
-      numberOfInputs: 1,
-      numberOfOutputs: 1,
-      outputChannelCount: [2],
-      processorOptions: { config: fdnConfig(spec?.layout.reverb.preset ?? 'hall') },
-    });
-    mixer.attachReverb(s, node);
-  }
-  mixer.attachBank(bankNode);
   const bank = new BankClient(bankNode.port);
+  mixer.attachBank(bankNode, bank);
   const files = new FileLoader(
     bank,
     new Decoder(32000),
@@ -164,22 +159,24 @@ async function assemble(
   const start = ctx.currentTime + 0.05;
   if (spec) {
     engine.prepare(0, spec.layout);
-    mixer.configureSlot(0, spec.layout.airDb, spec.layout.reverb.wetDb);
+    mixer.configureSlot(0, {
+      reverb: fdnConfig(spec.layout.reverb.preset),
+      wetDb: spec.layout.reverb.wetDb,
+      airDb: spec.layout.airDb,
+    });
     mixer.fadeSlot(0, cfg.busDb ?? DEFAULT_BUS_DB[spec.id] ?? 0, 0, ctx.currentTime);
     if (merger) {
-      bank.taps(spec.layout.channels.map((_, i) => ({ slot: 0, channel: i })));
-      spec.layout.channels.forEach((c, i) => {
+      bank.taps([
+        ...spec.layout.channels.map((_, i) => ({ slot: 0, channel: i })),
+        { slot: 0, channel: TAP_REVERB },
+      ]);
+      [...spec.layout.channels.map((c) => c.name), 'reverb'].forEach((name, i) => {
         const sp = ctx.createChannelSplitter(2);
         bankNode.connect(sp, OUT_TAPS + i);
         sp.connect(merger, 0, 2 + 2 * i);
         sp.connect(merger, 1, 3 + 2 * i);
-        stems.push(c.name);
+        stems.push(name);
       });
-      const sp = ctx.createChannelSplitter(2);
-      mixer.slotNodes(0).wet.connect(sp);
-      sp.connect(merger, 0, 2 + 2 * taps);
-      sp.connect(merger, 1, 3 + 2 * taps);
-      stems.push('reverb');
     }
     const auto = typeof cfg.activity === 'number' || cfg.activity === undefined ? null : [...cfg.activity];
     engine.state.activity = typeof cfg.activity === 'number' ? cfg.activity : (auto?.[0]?.[1] ?? 0.5);
@@ -265,6 +262,31 @@ export async function playLive(deps: OfflineDeps, cfg: RenderConfig): Promise<Li
     latencyHint: cfg.latencyHint ?? 'balanced',
   });
   await ctx.resume();
+  if (cfg.bare) {
+    // a silent source keeps the context's render thread busy the way a playing graph does
+    const src = new ConstantSourceNode(ctx, { offset: 0 });
+    src.connect(ctx.destination);
+    src.start();
+    const zero = { ticks: 0, ms: 0, maxMs: 0 };
+    const bank: BankStats = {
+      t: 'stats',
+      active: 0,
+      maxActive: 0,
+      activeMusic: 0,
+      activeSfx: 0,
+      stolen: 0,
+      dropped: 0,
+      pending: 0,
+      buffers: 0,
+      bytes: 0,
+      quanta: 0,
+    };
+    return {
+      ctx,
+      stats: async () => ({ scheduler: zero, dropped: 0, bank, audioTime: ctx.currentTime }),
+      stop: () => ctx.close(),
+    };
+  }
   const a = await assemble(ctx, deps, cfg, ctx.destination, null);
   a.scheduler.start();
   const t0 = ctx.currentTime;

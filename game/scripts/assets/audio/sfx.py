@@ -27,6 +27,8 @@ RAW = GAME / ".cache" / "assets" / "audio" / "raw" / "VCSL"
 SR = 48000
 PERC = RAW / "Idiophones" / "Struck Idiophones"
 LOOP_MARGIN = 0.1
+# the raw files a generator read (VCSL paths), collected per variant for the licence record
+USED: list[str] = []
 
 
 # ---------------------------------------------------------------- primitives
@@ -91,6 +93,7 @@ def grains(dur: float, count: int, band, glen, rng, decay: float = 0.08) -> np.n
 
 
 def load(rel: str, mono: bool = True) -> np.ndarray:
+    USED.append(str((PERC / rel).relative_to(RAW.parent)))
     x, sr = sf.read(PERC / rel, always_2d=True, dtype="float64")
     if sr != SR:
         x = soxr.resample(x, sr, SR, quality="VHQ")
@@ -101,6 +104,7 @@ def load(rel: str, mono: bool = True) -> np.ndarray:
 
 
 def load_inst(rel: str) -> np.ndarray:
+    USED.append(str((RAW / rel).relative_to(RAW.parent)))
     x, sr = sf.read(RAW / rel, always_2d=True, dtype="float64")
     if sr != SR:
         x = soxr.resample(x, sr, SR, quality="VHQ")
@@ -383,7 +387,7 @@ SOUNDS = {
     "belt_loop": (belt_loop, 1, ("lufs", -32), True),
     "research_complete": (research_complete, 1, ("peak", -8), False),
     "alert": (alert, 1, ("peak", -8), False),
-    "error": (error, 2, ("peak", -12), False),
+    "error": (error, 1, ("peak", -12), False),  # A4 made 2 variants, but the generator ignores its rng: identical
     "footstep_grass": (footstep_grass, 4, ("peak", -20), False),
     "footstep_concrete": (footstep_concrete, 4, ("peak", -20), False),
 }
@@ -417,6 +421,7 @@ def generate(out: Path, only: list[str] | None = None, seed: int = 1945) -> dict
         files = []
         for v in range(nvar):
             rng = np.random.default_rng([seed, zlib.crc32(name.encode()), v])  # stable across runs (A4's seeds)
+            USED.clear()
             y = fn(rng, v)
             y = y - np.mean(y)
             if not loop:
@@ -429,7 +434,8 @@ def generate(out: Path, only: list[str] | None = None, seed: int = 1945) -> dict
                 if np.abs(y).max() > 0.7:
                     y *= 0.7 / np.abs(y).max()
             stem = f"{name}_{v + 1}" if nvar > 1 else name
-            entry = dict(stem=stem, peak_db=round(20 * np.log10(np.abs(y).max()), 1), lufs=round(lufs_i(y), 1))
+            entry = dict(stem=stem, peak_db=round(20 * np.log10(np.abs(y).max()), 1), lufs=round(lufs_i(y), 1),
+                         sources=sorted(set(USED)))
             if loop:
                 # the circular continuation on both sides: [tail | loop | head]
                 m = secs(LOOP_MARGIN)

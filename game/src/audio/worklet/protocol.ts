@@ -58,13 +58,22 @@ export const MAX_SLOTS = 2;
 export const MAX_CH = 16;
 /** DEST values from here on are SFX buses. */
 export const SFX_DEST = 64;
-/** The SFX buses (I §4.20's categories, without Master and Music), in output order. */
+/** The SFX buses (I §4.20's categories, without Master and Music), in bus order. */
 export const SFX_BUSES = ['gui', 'effects', 'alerts', 'environment', 'walking', 'ambient'] as const;
 export type SfxBus = (typeof SFX_BUSES)[number];
-/** Outputs: per slot a dry and a reverb-send pair, then one per SFX bus, then the taps (stems renders). */
-export const OUT_SLOT = (slot: number, send: boolean): number => slot * 2 + (send ? 1 : 0);
-export const OUT_SFX = (bus: number): number => MAX_SLOTS * 2 + bus;
-export const OUT_TAPS = MAX_SLOTS * 2 + SFX_BUSES.length;
+/** World buses: muted in map view, faded while a game is paused (10 §9.4); GUI and alerts always sound. */
+export const WORLD_BUSES: readonly SfxBus[] = ['effects', 'environment', 'walking', 'ambient'];
+/**
+ * The bank's outputs: the music (both era slots, each through its reverb, air shelf and era gain), the
+ * world SFX and the other SFX (each bus after its fader), then the taps of stems renders.
+ */
+export const OUT_MUSIC = 0;
+export const OUT_WORLD = 1;
+export const OUT_UI = 2;
+export const OUT_TAPS = 3;
+/** Tap channels besides a channel index: a slot's reverb return (after its gain), and its reverb send. */
+export const TAP_REVERB = -1;
+export const TAP_SEND = -2;
 
 /** Voice caps (10 §9.4): 48 music and 24 SFX voices, plus spares for voices fading out after a steal. */
 export const MUSIC_VOICES = 48;
@@ -136,6 +145,15 @@ export type ToBank =
   | { t: 'auto'; slot: number; channel: number; param: ChannelParam; events: AutoEvent[] }
   /** Fade every voice of a slot (or of all SFX) over `fade` s and drop its pending notes. */
   | { t: 'clear'; slot: number | 'sfx'; fade: number }
+  /** An era slot's room: its FDN reverb (cleared), the return's gain (linear) and the air shelf (dB at 7 kHz). */
+  | { t: 'room'; slot: number; reverb: FdnConfig; wet: number; airDb: number }
+  /**
+   * A slot's era gain (linear) from audio time `at`: as `cancelScheduledValues(at)` then
+   * `setTargetAtTime(gain, at, seconds / 4)`, or `setValueAtTime(gain, at)` when `seconds` is 0.
+   */
+  | { t: 'fade'; slot: number; gain: number; at: number; seconds: number }
+  /** The SFX buses' fader gains (linear, SFX_BUSES order) from audio time `at`, approached with `tau` (0: at once). */
+  | { t: 'buses'; gains: number[]; at: number; tau: number }
   | { t: 'taps'; list: { slot: number; channel: number }[] }
   | { t: 'stats' }
   | { t: 'sync'; seq: number };
@@ -159,7 +177,7 @@ export interface BankStats {
 
 export type FromBank = BankStats | { t: 'sync'; seq: number } | { t: 'error'; message: string };
 
-/** FDN reverb configuration (10 §9.4): one node per era slot. */
+/** FDN reverb configuration (10 §9.4): one reverb per era slot, inside the bank. */
 export interface FdnConfig {
   /** T60 (s) below 350 Hz, mid band, above 3.5 kHz. */
   t60: [number, number, number];
@@ -169,5 +187,3 @@ export interface FdnConfig {
   /** Output gain, linear, calibrated so the wet level matches A4's normalised convolution (§9.4). */
   gain: number;
 }
-
-export type ToFdn = { t: 'config'; config: FdnConfig } | { t: 'clear' };

@@ -26,17 +26,15 @@ import { Conductor, DEFAULT_ERAS, type Era } from './music/conductor.ts';
 import { DEFAULT_BUS_DB, Director, type RecordedMusic, warmUp } from './music/director.ts';
 import { MusicEngine } from './music/engine.ts';
 import { PIECES } from './music/pieces/index.ts';
-import { fdnConfig } from './music/reverb.ts';
 import { Scheduler, type Ticker } from './music/scheduler.ts';
 import { NativeVoices, RecordedPlayer } from './reduced.ts';
 import { FootstepClock, SfxSystem } from './sfx/sfx.ts';
 import { SoundTable } from './sfx/sounds.ts';
 import type { ListenerView } from './sfx/spatial.ts';
 import { BankCore } from './worklet/bank-core.ts';
-import { type BankStats, MAX_SLOTS } from './worklet/protocol.ts';
+import type { BankStats } from './worklet/protocol.ts';
 
 export const BANK_PROCESSOR = 'paperwork-bank';
-export const FDN_PROCESSOR = 'paperwork-fdn';
 export const ENGINE_RATE = 32000;
 
 export type AudioState = 'idle' | 'starting' | 'running' | 'blocked' | 'suspended' | 'closed';
@@ -44,7 +42,7 @@ export type AudioMode = 'full' | 'reduced';
 
 export interface AudioOptions {
   /** The worklet modules' URLs; the app imports them as `../audio/worklet/bank.ts?worker&url` (10 §2.2). */
-  worklets: { bank: string; fdn: string };
+  worklets: { bank: string };
   /** Where the asset build's public/audio/ is served. */
   baseUrl?: string;
   fetcher?: Fetcher;
@@ -151,7 +149,6 @@ export class AudioSystem {
   private codec: Codec | null = null;
   private mixer: MixerGraph | null = null;
   private bankNode: AudioWorkletNode | null = null;
-  private fdnNodes: (AudioWorkletNode | null)[] = [null, null];
   private bank: BankClient | null = null;
   private voices: NativeVoices | null = null;
   private files: FileLoader | null = null;
@@ -306,26 +303,14 @@ export class AudioSystem {
       try {
         if (!ctx.audioWorklet) throw new Error('no AudioWorklet (not a secure context?)');
         await ctx.audioWorklet.addModule(this.o.worklets.bank);
-        await ctx.audioWorklet.addModule(this.o.worklets.fdn);
         this.bankNode = new AudioWorkletNode(ctx, BANK_PROCESSOR, {
           numberOfInputs: 0,
           numberOfOutputs: BankCore.outputs(),
           outputChannelCount: Array(BankCore.outputs()).fill(2),
         });
-        for (let s = 0; s < MAX_SLOTS; s++) {
-          const fdn = new AudioWorkletNode(ctx, FDN_PROCESSOR, {
-            numberOfInputs: 1,
-            numberOfOutputs: 1,
-            outputChannelCount: [2],
-            processorOptions: { config: fdnConfig('hall') },
-          });
-          fdn.onprocessorerror = () => this.reduce('the reverb processor failed');
-          mixer.attachReverb(s, fdn);
-          this.fdnNodes[s] = fdn;
-        }
         this.bankNode.onprocessorerror = () => this.reduce('the voice bank processor failed');
-        mixer.attachBank(this.bankNode);
         this.bank = new BankClient(this.bankNode.port);
+        mixer.attachBank(this.bankNode, this.bank);
       } catch (e) {
         this.reduce(e instanceof Error ? e.message : String(e));
       }
@@ -415,7 +400,6 @@ export class AudioSystem {
       mixer: this.mixer,
       bank: this.bank,
       packs: this.mode === 'full' ? this.packs : null,
-      fdn: this.fdnNodes,
       recorded: this.recordings,
       eras: this.eras,
       busDb: this.busDb,

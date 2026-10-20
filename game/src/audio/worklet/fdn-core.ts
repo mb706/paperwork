@@ -13,7 +13,8 @@
 //   first-order shelves (350 Hz, 3.5 kHz) for the low and high bands (Jot 1991, simplified).
 // The output gain gives A4's level per Hz in the music band (`FDN_GAIN`, music/reverb.ts). Nothing
 // allocates in `process()`, and a silent reverb sleeps (its lines are zeroed, so a tail never decays into
-// denormals). Cost: about 0.65 % of a host core per network at 32 kHz while it sounds (measured in Node, C7).
+// denormals). The network runs a block at a time (every line is longer than a render quantum, so a block's
+// reads all precede its writes): the same arithmetic as sample by sample, in tighter loops.
 import type { FdnConfig } from './protocol.ts';
 
 const N = 8;
@@ -28,8 +29,9 @@ const DIFF_48K = [
   [239, 181, 587, 467],
 ];
 const DIFF_G = [0.75, 0.75, 0.625, 0.625];
-/** Input weights per line: equal magnitude, mixed signs. */
-const INJECT = [0.25, -0.25, 0.25, 0.25, -0.25, 0.25, -0.25, -0.25];
+// Input weights per line (equal magnitude, mixed signs), written out in `block`: +, −, +, +, −, +, −, − / 4.
+/** The largest block the network runs at once (a render quantum). */
+const BLOCK = 128;
 const XOVER_LOW = 350;
 const XOVER_HIGH = 3500;
 
@@ -47,6 +49,11 @@ class Net {
   pi = 0;
   readonly diff: Float32Array[];
   readonly diffIdx = new Int32Array(4);
+  /** Block scratch: the diffused input, and per line its filtered output, then its next input. */
+  private readonly xd = new Float64Array(BLOCK);
+  private readonly vb: Float64Array[] = Array.from({ length: N }, () => new Float64Array(BLOCK));
+  /** The block size: a quantum, or the shortest line if that is shorter. */
+  private readonly chunk: number;
 
   constructor(side: number, sr: number, cfg: FdnConfig) {
     const scale = (sr / 48000) * cfg.size;
@@ -74,6 +81,7 @@ class Net {
     this.pre = new Float32Array(Math.max(1, Math.round(cfg.predelay * sr)));
     const ds = Math.max(0.35, Math.min(1, cfg.size)) * (sr / 48000);
     this.diff = (DIFF_48K[side] as number[]).map((d) => new Float32Array(Math.max(4, Math.round(d * ds))));
+    this.chunk = Math.min(BLOCK, ...this.len);
   }
 
   clear(): void {
@@ -86,57 +94,125 @@ class Net {
 
   /** Wet output of `inp` into `out` (scaled by `g`); returns the block's peak output. */
   run(inp: Float32Array | undefined, out: Float32Array, n: number, g: number): number {
-    const v = this.v;
-    const lines = this.lines;
-    const idx = this.idx;
-    const len = this.len;
-    const fl = this.filt;
+    let peak = 0;
+    for (let off = 0; off < n; off += this.chunk) {
+      const p = this.block(inp, out, off, Math.min(this.chunk, n - off), g);
+      if (p > peak) peak = p;
+    }
     const zl = this.zl;
     const zh = this.zh;
+    for (let i = 0; i < N; i++) {
+      if (Math.abs(zl[i]!) < 1e-25) zl[i] = 0;
+      if (Math.abs(zh[i]!) < 1e-25) zh[i] = 0;
+    }
+    return peak;
+  }
+
+  private block(inp: Float32Array | undefined, out: Float32Array, off: number, m: number, g: number): number {
+    const xd = this.xd;
+    // 1. predelay and input diffusion (Schroeder allpasses: y = −g·x + d; d' = x + g·y)
     const pre = this.pre;
-    const diff = this.diff;
-    const di = this.diffIdx;
     const preN = pre.length;
+    let pi = this.pi;
+    const di = this.diffIdx;
+    const d0 = this.diff[0] as Float32Array;
+    const d1 = this.diff[1] as Float32Array;
+    const d2 = this.diff[2] as Float32Array;
+    const d3 = this.diff[3] as Float32Array;
+    let i0 = di[0]!;
+    let i1 = di[1]!;
+    let i2 = di[2]!;
+    let i3 = di[3]!;
+    const g0 = DIFF_G[0]!;
+    const g1 = DIFF_G[1]!;
+    const g2 = DIFF_G[2]!;
+    const g3 = DIFF_G[3]!;
+    for (let s = 0; s < m; s++) {
+      let x = pre[pi]!;
+      pre[pi] = inp ? inp[off + s]! : 0;
+      pi = pi + 1 === preN ? 0 : pi + 1;
+      let y = d0[i0]! - g0 * x;
+      d0[i0] = x + g0 * y;
+      i0 = i0 + 1 === d0.length ? 0 : i0 + 1;
+      x = y;
+      y = d1[i1]! - g1 * x;
+      d1[i1] = x + g1 * y;
+      i1 = i1 + 1 === d1.length ? 0 : i1 + 1;
+      x = y;
+      y = d2[i2]! - g2 * x;
+      d2[i2] = x + g2 * y;
+      i2 = i2 + 1 === d2.length ? 0 : i2 + 1;
+      x = y;
+      y = d3[i3]! - g3 * x;
+      d3[i3] = x + g3 * y;
+      i3 = i3 + 1 === d3.length ? 0 : i3 + 1;
+      xd[s] = y;
+    }
+    this.pi = pi;
+    di[0] = i0;
+    di[1] = i1;
+    di[2] = i2;
+    di[3] = i3;
+    // 2. each line's next block through its absorption filters (low shelf with the mid gain, high shelf)
+    const fl = this.filt;
+    for (let i = 0; i < N; i++) {
+      const line = this.lines[i] as Float32Array;
+      const L = this.len[i]!;
+      const V = this.vb[i] as Float64Array;
+      const o = i * 6;
+      const b0l = fl[o]!;
+      const b1l = fl[o + 1]!;
+      const a1l = fl[o + 2]!;
+      const b0h = fl[o + 3]!;
+      const b1h = fl[o + 4]!;
+      const a1h = fl[o + 5]!;
+      let z1 = this.zl[i]!;
+      let z2 = this.zh[i]!;
+      let j = this.idx[i]!;
+      for (let s = 0; s < m; s++) {
+        const xi = line[j]!;
+        const y1 = b0l * xi + z1;
+        z1 = b1l * xi - a1l * y1;
+        const y2 = b0h * y1 + z2;
+        z2 = b1h * y1 - a1h * y2;
+        V[s] = y2;
+        j = j + 1 === L ? 0 : j + 1;
+      }
+      this.zl[i] = z1;
+      this.zh[i] = z2;
+    }
+    // 3. per sample: the output, the feedback matrix (a normalised Hadamard transform), the injection
+    const V0 = this.vb[0] as Float64Array;
+    const V1 = this.vb[1] as Float64Array;
+    const V2 = this.vb[2] as Float64Array;
+    const V3 = this.vb[3] as Float64Array;
+    const V4 = this.vb[4] as Float64Array;
+    const V5 = this.vb[5] as Float64Array;
+    const V6 = this.vb[6] as Float64Array;
+    const V7 = this.vb[7] as Float64Array;
     const s8 = 0.35355339059327373; // 1 / √8
     let peak = 0;
-    for (let s = 0; s < n; s++) {
-      // predelay
-      const p = this.pi;
-      let x = pre[p] as number;
-      pre[p] = inp ? (inp[s] as number) : 0;
-      this.pi = p + 1 === preN ? 0 : p + 1;
-      // input diffusion: Schroeder allpasses, y = −g·x + d; d' = x + g·y
-      for (let k = 0; k < 4; k++) {
-        const b = diff[k] as Float32Array;
-        const i = di[k] as number;
-        const y = (b[i] as number) - DIFF_G[k]! * x;
-        b[i] = x + DIFF_G[k]! * y;
-        di[k] = i + 1 === b.length ? 0 : i + 1;
-        x = y;
-      }
-      // read the lines through their absorption filters
-      for (let i = 0; i < N; i++) {
-        const xi = (lines[i] as Float32Array)[idx[i] as number] as number;
-        const o = i * 6;
-        const y1 = fl[o]! * xi + zl[i]!;
-        zl[i] = fl[o + 1]! * xi - fl[o + 2]! * y1;
-        const y2 = fl[o + 3]! * y1 + zh[i]!;
-        zh[i] = fl[o + 4]! * y1 - fl[o + 5]! * y2;
-        v[i] = y2;
-      }
-      const o = v[0]! - v[1]! + v[2]! - v[3]! + v[4]! - v[5]! + v[6]! - v[7]!;
-      out[s] = o * g;
+    for (let s = 0; s < m; s++) {
+      const v0 = V0[s]!;
+      const v1 = V1[s]!;
+      const v2 = V2[s]!;
+      const v3 = V3[s]!;
+      const v4 = V4[s]!;
+      const v5 = V5[s]!;
+      const v6 = V6[s]!;
+      const v7 = V7[s]!;
+      const o = v0 - v1 + v2 - v3 + v4 - v5 + v6 - v7;
+      out[off + s] = o * g;
       const a = o < 0 ? -o : o;
       if (a > peak) peak = a;
-      // the feedback matrix: a normalised Hadamard transform
-      const a0 = v[0]! + v[1]!;
-      const a1 = v[0]! - v[1]!;
-      const a2 = v[2]! + v[3]!;
-      const a3 = v[2]! - v[3]!;
-      const a4 = v[4]! + v[5]!;
-      const a5 = v[4]! - v[5]!;
-      const a6 = v[6]! + v[7]!;
-      const a7 = v[6]! - v[7]!;
+      const a0 = v0 + v1;
+      const a1 = v0 - v1;
+      const a2 = v2 + v3;
+      const a3 = v2 - v3;
+      const a4 = v4 + v5;
+      const a5 = v4 - v5;
+      const a6 = v6 + v7;
+      const a7 = v6 - v7;
       const b0 = a0 + a2;
       const b2 = a0 - a2;
       const b1 = a1 + a3;
@@ -145,25 +221,27 @@ class Net {
       const b6 = a4 - a6;
       const b5 = a5 + a7;
       const b7 = a5 - a7;
-      v[0] = (b0 + b4) * s8;
-      v[4] = (b0 - b4) * s8;
-      v[1] = (b1 + b5) * s8;
-      v[5] = (b1 - b5) * s8;
-      v[2] = (b2 + b6) * s8;
-      v[6] = (b2 - b6) * s8;
-      v[3] = (b3 + b7) * s8;
-      v[7] = (b3 - b7) * s8;
-      // inject the diffused input, and write back
-      for (let i = 0; i < N; i++) {
-        const line = lines[i] as Float32Array;
-        const j = idx[i] as number;
-        line[j] = v[i]! + x * (INJECT[i] as number);
-        idx[i] = j + 1 === len[i] ? 0 : j + 1;
-      }
+      const x = xd[s]!;
+      V0[s] = (b0 + b4) * s8 + x * 0.25;
+      V4[s] = (b0 - b4) * s8 + x * -0.25;
+      V1[s] = (b1 + b5) * s8 + x * -0.25;
+      V5[s] = (b1 - b5) * s8 + x * 0.25;
+      V2[s] = (b2 + b6) * s8 + x * 0.25;
+      V6[s] = (b2 - b6) * s8 + x * -0.25;
+      V3[s] = (b3 + b7) * s8 + x * 0.25;
+      V7[s] = (b3 - b7) * s8 + x * -0.25;
     }
+    // 4. write the blocks back into the lines
     for (let i = 0; i < N; i++) {
-      if (Math.abs(zl[i]!) < 1e-25) zl[i] = 0;
-      if (Math.abs(zh[i]!) < 1e-25) zh[i] = 0;
+      const line = this.lines[i] as Float32Array;
+      const L = this.len[i]!;
+      const W = this.vb[i] as Float64Array;
+      let j = this.idx[i]!;
+      for (let s = 0; s < m; s++) {
+        line[j] = W[s]!;
+        j = j + 1 === L ? 0 : j + 1;
+      }
+      this.idx[i] = j;
     }
     return peak;
   }

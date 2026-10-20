@@ -1,7 +1,9 @@
 // The voice bank's core in Node (10 §9.4): envelopes as A4's AudioParam automation, click-free starts,
-// stops and steals, the voice caps, loop seams, the channel strip's laws, automation and the tape echo.
+// stops and steals, the voice caps, loop seams, the channel strip's laws, automation, the tape echo, the
+// rooms (reverb return, air shelf, era gain) and the SFX buses' faders.
 import { describe, expect, test } from 'vitest';
 import { BankCore } from './bank-core.ts';
+import { FDN_PRESETS } from './fdn-core.ts';
 import {
   type ChannelConfig,
   F,
@@ -9,9 +11,13 @@ import {
   KIND,
   MAX_CH,
   NF,
-  OUT_SFX,
-  OUT_SLOT,
+  OUT_MUSIC,
+  OUT_TAPS,
+  OUT_UI,
+  OUT_WORLD,
   SFX_DEST,
+  TAP_REVERB,
+  TAP_SEND,
   type ToBank,
 } from './protocol.ts';
 
@@ -23,12 +29,7 @@ function outputs(n = 128): Float32Array[][] {
 }
 
 /** Runs the core for `frames` frames; returns the chosen output pair, concatenated. */
-function render(
-  core: BankCore,
-  frames: number,
-  out = OUT_SLOT(0, false),
-  from = 0,
-): [Float32Array, Float32Array] {
+function render(core: BankCore, frames: number, out = OUT_MUSIC, from = 0): [Float32Array, Float32Array] {
   const L = new Float32Array(frames);
   const R = new Float32Array(frames);
   for (let f = 0; f < frames; f += 128) {
@@ -88,8 +89,14 @@ const peak = (x: Float32Array, a = 0, b = x.length) => {
   return m;
 };
 
+/** Both era gains at 1, no reverb, no air shelf: the music output is the slots' dry sum. */
+function open(core: BankCore): BankCore {
+  for (const slot of [0, 1]) send(core, { t: 'fade', slot, gain: 1, at: 0, seconds: 0 });
+  return core;
+}
+
 function bankWith(...chans: ChannelConfig[]): BankCore {
-  const core = new BankCore({ sampleRate: SR, taps: 2 });
+  const core = open(new BankCore({ sampleRate: SR, taps: 2 }));
   send(core, { t: 'layout', slot: 0, channels: chans.length ? chans : [channel({ index: 0 })] });
   return core;
 }
@@ -136,7 +143,7 @@ describe('the voice bank', () => {
     notes(core2, ...many);
     render(core2, 3200);
     notes(core2, note({ TIME: 0.15, SRC: 1, GAIN: 0.5, ATTACK: 0.05 }));
-    const [L2] = render(core2, 3200, OUT_SLOT(0, false), 3200);
+    const [L2] = render(core2, 3200, OUT_MUSIC, 3200);
     const st = core2.stats();
     expect(st.stolen).toBe(1);
     expect(st.activeMusic).toBe(48);
@@ -150,14 +157,14 @@ describe('the voice bank', () => {
     const sfx = (type: number, prio: number) =>
       note({ TIME: 0, SRC: 1, DEST: SFX_DEST + 1, GROUP: GROUP.SFX, TYPE: type, CAP: 4, PRIO: prio });
     notes(core, sfx(7, 1), sfx(7, 1), sfx(7, 1), sfx(7, 1), sfx(7, 1));
-    render(core, 256, OUT_SFX(1));
+    render(core, 256, OUT_WORLD);
     expect(core.stats().stolen).toBe(1);
     expect(core.stats().activeSfx).toBe(4);
     for (let t = 0; t < 30; t++) notes(core, sfx(100 + t, 5));
-    render(core, 256, OUT_SFX(1), 256);
+    render(core, 256, OUT_WORLD, 256);
     expect(core.stats().activeSfx).toBe(24);
     notes(core, sfx(999, 0));
-    render(core, 256, OUT_SFX(1), 512);
+    render(core, 256, OUT_WORLD, 512);
     expect(core.stats().activeSfx).toBe(24);
     expect(core.stats().dropped).toBeGreaterThan(0);
   });
@@ -188,13 +195,13 @@ describe('the voice bank', () => {
         HANDLE: 9,
       }),
     );
-    const [L] = render(core, SR * 2, OUT_SFX(3));
+    const [L] = render(core, SR * 2, OUT_WORLD);
     const sig = maxStep(L, 100, 4000);
     expect(maxStep(L, 4000, SR * 2)).toBeLessThanOrEqual(sig * 1.02);
     expect(peak(L, SR, SR * 2)).toBeGreaterThan(0.3);
     // the handle releases it with a fade
     send(core, { t: 'ctl', n: 1, data: Float64Array.of(9, 0, 0, 1, 0.3) });
-    const [L2] = render(core, SR, OUT_SFX(3), SR * 2);
+    const [L2] = render(core, SR, OUT_WORLD, SR * 2);
     expect(peak(L2, 0.32 * SR, SR)).toBe(0);
     expect(maxStep(L2, 1, SR)).toBeLessThanOrEqual(sig * 1.02);
   });
@@ -207,7 +214,13 @@ describe('the voice bank', () => {
       chans: [new Int16Array(SR).fill(16384), new Int16Array(SR).fill(8192)],
       rate: SR,
     });
-    send(core, { t: 'taps', list: [{ slot: 0, channel: 0 }] });
+    send(core, {
+      t: 'taps',
+      list: [
+        { slot: 0, channel: 0 },
+        { slot: 0, channel: TAP_SEND },
+      ],
+    });
     notes(core, note({ TIME: 0, SRC: 1 }));
     const [L, R] = render(core, 1024);
     // pan −0.5: L' = L + R·cos(π/4), R' = R·sin(π/4)
@@ -215,7 +228,7 @@ describe('the voice bank', () => {
     const r = 0.25 * 0.5;
     expect(L[500] as number).toBeCloseTo(l + r * Math.cos(Math.PI / 4), 4);
     expect(R[500] as number).toBeCloseTo(r * Math.sin(Math.PI / 4), 4);
-    const [sL] = render(core, 128, OUT_SLOT(0, true), 1024);
+    const [sL] = render(core, 128, OUT_TAPS + 1, 1024);
     expect(sL[10] as number).toBeCloseTo((l + r * Math.cos(Math.PI / 4)) * 0.25, 4);
   });
 
@@ -260,7 +273,7 @@ describe('the voice bank', () => {
     send(core, { t: 'buf', id: 1, chans: [sineBuf(600, 0.2, 0.5)], rate: SR });
     notes(core, note({ TIME: 0, SRC: 1 }));
     send(core, { t: 'taps', list: [{ slot: 0, channel: 1 }] });
-    const [E] = render(core, Math.round(SR * 7), 10 /* OUT_TAPS */);
+    const [E] = render(core, Math.round(SR * 7), OUT_TAPS);
     const first = peak(E, Math.round(time * SR), Math.round((time + 0.25) * SR));
     const second = peak(E, Math.round(2 * time * SR), Math.round((2 * time + 0.25) * SR));
     expect(peak(E, 0, Math.round(time * SR) - 10)).toBe(0);
@@ -288,7 +301,7 @@ describe('the voice bank', () => {
     send(core2, { t: 'taps', list: [{ slot: 0, channel: 1 }] });
     send(core2, { t: 'auto', slot: 0, channel: 1, param: 'echoFeedback', events: [[1, 1, 0, 0.12]] });
     notes(core2, note({ TIME: 0, SRC: 1 }));
-    const [E2] = render(core2, Math.round(SR * 7), 10);
+    const [E2] = render(core2, Math.round(SR * 7), OUT_TAPS);
     expect(peak(E2, Math.round(2 * time * SR), Math.round(SR * 7))).toBeLessThan(first * 0.01);
   });
 
@@ -330,8 +343,8 @@ describe('the voice bank', () => {
     for (let f = 0; f < SR * 6; f += 128) {
       for (const p of o) for (const c of p) c.fill(0);
       core.process(o, f);
-      if (f < SR) org.set((o[10] as Float32Array[])[0] as Float32Array, f);
-      bel.set((o[11] as Float32Array[])[0] as Float32Array, f);
+      if (f < SR) org.set((o[OUT_TAPS] as Float32Array[])[0] as Float32Array, f);
+      bel.set((o[OUT_TAPS + 1] as Float32Array[])[0] as Float32Array, f);
     }
     expect(peak(org, 0.1 * SR, 0.45 * SR)).toBeCloseTo(0.3 * Math.SQRT1_2, 2); // a peak-normalised wave
     expect(peak(org, 0.9 * SR, SR)).toBe(0);
@@ -346,7 +359,7 @@ describe('the voice bank', () => {
     notes(core, note({ TIME: 0, SRC: 1 }), note({ TIME: 2, SRC: 1 }));
     render(core, SR / 2);
     send(core, { t: 'clear', slot: 0, fade: 0.2 });
-    const [L] = render(core, SR * 2, OUT_SLOT(0, false), SR / 2);
+    const [L] = render(core, SR * 2, OUT_MUSIC, SR / 2);
     expect(peak(L, 0.25 * SR, SR * 2)).toBe(0);
     expect(core.stats().pending).toBe(0);
     expect(maxStep(L)).toBeLessThan(0.05);
@@ -354,11 +367,83 @@ describe('the voice bank', () => {
 
   test('music destinations address slot·MAX_CH + channel', () => {
     expect(MAX_CH).toBe(16);
-    const core = new BankCore({ sampleRate: SR });
+    const core = open(new BankCore({ sampleRate: SR }));
     send(core, { t: 'layout', slot: 1, channels: [channel({ index: 3 })] });
     send(core, { t: 'buf', id: 1, chans: [sineBuf(500, 1)], rate: SR });
     notes(core, note({ TIME: 0, SRC: 1, DEST: MAX_CH + 3 }));
-    const [L] = render(core, 4096, OUT_SLOT(1, false));
+    const [L] = render(core, 4096, OUT_MUSIC);
     expect(peak(L)).toBeGreaterThan(0.3);
+  });
+
+  test('a room: the dry signal and the reverb return, the air shelf, the era gain as setTargetAtTime', () => {
+    const core = new BankCore({ sampleRate: SR, taps: 1 });
+    send(core, { t: 'layout', slot: 0, channels: [channel({ index: 0, send: 0.5 })] });
+    send(core, { t: 'room', slot: 0, reverb: { ...FDN_PRESETS.hall!, gain: 0.53 }, wet: 0.5, airDb: 0 });
+    send(core, { t: 'taps', list: [{ slot: 0, channel: TAP_REVERB }] });
+    // silent until a piece raises the era gain
+    send(core, { t: 'buf', id: 1, chans: [sineBuf(400, 0.05, 0.5)], rate: SR });
+    notes(core, note({ TIME: 0, SRC: 1 }));
+    const [M0] = render(core, SR / 4);
+    expect(peak(M0)).toBe(0);
+    // the return sounds after the dry burst, and the music carries both
+    send(core, { t: 'fade', slot: 0, gain: 1, at: 0, seconds: 0 });
+    notes(core, note({ TIME: 0.5, SRC: 1 }));
+    const [W] = render(core, SR, OUT_TAPS, SR / 4);
+    const [M1] = render(core, SR, OUT_MUSIC, SR / 4);
+    void M1;
+    expect(peak(W, 0.5 * SR, 0.75 * SR)).toBeGreaterThan(1e-3);
+    // the era gain: a fade to 0 over 1 s is a setTargetAtTime with τ = 0.25 s
+    const core2 = bankWith();
+    send(core2, { t: 'buf', id: 1, chans: [new Int16Array(SR * 3).fill(16384)], rate: SR });
+    notes(core2, note({ TIME: 0, SRC: 1 }));
+    send(core2, { t: 'fade', slot: 0, gain: 0, at: 0.5, seconds: 1 });
+    const [F] = render(core2, SR * 2);
+    const g = 0.5 * Math.SQRT1_2;
+    expect((F[0.4 * SR] as number) / g).toBeCloseTo(1, 4);
+    expect((F[0.75 * SR] as number) / g).toBeCloseTo(Math.exp(-1), 2);
+    // cancelScheduledValues: a new fade at 1 s takes over from the running one
+    const core3 = bankWith();
+    send(core3, { t: 'buf', id: 1, chans: [new Int16Array(SR * 3).fill(16384)], rate: SR });
+    notes(core3, note({ TIME: 0, SRC: 1 }));
+    send(core3, { t: 'fade', slot: 0, gain: 0, at: 0.5, seconds: 1 });
+    send(core3, { t: 'fade', slot: 0, gain: 0, at: 0.2, seconds: 0 });
+    const [C] = render(core3, SR);
+    expect(peak(C, 0.21 * SR, SR)).toBe(0);
+    // the air shelf (+6 dB at 7 kHz, BiquadFilterNode's highshelf): 12 kHz up by about 6 dB, 200 Hz untouched
+    const level = (hz: number) => {
+      const c = bankWith();
+      send(c, { t: 'room', slot: 0, reverb: { ...FDN_PRESETS.hall!, gain: 0.53 }, wet: 0, airDb: 6 });
+      send(c, { t: 'buf', id: 1, chans: [sineBuf(hz, 1, 0.25)], rate: SR });
+      notes(c, note({ TIME: 0, SRC: 1 }));
+      const [x] = render(c, SR / 2);
+      return peak(x, SR / 4, SR / 2) / (0.25 * Math.SQRT1_2);
+    };
+    expect(20 * Math.log10(level(12000))).toBeGreaterThan(5);
+    expect(20 * Math.log10(level(12000))).toBeLessThan(6.5);
+    expect(Math.abs(20 * Math.log10(level(200)))).toBeLessThan(0.1);
+  });
+
+  test('SFX buses: world and GUI outputs, faders ramping over τ, also while a bus is silent', () => {
+    const core = new BankCore({ sampleRate: SR });
+    send(core, { t: 'buf', id: 1, chans: [new Int16Array(SR * 4).fill(16384)], rate: SR });
+    const sfx = (bus: number, time: number) =>
+      note({ TIME: time, SRC: 1, DEST: SFX_DEST + bus, GROUP: GROUP.SFX, TYPE: bus, CAP: 4 });
+    notes(core, sfx(0, 0)); // gui
+    const [U] = render(core, 1024, OUT_UI);
+    const [Wd] = render(core, 1024, OUT_WORLD, 1024);
+    const g = 0.5 * Math.SQRT1_2;
+    expect((U[1000] as number) / g).toBeCloseTo(1, 4);
+    expect(peak(Wd)).toBe(0);
+    // the gui fader to 0.25 with τ = 20 ms
+    send(core, { t: 'buses', gains: [0.25, 1, 1, 1, 1, 1], at: 2048 / SR, tau: 0.02 });
+    const [U2] = render(core, SR / 2, OUT_UI, 2048);
+    expect((U2[Math.round(0.02 * SR)] as number) / g).toBeCloseTo(0.25 + 0.75 * Math.exp(-1), 2);
+    expect((U2[SR / 4] as number) / g).toBeCloseTo(0.25, 4);
+    // the effects fader moves while effects are silent; the next effect plays at the new level
+    send(core, { t: 'buses', gains: [0.25, 0.5, 1, 1, 1, 1], at: 0.6, tau: 0.02 });
+    render(core, SR / 2, OUT_WORLD, 2048 + SR / 2);
+    notes(core, sfx(1, 1.2));
+    const [W] = render(core, SR / 2, OUT_WORLD, 2048 + SR);
+    expect(peak(W, SR / 4, SR / 2) / g).toBeCloseTo(0.5, 3);
   });
 });

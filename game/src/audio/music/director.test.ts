@@ -65,7 +65,6 @@ function world(o: { recording?: boolean; ready?: boolean; reduced?: boolean } = 
     mixer,
     bank,
     packs,
-    fdn: [null, null],
     recorded,
     eras: [{ from: Number.NEGATIVE_INFINITY, piece: 'era1', name: 'I', typicalWatts: 1e6 }],
     busDb: { era1: 13.6 },

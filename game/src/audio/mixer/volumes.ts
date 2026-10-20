@@ -26,9 +26,6 @@ export const BUS_CATEGORY: Readonly<Record<SfxBus, Category>> = {
   ambient: 'ambient',
 };
 
-/** World sounds: muted in map view, faded while a single-player game is paused (10 §9.4). */
-export const WORLD_BUSES: readonly SfxBus[] = ['effects', 'environment', 'walking', 'ambient'];
-
 export interface AudioSettings {
   /** Slider positions 0..1 (squared-gain sliders, A4 §8). */
   volume: Record<Category, number>;

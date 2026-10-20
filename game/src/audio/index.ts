@@ -3,8 +3,7 @@
 // packets and the HUD's music feed to it, and the UI calls the settings hooks and `unlock()`.
 //
 //   import bankUrl from '../audio/worklet/bank.ts?worker&url';
-//   import fdnUrl from '../audio/worklet/fdn.ts?worker&url';
-//   const audio = new AudioSystem({ worklets: { bank: bankUrl, fdn: fdnUrl } });
+//   const audio = new AudioSystem({ worklets: { bank: bankUrl } });
 //   void audio.preload();                       // at page load
 //   menu.onFirstGesture(() => audio.unlock());  // inside the first click or key handler (07 §18)
 

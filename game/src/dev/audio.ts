@@ -8,11 +8,10 @@ import type { MusicManifest, SoundsManifest } from '../audio/loading/manifest.ts
 import { type LiveRun, playLive, type RenderConfig, renderOffline } from '../audio/offline.ts';
 import bankUrl from '../audio/worklet/bank.ts?worker&url';
 import { BankCore } from '../audio/worklet/bank-core.ts';
-import fdnUrl from '../audio/worklet/fdn.ts?worker&url';
-import { F, GROUP, KIND, NF, OUT_SFX, SFX_DEST } from '../audio/worklet/protocol.ts';
+import { F, GROUP, KIND, NF, OUT_UI, SFX_DEST } from '../audio/worklet/protocol.ts';
 
 const BASE = '/audio/';
-const worklets = { bank: bankUrl, fdn: fdnUrl };
+const worklets = { bank: bankUrl };
 const params = new URLSearchParams(location.search);
 const audio = new AudioSystem({ worklets, baseUrl: BASE, reduced: params.has('reduced'), seed: 1945 });
 void audio.preload();
@@ -353,7 +352,7 @@ const dev = {
           ]);
           core.process(o, fr);
           y.set(
-            ((o[OUT_SFX(0)] as Float32Array[])[0] as Float32Array).subarray(0, Math.min(128, total - fr)),
+            ((o[OUT_UI] as Float32Array[])[0] as Float32Array).subarray(0, Math.min(128, total - fr)),
             fr,
           );
         }

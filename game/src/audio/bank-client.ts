@@ -7,6 +7,7 @@ import {
   type ChannelConfig,
   type ChannelParam,
   F,
+  type FdnConfig,
   type FromBank,
   NF,
   type ToBank,
@@ -125,6 +126,21 @@ export class BankClient implements VoiceEngine {
 
   clear(slot: number | 'sfx', fade: number): void {
     this.port.postMessage({ t: 'clear', slot, fade });
+  }
+
+  /** A slot's room: its reverb (cleared), the return's gain (linear), the air shelf (dB). */
+  room(slot: number, reverb: FdnConfig, wet: number, airDb: number): void {
+    this.port.postMessage({ t: 'room', slot, reverb, wet, airDb });
+  }
+
+  /** A slot's era gain (linear) from audio time `at`, over `seconds` (τ = seconds / 4) or at once. */
+  fade(slot: number, gain: number, at: number, seconds: number): void {
+    this.port.postMessage({ t: 'fade', slot, gain, at, seconds });
+  }
+
+  /** The SFX buses' fader gains (linear) from audio time `at`, approached with `tau` (0: at once). */
+  buses(gains: number[], at: number, tau: number): void {
+    this.port.postMessage({ t: 'buses', gains, at, tau });
   }
 
   taps(list: { slot: number; channel: number }[]): void {

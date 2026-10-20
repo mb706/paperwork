@@ -42,6 +42,11 @@ MASTERS = CACHE / "masters"
 ENC = CACHE / "enc"
 PUBLIC = GAME / "public" / "audio"
 SOUNDS_YAML = GAME / "data" / "engine" / "sounds.yaml"
+LICENCES = GAME / "assets" / "audio" / "licences.json"
+# the licence record of every published file (written to LICENCES; assets/audio/LICENSES.md explains it)
+RECORDS: dict[str, dict] = {}
+OWN = "own work (the Paperwork project)"
+OWN_FROM_CC0 = "own work (the Paperwork project) from CC0-1.0 sources"
 FFMPEG = shutil.which("ffmpeg") or str(Path.home() / ".local/bin/ffmpeg")
 RATE = 32000
 ENCODER_VERSION = "opus+aac v1"
@@ -74,9 +79,16 @@ def canonical(master: Path) -> tuple[int, dict, int]:
     return n, {"at": at, "data": fp}, x.shape[1]
 
 
+def samples_bytes(master: Path) -> bytes:
+    """A master's samples and format: its content, without the file's bytes (libsndfile stamps a float WAV's
+    PEAK chunk with the time of writing, so the bytes differ between identical renders)."""
+    x, sr = sf.read(master, always_2d=True, dtype="float32")
+    return x.tobytes() + f"|{sr}|{x.shape[1]}".encode()
+
+
 def encode(master: Path, bitrate: str, channels: int) -> tuple[str, dict[str, Path]]:
     """Encodes a master to .ogg (Opus) and .m4a (AAC), cached by content hash. Returns (hash8, paths)."""
-    key = hashlib.sha256(master.read_bytes() + f"|{bitrate}|{channels}|{ENCODER_VERSION}".encode()).hexdigest()
+    key = hashlib.sha256(samples_bytes(master) + f"|{bitrate}|{channels}|{ENCODER_VERSION}".encode()).hexdigest()
     out = {}
     ENC.mkdir(parents=True, exist_ok=True)
     for ext, args in (
@@ -94,10 +106,20 @@ def encode(master: Path, bitrate: str, channels: int) -> tuple[str, dict[str, Pa
     return key[:12], out
 
 
-def publish(rel_stem: str, master: Path, bitrate: str, channels: int, licence: str, extra: dict) -> dict:
-    """Encodes and copies one file into public/audio; returns its manifest entry."""
+def source(rel: str) -> dict:
+    """A raw sample file: its library's repository, the pinned commit, the licence and its SHA-256 (the lock)."""
+    lib = rel.split("/")[0]
+    info = samples.LIBRARIES[lib]
+    lock = samples.read_lock().get(rel, {})
+    return {"path": rel, "repo": info["repo"], "commit": info["sha"], "licence": info["licence"],
+            "sha256": lock.get("sha256")}
+
+
+def publish(rel_stem: str, master: Path, bitrate: str, channels: int, record: dict, extra: dict) -> dict:
+    """Encodes and copies one file into public/audio, records its licence; returns its manifest entry."""
     h, paths = encode(master, bitrate, channels)
     rel = f"{rel_stem}.{h}"
+    RECORDS[rel] = record
     sizes = {}
     for ext, p in paths.items():
         dest = PUBLIC / f"{rel}.{ext}"
@@ -122,8 +144,9 @@ def build_samples(force: bool) -> dict:
     for name, p in packs.items():
         zones = []
         for z in p["zones"]:
+            record = {"licence": "CC0-1.0", "sources": [source(z["src"])]}
             entry = publish(f"inst/{name}/{z['stem']}", out / name / f"{z['stem']}.wav", p["bitrate"], z["channels"],
-                            "CC0-1.0", {"root": z["root"], "layer": z["layer"], "src": z["src"]})
+                            record, {"root": z["root"], "layer": z["layer"], "src": z["src"]})
             zones.append(entry)
         lib = zones[0]["src"].split("/")[0] if zones else ""
         # the files are scaled by the computed makeup; the runtime restores it plus A4's pack match (samples.py)
@@ -153,7 +176,9 @@ def build_sfx(force: bool, defs: dict) -> dict:
             if g["loop"]:
                 # the loop points on the 32 kHz canonical timeline (masters: 48 kHz, margins included)
                 extra = {"loopStart": v["loop_start"] * 2 // 3, "loopEnd": v["loop_end"] * 2 // 3}
-            files.append(publish(f"sfx/{v['stem']}", out / f"{v['stem']}.wav", d.get("bitrate", "64k"), 1, "CC0-1.0", extra))
+            srcs = [source(s) for s in v.get("sources", [])]
+            record = {"licence": OWN_FROM_CC0 if srcs else OWN, "sources": srcs, "generator": f"sfx.py {d['source']}"}
+            files.append(publish(f"sfx/{v['stem']}", out / f"{v['stem']}.wav", d.get("bitrate", "64k"), 1, record, extra))
         sounds[name] = {
             "bus": d["bus"],
             "gainDb": d.get("gain_db", 0.0),
@@ -219,11 +244,28 @@ def main() -> None:
             "music": {"eras": cfg["music"]["eras"]},
         }
         p = probe()
+        RECORDS["probe"] = {"licence": OWN, "sources": [], "generator": "build.py probe"}
+        for name, r in music["recordings"].items():
+            RECORDS[r["file"]] = {"licence": OWN_FROM_CC0, "sources": [],
+                                  "generator": f"render.ts and master.py: the {name} recording, an offline render of "
+                                               "the game's rule sets with the instrument files above"}
+        write_licences()
         (PUBLIC / "music.json").write_text(json.dumps(music, indent=1) + "\n")
         (PUBLIC / "sounds.json").write_text(json.dumps(sounds_manifest, indent=1) + "\n")
         clean(music, sounds)
         inventory(music, sounds, p)
     print(f"audio build: done in {time.time() - t0:.1f} s")
+
+
+def write_licences() -> None:
+    """The per-file licence record (committed; assets/audio/LICENSES.md is its prose)."""
+    doc = {
+        "note": "Generated by scripts/assets/audio/build.py: every file in public/audio with its licence and the "
+                "raw files it derives from (pinned commits; SHA-256 from samples.lock.json). See LICENSES.md.",
+        "libraries": samples.LIBRARIES,
+        "files": dict(sorted(RECORDS.items())),
+    }
+    LICENCES.write_text(json.dumps(doc, indent=2) + "\n")
 
 
 def clean(music: dict, sounds: dict) -> None:

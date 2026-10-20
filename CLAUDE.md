@@ -86,6 +86,25 @@
   `crates/sim/src/gen/` are generated: their header hash refuses hand edits. A justified exception to a check-arch
   rule is a comment on the line before: `// check-arch-ignore <rule>: <reason>`.
 
+## Audio (`game/src/audio/`; M0 by C7)
+- **Assets:** `gamedev-python -I scripts/assets/audio/build.py` (fetch → prep → sfx → encode; minutes cold, seconds
+  warm) fills `public/audio/` (gitignored): content-hashed Opus `.ogg` + AAC `.m4a`, `music.json`, `sounds.json` and
+  `inventory.json` with the size gates. Sources are pinned in `assets/audio/samples.lock.json`; every published file
+  has a licence record in `assets/audio/licences.json` (prose: `LICENSES.md`). Sound definitions (bus, variation, rate
+  limit, events, working sounds, era bus gains): `data/engine/sounds.yaml`.
+- **Dev page:** `/src/dev/audio.html` on the dev server: start, the music program and keys, the sliders, every sound,
+  a factory's SFX load. Tools drive it through `window.__audioDev` (offline renders, live play, decode/loop checks).
+- **Renders:** `node scripts/assets/audio/render.ts <cfgs.json> [--out dir] [--checks]` renders through the real engine
+  in headless Chrome (OfflineAudioContext, WAVs in `.cache/assets/audio/renders/`); `scripts/assets/audio/analyze.py`
+  compares loudness, spectra and stems with A4's demos; `master.py` makes a recording (−18 LUFS, −1 dBTP).
+- **CPU:** `taskset -c 0-7 node scripts/assets/audio/bench.ts <cfgs.json> [seconds] [rounds]` plays live and reads the
+  audio threads from `/proc`, rounds interleaved (reference ≈ host ÷ 2.4; budget 10 §9.4: host ≤ 19 % mean, ≤ 36 %
+  worst second). The CPU clock drifts with load, so compare only within one interleaved session.
+- **Tests:** `npx vitest run src/audio` (the rule sets note for note against A4's prototype, the bank's DSP, the FDN
+  against A4's IRs, the conductor); `npx playwright test e2e/audio.spec.ts` (@audio).
+- **Rules:** the worklet's `process()` never allocates. Keep native nodes few: beside an AudioWorklet each one renders
+  on its thread (≈ 0.1 % of a host core per GainNode), so rooms, reverbs and bus faders live in the bank.
+
 ## Showing the game to the user
 - Dev server on `127.0.0.1:<high port>`; the user tunnels in: `ssh -L 5173:127.0.0.1:5173 cpuserver10`.
 - Builds can also be published as a private claude.ai Artifact (≤ 16 MB per file).

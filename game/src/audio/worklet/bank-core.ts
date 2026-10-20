@@ -1,8 +1,14 @@
 // The voice bank (10 §9.4): every sampler voice of the music and the SFX, the synthesised voices (sine,
-// drawbar organ, Risset bell) and the music channels' strips (trim, EQ, tape, tremolo, the tape echo, the
-// hiss, pan, dry and reverb send), mixed in one AudioWorklet. Its outputs are, per era slot, a dry and a
-// send pair (the send feeds the FDN node), then one pair per SFX bus. Native nodes do the rest (buses,
-// faders, the glue compressor, the limiter).
+// drawbar organ, Risset bell), the music channels' strips (trim, EQ, tape, tremolo, the tape echo, the
+// hiss, pan, dry and reverb send), each era slot's room (its FDN reverb, the return, the air shelf, the
+// era gain) and the SFX buses' faders, mixed in one AudioWorklet. Its outputs are the music, the world SFX
+// and the other SFX (GUI, alerts). Native nodes do the rest: the music's low cut and glue compressor, the
+// gates, the Music and Master faders, the limiter.
+//
+// Why the rooms and bus faders are here and not native nodes (C7's measurement, Chrome 156): beside an
+// AudioWorklet every native node renders on the worklet's thread at several times its usual cost, about
+// 0.1 % of a host core per GainNode and 0.9 % per further worklet node, so an idle graph of three worklets
+// and 30 native nodes cost 9.5 points of a core before a note played.
 //
 // This file is the processor's core without the AudioWorkletGlobalScope, so Node tests drive it directly.
 // Rules (10 §9.4, "The processors"): nothing allocates in `process()`; everything is set up from messages;
@@ -26,11 +32,13 @@ import {
   sineTable,
   xorshift,
 } from './dsp.ts';
+import { FdnCore } from './fdn-core.ts';
 import {
   type AutoEvent,
   type BankStats,
   type ChannelConfig,
   F,
+  type FdnConfig,
   type FeedConfig,
   GROUP,
   type InsertConfig,
@@ -42,21 +50,28 @@ import {
   MAX_WAVES,
   MUSIC_VOICES,
   NF,
-  OUT_SFX,
-  OUT_SLOT,
+  OUT_MUSIC,
   OUT_TAPS,
+  OUT_UI,
+  OUT_WORLD,
   QCAP,
   SFX_BUSES,
   SFX_DEST,
   SFX_VOICES,
   SPARE_VOICES,
+  TAP_REVERB,
+  TAP_SEND,
   type ToBank,
+  WORLD_BUSES,
 } from './protocol.ts';
 
 const BLOCK = 128;
 const MAXV = MUSIC_VOICES + SFX_VOICES + SPARE_VOICES;
 const NB = RISSET_BELL.length;
 const NSFX = SFX_BUSES.length;
+const WORLD = SFX_BUSES.map((b) => WORLD_BUSES.includes(b));
+/** The air shelf's corner (A4 `mixer.js`: a high shelf at 7 kHz on each era bus). */
+const AIR_HZ = 7000;
 
 // voice phases
 const P_OFF = 0;
@@ -125,23 +140,43 @@ class Param {
     this.target = v;
   }
 
+  /** Drops the events at or after `frame` (cancelScheduledValues; a running approach goes on). */
+  cancelFrom(frame: number): void {
+    let i = 0;
+    while (i < this.n && this.time[i]! < frame) i++;
+    this.n = i;
+  }
+
+  /** Applies and removes the first event. */
+  private shift(): void {
+    if (this.kind[0] === 0) {
+      this.v = this.value[0]!;
+      this.targeting = false;
+    } else {
+      this.target = this.value[0]!;
+      this.k = 1 - Math.exp(-1 / Math.max(1, this.tau[0]!));
+      this.targeting = true;
+    }
+    this.n--;
+    this.time.copyWithin(0, 1, this.n + 1);
+    this.kind.copyWithin(0, 1, this.n + 1);
+    this.value.copyWithin(0, 1, this.n + 1);
+    this.tau.copyWithin(0, 1, this.n + 1);
+  }
+
+  /** `m` samples of the exponential approach at once. */
+  private approach(m: number): void {
+    if (!this.targeting || m <= 0) return;
+    this.v = this.target + (this.v - this.target) * (1 - this.k) ** m;
+    if (Math.abs(this.target - this.v) < 1e-9) {
+      this.v = this.target;
+      this.targeting = false;
+    }
+  }
+
   /** The value at the next sample, at absolute frame f. */
   step(f: number): number {
-    while (this.n > 0 && this.time[0]! <= f) {
-      if (this.kind[0] === 0) {
-        this.v = this.value[0]!;
-        this.targeting = false;
-      } else {
-        this.target = this.value[0]!;
-        this.k = 1 - Math.exp(-1 / Math.max(1, this.tau[0]!));
-        this.targeting = true;
-      }
-      this.n--;
-      this.time.copyWithin(0, 1, this.n + 1);
-      this.kind.copyWithin(0, 1, this.n + 1);
-      this.value.copyWithin(0, 1, this.n + 1);
-      this.tau.copyWithin(0, 1, this.n + 1);
-    }
+    while (this.n > 0 && this.time[0]! <= f) this.shift();
     if (this.targeting) {
       this.v += (this.target - this.v) * this.k;
       if (Math.abs(this.target - this.v) < 1e-9) {
@@ -150,6 +185,40 @@ class Param {
       }
     }
     return this.v;
+  }
+
+  /** Moves the automation over `n` samples from frame `f` without reading it (no one is listening). */
+  advance(f: number, n: number): void {
+    const end = f + n;
+    let t = f;
+    while (this.n > 0 && this.time[0]! < end) {
+      const te = Math.max(t, Math.ceil(this.time[0]!));
+      this.approach(te - t);
+      t = te;
+      this.shift();
+    }
+    this.approach(end - t);
+  }
+}
+
+/** An era slot's room: its FDN reverb, the return's gain, the air shelf and the era gain. */
+class Room {
+  readonly fdn: FdnCore;
+  wet = 0;
+  air = false;
+  readonly airC = new Float64Array(5);
+  readonly airZ = new Float64Array(4);
+  /** The era gain: silent until a piece starts; crossfades ramp it (10 §9.4, A4 §5.4). */
+  readonly gain = new Param(0);
+  readonly wetL = new Float32Array(BLOCK);
+  readonly wetR = new Float32Array(BLOCK);
+  readonly sumL = new Float32Array(BLOCK);
+  readonly sumR = new Float32Array(BLOCK);
+  /** Stems renders read the return: process it even while the era gain is 0. */
+  tapped = false;
+
+  constructor(sr: number) {
+    this.fdn = new FdnCore(sr);
   }
 }
 
@@ -502,7 +571,16 @@ export class BankCore {
   private readonly sfxL: Float32Array[] = [];
   private readonly sfxR: Float32Array[] = [];
   private readonly sfxLive = new Uint8Array(NSFX);
-  private readonly taps: number[] = [];
+  private readonly rooms: Room[] = [];
+  private readonly busGain: Param[] = [];
+  private readonly musL = new Float32Array(BLOCK);
+  private readonly musR = new Float32Array(BLOCK);
+  private readonly worldL = new Float32Array(BLOCK);
+  private readonly worldR = new Float32Array(BLOCK);
+  private readonly uiL = new Float32Array(BLOCK);
+  private readonly uiR = new Float32Array(BLOCK);
+  private readonly tapSlot: number[] = [];
+  private readonly tapCh: number[] = [];
   private readonly nTaps: number;
   private frame = 0;
 
@@ -523,10 +601,12 @@ export class BankCore {
       this.dryR.push(new Float32Array(BLOCK));
       this.sendL.push(new Float32Array(BLOCK));
       this.sendR.push(new Float32Array(BLOCK));
+      this.rooms.push(new Room(this.sr));
     }
     for (let b = 0; b < NSFX; b++) {
       this.sfxL.push(new Float32Array(BLOCK));
       this.sfxR.push(new Float32Array(BLOCK));
+      this.busGain.push(new Param(1));
     }
   }
 
@@ -586,9 +666,40 @@ export class BankCore {
       case 'clear':
         this.clear(m.slot, m.fade);
         return null;
+      case 'room':
+        this.room(m.slot, m.reverb, m.wet, m.airDb);
+        return null;
+      case 'fade': {
+        const p = this.rooms[m.slot]?.gain;
+        if (!p) return null;
+        const at = m.at * this.sr;
+        p.cancelFrom(at);
+        if (m.seconds > 0) p.add(1, at, m.gain, (m.seconds / 4) * this.sr);
+        else p.add(0, at, m.gain, 0);
+        return null;
+      }
+      case 'buses': {
+        const at = m.at * this.sr;
+        m.gains.slice(0, NSFX).forEach((g, b) => {
+          const p = this.busGain[b] as Param;
+          if (m.tau <= 0) p.clear(g);
+          else {
+            p.cancelFrom(at);
+            p.add(1, at, g, m.tau * this.sr);
+          }
+        });
+        return null;
+      }
       case 'taps':
-        this.taps.length = 0;
-        for (const t of m.list.slice(0, this.nTaps)) this.taps.push(t.slot * MAX_CH + t.channel);
+        this.tapSlot.length = 0;
+        this.tapCh.length = 0;
+        for (const r of this.rooms) r.tapped = false;
+        for (const t of m.list.slice(0, this.nTaps)) {
+          this.tapSlot.push(t.slot);
+          this.tapCh.push(t.channel);
+          const r = this.rooms[t.slot];
+          if (r && t.channel < 0) r.tapped = true;
+        }
         return null;
       case 'stats':
         return this.stats();
@@ -611,6 +722,17 @@ export class BankCore {
       bytes: this.bufBytes,
       quanta: this.quanta,
     };
+  }
+
+  /** Configures a slot's room (outside process(): the reverb allocates its lines). */
+  private room(slot: number, reverb: FdnConfig, wet: number, airDb: number): void {
+    const r = this.rooms[slot];
+    if (!r) return;
+    r.fdn.configure(reverb);
+    r.wet = wet;
+    r.air = airDb !== 0;
+    biquadCoefs('highshelf', AIR_HZ, 1, airDb, this.sr, r.airC, 0);
+    r.airZ.fill(0);
   }
 
   private addEvent(p: Param, e: AutoEvent): void {
@@ -1018,7 +1140,64 @@ export class BankCore {
     const c1 = b ? b.c1 : null;
     const last = b ? b.len - 1 : 0;
     const table = kind === KIND.ORGAN ? (this.waves[this.vSrc[v]!] ?? this.sine) : this.sine;
-    for (; s < n; s++) {
+    // The fast path, most of the work: a sample voice holding or releasing, up to its next envelope event.
+    // The same arithmetic as the general loop below (a held level times 1 is itself), without its per-sample
+    // event and phase tests.
+    if (kind === KIND.SAMPLE && (ph === P_SUS || ph === P_REL)) {
+      const evt = Math.min(ph === P_SUS ? tOff : Number.POSITIVE_INFINITY, tStop);
+      const segEnd = evt - f0 >= n ? n : Math.max(s, Math.ceil(evt - f0));
+      const k = ph === P_REL ? rK : 1;
+      const s0 = c0 as Int16Array;
+      const s1 = c1 as Int16Array;
+      for (; s < segEnd; s++) {
+        env *= k;
+        if (smooth) {
+          gS += (gainT - gS) * ks;
+          q0 += (p0 - q0) * ks;
+          q1 += (p1 - q1) * ks;
+          q2 += (p2 - q2) * ks;
+          q3 += (p3 - q3) * ks;
+        }
+        if (loopE > 0 && pos >= loopE) pos -= span;
+        const ip = pos | 0;
+        if (ip >= last) {
+          done = true;
+          break;
+        }
+        const fr = pos - ip;
+        const a = s0[ip]!;
+        const x = a + (s0[ip + 1]! - a) * fr;
+        let y = 0;
+        if (srcStereo) {
+          const r = s1[ip]!;
+          y = r + (s1[ip + 1]! - r) * fr;
+        }
+        pos += inc;
+        const e = smooth ? env * gS : env;
+        switch (mode) {
+          case 0:
+            L[s] = L[s]! + x * e;
+            break;
+          case 1:
+            L[s] = L[s]! + x * e;
+            (R as Float32Array)[s] = (R as Float32Array)[s]! + y * e;
+            break;
+          case 2:
+            L[s] = L[s]! + x * e;
+            (R as Float32Array)[s] = (R as Float32Array)[s]! + x * e;
+            break;
+          default:
+            if (srcStereo) {
+              L[s] = L[s]! + (q0 * x + q1 * y) * e;
+              (R as Float32Array)[s] = (R as Float32Array)[s]! + (q2 * x + q3 * y) * e;
+            } else {
+              L[s] = L[s]! + q0 * x * e;
+              (R as Float32Array)[s] = (R as Float32Array)[s]! + q1 * x * e;
+            }
+        }
+      }
+    }
+    for (; s < n && !done; s++) {
       const f = f0 + s;
       // envelope (A4's AudioParam automation)
       if (f >= tOff && ph < P_REL) ph = P_REL;
@@ -1192,45 +1371,120 @@ export class BankCore {
     }
     // 4. channel strips, per slot
     for (let sl = 0; sl < MAX_SLOTS; sl++) this.strips(sl, f0, n);
-    // 5. outputs
-    for (let sl = 0; sl < MAX_SLOTS; sl++) {
-      const od = outputs[OUT_SLOT(sl, false)];
-      const os = outputs[OUT_SLOT(sl, true)];
-      if (od && od.length >= 2)
-        copyStereo(this.dryL[sl] as Float32Array, this.dryR[sl] as Float32Array, od, off, n);
-      if (os && os.length >= 2)
-        copyStereo(this.sendL[sl] as Float32Array, this.sendR[sl] as Float32Array, os, off, n);
-    }
-    for (let bus = 0; bus < NSFX; bus++) {
-      const o = outputs[OUT_SFX(bus)];
+    // 5. the rooms into the music; the SFX buses after their faders into the world and the UI outputs
+    this.musL.fill(0, 0, n);
+    this.musR.fill(0, 0, n);
+    for (let sl = 0; sl < MAX_SLOTS; sl++) this.mixRoom(sl, f0, n);
+    this.mixBuses(f0, n);
+    // 6. outputs
+    copyStereo(this.musL, this.musR, outputs[OUT_MUSIC], off, n);
+    copyStereo(this.worldL, this.worldR, outputs[OUT_WORLD], off, n);
+    copyStereo(this.uiL, this.uiR, outputs[OUT_UI], off, n);
+    for (let k = 0; k < this.tapSlot.length; k++) {
+      const o = outputs[OUT_TAPS + k];
+      const sl = this.tapSlot[k]!;
+      const c = this.tapCh[k]!;
       if (!o || o.length < 2) continue;
       const oL = o[0] as Float32Array;
       const oR = o[1] as Float32Array;
-      const L = this.sfxL[bus] as Float32Array;
-      const R = this.sfxR[bus] as Float32Array;
-      for (let s = 0; s < n; s++) {
-        oL[off + s] = L[s]!;
-        oR[off + s] = R[s]!;
+      if (c === TAP_REVERB || c === TAP_SEND) {
+        const r = this.rooms[sl];
+        if (!r) continue;
+        const w = c === TAP_REVERB ? r.wet : 1;
+        const L = c === TAP_REVERB ? r.wetL : (this.sendL[sl] as Float32Array);
+        const R = c === TAP_REVERB ? r.wetR : (this.sendR[sl] as Float32Array);
+        for (let s = 0; s < n; s++) {
+          oL[off + s] = L[s]! * w;
+          oR[off + s] = R[s]! * w;
+        }
+        continue;
       }
-    }
-    for (let k = 0; k < this.taps.length; k++) {
-      const o = outputs[OUT_TAPS + k];
-      const t = this.taps[k]!;
-      const ch = this.slots[(t / MAX_CH) | 0]?.[t % MAX_CH];
-      if (!o || o.length < 2 || !ch) continue;
-      const oL = o[0] as Float32Array;
-      const oR = o[1] as Float32Array;
+      const ch = this.slots[sl]?.[c];
+      if (!ch) continue;
       for (let s = 0; s < n; s++) {
         oL[off + s] = ch.postL[s]! * ch.dry;
         oR[off + s] = ch.postR[s]! * ch.dry;
       }
     }
-    // 6. slots whose clear has finished release their channels
+    // 7. slots whose clear has finished release their channels
     for (let sl = 0; sl < MAX_SLOTS; sl++)
       if (this.clearUntil[sl]! !== Number.NEGATIVE_INFINITY && f0 >= this.clearUntil[sl]!) {
         for (const ch of this.slots[sl] as Channel[]) this.resetChannel(ch, true);
         this.clearUntil[sl] = Number.NEGATIVE_INFINITY;
       }
+  }
+
+  /** A slot's room: dry plus the reverb's return, the air shelf, the era gain, added to the music. */
+  private mixRoom(sl: number, f0: number, n: number): void {
+    const r = this.rooms[sl] as Room;
+    const g = r.gain;
+    // an era gain at 0 with nothing scheduled: nothing of the slot is heard (a cleared slot fading out)
+    if (!g.pending && g.v === 0 && !r.tapped) return;
+    const dL = this.dryL[sl] as Float32Array;
+    const dR = this.dryR[sl] as Float32Array;
+    const wL = r.wetL;
+    const wR = r.wetR;
+    r.fdn.process(this.sendL[sl], this.sendR[sl], wL, wR, n);
+    const w = r.wet;
+    const sL = r.sumL;
+    const sR = r.sumR;
+    for (let s = 0; s < n; s++) {
+      sL[s] = dL[s]! + wL[s]! * w;
+      sR[s] = dR[s]! + wR[s]! * w;
+    }
+    if (r.air) {
+      biquadRun(sL, n, r.airC, 0, r.airZ, 0);
+      biquadRun(sR, n, r.airC, 0, r.airZ, 2);
+    }
+    const mL = this.musL;
+    const mR = this.musR;
+    if (g.pending)
+      for (let s = 0; s < n; s++) {
+        const k = g.step(f0 + s);
+        mL[s] = mL[s]! + sL[s]! * k;
+        mR[s] = mR[s]! + sR[s]! * k;
+      }
+    else {
+      const k = g.v;
+      if (k !== 0)
+        for (let s = 0; s < n; s++) {
+          mL[s] = mL[s]! + sL[s]! * k;
+          mR[s] = mR[s]! + sR[s]! * k;
+        }
+    }
+  }
+
+  /** The SFX buses, each after its fader (the volume settings, 20 ms ramps), into the world and UI sums. */
+  private mixBuses(f0: number, n: number): void {
+    this.worldL.fill(0, 0, n);
+    this.worldR.fill(0, 0, n);
+    this.uiL.fill(0, 0, n);
+    this.uiR.fill(0, 0, n);
+    for (let bus = 0; bus < NSFX; bus++) {
+      const p = this.busGain[bus] as Param;
+      if (!this.sfxLive[bus]) {
+        if (p.pending) p.advance(f0, n);
+        continue;
+      }
+      const L = this.sfxL[bus] as Float32Array;
+      const R = this.sfxR[bus] as Float32Array;
+      const oL = WORLD[bus] ? this.worldL : this.uiL;
+      const oR = WORLD[bus] ? this.worldR : this.uiR;
+      if (p.pending)
+        for (let s = 0; s < n; s++) {
+          const k = p.step(f0 + s);
+          oL[s] = oL[s]! + L[s]! * k;
+          oR[s] = oR[s]! + R[s]! * k;
+        }
+      else {
+        const k = p.v;
+        if (k !== 0)
+          for (let s = 0; s < n; s++) {
+            oL[s] = oL[s]! + L[s]! * k;
+            oR[s] = oR[s]! + R[s]! * k;
+          }
+      }
+    }
   }
 
   private strips(sl: number, f0: number, n: number): void {
@@ -1319,7 +1573,14 @@ export class BankCore {
   }
 }
 
-function copyStereo(L: Float32Array, R: Float32Array, out: Float32Array[], off: number, n: number): void {
+function copyStereo(
+  L: Float32Array,
+  R: Float32Array,
+  out: Float32Array[] | undefined,
+  off: number,
+  n: number,
+): void {
+  if (!out || out.length < 2) return;
   const oL = out[0] as Float32Array;
   const oR = out[1] as Float32Array;
   for (let s = 0; s < n; s++) {

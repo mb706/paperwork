@@ -69,7 +69,6 @@ export interface DirectorOptions {
   mixer: MixerGraph;
   bank: BankClient | null;
   packs: PackLoader | null;
-  fdn: (AudioWorkletNode | null)[];
   recorded: RecordedMusic | null;
   eras: readonly Era[];
   busDb?: Readonly<Record<string, number>>;
@@ -189,8 +188,11 @@ export class Director {
   private startPiece(seg: Segment, spec: PieceSpec, slot: number, now: number): void {
     const { engine, mixer, scheduler } = this.o;
     engine.prepare(slot, spec.layout);
-    mixer.configureSlot(slot, spec.layout.airDb, spec.layout.reverb.wetDb);
-    this.o.fdn[slot]?.port.postMessage({ t: 'config', config: fdnConfig(spec.layout.reverb.preset) });
+    mixer.configureSlot(slot, {
+      reverb: fdnConfig(spec.layout.reverb.preset),
+      wetDb: spec.layout.reverb.wetDb,
+      airDb: spec.layout.airDb,
+    });
     const busDb = this.o.busDb?.[spec.id] ?? DEFAULT_BUS_DB[spec.id] ?? 0;
     mixer.fadeSlot(slot, busDb, 0, now);
     // the piece's 0 is the segment's start on the audio clock (a piece joined late drops its past notes)

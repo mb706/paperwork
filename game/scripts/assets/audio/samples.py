@@ -14,6 +14,7 @@ recorded with its SHA-256 in `game/assets/audio/samples.lock.json`; later fetche
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import re
@@ -191,6 +192,12 @@ def wanted() -> list[tuple[str, dict]]:
 
 
 MIRROR: Path | None = None
+
+
+@functools.cache
+def read_lock() -> dict:
+    """The lock: every raw file the build uses, keyed `<library>/<path>`, with its size, git blob and SHA-256."""
+    return json.loads(LOCK.read_text()) if LOCK.exists() else {}
 
 
 def fetch(mirror: Path | None = None) -> None:
