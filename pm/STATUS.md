@@ -47,7 +47,7 @@ The Schema package is split into sequential parts: C1a (scaffold, CI, data stage
 |---|---|---|
 | C1a | Scaffold, toolchains, CI, check-arch, data stage, capability manifest | done (3ebd435..53e1d61); `npm run ci` takes about 33 s. Codex r1's 15 findings are fixed |
 | C1b | Schema, generator, codec fixtures (gate items 1–3) | done (e9f0850..529182a). Codex r1's 10 findings are fixed, with shared fixtures; `npm run ci` takes 35 s |
-| C1c | Fake sim, reference model, frozen M0 golden set (gate items 4 and 6) | done (d4bd2b0..cbfb0d6). Golden set v5. GATE-r1 failed (1 critical, 13 major), and all of it is fixed. GATE-r2 failed on 3 major and 3 minor findings: C2 and C3 are cleared, C1c fixed #1 and #3–#5 (golden v6). #2 is merged (1e86703; golden v7). GATE-r3, a focused verification, is running |
+| C1c | Fake sim, reference model, frozen M0 golden set (gate items 4 and 6) | done (d4bd2b0..cbfb0d6). Golden set v5. GATE-r1 failed (1 critical, 13 major), and all of it is fixed. GATE-r2 failed on 3 major and 3 minor findings: C2 and C3 are cleared, C1c fixed #1 and #3–#5 (golden v6). #2 is merged (1e86703; golden v7). GATE-r3's last two findings are fixed (99949b5, 8f31a32). **The contract gate passed on 2026-10-20** (manager's call after r3). C1c stays as the golden-set owner for future bumps |
 | C2 | Rust sim (det, worldgen, sim, simabi, genabi, simtool), phases C2a, C2b, C2c | **C2a running** (main tree) |
 | C3 | Sim worker shell, worldgen and IO workers | running (worktree) |
 | C5 | UI and input v0 (Factorio UI and keybindings, Survey skin) | running (worktree) |
