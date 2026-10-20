@@ -47,10 +47,11 @@ The Schema package is split into sequential parts: C1a (scaffold, CI, data stage
 |---|---|---|
 | C1a | Scaffold, toolchains, CI, check-arch, data stage, capability manifest | done (3ebd435..53e1d61); `npm run ci` takes about 33 s. Codex r1's 15 findings are fixed |
 | C1b | Schema, generator, codec fixtures (gate items 1–3) | done (e9f0850..529182a). Codex r1's 10 findings are fixed, with shared fixtures; `npm run ci` takes 35 s |
-| C1c | Fake sim, reference model, frozen M0 golden set (gate items 4 and 6) | done (d4bd2b0..cbfb0d6). Golden set v5. GATE-r1 failed (1 critical, 13 major), and all of it is fixed. GATE-r2 failed on 3 major and 3 minor findings: C2 and C3 are cleared, C1c fixed #1 and #3–#5 (golden v6). C4 waits for #2 (sprite greybox fallback, C6-r1, running) |
+| C1c | Fake sim, reference model, frozen M0 golden set (gate items 4 and 6) | done (d4bd2b0..cbfb0d6). Golden set v5. GATE-r1 failed (1 critical, 13 major), and all of it is fixed. GATE-r2 failed on 3 major and 3 minor findings: C2 and C3 are cleared, C1c fixed #1 and #3–#5 (golden v6). #2 is merged (1e86703; golden v7). GATE-r3, a focused verification, is running |
 | C2 | Rust sim (det, worldgen, sim, simabi, genabi, simtool), phases C2a, C2b, C2c | **C2a running** (main tree) |
 | C3 | Sim worker shell, worldgen and IO workers | running (worktree) |
 | C5 | UI and input v0 (Factorio UI and keybindings, Survey skin) | running (worktree) |
+| C4 | Renderer v0 and asset loader (Survey shaders, KTX2) | running (worktree) |
 | C6 | Asset pipeline v0 (Survey): rig, passes, layered renders, KTX2 atlases, manifest, greyboxes, M0 art | done and merged (b2bec76, then the r1 fixes in 78b9e87). The C6-r1 agent is fixing GATE-r2 #2 |
 | C7 | Audio v0: worklet engine port, mixer, SFX, working sounds | done and merged (257f698). Codex r1's 15 findings are fixed; CPU is 6.4% (Era I) and 7.6% (Era II) of a reference core. The user is asked about 32 kHz via https://claude.ai/artifact/XDaRFjpsqnZEpFk7qveyeT |
 - Spec §9.5 #5: restate the texture PSNR targets to match the floors measured on real pages (decision 13).
