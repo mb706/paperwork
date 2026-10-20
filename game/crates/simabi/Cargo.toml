@@ -14,10 +14,11 @@ schema.workspace = true
 sim.workspace = true
 
 [features]
+# The Shell package's loaders (C3) run the full module: on by default since C3-r1 (pm/reports/C3.md).
+default = ["full-abi"]
 simcheck = ["sim/simcheck", "schema/simcheck"]
-# Exports §15.8's whole table (sim_abi_version = schema::ABI_VERSION, the host imports). Off by default until
-# the Shell package's loader replaces the M0 scaffold (src/simworker/scaffold.ts instantiates with no imports
-# and the e2e smoke test expects ABI 0); the WebAssembly tests build with it (C2; pm/reports/C2.md).
+# Exports §15.8's whole table (sim_abi_version = schema::ABI_VERSION, the host imports). Without it the module
+# is the M0 scaffold (ABI 0, no imports), which the shell's handshake refuses (C2; pm/reports/C2.md).
 full-abi = []
 
 [lints]

@@ -1,0 +1,13 @@
+[package]
+name = "stubgen"
+description = "A stub gen.wasm for the worker shell's tests (C3): the generated GenAbi with patterned chunks."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+schema.workspace = true

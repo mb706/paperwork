@@ -1,0 +1,10 @@
+[package]
+name = "scaffold"
+description = "The M0 scaffold modules as a stale cache holds them (C3's test fixture): ABI 0, no imports."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
