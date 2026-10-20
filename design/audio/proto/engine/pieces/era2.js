@@ -16,20 +16,20 @@
 // Activity (0..1) decides whether the second loop (the phasing) runs at all.
 
 import { makeRng } from '../rng.js';
-import { justAbove, notesIn, pentatonic, voiceChord } from '../theory.js';
+import { consonantSet, justAbove, mod12, notesIn, pentatonic, voiceChord } from '../theory.js';
 
 export const ERA2_SAMPLERS = ['marimba', 'vibes', 'piano'];
 
 // Channel trims (dB), calibrated from stem loudness: analysis/calibrate.py rewrites this table.
 export const TRIMS = {
-  marimbaA: -9.5,
-  marimbaB: -9.3,
-  vibes: -2.2,
-  piano: 5.7,
-  organ: -14.3,
-  echo: -7.3,
-  drone: -26.9,
-  bell: -1.5,
+  marimbaA: -9.4,
+  marimbaB: -9.2,
+  vibes: -1.5,
+  piano: 5.8,
+  organ: -14.1,
+  echo: -7.1,
+  drone: -26.8,
+  bell: -1.3,
   hiss: 0.0,
 };
 
@@ -44,7 +44,9 @@ export function setupEra2(engine) {
   engine.route('piano', { reverb: 'plate', sendDb: -7, trimDb: TRIMS.piano, pan: -0.1, inserts: ['tape'], tape: { wowMs: 1.4, flutterMs: 0.12, drive: 2.0, lowpass: 7500 }, eq: [{ type: 'peaking', f: 2800, q: 0.8, gain: -3 }] });
   engine.synth('organ', 'organ', { drawbars: { 1: 1, 2: 0.55, 3: 0.12, 4: 0.16, 6: 0.04, 8: 0.05 } });
   engine.route('organ', { reverb: 'plate', sendDb: -10, trimDb: TRIMS.organ, pan: 0.05, inserts: ['tremolo'], tremoloHz: 6.2, tremoloDepth: 0.12 });
-  engine.echo('organ', 'echo', { time: 4 * BEAT, feedback: 0.52, lowpass: 3000, highpass: 220, wowMs: 1.2 }, { reverb: 'plate', sendDb: -6, trimDb: TRIMS.echo, pan: -0.25 });
+  // The time-lag accumulator. Feedback 0.36 (three audible repeats), a darker loop, and almost no wow: a
+  // sustained voice must not drift against its own copies. The piece erases the tape at chord changes.
+  engine.fx.echo = engine.echo('organ', 'echo', { time: 4 * BEAT, feedback: ECHO_FB, lowpass: 2400, highpass: 220, wowMs: 0.3 }, { reverb: 'plate', sendDb: -6, trimDb: TRIMS.echo, pan: -0.25 });
   engine.synth('drone', 'sine');
   engine.route('drone', { reverb: 'plate', sendDb: -14, trimDb: TRIMS.drone, pan: 0 });
   engine.synth('bell', 'bell');
@@ -53,6 +55,7 @@ export function setupEra2(engine) {
 }
 
 const BEAT = 60 / 83;
+const ECHO_FB = 0.36;
 const PULSE = BEAT / 4;
 // The phasing pattern: 12 pulses, pentatonic (A minor / C major), accents on 0, 4 and 7.
 const PATTERN = [
@@ -81,6 +84,7 @@ export class Era2Piece {
     this.T0 = p.start ?? 0;
     this.D = p.duration ?? 140;
     this.field = pentatonic(0); // C major pentatonic = A minor pentatonic
+    this.patternPcs = [...new Set(PATTERN.filter(Boolean).map(([m]) => mod12(m)))]; // the loop never stops
     this.eps = p.phase ?? 0.004;
     this.events = [];
     this.loopLen = PATTERN.length * PULSE;
@@ -92,6 +96,15 @@ export class Era2Piece {
     this.exitB = this.D * 0.6;
     this.plan();
     this.idx = 0;
+    // harmonic gate on the time-lag accumulator: the feedback is erased from half a second before each
+    // drone change until one delay after it, so no echo tail carries one chord into the next
+    const fb = engine.fx?.echo?.feedback;
+    if (fb?.setTargetAtTime) {
+      for (const c of [0.44, 0.57, 0.68].map((f) => f * this.D)) {
+        fb.setTargetAtTime(0, this.T0 + c - 0.5, 0.12);
+        fb.setTargetAtTime(ECHO_FB, this.T0 + c + 4 * BEAT, 0.4);
+      }
+    }
     // the tape hiss comes and goes with the piece
     const hiss = engine.channels?.get?.('hiss');
     if (hiss) {
@@ -139,9 +152,13 @@ export class Era2Piece {
     let prevBass = null;
     for (let t = 0.17 * D; t < 0.86 * D; t += r.range(9, 12.5)) {
       const bass = this.droneAt(t) + 12; // the drone root an octave up: the voicing's reference bass
-      // upper tones: the field ordered by their colour over this bass (third, fifth, seventh, ninth...)
-      const upper = [3, 4, 7, 10, 11, 2, 9, 5].map((iv) => (bass + iv) % 12).filter((pc) => this.field.includes(pc));
-      const v = voiceChord(bass, upper, [[55, 67], [60, 72], [64, 76], [67, 81]], prev, r, { need: 3, topTarget: r.range(70, 79), prevBass });
+      // upper tones: the field ordered by their colour over this bass (third, fifth, seventh, ninth...);
+      // while the organ sounds (30-70%), only its consonant set, so the held chords agree
+      const underOrgan = t >= 0.3 * D - 1 && t < 0.7 * D;
+      const upper = underOrgan
+        ? consonantSet(mod12(bass), this.field, this.patternPcs)
+        : [3, 4, 7, 10, 11, 2, 9, 5].map((iv) => (bass + iv) % 12).filter((pc) => this.field.includes(pc));
+      const v = voiceChord(bass, upper, [[55, 67], [60, 72], [64, 76], [67, 81]], prev, r, { need: Math.min(3, upper.length), topTarget: r.range(70, 79), prevBass });
       if (!v) continue;
       prev = v;
       prevBass = bass;
@@ -150,24 +167,47 @@ export class Era2Piece {
     // a last chord, left to ring over the drone: A minor 9 (A C E G B is outside the field: B as the 9th is
     // the one colour the piece has saved)
     [57, 64, 67, 71, 76].forEach((m, j) => E.push({ t: 0.9 * D + j * 0.05, inst: 'vibes', midi: m, vel: 0.3 - j * 0.015, dur: 10, opts: {} }));
-    // organ modules (In C fashion) between 30% and 68%, into the time-lag accumulator
-    const modules = [
-      { notes: [[0, 76, 2], [2, 74, 1]], len: 4 },
-      { notes: [[0, 69, 1], [1, 72, 1], [2, 74, 2]], len: 5 },
-      { notes: [[0, 79, 3], [3, 76, 1]], len: 5 },
-      { notes: [[0, 74, 1], [1, 76, 1], [2, 79, 2]], len: 5 },
+    // organ modules (In C fashion) from 30% to 68%, into the time-lag accumulator. Each module is built
+    // from the consonant set of the drone it sounds over (consonantSet: no seconds, no tritone), because
+    // the echo stacks a module's notes into one chord. Modules follow the drone sections, and the last beat
+    // before a drone change is a rest (the tape is erased there, see the constructor).
+    const SHAPES = [
+      [[0, 2, 2], [2, 1, 1]], // two notes, falling
+      [[0, 0, 1], [1, 1, 1], [2, 2, 2]], // three, rising
+      [[0, 2, 3], [3, 1, 1]], // long high, short low
+      [[0, 1, 1], [1, 2, 1], [2, 3, 2]], // rising to the top
     ];
-    let t = 0.3 * D;
-    const modEnd = 0.68 * D;
-    const per = (modEnd - t) / modules.length;
-    modules.forEach((mod, mi) => {
-      const until = 0.3 * D + (mi + 1) * per;
-      while (t + mod.len * BEAT <= until) {
-        for (const [b, m, d] of mod.notes) E.push({ t: t + b * BEAT, inst: 'organ', midi: m, vel: 0.36 + r.range(-0.02, 0.02), dur: d * BEAT * 0.92, opts: { attack: 0.03, release: 0.25 } });
-        t += (mod.len + r.int(0, 1)) * BEAT;
+    const orgStart = 0.3 * D;
+    const orgEnd = 0.68 * D;
+    const sections = [orgStart, ...changes.filter((c) => c > orgStart && c < orgEnd), orgEnd];
+    let shapeIdx = 0;
+    this.organSets = [];
+    for (let k = 0; k + 1 < sections.length; k++) {
+      const a = sections[k];
+      const b = sections[k + 1];
+      const root = mod12(this.droneAt(a + 0.01));
+      const set = consonantSet(root, this.field, this.patternPcs);
+      this.organSets.push({ from: a, to: b, set });
+      const pool = notesIn(set, 64, 81); // E4..A5
+      // the module count per section follows its length (about 13 s each)
+      const nMod = Math.max(1, Math.round((b - a) / 13));
+      const per = (b - a) / nMod;
+      for (let j = 0; j < nMod; j++) {
+        const shape = SHAPES[shapeIdx++ % SHAPES.length];
+        const top = Math.min(pool.length - 1, Math.max(...shape.map((x) => x[1])) + r.int(0, Math.max(0, pool.length - 4)));
+        const base = Math.max(0, top - Math.max(...shape.map((x) => x[1])));
+        const len = Math.max(...shape.map(([b0, , d]) => b0 + d)) + 1;
+        let t = a + j * per;
+        const until = Math.min(a + (j + 1) * per, b - BEAT); // a rest in the beat before a change
+        while (t + len * BEAT <= until) {
+          for (const [b0, idx, d] of shape) {
+            const m = pool[Math.min(pool.length - 1, base + idx)];
+            E.push({ t: t + b0 * BEAT, inst: 'organ', midi: m, vel: 0.36 + r.range(-0.02, 0.02), dur: d * BEAT * 0.92, opts: { attack: 0.03, release: 0.25 } });
+          }
+          t += (len + r.int(0, 1)) * BEAT;
+        }
       }
-      t = until;
-    });
+    }
     // two Risset bells: the drone's return, and the last section
     E.push({ t: 0.69 * D, inst: 'bell', midi: 57, vel: 0.5, dur: 11, opts: {} });
     E.push({ t: 0.84 * D, inst: 'bell', midi: 64, vel: 0.42, dur: 9, opts: {} });

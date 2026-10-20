@@ -207,5 +207,26 @@ export function topLine(chords, range, start = null) {
   return out;
 }
 
+/**
+ * The consonant set over a drone: pitch classes from the field (plus the drone's root and fifth) that form
+ * no minor or major second and no tritone with the root, the fifth, or each other. Sustained voices (organ,
+ * pads) over a drone use only this set, because a tape echo or a held pad stacks every note it plays
+ * into one chord. `persistent`: pitch classes of layers that keep sounding (a loop): the set also avoids
+ * semitones and tritones against them. Over A with the C pentatonic field: A C E; over F: A C (F would sit a
+ * semitone above the loop's E); over G: G D.
+ */
+export function consonantSet(rootPc, field, persistent = []) {
+  const ic = (a, b) => Math.min(mod12(a - b), mod12(b - a));
+  const harsh = (a, b) => [1, 2, 6].includes(ic(a, b));
+  const fifth = mod12(rootPc + 7);
+  const prefer = [0, 7, 3, 4, 9, 8, 5].map((iv) => mod12(rootPc + iv)); // root, fifth, thirds, sixths, fourth
+  const cands = [...new Set([rootPc, fifth, ...field])].filter(
+    (pc) => !harsh(pc, rootPc) && !harsh(pc, fifth) && persistent.every((q) => ![1, 6].includes(ic(pc, q))),
+  );
+  const out = [];
+  for (const pc of prefer) if (cands.includes(pc) && out.every((q) => !harsh(pc, q))) out.push(pc);
+  return out;
+}
+
 /** Equal-tempered MIDI value of a just interval above a MIDI note (for drones and spectral chords). */
 export const justAbove = (m, ratio) => m + 12 * Math.log2(ratio);

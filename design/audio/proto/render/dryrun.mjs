@@ -13,6 +13,7 @@ for (const cfg of Array.isArray(cfgs) ? cfgs : [cfgs]) {
     state: { activity: 0.5 },
     mixer: { addReverb() {}, air() {}, reverbs: new Map() },
     channels: new Map(),
+    fx: {},
     route() {},
     alias() {},
     synth() {},

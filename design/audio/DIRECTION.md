@@ -20,7 +20,7 @@
 | File | Era | What to listen for |
 |---|---|---|
 | `paperwork-era1-1945.opus` (2:25) | I, the charter piece | The motif stated once on the piano. Five piano loops of unequal length take it apart. Strings voice-lead under a pentatonic field. A tintinnabuli clarinet melody with harp follows, then a climax in the violins and a quiet coda |
-| `paperwork-era2-1962.opus` (2:26) | II | A marimba tape loop built up note by note. A second copy runs 0.4% fast and drifts out of phase (and 7 cents sharp, as tape does). Organ modules accumulate on a tape echo over a just-intonation sine drone (A, F, G, A). Two Risset bells. The 1945 motif returns on tape at half speed |
+| `paperwork-era2-1962.opus` (2:25) | II | A marimba tape loop built up note by note. A second copy runs 0.4% fast and drifts out of phase (and 7 cents sharp, as tape does). Organ modules, built only from each drone's consonant tones, accumulate on a tape echo that is erased at every chord change. They sound over a just-intonation sine drone (A, F, G, A). Two Risset bells. The 1945 motif returns on tape at half speed. Revised after user feedback round 1 (§4.2) |
 | `paperwork-takeoff.opus` (2:27) | V | The loop closes: the 1945 motif in five voices, one per era, at tempo ratios 1 : 4/3 : 2 : 3 : 4. All five land on one D, the canon's convergence point. Then the takeoff: an endless accelerando on the piano tuned to the harmonic series of D. The cut, and one low D |
 
 The SFX prototypes are 15 sounds in 38 files in `demos/sfx/`; §7 describes them.
@@ -104,7 +104,7 @@ The era is chosen by the Literature year when a piece starts (`engine/conductor.
 | Era | Literature | Tiers (competent pace) | Instruments | Rules (processes) | Harmony | Room |
 |---|---|---|---|---|---|---|
 | **I Relays and tubes** (implemented, `pieces/era1.js`) | to 1956 | Start, Memo; ~0:00–0:50 | Steinway B (soft layers); violin, viola and cello sections; contrabass; clarinet; harp; glockenspiel | Piano loops of 19.7, 23.3, 29.9, 34.1 and 41.3 s, each a fragment of the motif. The loops mutate by one field step every few cycles. Strings voice-led under a top line (§4.1). A tintinnabuli melody, M-voice on clarinet, T-voice on harp, in additive phrases. An activity layer: a harp arpeggio | A pentatonic field (F G A C D) over a moving bass. The bass alone gives Dm7, B♭maj9(13), F6/9, C6/9sus, G9sus. Cycles i–VI–III–VII and i–VII–VI–VII; the approach iv–VI–VII–i. Under the melody, plain Dm and B♭ triads below E4 | Hall, T60 2.7 s mid |
-| **II Tape and oscillators** (implemented, `pieces/era2.js`) | 1957–1982 | Report; ~0:50–2:00 | Marimba tape loops; vibraphone with motor; drawbar organ; sine drones; Risset bell; piano on tape; tape hiss | Additive entry (Glass); tape phasing at +0.4% (Reich); organ modules (Riley) into a time-lag accumulator with a 4-beat delay and 0.52 feedback; subtractive exit; machine-exact repetition | An A minor pentatonic field. The drone (root, just fifth, octaves) moves I–♭VI–♭VII–I. Vibraphone sus and seventh voicings follow it. A last Am9 keeps the B for the end | EMT 140-style plate, T60 2.6 s; tape echo |
+| **II Tape and oscillators** (implemented, `pieces/era2.js`) | 1957–1982 | Report; ~0:50–2:00 | Marimba tape loops; vibraphone with motor; drawbar organ; sine drones; Risset bell; piano on tape; tape hiss | Additive entry (Glass); tape phasing at +0.4% (Reich), on percussive voices only; organ modules (Riley) from the drone's consonant set, one or more per drone section, into a time-lag accumulator. The accumulator has a 4-beat delay, feedback 0.36, a 2.4 kHz loop lowpass and 0.3 ms wow, and is harmonically gated: the tape is erased at every chord change. Subtractive exit; machine-exact repetition | An A minor pentatonic field. The drone (root, just fifth, octaves) moves I–♭VI–♭VII–I. The organ's sets: A C E over A, A C over F (F would sit a semitone above the loop's E), G D over G. The vibraphone plays the same set under the organ, and sus and seventh voicings elsewhere. A last Am9 keeps the B for the end | EMT 140-style plate, T60 2.6 s; tape echo |
 | **III FM and MIDI** (to build) | 1983–1999 | Report (late), Article; ~2:00–3:40 | The VCSL TX81Z FM piano (CC0); runtime two-operator FM bells and mallets; marimba; the Steinway; digital delay | Chord-cycle pulses swelling over a breath's length (after *Music for 18 Musicians*, 1974–76), MIDI-exact; sequenced 16th arpeggios phase-shifted by whole steps; dotted digital delays | Major sevenths and ninths, Lydian; a cycle of 8–11 chords; FM bell melodies | Digital hall, T60 4.4 s |
 | **IV Samples and grains** (to build) | 2000–2016 | Article, Preprint; ~3:40–6:00 | Granular clouds made from the Era I–III sample packs; sub-bass sines; glass; bowed vibraphone | Granulation (Xenakis 1959; Roads 1975; Truax 1986); time-stretched motifs; slowly evolving spectra | Extended chords and soft clusters; spectral pads | Long tail (FDN) |
 | **IV′ The corpus** (to build) | 2017 to closure | Preprint, Model card, the System card plateau; ~6:00–11:30 | Era IV's engine, fed with the soundtrack's own earlier pieces (rendered offline as the corpus) | The earlier eras' motifs and chords return as grains and recombinations. Optionally, as the synthetic share σ rises, a larger part of the corpus is the music's own recent output, and its variety narrows a little (model collapse, inaudible unless known) | The earlier eras', blurred | Long tail |
@@ -125,11 +125,33 @@ The era is chosen by the Literature year when a piece starts (`engine/conductor.
   - adjacent upper voices within an octave.
 - **Low-interval limits.** Nothing within a fifth of a bass below C3; nothing within an octave of a bass below E2; no third or smaller below E3. These rules keep the low mids clean (measured: §13).
 - **Never a minor second or ninth against the melody.** Chord voicings treat this as a hard constraint against every melody note sounding with the chord. Passing tones outside the field last one beat.
+- **Sustained voices over a drone use its consonant set** (`consonantSet`). Organs, pads, glass and bowed sounds may hold only pitch classes that form no second, seventh or tritone with the drone's root and fifth, with each other, or (no semitone or tritone) with any persistent layer such as a loop. An echo or a held pad stacks every note it has played into one chord, so a melodic second becomes a sustained cluster.
+- **Echoes and held tails are harmonically gated.** A tape echo's feedback is erased from 0.5 s before each chord change until one delay after it, and no new notes enter it in the last beat before a change. No tail carries one chord into the next.
+- **Only percussive voices drift.** Tape wow and phasing detune; on struck sounds that is character, on held sounds it is a sour chorus against their own copies. Echoes of sustained voices get at most 0.3 ms of wow.
 - **A composed top line** (`topLine`). The string top line follows a dynamic contour to the climax, preferring steps to leaps and moving rather than repeating. Re-entries after a rest are free.
 - **The melody's range is kept.** Additive phrases grow 2-3-4-5; after that, 4 (rising to the centre) and 5 (falling to it) alternate, so the tune stays above the accompaniment.
 - **Form.** Intro (≤14 s), A, B (as long as its melody), A2, coda (≤16 s). Longer pieces repeat cycles, with variant second passes, rather than stretch chords.
 - **Human timing only where a human plays.** Era I is humanized; the eras after it progressively are not.
 - **Velocity layers are normalized in prep, then given a small designed step** (+4 dB for two layers, +3/+6 for three). Libraries record their layers at natural levels: VSCO 2's soft and loud viola layers differ by 29 dB. Left so, the sampler's crossfade is dominated by the loud layer even at pp, and a soft pad sounds like forte strings played quietly. This was found and fixed during A4; all demos use normalized layers.
+
+### 4.2 User feedback round 1: Era II's organ
+
+The user: "the organs in the 1962 sound somewhat dissonant; the rest is good."
+- **Cause.** The organ modules contained melodic major seconds (E–D, C–D). The time-lag accumulator, at feedback 0.52, stacked each module into sustained clusters, and its 1.2 ms wow detuned the repeats against each other.
+- **Two hypotheses tested and rejected:**
+  - *Equal temperament against the just-intonation drone.* The drone is pure sines on root and fifth, which are 2 cents off equal temperament, and the drawbar organ has no 5th harmonic. In this timbre a just major third is no smoother than an equal-tempered one (roughness 0.0018 vs 0.0016).
+  - *Tape drift on the organ.* Drift applied only to the marimba copy.
+- **Fix.** The rules in §4.1: consonant sets, the harmonic gate on the echo, and drift on percussive voices only.
+- **Results:**
+
+| Measure | Before | After |
+|---|---|---|
+| Organ-involved pairs that are seconds, sevenths or tritones, echo modelled | 26.0% | 2.5% |
+| Dissonance index | 1.01 | 0.25 |
+| Same, counting the marimba loops | 27.5%, 4.0 | 16.1%, 2.16 (the rest is the loop's passing notes) |
+| Organ-only roughness (Sethares) | mean 0.0047, 90th percentile 0.0075 | 0.0016 / 0.0040 |
+
+For scale in this timbre: fifth 0.0003, minor triad 0.0033, major second 0.0078. Picture: `out/analysis/era2-organ-before-after.png`.
 
 ## 5. Adaptivity rules (`engine/conductor.js`; tested by `render/session.mjs`)
 
@@ -457,6 +479,7 @@ All instrument samples are CC0 (VCSL; VSCO 2 Community Edition); everything else
 - No hiss, saturation or detuning used as irony ("retro"). Tape is an era's instrument, not a joke.
 - Never create a piece's nodes ahead of the lookahead window. Never schedule in the past.
 - No 2–5 kHz build-ups, no thirds below E3, no minor ninths against a melody.
+- No unresolved sustained dissonance in organ and pad voices. Seconds, sevenths and tritones held longer than a beat (echo tails included) are allowed only as passing tones that resolve. Measure it with `analysis/dissonance.py`: organ-involved pairs below 5% seconds, sevenths and tritones; the organ-only roughness no higher than a minor triad in the same timbre (0.0033).
 - No samples with unclear provenance (GeneralUser GS). No AI-generated audio (for now; the user may try Suno later, and the direction would then be its brief).
 
 ## 12. Pipeline (all tools on this host; heavy jobs pinned to socket 1)
@@ -472,7 +495,10 @@ node design/audio/proto/render/dryrun.mjs design/audio/proto/render/configs/era1
 node design/audio/proto/render/session.mjs [seed]          # the conductor over a 12.6 h game
 # 4. render in headless Chrome (the real WebAudio); "stems": n adds per-channel loudness
 taskset -c 8-15,24-31 node design/audio/proto/render/render.mjs design/audio/proto/render/configs/demos.json
-# 5. judge: picture + numbers; spectrum tilt
+# 5. judge: picture + numbers; spectrum tilt; dissonance (intervals with echo tails modelled; roughness)
+gamedev-python -I design/audio/proto/analysis/dissonance.py notes design/audio/out/renders/final-era2.notes.json --echo 2.892,0.36 --from 42 --to 97
+gamedev-python -I design/audio/proto/analysis/dissonance.py rough <before.wav> <after.wav> --from 40 --to 100 --png <out.png>
+gamedev-python -I design/audio/proto/analysis/dissonance.py ref   # the roughness scale in the organ's timbre
 gamedev-python -I design/audio/proto/analysis/analyze.py design/audio/out/renders/final-era1.wav
 gamedev-python -I design/audio/proto/analysis/ltas.py design/audio/out/renders/final-era1.wav --win 20
 #    balance: per-channel loudness from a "stems" render -> rewrite the piece's TRIMS (repeat 2-3 times)
