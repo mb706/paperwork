@@ -134,3 +134,31 @@ fn ten_thousand_chests() {
         ticks[ticks.len() - 1]
     );
 }
+
+/// Worldgen v0's cost: `sim_new_world` generates the 225 chunks around spawn inline (§5.18 stage 10), and one
+/// chunk at a time for comparison with §5.18's 1–2 ms budget per chunk.
+#[test]
+#[ignore = "a timing probe: cargo test --profile ntest -p sim --test core scale -- --ignored --nocapture"]
+fn worldgen_v0_costs() {
+    let mut c = crate::common::ctx();
+    let nw = schema::NewWorld { seed: 1945, ..schema::NewWorld::default() };
+    let mut rec = Vec::new();
+    nw.encode(&mut schema::codec::Writer::new(&mut rec)).expect("encodes");
+    let t = Instant::now();
+    c.new_world(&rec).expect("a new world");
+    let all = t.elapsed().as_secs_f64() * 1e3;
+    let w = c.world().expect("w");
+    let g = w.regen.generator().expect("g").clone();
+    let t = Instant::now();
+    let mut n = 0;
+    for cy in 40..50 {
+        for cx in -60..-50 {
+            n += g.chunk(schema::SurfaceIndex(0), cx, cy).resources.len();
+        }
+    }
+    let per = t.elapsed().as_secs_f64() * 1e3 / 100.0;
+    eprintln!(
+        "worldgen v0: new_world with {} chunks {all:.1} ms; one chunk {per:.3} ms ({n} resource tiles in 100)",
+        w.chunks.generated().len()
+    );
+}
