@@ -673,3 +673,99 @@ C6-r1 (merge 78b9e87) regenerated `test/fixtures/sprites/`, and the merge took i
 - **The Biome error** that C7 and C6-r1 reported (`golden.test.ts:206`, `useIterableCallbackReturn`) came from
   commit 5584174. It was fixed in acdd497, before either merge; `dev` is clean.
 - `npm run ci`: green in 40.9 s.
+
+## Gate review r2 response (GATE-r2)
+
+Findings 1, 3, 4 and 5 are mine. #2 (the sprite cases' greybox fallback) is the asset agent's, and #6 (the C2
+brief) the manager's. Golden version 6 records this as a **value bump approved by the manager under decision 14**
+(`approval=pm/reviews/GATE-r2.md`).
+
+**1. Major: slice members were not sorted. Fixed.**
+- `model/slices.ts` `members()` now sorts by (section id, key) before serialising (rule 41). Tables are still built
+  in row order.
+- The golden world had no shard whose rows were out of serial order. So no digest, slice hash or r changed: only
+  the order of lines in `slices/tick-0600-members.txt`.
+- New frozen vector `slices/collisions.{sections,txt}` and `collisions-members.txt`, built through the World's own
+  allocator:
+  - row 0 holds serial 3,603, reused after chest A was mined;
+  - row 1 holds serial 3;
+  - row 3 is free;
+  - all three are in shard 3, and the slot heap's blocks are reused the same way.
+- A test checks shard 3's order (3, 3,603, 2³² + 3) and all 3,600 shard hashes of that state. The C2 sim must
+  reproduce the file.
+
+**3. Major: the fake ignored input fencing. Fixed.**
+- The fake now does what the real contract does, in both of its roles (`src/simworker/fake.ts`):
+  - **As the LocalSequencer**, it writes the generation it tracks into every held input as it stamps it (§15.3).
+    That generation is the world's at `bound`, plus one for every `release_inputs(0)` or `player_left(0)` in the
+    closure stream.
+  - **As the tick**, it fences a held input of another generation: its seq is consumed, `input_fenced` names it,
+    and nothing else changes.
+- `injectSystem()` puts a system action ahead of the next tick's player actions, as the relay injects
+  `release_inputs`. Tests and dev tools use it; in single player the real LocalSequencer issues none besides
+  `player_joined(0)`.
+- `test/fake/fencing.test.ts` covers the stamping, a stale start, a stale stop (a fresh start in the same tick
+  keeps the character walking) and a stale mining begin.
+- The reviewer's reproduction, `start_walking(input_gen=123)`, still walks, and that is the contract. The sequencer
+  overwrites the client's value ("The main thread never needs to know generations", §15.3). A client's encoding
+  of `input_gen` cannot be wrong, and an input is fenced only when it was stamped before a release.
+
+**4. Minor: the mechanical-bump protection could be bypassed. Fixed.**
+- `MANIFEST.json` is now written only by a bump; a plain `--write` leaves it, so the freeze test fails until a bump.
+- A bump is classified against `MANIFEST.json` only after checking that its tables hash to the latest ledger line,
+  so the baseline is version N's and a regeneration cannot move it.
+- `bumpProblems()` holds the rules, and a test covers them:
+  - a regenerated manifest is refused;
+  - a contract change is never mechanical;
+  - atlas-only, `protos/`-only and schema-moving changes are mechanical;
+  - a value bump needs an approval.
+
+**5. Minor: ABI trace outputs were labelled as complete envelopes. Fixed by definition.**
+- README "ABI traces" now defines `out` as the envelope's **payload**: the bytes after §15.8's `u32 len` prefix,
+  at the pointer the export returns.
+- The wrapper (pointer, length prefix, `sim_last_error`'s envelope) is §15.8's calling convention, which the shell
+  checks.
+
+Also in this value bump, as README edits:
+- the Freezing section describes the baseline and the `protos/` rule from the sounds integration;
+- the audio paragraph no longer names the deleted sound fixture.
+
+`npm run ci`: green in 44.3 s.
+
+## Integration: GATE-r2 #2's fixture atlas
+
+C6's greybox fallback (merge 1e86703) regenerated the fixture atlas: three greyboxes and an impossible-inserter
+case, with the same file names and format. **Golden version 7 is a mechanical bump**: only the atlas's five
+`external` hashes changed; every `m0/` file is unchanged. `test/golden` passes 47 of 47 tests. `npm run ci` fails
+only `cargo fmt --check`, on C2's uncommitted `crates/det/src/piecewise.rs` (work in progress, not mine).
+
+## GATE-r3 response
+
+**#3 regression (major): leaving and joining in the fake. Fixed.** The fake's system actions now follow the
+reference model's `applySystem` (§15.3; README rules 8–9):
+- `player_joined` brings an offline character back, or creates a new one (`FakeWorld.join`); joining while online
+  changes nothing.
+- `player_left` releases held inputs, marks the player offline, returns the hand only if all of it fits (origin
+  slot first) and emits `player_left`.
+- `release_inputs` only releases.
+- Player actions are now checked for presence before fencing: an offline player's action consumes its seq and is
+  refused with `player_not_present`. An index without a character is refused the same way, as in the model,
+  instead of being dropped silently.
+- Three regression tests in `test/fake/fencing.test.ts`: an action after a departure is refused and moves nothing;
+  a return restores the same character, which then walks; a hand that fits returns on leaving; a new index gets a
+  character. All 29 fake tests pass.
+
+**#4 (minor): the bump baseline's schema hash. Fixed.**
+- Classification no longer trusts `MANIFEST.json`'s `schemaHash`, which the ledger digest does not cover.
+- `reviewedSchemaHash()` reads the schema hash from the header of the baseline's frozen `protos/prototypes.bin`.
+  It takes those bytes from the working copy or from the reviewed commit, and only if their SHA-256 is the
+  baseline's authenticated table entry.
+- `bumpProblems()` uses that hash:
+  - a manifest whose `schemaHash` disagrees with it is refused;
+  - only an authenticated move counts as a schema change;
+  - with no authenticated bytes at hand, nothing counts as moved.
+- The test covers the reviewer's bypass: a doctored `schemaHash` plus a changed `digests.txt` is refused as a value
+  bump.
+
+No golden file or contract input changed, so no bump. `test/golden`: 47 of 47 tests pass. The model reproduces all
+466 files.

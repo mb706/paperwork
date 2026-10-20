@@ -5,7 +5,11 @@ One image per footprint orientation: a square footprint is drawn once for every 
 (north-south and east-west, 10 §15.7's two-way map), because greyboxes ship in `core` for every entity of the data
 and four directions of the large ones would fill most of core's download (measured: 68 % of core's colour cells).
 A rotation shows through the renderer's alt-mode arrows, not the placeholder. setup(params) configures the module
-from greybox_table.params(entity) before rendering."""
+from greybox_table.params(entity) before rendering.
+
+A greybox is total: every Direction value 0-15 has a picture (a two-way greybox maps the values nearer east-west to
+its east-west image, the rest to its north-south one), because it is what the renderer draws for another set's
+impossible combinations (10 §15.7) and has nothing to fall back to itself."""
 
 # a placeholder's box shadow is hard-edged and hatched, so 16 samples do (real art keeps 64)
 META = dict(kind='entity', size=(1, 1), height=1.0, dirs=[8], states=['working'], margin=0.4, ink='machine',
@@ -18,8 +22,10 @@ def setup(params):
     PARAMS.update(params)
     w, h = params['size']
     two_way = params['rotatable'] and w != h
+    # total: every other value to the image of the axis it is nearer (ties, the diagonals, to north-south)
+    alias = {v: (4 if v % 8 in (3, 4, 5) else 0) for v in range(16) if v not in (0, 4)} if two_way else {}
     META.update(size=tuple(params['size']), height=params['height'],
-                dirs=[0, 4] if two_way else [8], dir_alias={8: 0, 12: 4} if two_way else {},
+                dirs=[0, 4] if two_way else [8], dir_alias=alias,
                 margin=0.4 if params['height'] < 2.5 else 0.5, rotate_footprint=w != h)
 
 

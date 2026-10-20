@@ -25,6 +25,7 @@ npx vitest run test/golden                             # what `npm run ci` runs
 | `digests.txt` | per tick 1–3,600: d_t, slice_t and r_t (§4.8), hex |
 | `digest-preimages.txt` | the exact bytes d_t hashes (§4.8's sequence; abi.yaml `TickDigestHead` … `TickDigestTail`) at the state ticks and wherever the preimage's lists change length |
 | `slices/tick-0600.txt`, `slices/tick-0600-members.txt` | all 3,600 shard hashes of the state after tick 600, and every member behind them (section, key, shard, length, XXH64), rules 37–41 |
+| `slices/collisions.{sections,txt}`, `slices/collisions-members.txt` | a state whose rows were reused out of serial order (row 0 holds serial 3,603, row 1 serial 3, row 3 is free: all shard 3), as `sim_save` returns it, with all 3,600 shard hashes and its members (rule 41) |
 | `states/tick-NNNN.sections` | the canonical state after ticks 0, 1, 2, 300, 600 and 3,600 exactly as `sim_save` returns it (abi.yaml `SaveOutput`: the sections in the container's framing, codec raw, then the lineage r) |
 | `states/tick-NNNN.txt`, `states/hashes.txt` | readable dumps; the full state hash, r and each section's hash at each of those ticks |
 | `view.bin`, `subs.bin` | the fixed view request (`ViewRequest`) and the subscriptions (`SubscribeInput`) of the golden packets |
@@ -68,7 +69,10 @@ cause any more (a click ignores the bar, rule 16; slots that reject items arrive
 A call names its export, its input (a file under `m0/`, or null for none) or its parameters (`sim_set_flags`,
 `sim_query_step`, `sim_query_cancel`), and what to expect:
 - `status`: the `SimStatus` name;
-- `out`: the envelope's exact bytes (a file), or null when the export returns none or failed;
+- `out`: the envelope's **payload**, exactly (a file): the bytes that follow §15.8's `u32 len` prefix at the
+  pointer the export returns, without that prefix. Null when the export returns no envelope or failed. The wrapper
+  itself (the pointer, the length prefix, `sim_last_error`'s envelope) is §15.8's calling convention, which the
+  shell checks; the traces pin only what it wraps (GATE-r2 finding 5);
 - `state`: `unchanged` or `changed`: whether the full state hash (§4.8) after the call equals the one before it;
   absent when no world existed before or after. Every refusal is `unchanged`.
 
@@ -139,9 +143,8 @@ golden test.
 **Audio (C7).** `packets/tick-0600.bin` holds 70 events of every M0 kind with their players and seqs; the
 `packet-transitions` trace adds historical events and an overflow. `AUDIO_WORKING` is absent because nothing works
 in M0 (use the fake sim, `?sim=fake`, for working sounds and the music feed). The fake takes its sound ids from the
-build's working-sound table (prototypes.bin's `working_sound`; the data stage reads `game/data/engine/sounds.yaml`,
-and until the audio package's file is on `dev`, the fake's build uses `test/fixtures/fake/sounds.yaml`, which holds
-the same names).
+build's working-sound table (prototypes.bin's `working_sound`, which the data stage fills from
+`game/data/engine/sounds.yaml`), so its `AUDIO_WORKING` carries the audio package's own sound ids.
 
 ## Masked fields
 
@@ -303,9 +306,11 @@ reports it (with the spec citation) instead of editing the set.
     `u32` count and its limit-bar entries, then `u32` count and its filters (ascending slot). A block's shard is its
     owner's: a container's entity serial, a player's (its main inventory), or for a free block its InvRef mod 3,600.
 40. GLOBALS (base 0) and RNG (base 1,801) are their raw bytes in 4-KiB pieces, key = the piece index.
-41. Slice t hashes shard t mod 3,600's members in (section id, key) order, each framed as `u32` section id, `u64`
-    key, `u32` length, bytes; an empty shard hashes zero bytes. It is computed in phase 16, after the tick's
-    changes. r_t = XXH64(r_{t−1} ‖ d_t ‖ slice_t), and `sim_load` continues from the r it is given.
+41. Slice t hashes shard t mod 3,600's members **sorted by (section id, key)**, each framed as `u32` section id,
+    `u64` key, `u32` length, bytes; an empty shard hashes zero bytes. The order is the key's, not the storage
+    order: a reused row can hold a higher serial than a later row (`slices/collisions.*` pins such a state, with
+    a free row in the same shard; GATE-r2 finding 1). It is computed in phase 16, after the tick's changes. r_t =
+    XXH64(r_{t−1} ‖ d_t ‖ slice_t), and `sim_load` continues from the r it is given.
 42. A load with remap tables (`kind_count` > 0) starts a new lineage, r = XXH64(u64 stateHash ‖ u32 tick), over the
     remapped state. Its load report lists the removed prototypes the state used (count > 0), named by the remap
     tables' `removed` names (abi.yaml `RemovedName`: only the shell has the save's name tables), ascending by kind
@@ -338,10 +343,13 @@ reproduces the set.
 `VERSIONS.txt` is append-only and hash-chained: each line after version 2 holds the version, the SHA-256 of the
 manifest's tables, `kind=`, `approval=`, `prev=` (the first 16 hex digits of the previous line's SHA-256) and the
 reason. A test checks the chain and that the ledger at the reviewed base (`dev`, or the last commit when on `dev`)
-is a prefix of this one. The two kinds follow pm/DECISIONS-IMPL.md decision 14:
-- `--bump mechanical "why"`: no expected value changed: only the tiny atlas, or a schema layout change moved the
-  schema hash. The package that causes it may record it in its own commit; the tool refuses a mechanical bump of
-  anything else.
+is a prefix of this one. `MANIFEST.json` is written only by a bump, and a bump is classified against it after
+checking that its tables still hash to the latest ledger line, so a regeneration (`--write`) cannot move the
+baseline (GATE-r2 finding 4). The two kinds follow pm/DECISIONS-IMPL.md decision 14:
+- `--bump mechanical "why"`: no expected value changed: against the baseline, only the tiny atlas changed, a schema
+  layout change moved the schema hash, or only the frozen prototype files under `protos/` changed. The contract
+  inputs never change in a mechanical bump. The package that causes it may record it in its own commit; the tool
+  refuses a mechanical bump of anything else.
 - `--bump value --approval <reference> "why"`: expected states, digests, records, packets, refusals or rules
   changed. It needs the manager's approval first (the reference names the review or decision); codex reviews the
   diff; a sim package never "fixes" a golden value to match itself.

@@ -10,8 +10,10 @@ Sets: one of every kind 10 §15.7 lists (the stone furnace with an idle image an
 inserter with pivots, the character with its three clips, a rail signal with lights, a tree with shape x stage, a
 resource with shape x band, a locomotive with 64 orientations, the radar with an animated shadow, an icon), under
 the names M0's prototypes use where M0 has them (entity/iron-chest, greybox/iron-chest, resource/iron-ore-patch,
-mover/character, item/iron-plate, item/iron-ore, item/iron-chest, fx/missing). Placeholders are flat blocks in a
-colour per set, with a pale tick toward the frame's direction and a shade per frame index, at 8 px per tile.
+mover/character, item/iron-plate, item/iron-ore, item/iron-chest, fx/missing), and the greyboxes that the sets with
+impossible combinations draw instead (greybox/transport-belt, greybox/inserter, greybox/rail-signal: a belt's or an
+inserter's non-cardinal direction, a signal's unknown status; 10 §15.7, GATE-r2 #2). Placeholders are flat blocks in
+a colour per set, with a pale tick toward the frame's direction and a shade per frame index, at 8 px per tile.
 The belt's mask table is transport_belt.py's (its bit semantics are a proposal to the sim; see that file).
 
 The atlas follows the build's exact composition (10 §9.1, §9.2; codex C6-r1 finding 3):
@@ -317,9 +319,12 @@ def build_sets(A):
         layers=[dict(axes=['dir', 'frame'], shape=[1, 64], map=dict(dir=one), table=[[i] for i in dish])],
         shadow=dict(axes=['dir', 'frame'], shape=[1, 64], map=dict(dir=one), table=[[i] for i in rsh2])))
 
-    # --- M0's own: the iron chest and its greybox
-    for name, shade in (('entity/iron-chest', 0.0), ('greybox/iron-chest', 0.5)):
-        cid = A.add('colour', block(8, 12, colour_of('iron-chest'), shade=shade), 4, 8)
+    # --- M0's own: the iron chest and its greybox; and the greyboxes that the sets with impossible combinations
+    # (a belt's or inserter's non-cardinal direction, a signal's unknown status) draw instead (10 §15.7). A greybox
+    # is total: one picture for every direction
+    for name, shade in (('entity/iron-chest', 0.0), ('greybox/iron-chest', 0.5), ('greybox/transport-belt', 0.5),
+                        ('greybox/inserter', 0.5), ('greybox/rail-signal', 0.5)):
+        cid = A.add('colour', block(8, 12, colour_of(name.split('/')[1]), shade=shade), 4, 8)
         csh = A.add('shadow', mask_block(4, 3), 1, 2)
         sets[name] = dict(kind='entity', group='core', size=[1, 1], parts=dict(
             base=dict(axes=['dir'], shape=[1], map=dict(dir=one), table=[[cid]]),
@@ -495,6 +500,8 @@ def cases(man):
         for ci in (0, 1):
             add(f'inserter theta {th} ext {ext} held {held} camera {ci}', 'inserter', 'entity/inserter', cams[ci],
                 dict(x2=5, y2=-3, dir=d, theta=int(th * 65536) % 65536, ext=int(ext * 4096), held=held))
+    add('inserter at an impossible direction (2) draws its greybox', 'inserter', 'entity/inserter', cams[0],
+        dict(x2=5, y2=-3, dir=2, theta=16384, ext=4096, held=0xFFFF))
     for clip, flags, vx, o, dist, sec in (('idle', 0, 0, 0, 0.0, 0.0), ('idle', 0, 0, 12000, 0.0, 1.3),
                                           ('run', 0, 5, 16384, 1.15, 0.0), ('run', 0, -3, 61440, 7.9, 0.0),
                                           ('mine', 1, 0, 32768, 0.0, 0.47), ('mine', 1, 4, 4000, 3.0, 2.06)):

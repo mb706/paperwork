@@ -15,14 +15,22 @@
 // `world {op: 'load'}` with those bytes restores that world exactly: the ticks after a load produce the same
 // world as an uninterrupted run. Anything else given to `load` is refused explicitly: a `trap` message that
 // says why, and a log line; no world is bound.
-import { decodeAction } from '../shared/gen/actions.ts';
+import {
+  type Action,
+  decodeAction,
+  encodeActionPayload,
+  HELD_ACTIONS,
+  withInputGen,
+} from '../shared/gen/actions.ts';
 import { SUPPORTED_ACTIONS } from '../shared/gen/capabilities.ts';
+import { Writer } from '../shared/gen/codec.ts';
 import { QueryKind } from '../shared/gen/projections.ts';
 import type { PrototypesJson } from '../shared/gen/protos.ts';
 import { ABI_VERSION, SCHEMA_HASH } from '../shared/gen/schema.ts';
 import type { MainToSim, SimToMain } from '../shared/protocol.ts';
 import { PACKET_STATE_GEN_OFFSET, PACKET_VIEW_SEQ_OFFSET } from '../shared/protocol.ts';
 import { FakeExtractor } from './fake/extract.ts';
+import { insert, room } from './fake/inventory.ts';
 import { FakeProtos } from './fake/protos.ts';
 import { applyAction, sortMain } from './fake/rules.ts';
 import { type FakeOptions, type FakeSnapshot, FakeWorld } from './fake/world.ts';
@@ -96,6 +104,14 @@ export class FakeSim {
   private viewSeq = 0;
   private pending: { player: number; seq: number; type: number; payload: Uint8Array }[] = [];
   private lastSeq = 0;
+  /**
+   * The LocalSequencer's input generation for player 0 (§15.3, D22): the world's at `bound`, plus one for every
+   * release_inputs(0) and player_left(0) it has put into the closure stream since. It is written into every held
+   * input as the input is stamped; the main thread never needs to know generations.
+   */
+  private tracked = 0;
+  /** System actions for the next tick, ahead of its player actions (`injectSystem`). */
+  private system: Action[] = [];
   private readonly free: ArrayBuffer[] = [];
   private paused = false;
   private speed = 1;
@@ -169,6 +185,8 @@ export class FakeSim {
         this.pending = [];
         const me = world.chars.find((c) => c.player === 0);
         this.lastSeq = me?.lastSeq ?? 0;
+        this.tracked = me?.inputGen ?? 0;
+        this.system = [];
         this.host.post({
           t: 'bound',
           gen: this.gen,
@@ -255,11 +273,46 @@ export class FakeSim {
       }
       // A player's action with a system type id never enters a tick: the LocalSequencer drops it (§15.3).
       if (type >= 0xff00) this.log('error', `seq ${seq}: system action type ${type} from a player: dropped`);
-      else this.pending.push({ player: 0, seq, type, payload: bytes.slice(at + 4, at + 4 + len) });
+      else
+        this.pending.push({
+          player: 0,
+          seq,
+          type,
+          payload: this.stamp(type, bytes.slice(at + 4, at + 4 + len)),
+        });
       this.lastSeq = seq;
       seq++;
       at += 4 + len;
     }
+  }
+
+  /**
+   * The LocalSequencer stamps a held input with the generation it tracks (§15.3: "The sequencer writes input_gen
+   * into each held-input action when it stamps it"), whatever the main thread wrote. A payload that does not decode
+   * goes on as it is: the tick refuses it as malformed.
+   */
+  private stamp(type: number, payload: Uint8Array): Uint8Array {
+    let a: Action;
+    try {
+      a = decodeAction(type, payload);
+    } catch {
+      return payload;
+    }
+    if (!HELD_ACTIONS.has(a.type)) return payload;
+    const w = new Writer();
+    encodeActionPayload(w, withInputGen(a, this.tracked));
+    return w.finish();
+  }
+
+  /**
+   * Puts a system action into the next tick's closure, ahead of its player actions, as the relay injects
+   * release_inputs (11 §2.6): held inputs stamped before it carry the old generation and are fenced. For tests and
+   * dev tools (the real LocalSequencer issues none of these in single player but player_joined(0)).
+   */
+  injectSystem(a: Action): void {
+    this.system.push(a);
+    if ((a.type === 'release_inputs' || a.type === 'player_left') && a.player === 0)
+      this.tracked = (this.tracked + 1) & 0xffff;
   }
 
   private control(op: MainToSim & { t: 'seq' } extends { op: infer O } ? O : never): void {
@@ -322,18 +375,24 @@ export class FakeSim {
     // The closure of this tick: the pending actions in seq order (phase 1), then the world's own step.
     const actions = this.pending;
     this.pending = [];
+    const system = this.system;
+    this.system = [];
     w.begin();
+    for (const a of system) applySystem(w, a);
     for (const a of actions) {
       const c = w.chars.find((x) => x.player === a.player);
-      if (!c) continue;
-      c.lastSeq = a.seq; // consumed first, refused or not (§15.3)
+      // Consumed first, refused or not (§15.3). An index without a character is refused below as the model does;
+      // the fake keeps no watermark record for it, since its only client is player 0, whose character never goes.
+      if (c) c.lastSeq = a.seq;
       const fail = (reason: number, pos?: { x: number; y: number }, serial = 0) =>
         w.emit(
           { seq: a.seq, player: a.player },
           {
             type: 'action_failed',
             reason,
-            pos: pos ?? { x: Math.floor(c.x * 256 + 0.5), y: Math.floor(c.y * 256 + 0.5) },
+            pos:
+              pos ??
+              (c ? { x: Math.floor(c.x * 256 + 0.5), y: Math.floor(c.y * 256 + 0.5) } : { x: 0, y: 0 }),
             serial,
           },
         );
@@ -346,6 +405,16 @@ export class FakeSim {
       }
       if (!SUPPORTED_ACTIONS.has(act.type)) {
         fail(2); // unsupported: outside the capability manifest (§2.4)
+        continue;
+      }
+      // Presence (§15.3 "the player must exist and be online"): an absent or offline player's action is refused.
+      if (!c?.online) {
+        fail(3); // player_not_present
+        continue;
+      }
+      // Input fencing (§15.3, D22): a held input of another generation is a no-op with an event; its seq is consumed.
+      if ('input_gen' in act && act.input_gen !== c.inputGen) {
+        w.emit({ seq: a.seq, player: a.player }, { type: 'input_fenced' });
         continue;
       }
       const r = applyAction(w, c, a.seq, act);
@@ -388,4 +457,72 @@ export class FakeSim {
     v.setUint32(PACKET_VIEW_SEQ_OFFSET, first ? 0 : this.viewSeq, true);
     this.host.post({ t: 'pkt', buf }, [buf]);
   }
+}
+
+/**
+ * A system action of the closure (§15.3), as the reference model applies it (test/golden/model/rules.ts
+ * `applySystem`; README rules 8–9; GATE-r3 #3): `player_joined` creates a character or brings an offline one back
+ * (joining while online changes nothing); `player_left` releases held inputs, marks the player offline and returns
+ * the hand to the main inventory only if all of it fits (§5.1); `release_inputs` releases held inputs. Releasing
+ * stops walking and mining and raises the input generation, also for an offline player.
+ */
+function applySystem(w: FakeWorld, a: Action): void {
+  if (!('player' in a)) return; // snapshot_marker, debug_dump: nothing in the World
+  const c = w.chars.find((x) => x.player === a.player);
+  const release = (ch: NonNullable<typeof c>): void => {
+    ch.walking = false;
+    ch.mining = null;
+    ch.miningProgress = 0;
+    ch.inputGen = (ch.inputGen + 1) & 0xffff;
+  };
+  switch (a.type) {
+    case 'player_joined':
+      if (c) {
+        if (c.online) return;
+        c.online = true;
+      } else w.join(a.player);
+      w.emit({ seq: 0, player: a.player }, { type: 'player_joined' });
+      return;
+    case 'player_left': {
+      if (!c) return;
+      release(c);
+      if (!c.online) return;
+      c.online = false;
+      returnHand(w, c);
+      w.emit({ seq: 0, player: a.player }, { type: 'player_left' });
+      return;
+    }
+    case 'release_inputs':
+      if (c) release(c);
+      return;
+    default:
+      return;
+  }
+}
+
+/** The hand back into the main inventory if all of it fits, the origin slot first (§5.1; rule 9); else it stays. */
+function returnHand(w: FakeWorld, c: FakeWorld['chars'][number]): void {
+  if (c.hand.ghost) {
+    c.hand = { key: 0xffff, count: 0, origin: 0xffff, ghost: false };
+    return;
+  }
+  if (c.hand.count === 0) return;
+  const key = c.hand.key;
+  const stack = w.p.stack(key);
+  const free = { slots: c.main, bar: c.main.length, origin: -1 };
+  if (room(free, key, c.hand.count, stack) < c.hand.count) return;
+  let left = c.hand.count;
+  const origin = c.hand.origin !== 0xffff ? c.hand.origin : -1;
+  if (origin >= 0) {
+    const s = c.main[origin];
+    if (s && (s.count === 0 || s.key === key)) {
+      const k = Math.min(left, stack - s.count);
+      s.key = key;
+      s.count += k;
+      left -= k;
+    }
+  }
+  c.hand = { key: 0xffff, count: 0, origin: 0xffff, ghost: false };
+  insert(free, key, left, stack);
+  sortMain(w, c);
 }
