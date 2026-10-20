@@ -76,6 +76,10 @@ function imports(o: TsOut): string {
     if (m === o.mod) continue;
     add(m, typeName(d), 'types');
   }
+  for (const key of o.imports) {
+    const [m, name] = key.split('#') as [string, string];
+    if (m !== o.mod) add(m, name, 'values');
+  }
   const lines: string[] = [];
   // A runtime name is a value import when the body constructs, calls or tests it, else a type import.
   const body = o.parts.join('\n');

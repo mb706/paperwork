@@ -31,10 +31,11 @@ import {
   sliceFilter,
   summary,
 } from './manifests.ts';
-import { buildModel } from './model.ts';
+import { buildModel, CHARACTER } from './model.ts';
 import { OUTPUT_PATHS } from './outputs.ts';
 import { loadOverlay, type OverlaySources } from './overlay.ts';
 import { checkReferences, indexDesign } from './refs.ts';
+import { checkRegistries } from './registries.ts';
 import { type DesignData, FILE_KINDS, type FileKind, validateDesign } from './schema/index.ts';
 import { at, loadYaml, type SourceFile } from './sources.ts';
 
@@ -91,7 +92,9 @@ const KIND_FILE: Record<EmitProblem['kind'], FileKind | null> = {
 function reportProblems(problems: readonly EmitProblem[], design: DesignData, diags: Diagnostics): void {
   for (const p of problems) {
     const file = KIND_FILE[p.kind];
-    if (file) diags.error(p.message, at(design.sources[file], [p.filePos, ...p.path]));
+    if (file && p.filePos >= 0) diags.error(p.message, at(design.sources[file], [p.filePos, ...p.path]));
+    else if (p.id === CHARACTER)
+      diags.error(`the character: ${p.message}`, { file: 'game/data/engine/prototypes.yaml' });
     else diags.error(`${p.kind} ${p.id}: ${p.message}`);
   }
 }
@@ -141,6 +144,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
   if (!design) return result;
   const ix = indexDesign(design);
   checkReferences(design, ix, diags);
+  checkRegistries(design, diags);
   if (diags.errors.length > 0) return result;
 
   // 2. Formulas.
@@ -251,6 +255,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
     ),
   );
   if (!o.manifest) {
+    out.set(OUTPUT_PATHS.protosFixture, bin.bytes);
     out.set(OUTPUT_PATHS.protoIds, enc.encode(protoIdsTs(design)));
     const edges = loadEdgeCases(
       join(o.gameDir, 'test', 'fixtures', 'expr', 'edge-cases.yaml'),

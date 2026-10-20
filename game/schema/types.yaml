@@ -149,7 +149,9 @@ enums:
       base: u8
       doc: >-
         Entity status codes (§5.5): Factorio's entity_status vocabulary (I §3.12) plus ours. Internal codes, not
-        display text (08 §8.2 has the strings). Entities without a status (chests) report none
+        display text (08 §8.2 has the strings); locale key `entity-status.<name, dashed>`. Entities without a
+        status (chests) report none
+      locale: entity-status
       values:
         - none: 0
         - working: 1
@@ -190,9 +192,10 @@ enums:
   - FailReason:
       base: u16
       doc: >-
-        Why an action was refused (§15.3, §15.6). Each value's locale key is `fail-reason.<name>` in
-        game/locale/en.yaml (prototypes.json's localeKeys.FailReason), except the developer reasons, which have no
-        text and play nothing. The doc of each value names its intended string (I §3.7–§3.9, 08 §8.3)
+        Why an action was refused (§15.3, §15.6). Each value's locale key is `fail-reason.<name, dashed>`
+        (prototypes.json's localeKeys.FailReason), except the developer reasons, which have no text and play
+        nothing. The comment on each value names its intended string (I §3.7–§3.9, 08 §8.3)
+      locale: fail-reason
       developer: [malformed, unsupported, player_not_present, invalid_setting, invalid_index]
       values:
         - malformed: 1            # developer: field validation failed (§15.3)
@@ -219,15 +222,17 @@ enums:
   - FlyingText:
       base: u16
       doc: >-
-        Flying-text templates (§15.6, 08 §8.3); locale key `flying-text.<name>`. item_delta is the vanilla
-        "+3 Iron plate (57)": the sign of `count`, the item, and the player's new total
+        Flying-text templates (§15.6, 08 §8.3); locale key `flying-text.<name, dashed>`. item_delta is the
+        vanilla "+3 Iron plate (57)": the sign of `count`, the item, and the player's new total
+      locale: flying-text
       values:
         - item_delta: 1
         - rolled_back: 2
         - swapped: 3
   - AlertType:
       base: u16
-      doc: "Alert types (07 §22, 08 §8.1); Factorio's own stay, silent until their systems exist. Locale key `alert.<name>`"
+      doc: "Alert types (07 §22, 08 §8.1); Factorio's own stay, silent until their systems exist. Locale key `alert.<name, dashed>`"
+      locale: alert
       values:
         - entity_destroyed: 1
         - entity_under_attack: 2

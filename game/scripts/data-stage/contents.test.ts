@@ -8,6 +8,7 @@ import { item } from './schema/items.ts';
 import { meta } from './schema/meta.ts';
 import { recipe } from './schema/recipes.ts';
 import { technology } from './schema/technologies.ts';
+import { text } from './schema/text.ts';
 import { resource, tile, worldObject } from './schema/world.ts';
 
 const SCHEMAS: Record<string, z.ZodObject> = {
@@ -18,6 +19,7 @@ const SCHEMAS: Record<string, z.ZodObject> = {
   resources: resource,
   tiles: tile,
   world: worldObject,
+  text,
   meta,
 };
 

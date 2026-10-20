@@ -4,20 +4,38 @@
 // lookup contracts):
 //   - `icons`: the icon table that EntityView.alt_icon indexes: every item's icon, then every fluid's,
 //     then any recipe icon not already listed;
-//   - `localeKeys`: the locale-key table numeric ids index (FailReason, FlyingText); empty until the
-//     schema's registries define them (C1b);
+//   - `localeKeys`: per enum with player-facing text (FailReason, FlyingText, AlertType, Status), each value's
+//     locale key, or null for a developer value (the schema's `locale` prefixes; src/shared/gen/types.ts);
+//   - `sounds`: the sound-id table (empty until game/data/engine/sounds.yaml exists, 10 §15.6);
+//   - `milestones`: text.yaml's milestone ids, sorted, which MilestoneId indexes (§15.6);
 //   - `treeSpecies`, `decoratives`, `cliffs`, `townBuildings`: the set-name tables of the overlay's
 //     sets.yaml;
 // plus `groups` and `subgroups`, and `strings`: the English text of every locale key the records name,
 // from the design data (names come from the data, 08).
 // Set names are `<namespace>/<name>` (§15.7); the asset build makes the sets, and a name without a set
-// draws its greybox or `fx/missing`. C1b declares this layout in schema/protos.yaml.
-import { canonicalJson } from '../../lib/canonical.ts';
+// draws its greybox or `fx/missing`. schema/protos.yaml declares this layout (`json`); the generated
+// validatePrototypesJson checks every output against it. The engine's character is the last `entity`.
+import { PROTOTYPES_JSON_VERSION, validatePrototypesJson } from '../../../src/shared/gen/protos.ts';
+import {
+  AlertTypeCodec,
+  FailReasonCodec,
+  FlyingTextCodec,
+  StatusCodec,
+} from '../../../src/shared/gen/types.ts';
+import { canonicalJson, compareCodeUnits } from '../../lib/canonical.ts';
 import type { Model, StackRef } from '../model.ts';
-import { stackRef } from '../model.ts';
+import { CHARACTER, stackRef } from '../model.ts';
 import { contentsRecord } from './contents.ts';
 
-export const JSON_FORMAT_VERSION = 1;
+export const JSON_FORMAT_VERSION = PROTOTYPES_JSON_VERSION;
+
+/** prototypes.json's localeKeys (§15.6, 08 §8): generated from the schema's enums. */
+export const LOCALE_KEYS = {
+  FailReason: FailReasonCodec.LOCALE_KEYS,
+  FlyingText: FlyingTextCodec.LOCALE_KEYS,
+  AlertType: AlertTypeCodec.LOCALE_KEYS,
+  Status: StatusCodec.LOCALE_KEYS,
+};
 
 const stack = (s: StackRef | null) => (s ? { kind: s.kind === 0 ? 'item' : 'fluid', id: s.id } : null);
 
@@ -104,23 +122,26 @@ export function prototypesJson(m: Model, schemaHashHex: string, prototypesHashHe
         })),
       };
     }),
-    entity: m.entities.map((r) => ({
-      name: r.id,
-      localeName: text(`entity-name.${r.id}`, r.data.name),
-      localeDescription: text(`entity-description.${r.id}`, r.data.desc),
-      localeHandbook: text(`entity-handbook.${r.id}`, r.data.handbook_note),
-      type: r.data.type,
-      size: r.data.size,
-      item: m.ids.item.get(r.data.item) ?? null,
-      sprite: r.engine.sprite,
-      collisionBox: r.engine.collision_box,
-      selectionBox: r.engine.selection_box,
-      selectionPriority: r.engine.selection_priority,
-      rotatable: r.engine.rotatable,
-      energySource: r.data.energy.source,
-      energyUsageW: (r.data.energy.kw ?? 0) * 1e3,
-      inventorySlots: (r.data.extra as { slots?: number } | undefined)?.slots ?? null,
-    })),
+    entity: [
+      ...m.entities.map((r) => ({
+        name: r.id,
+        localeName: text(`entity-name.${r.id}`, r.data.name),
+        localeDescription: text(`entity-description.${r.id}`, r.data.desc),
+        localeHandbook: text(`entity-handbook.${r.id}`, r.data.handbook_note),
+        type: r.data.type,
+        size: r.data.size,
+        item: m.ids.item.get(r.data.item) ?? null,
+        sprite: r.engine.sprite,
+        collisionBox: r.engine.collision_box,
+        selectionBox: r.engine.selection_box,
+        selectionPriority: r.engine.selection_priority,
+        rotatable: r.engine.rotatable,
+        energySource: r.data.energy.source,
+        energyUsageW: (r.data.energy.kw ?? 0) * 1e3,
+        inventorySlots: (r.data.extra as { slots?: number } | undefined)?.slots ?? null,
+      })),
+      ...(m.character ? [characterJson(m)] : []),
+    ],
     technology: m.technologies.map((r) => ({
       name: r.id,
       localeName: text(`technology-name.${r.id}`, r.data.name),
@@ -160,11 +181,38 @@ export function prototypesJson(m: Model, schemaHashHex: string, prototypesHashHe
     groups,
     subgroups,
     icons,
-    localeKeys: [],
+    localeKeys: LOCALE_KEYS,
+    sounds: [],
+    milestones: m.design.text.milestones.map((x) => x.id).sort(compareCodeUnits),
     treeSpecies: ov.sets.tree_species.map((x) => `object/${x}`),
     decoratives: ov.sets.decoratives.map((x) => `decor/${x}`),
     cliffs: ov.sets.cliffs.map((x) => `cliff/${x}`),
     townBuildings: ov.sets.town_buildings.map((x) => `town/${x}`),
   };
-  return canonicalJson({ ...out, strings });
+  const json = { ...out, strings };
+  validatePrototypesJson(JSON.parse(canonicalJson(json)));
+  return canonicalJson(json);
+}
+
+/** The engine's character as an `entity` record: MOVERS' `proto` indexes it, and `sprite` names its art. */
+function characterJson(m: Model) {
+  const c = m.character?.engine;
+  if (!c) throw new Error('no character');
+  return {
+    name: CHARACTER,
+    localeName: null,
+    localeDescription: null,
+    localeHandbook: null,
+    type: 'character',
+    size: [0, 0],
+    item: null,
+    sprite: c.sprite,
+    collisionBox: c.collision_box,
+    selectionBox: c.selection_box,
+    selectionPriority: c.selection_priority ?? 50,
+    rotatable: false,
+    energySource: 'none',
+    energyUsageW: 0,
+    inventorySlots: c.inventory_size,
+  };
 }

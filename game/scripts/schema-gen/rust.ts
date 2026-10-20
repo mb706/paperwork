@@ -572,6 +572,15 @@ ${vs.map((v) => `            Self::${enumVariant(v.name)} => ${rsStr(v.name)},`)
     /// The value with this schema name.
     pub fn from_name(s: &str) -> Option<Self> {
         Self::ALL.iter().copied().find(|v| v.name() == s)
+    }${
+      d.developer.length
+        ? `
+
+    /// Whether this is a developer value: no player-facing text and no sound (§15.6).
+    pub const fn is_developer(self) -> bool {
+        matches!(self, ${d.developer.map((n) => `Self::${enumVariant(n)}`).join(' | ')})
+    }`
+        : ''
     }
 }
 

@@ -51,7 +51,9 @@ function jsonTs(t: JsonType): string {
   }
 }
 
-function jsonCheck(t: JsonType, v: string, path: string): string {
+/** Statements that check value `v` at JSON path `path` against `t`, one per line, indented by `ind`. */
+function jsonCheck(t: JsonType, v: string, path: string, ind = '  '): string {
+  const deeper = `${ind}  `;
   switch (t.k) {
     case 'string':
       return `if (typeof ${v} !== 'string') bad(${path}, 'a string');`;
@@ -66,13 +68,18 @@ function jsonCheck(t: JsonType, v: string, path: string): string {
     case 'named':
       return `check${t.name}(${v}, ${path});`;
     case 'array':
-      return `if (!Array.isArray(${v})) bad(${path}, 'an array'); else (${v} as unknown[]).forEach((x, i) => { ${jsonCheck(t.of as JsonType, 'x', `\`\${${path}}[\${i}]\``)} });`;
+      return `if (!Array.isArray(${v})) bad(${path}, 'an array');\n${ind}else\n${deeper}(${v} as unknown[]).forEach((x, i) => {\n${deeper}  ${jsonCheck(t.of as JsonType, 'x', `\`\${${path}}[\${i}]\``, `${deeper}  `)}\n${deeper}});`;
     case 'nullable':
-      return `if (${v} !== null) { ${jsonCheck(t.of as JsonType, v, path)} }`;
+      return `if (${v} !== null) {\n${deeper}${jsonCheck(t.of as JsonType, v, path, deeper)}\n${ind}}`;
     case 'map':
-      return `if (typeof ${v} !== 'object' || ${v} === null || Array.isArray(${v})) bad(${path}, 'a mapping'); else for (const [k, x] of Object.entries(${v} as object)) { ${jsonCheck(t.of as JsonType, 'x', `\`\${${path}}.\${k}\``)} }`;
-    case 'object':
-      return `checkObject(${v}, ${path}, [${(t.fields ?? []).map(([k]) => tsStr(k)).join(', ')}]); { const o = ${v} as Record<string, unknown>; ${(t.fields ?? []).map(([k, x]) => jsonCheck(x, /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k) ? `o.${k}` : `o[${tsStr(k)}]`, `\`\${${path}}.${k}\``)).join(' ')} }`;
+      return `if (typeof ${v} !== 'object' || ${v} === null || Array.isArray(${v})) bad(${path}, 'a mapping');\n${ind}else\n${deeper}for (const [k, x] of Object.entries(${v} as object)) {\n${deeper}  ${jsonCheck(t.of as JsonType, 'x', `\`\${${path}}.\${k}\``, `${deeper}  `)}\n${deeper}}`;
+    case 'object': {
+      const fields = (t.fields ?? []).map(
+        ([k, x]) =>
+          `${deeper}${jsonCheck(x, /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k) ? `o.${k}` : `o[${tsStr(k)}]`, `\`\${${path}}.${k}\``, deeper)}`,
+      );
+      return `checkObject(${v}, ${path}, [${(t.fields ?? []).map(([k]) => tsStr(k)).join(', ')}]);\n${ind}{\n${deeper}const o = ${v} as Record<string, unknown>;\n${fields.join('\n')}\n${ind}}`;
+    }
   }
 }
 
@@ -146,6 +153,8 @@ export function exprPrograms(bytes: Uint8Array): number[] {
       pc++;
       if (op === OP.CONST) {
         if (end - pc < 8) bad(pc, 'truncated CONST');
+        if (!Number.isFinite(new DataView(bytes.buffer, bytes.byteOffset + pc, 8).getFloat64(0, true)))
+          bad(pc, 'CONST not finite');
         pc += 8;
         depth++;
       } else if (op === OP.VAR) {
@@ -171,6 +180,15 @@ export function exprPrograms(bytes: Uint8Array): number[] {
   return starts;
 }
 
+/** A column of a kind table (§8.1 directory entry) and the source of its values. */
+export interface ProtoColumnInfo {
+  name: string;
+  code: number;
+  width: number;
+  from: string;
+  path?: readonly (string | number)[];
+}
+
 /** A value the writer cannot write, with the table, row and column it belongs to (data-stage diagnostics). */
 export class ProtosWriteError extends Error {
   readonly table: string;
@@ -192,9 +210,12 @@ export class ProtosWriteError extends Error {
       : `export type ${rowType(t)} = Record<never, never>;`;
     parts.push(`/** A row of ${t.section} (§15.2): one per ${t.kind.replace('_', ' ')} id. */
 ${rowDecl}
-/** ${t.section}'s columns in file order: name, §8.1 type code, width (a list column is _off and _count). */
-export const ${upperSnake(t.kind)}_COLUMNS: readonly { name: string; code: number; width: number }[] = [
-${exp.map((x) => `  { name: ${tsStr(x.name)}, code: ${x.code}, width: ${x.width} },`).join('\n')}
+/**
+ * ${t.section}'s columns in file order: name, §8.1 type code, width (a list column is _off and _count), and
+ * where the value comes from: \`from\` describes it, \`path\` is its field in the prototype's YAML, if any.
+ */
+export const ${upperSnake(t.kind)}_COLUMNS: readonly ProtoColumnInfo[] = [
+${exp.map((x) => `  { name: ${tsStr(x.name)}, code: ${x.code}, width: ${x.width}, from: ${tsStr(x.col.from)}${x.col.path ? `, path: ${canonicalJson(x.col.path, 0)}` : ''} },`).join('\n')}
 ];
 `);
   }
@@ -346,10 +367,15 @@ ${p.tables.map((t) => `  ${t.kind}: ${rowType(t)}[];`).join('\n')}
 }
 
 /**
- * Reads prototypes.bin and refuses what Rust's \`Protos::load\` refuses (the same checks, in the same order),
- * except the schema-hash and contents checks, which \`checkProtosHeader\` and \`missingData\` make.
+ * Reads prototypes.bin and refuses what Rust's \`Protos::load\` refuses, with the same checks in the same
+ * order: the schema hash when \`schemaHash\` is given, and a contents record that lacks a block of
+ * \`required\` (the current capability manifest's REQUIRED_DATA unless given).
  */
-export function readPrototypesBin(bytes: Uint8Array, schemaHash?: Uint8Array): ProtosRead {
+export function readPrototypesBin(
+  bytes: Uint8Array,
+  schemaHash?: Uint8Array,
+  required: readonly string[] = ${o.imp('capabilities', 'REQUIRED_DATA')},
+): ProtosRead {
   const r = new Reader(bytes);
   const h = ${o.c(header)}.read(r, 'ProtosHeader');
   if (new TextDecoder().decode(h.magic) !== PROTOS_MAGIC) throw new DecodeError('bad_magic', 'ProtosHeader.magic', 0);
@@ -527,6 +553,9 @@ ${refChecks}
   const meta = {} as ProtosRead['meta'];
 ${p.meta.map((x) => `  { const at = m.pos; if (m.u16('META') !== ${x.type}) throw m.errAt(at, 'unknown_type', 'META'); meta.${x.name} = ${o.c(x.record)}.read(m, true); }`).join('\n')}
   m.finish('META');
+  for (const block of required)
+    if (!meta.contents.meta.includes(block) || meta.contents.omitted.includes(block))
+      throw new DecodeError('missing_field', block, bases[${secIndex('META')}] as number);
   out.meta = meta;
   const nr = new Reader(data[${secIndex('NAMES')}] as Uint8Array, bases[${secIndex('NAMES')}] as number);
   const names = {} as ProtosRead['names'];

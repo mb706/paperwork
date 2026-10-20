@@ -104,7 +104,7 @@ async function main(): Promise<number> {
       if (again[path] !== sha256Hex(bytes)) problems.push(`${path}: a second run gave different bytes (D14)`);
     }
     // The committed outputs are fresh.
-    for (const path of [OUTPUT_PATHS.protoIds, OUTPUT_PATHS.exprFixture]) {
+    for (const path of [OUTPUT_PATHS.protoIds, OUTPUT_PATHS.exprFixture, OUTPUT_PATHS.protosFixture]) {
       const want = r.outputs.get(path);
       const abs = join(GAME, path);
       if (!want) continue;

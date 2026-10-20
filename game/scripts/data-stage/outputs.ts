@@ -6,4 +6,6 @@ export const OUTPUT_PATHS = {
   manifest: 'public/data/build-manifest.json',
   protoIds: 'src/shared/gen/proto-ids.ts',
   exprFixture: 'test/fixtures/expr/cases.txt',
+  /** The M0 build's prototypes.bin, committed for the Rust loader's test (crates/schema/tests/protos_load.rs). */
+  protosFixture: 'test/fixtures/protos/m0.bin',
 } as const;

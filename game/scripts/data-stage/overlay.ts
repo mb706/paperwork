@@ -56,7 +56,29 @@ const defaultsFile = z.strictObject({
   }),
 });
 const mirrorsFile = z.strictObject({ entities: z.record(id, entityLayer) });
+/**
+ * The engine's character (10 §5.1, §15.2; C1a open issue 3): not a data prototype. The data stage writes it
+ * as the last row of PROTO_ENTITY (type `character`) when the capability manifest includes it; MOVERS'
+ * `proto` names that row, and prototypes.json gives its `sprite`.
+ */
+const characterLayer = z.strictObject({
+  running_speed: z.number().positive(),
+  reach_distance: z.number().positive(),
+  build_distance: z.number().positive(),
+  resource_reach_distance: z.number().positive(),
+  item_pickup_distance: z.number().positive(),
+  inventory_size: z.int().min(1).max(0xffff),
+  mining_speed: z.number().positive(),
+  crafting_speed: z.number().positive(),
+  collision_box: box,
+  selection_box: box,
+  selection_priority: z.int().min(0).max(255).optional(),
+  sprite: z.string(),
+});
+export type CharacterEngine = z.infer<typeof characterLayer>;
+
 const prototypesFile = z.strictObject({
+  character: characterLayer.optional(),
   entities: z.record(id, entityLayer),
   items: z.record(id, itemLayer),
   recipes: z.record(id, itemLayer),

@@ -7,6 +7,7 @@ import { canonicalJson } from '../lib/canonical.ts';
 import {
   type Field,
   fixedSize,
+  type IdDecl,
   isFloat,
   type ProtoColumn,
   type ProtoTableDef,
@@ -36,6 +37,14 @@ const ID_KIND: Record<string, string> = {
 };
 
 /** The expanded columns of a table: a list column becomes `<name>_off` (u32) and `<name>_count` (u16). */
+/** The id type of a prototype kind (ProtoKind's names: item → ItemId, technology → TechId …). */
+function kindId(s: Schema, kind: string): IdDecl {
+  const name = kind === 'technology' ? 'TechId' : `${pascal(kind)}Id`;
+  const d = s.decls.get(name);
+  if (d?.kind !== 'id') throw new Error(`no id type ${name} for prototype kind ${kind}`);
+  return d;
+}
+
 export function protoColumns(
   t: ProtoTableDef,
 ): { name: string; code: number; width: number; col: ProtoColumn; part?: 'off' | 'count' }[] {
@@ -177,7 +186,7 @@ pub const FORMULAS: [FormulaField; ${p.formulas.length}] = [${p.formulas.map((f)
 
 /// Checks the EXPR section (§15.2) and returns the offset of every program: each is \`u16 byte_count\`,
 /// \`u8 var_count\`, \`u8 max_stack\` (at most EXPR_MAX_STACK), then its ops; every opcode is known, every
-/// operand is present, a VAR's index is below var_count, the stack never underflows or passes max_stack,
+/// operand is present, a CONST is finite (D6), a VAR's index is below var_count, the stack never underflows or passes max_stack,
 /// and END ends the op stream with one value. Programs are packed back to back.
 pub fn expr_programs(bytes: &[u8]) -> Result<Vec<u32>, (usize, &'static str)> {
     let mut starts = Vec::new();
@@ -206,6 +215,11 @@ pub fn expr_programs(bytes: &[u8]) -> Result<Vec<u32>, (usize, &'static str)> {
                 OP_CONST => {
                     if end - pc < 8 {
                         return Err((pc, "truncated CONST"));
+                    }
+                    let mut c = [0u8; 8];
+                    c.copy_from_slice(&bytes[pc..pc + 8]);
+                    if !f64::from_le_bytes(c).is_finite() {
+                        return Err((pc, "CONST not finite"));
                     }
                     pc += 8;
                     depth += 1;
@@ -499,7 +513,7 @@ ${kinds.map((k) => `            ${pk}::${enumVariant(k.name)} => &self.${rsIdent
 /// The ids of the names the engine must know (registries.yaml \`well_known\`), when the build has them.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct WellKnownIds {
-${s.wellKnown.map((w) => `    pub ${rsIdent(w.name)}: Option<u16>,`).join('\n')}
+${s.wellKnown.map((w) => `    pub ${rsIdent(w.name)}: Option<${o.t(kindId(s, w.kind))}>,`).join('\n')}
 }
 
 /// prototypes.bin, loaded (§15.2): the sim's tables, indexed by dense id.
@@ -610,7 +624,13 @@ ${kinds.map((k) => `                ${pk}::${enumVariant(k.name)} => names.${rsI
         }
         nr.finish("NAMES")?;
         let well_known = WellKnownIds {
-${s.wellKnown.map((w) => `            ${rsIdent(w.name)}: names.find(${pk}::${enumVariant(w.kind)}, ${rsStr(w.name)}),`).join('\n')}
+${s.wellKnown
+  .map((w) => {
+    const id = kindId(s, w.kind);
+    const conv = id.base === 'u16' ? '' : `.and_then(|i| ${id.base}::try_from(i).ok())`;
+    return `            ${rsIdent(w.name)}: names.find(${pk}::${enumVariant(w.kind)}, ${rsStr(w.name)})${conv}.map(${o.t(id)}),`;
+  })
+  .join('\n')}
         };
         Ok(Self {
 ${p.tables.map((t) => `            ${rsIdent(t.kind)},`).join('\n')}

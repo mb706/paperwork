@@ -4,8 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { edit, messages, options, scratchRepo } from '../../test/helpers/data-stage.ts';
 import { ByteReader } from '../lib/bytes.ts';
 import { readColumnTable, readSections } from './emit/container.ts';
-import { HEADER_BYTES } from './emit/protos-bin.ts';
-import { SECTION_IDS } from './emit/tables.ts';
+import { HEADER_BYTES, SECTION_IDS } from './emit/protos-bin.ts';
 import { type DataStageOptions, OUTPUT_PATHS, runDataStage } from './index.ts';
 
 const m1 = (game: string, spec: string): DataStageOptions => ({

@@ -14,6 +14,7 @@ import {
   type IdDecl,
   isFloat,
   isWide,
+  localeKey,
   type MessageDecl,
   pow2,
   type RecordDecl,
@@ -61,6 +62,12 @@ export class TsOut {
   rt(...names: string[]): void {
     for (const n of names) this.runtime.add(n);
   }
+  /** Imports a value that another generated module exports (not a declaration's). */
+  imp(mod: TsMod, name: string): string {
+    this.imports.add(`${mod}#${name}`);
+    return name;
+  }
+  readonly imports = new Set<string>();
   rtt(...names: string[]): void {
     for (const n of names) this.runtimeTypes.add(n);
   }
@@ -298,7 +305,19 @@ export const ${d.name}Codec = {
   ALL: [${d.values.map((v) => v.value).join(', ')}] as readonly number[],
   /** The schema's name of a value, or undefined. */
   name: (v: number): string | undefined => ${d.name}_NAMES.get(v),
-  has: (v: number): boolean => ${d.name}_NAMES.has(v),
+  has: (v: number): boolean => ${d.name}_NAMES.has(v),${
+    d.locale
+      ? `
+  /** The locale key of each value (prototypes.json's localeKeys.${d.name}); null for a developer value, which has no text. */
+  LOCALE_KEYS: [${d.values.map((v) => `{ value: ${v.value}, name: ${tsStr(v.name)}, key: ${localeKey(d, v) === null ? 'null' : tsStr(localeKey(d, v) as string)} }`).join(', ')}] as readonly { value: number; name: string; key: string | null }[],`
+      : ''
+  }${
+    d.developer.length
+      ? `
+  /** Whether a value is a developer value: no player-facing text, no sound (§15.6). */
+  isDeveloper: (v: number): boolean => ${d.developer.map((n) => `v === ${d.values.find((x) => x.name === n)?.value}`).join(' || ')},`
+      : ''
+  }
   read(r: Reader, field: string): number {
     const at = r.pos;
     const v = r.${d.base}(field);

@@ -89,7 +89,7 @@ function declLines(d: Decl): string[] {
       return [`id ${d.name} ${d.base}${d.none !== undefined ? ` none=${d.none}` : ''}`];
     case 'enum':
       return [
-        `enum ${d.name} ${d.base}${d.synthetic ? ' synthetic' : ''}`,
+        `enum ${d.name} ${d.base}${d.synthetic ? ' synthetic' : ''}${d.locale ? ` locale=${d.locale}` : ''}${d.developer.length ? ` developer=${d.developer.join(',')}` : ''}`,
         ...d.values.map((v) => `  ${v.name}=${v.value}`),
       ];
     case 'flags':

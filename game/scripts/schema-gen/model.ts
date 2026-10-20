@@ -150,6 +150,8 @@ export interface EnumDecl extends DeclBase {
   values: EnumValue[];
   /** FailReason's developer reasons: no player-facing text. */
   developer: string[];
+  /** The locale-key prefix of the values (`fail-reason` → `fail-reason.target-gone`), for prototypes.json. */
+  locale?: string;
   /** Synthesized from a list (actions, sections …) rather than declared. */
   synthetic?: string;
 }
@@ -608,7 +610,7 @@ function resolveDecl(ctx: Ctx, name: string): Decl {
       break;
     }
     case 'enum': {
-      checkKeys(src, at, s, ['base', 'values', 'doc', 'developer']);
+      checkKeys(src, at, s, ['base', 'values', 'doc', 'developer', 'locale']);
       const b = intBase();
       const values: EnumValue[] = singles(src, [...at, 'values'], s.values).map(
         ({ name: vn, value, at: vat }) => {
@@ -629,7 +631,14 @@ function resolveDecl(ctx: Ctx, name: string): Decl {
       }
       const developer = (s.developer as string[] | undefined) ?? [];
       for (const dv of developer) if (!seenN.has(dv)) fail(src, [...at, 'developer'], `no value ${dv}`);
-      d = { ...base, kind: 'enum', base: b, values, developer };
+      const ed: EnumDecl = { ...base, kind: 'enum', base: b, values, developer };
+      if (s.locale !== undefined) {
+        if (typeof s.locale !== 'string' || !/^[a-z]+(-[a-z]+)*$/.test(s.locale))
+          fail(src, [...at, 'locale'], 'a locale prefix is kebab-case, e.g. fail-reason');
+        ed.locale = s.locale;
+      } else if (developer.length > 0)
+        fail(src, [...at, 'developer'], 'developer values need a `locale` prefix');
+      d = ed;
       break;
     }
     case 'flags': {
@@ -1034,6 +1043,12 @@ export function isVar(t: Ty): boolean {
 /** Fields that are part of the decoded value (not reserved, not a hidden count). */
 export function valueFields(fields: readonly Field[]): Field[] {
   return fields.filter((f) => !f.reserved && !f.hidden);
+}
+
+/** A value's locale key (`<prefix>.<name with dashes>`), or null for a developer value (no text). */
+export function localeKey(d: EnumDecl, v: EnumValue): string | null {
+  if (d.locale === undefined || d.developer.includes(v.name)) return null;
+  return `${d.locale}.${v.name.replace(/_/g, '-')}`;
 }
 
 /** Every declaration a type refers to, transitively. */

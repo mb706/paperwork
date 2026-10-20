@@ -4,13 +4,15 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
+import type { DecodeError } from '../../src/shared/gen/codec.ts';
+import { readPrototypesBin } from '../../src/shared/gen/protos.ts';
+import { EntityType } from '../../src/shared/gen/types.ts';
 import { edit, messages, options, scratchRepo } from '../../test/helpers/data-stage.ts';
 import { ByteReader } from '../lib/bytes.ts';
 import { sha256Hex } from '../lib/hash.ts';
 import { formatDiagnostic } from './diagnostics.ts';
 import { readColumnTable, readSections } from './emit/container.ts';
-import { DATA_VERSION, FORMAT_VERSION, HEADER_BYTES, MAGIC } from './emit/protos-bin.ts';
-import { SECTION_IDS } from './emit/tables.ts';
+import { DATA_VERSION, FORMAT_VERSION, HEADER_BYTES, MAGIC, SECTION_IDS } from './emit/protos-bin.ts';
 import { type DataStageResult, OUTPUT_PATHS, runDataStage } from './index.ts';
 
 describe('the data stage on the repository data', () => {
@@ -63,7 +65,7 @@ describe('the data stage on the repository data', () => {
     expect(items).toEqual(['iron-chest', 'iron-ore', 'iron-plate']);
     expect([fluids, techs, world, signals]).toEqual([[], [], [], []]);
     expect(recipes).toEqual(['iron-chest']);
-    expect(entities).toEqual(['iron-chest']);
+    expect(entities).toEqual(['iron-chest', 'character']); // the engine's character is the last entity
     expect(resources).toEqual(['iron-ore-patch']);
     expect(tiles).toEqual(['deep-water', 'dirt', 'grass', 'out-of-map', 'sand', 'water']);
     const item = table(SECTION_IDS.PROTO_ITEM);
@@ -71,12 +73,26 @@ describe('the data stage on the repository data', () => {
     expect(item.col('stack_size')).toEqual([50, 50, 100]);
     expect(item.col('places_entity')).toEqual([0, 0xffff, 0xffff]);
     const ent = table(SECTION_IDS.PROTO_ENTITY);
-    expect(ent.col('inventory_slots')).toEqual([32]);
-    expect(ent.col('item')).toEqual([0]);
-    expect(ent.col('collision_x0')).toEqual([-0.35]);
-    expect(ent.col('selection_x1')).toEqual([0.5]);
-    expect(ent.col('mining_time')).toEqual([0.2]);
-    expect(ent.col('rotatable')).toEqual([false]);
+    expect(ent.col('type')).toEqual([10, 64]); // EntityType chest, character
+    expect(ent.col('inventory_slots')).toEqual([32, 80]);
+    expect(ent.col('item')).toEqual([0, 0xffff]);
+    expect(ent.col('collision_x0')).toEqual([-0.35, -0.2]);
+    expect(ent.col('selection_x1')).toEqual([0.5, 0.4]);
+    expect(ent.col('mining_time')).toEqual([0.2, 0]);
+    expect(ent.col('rotatable')).toEqual([false, false]);
+    // The character's numbers (game/data/engine/prototypes.yaml; 10 §5.1).
+    expect(ent.col('running_speed')).toEqual([0, 0.15]);
+    expect(ent.col('reach_distance')).toEqual([0, 10]);
+    expect(ent.col('build_distance')).toEqual([0, 10]);
+    expect(ent.col('resource_reach_distance')).toEqual([0, 2.7]);
+    expect(ent.col('item_pickup_distance')).toEqual([0, 1]);
+    expect(ent.col('mining_speed')).toEqual([0, 0.5]);
+    expect(ent.col('crafting_speed')).toEqual([0, 1]);
+    expect(ent.col('working_sound')).toEqual([0xffff, 0xffff]);
+    // Tiles carry their biomes and the tiles they are placed on (worldgen v0).
+    const tile = table(SECTION_IDS.PROTO_TILE);
+    expect(tile.col('biomes')?.every((b) => typeof b === 'number')).toBe(true);
+    expect(tile.col('placed_on_count')).toHaveLength(6);
     const rec = table(SECTION_IDS.PROTO_RECIPE);
     expect(rec.col('energy_required')).toEqual([0.5]);
     expect(rec.col('handcraft')).toEqual([true]);
@@ -101,6 +117,31 @@ describe('the data stage on the repository data', () => {
     expect(meta.u16()).toBe(2); // then the contents record (C1a-r1 finding 5)
   });
 
+  it('reads back with the generated reader, which refuses what Protos::load refuses', () => {
+    const bin = r.outputs.get(OUTPUT_PATHS.bin) as Uint8Array;
+    const zero = new Uint8Array(32); // the tests' schema hash
+    const p = readPrototypesBin(bin, zero);
+    expect(p.names.entity).toEqual(['iron-chest', 'character']);
+    expect(p.entity[1]).toMatchObject({
+      type: EntityType.character,
+      running_speed: 0.15,
+      inventory_slots: 80,
+    });
+    expect(p.meta.start.inventory).toEqual([{ item: 2, count: 8 }]);
+    const kind = (f: () => unknown) => {
+      try {
+        f();
+        return 'ok';
+      } catch (e) {
+        return (e as DecodeError).kind;
+      }
+    };
+    expect(kind(() => readPrototypesBin(bin, new Uint8Array(32).fill(1)))).toBe('schema_mismatch');
+    expect(kind(() => readPrototypesBin(bin, zero, ['start.inventory', 'world']))).toBe('missing_field');
+    expect(kind(() => readPrototypesBin(bin.subarray(0, bin.length - 1)))).toBe('truncated');
+    expect(r.outputs.get(OUTPUT_PATHS.protosFixture)).toEqual(bin);
+  });
+
   it('records the prototypes hash and the M0 contents in prototypes.json and build-manifest.json', () => {
     const bin = r.outputs.get(OUTPUT_PATHS.bin) as Uint8Array;
     const manifest = JSON.parse(new TextDecoder().decode(r.outputs.get(OUTPUT_PATHS.manifest)));
@@ -110,9 +151,21 @@ describe('the data stage on the repository data', () => {
     expect(json.prototypesHash).toBe(sha256Hex(bin));
     expect(json.build).toBe('m0');
     expect(json.entity[0].sprite).toBe('entity/iron-chest');
+    expect(json.entity[1]).toMatchObject({ name: 'character', type: 'character', sprite: 'mover/character' });
     expect(json.icons).toEqual(['item/iron-chest', 'item/iron-ore', 'item/iron-plate']);
     expect(json.strings['item-name.iron-plate']).toBe('Iron plate');
-    expect(json.localeKeys).toEqual([]);
+    // Locale keys from the schema's enums; developer reasons have none.
+    expect(json.localeKeys.FailReason).toContainEqual({
+      value: 17,
+      name: 'out_of_reach',
+      key: 'fail-reason.out-of-reach',
+    });
+    expect(json.localeKeys.FailReason).toContainEqual({ value: 1, name: 'malformed', key: null });
+    expect(json.localeKeys.Status[0]).toEqual({ value: 0, name: 'none', key: 'entity-status.none' });
+    expect(Object.keys(json.localeKeys).sort()).toEqual(['AlertType', 'FailReason', 'FlyingText', 'Status']);
+    expect(json.milestones).toContain('first-memo');
+    expect([...json.milestones].sort()).toEqual(json.milestones);
+    expect(json.sounds).toEqual([]);
   });
 });
 
