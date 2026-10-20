@@ -15,6 +15,9 @@ worldgen.workspace = true
 
 [features]
 simcheck = ["worldgen/simcheck", "schema/simcheck"]
+# Exports §15.9's whole table (gen_abi_version = schema::GEN_ABI_VERSION, the host imports). Off by default with
+# simabi's `full-abi` until the Shell package's loaders replace the M0 scaffold; the WebAssembly tests build it.
+full-abi = []
 
 [lints]
 workspace = true

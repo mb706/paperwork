@@ -1,0 +1,86 @@
+[
+  {
+    "name": "remap-removes-a-chest-with-a-missing-block",
+    "call": "sim_load",
+    "input": "remap-removes-a-chest-with-a-missing-block.bin",
+    "expect": "err_load_format",
+    "why": "finding 1: the reference is checked before the remap follows it"
+  },
+  {
+    "name": "remap-removes-the-chests",
+    "call": "sim_load",
+    "input": "remap-removes-the-chests.bin",
+    "expect": "ok",
+    "why": "finding 1: a valid removal still loads, its blocks cleared"
+  },
+  {
+    "name": "chest-x2-i32-max",
+    "call": "sim_load",
+    "input": "chest-x2-i32-max.bin",
+    "expect": "err_load_format",
+    "why": "finding 2: a centre whose footprint overflows i32 (a trap natively, accepted wrapped in release)"
+  },
+  {
+    "name": "chest-x2-aliases-a-chunk",
+    "call": "sim_load",
+    "input": "chest-x2-aliases-a-chunk.bin",
+    "expect": "err_load_format",
+    "why": "finding 2: tile 36 + 2^21 is outside the chunk-key range and aliased chunk 1"
+  },
+  {
+    "name": "chest-outside-the-map",
+    "call": "sim_load",
+    "input": "chest-outside-the-map.bin",
+    "expect": "err_load_format",
+    "why": "finding 2: tile 60 lies in a generated chunk but outside the 96-wide map"
+  },
+  {
+    "name": "player-position-infinite",
+    "call": "sim_load",
+    "input": "player-position-infinite.bin",
+    "expect": "err_load_format",
+    "why": "finding 2: a position must be finite and inside the chunk range"
+  },
+  {
+    "name": "worldgen-request-in-the-past",
+    "call": "sim_load",
+    "input": "worldgen-request-in-the-past.bin",
+    "expect": "err_load_format",
+    "why": "finding 2: a request committing at or before the save's tick"
+  },
+  {
+    "name": "swapped-inventories",
+    "call": "sim_load",
+    "input": "swapped-inventories.bin",
+    "expect": "err_load_format",
+    "why": "finding 4: the player's 80 slots in a 32-slot block and a chest in a 128-slot one"
+  },
+  {
+    "name": "items-past-the-inventory-size",
+    "call": "sim_load",
+    "input": "items-past-the-inventory-size.bin",
+    "expect": "err_load_format",
+    "why": "finding 4: slot 100 of the player's 80"
+  },
+  {
+    "name": "stack-over-its-stack-size",
+    "call": "sim_load",
+    "input": "stack-over-its-stack-size.bin",
+    "expect": "err_load_format",
+    "why": "finding 4: 101 iron plates in one slot (a stack is 100)"
+  },
+  {
+    "name": "limit-bar-past-the-size",
+    "call": "sim_load",
+    "input": "limit-bar-past-the-size.bin",
+    "expect": "err_load_format",
+    "why": "finding 4: a bar at 100 on 80 slots (inside the 128-slot block)"
+  },
+  {
+    "name": "hand-origin-past-the-size",
+    "call": "sim_load",
+    "input": "hand-origin-past-the-size.bin",
+    "expect": "err_load_format",
+    "why": "finding 4: a hand whose origin slot is 100 of 80"
+  }
+]

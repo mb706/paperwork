@@ -13,6 +13,7 @@
 // causes it may record it; a *value* bump changes expected states, digests, records, packets or refusals and
 // names the approval it was made under (a review or the manager's decision, e.g. pm/reviews/GATE-r1.md). The
 // tool refuses a mechanical bump of anything else, a value bump without an approval, and a short reason.
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -190,6 +191,13 @@ export function bumpProblems(o: {
   approval: string | null;
   why: string;
   baseline: Manifest | null;
+  /**
+   * The baseline's schema hash as its frozen protos/prototypes.bin carries it (bytes 12–44 of the header), read
+   * from bytes whose SHA-256 is the baseline's authenticated table entry (`reviewedSchemaHash`); null when no such
+   * bytes are at hand. The manifest's own `schemaHash` field is not covered by the ledger digest, so it is never
+   * trusted alone (GATE-r3 #4).
+   */
+  baselineSchema: string | null;
   latest: Version | null;
   next: {
     files: Record<string, string>;
@@ -218,19 +226,57 @@ export function bumpProblems(o: {
       return out;
     }
   }
+  if (b && o.baselineSchema !== null && b.schemaHash !== o.baselineSchema)
+    out.push(
+      "MANIFEST.json's schemaHash is not the one its frozen prototypes.bin carries: restore it from git",
+    );
   if (o.kind === 'mechanical' && b) {
     const changed = [...new Set([...Object.keys(b.files), ...Object.keys(o.next.files)])].filter(
       (p) => b.files[p] !== o.next.files[p],
     );
     const protosOnly = changed.length > 0 && changed.every((p) => p.startsWith('protos/'));
     const contractChanged = canonical(b.contract ?? {}) !== canonical(o.next.contract);
-    const schemaMoved = b.schemaHash !== o.next.schemaHash;
+    // Only an authenticated schema hash can make a bump mechanical by "the schema moved".
+    const schemaMoved = o.baselineSchema !== null && o.baselineSchema !== o.next.schemaHash;
     if (contractChanged || (changed.length > 0 && !schemaMoved && !protosOnly))
       out.push(
         'expected values or the contract changed without a schema change: that is a value bump (--bump value --approval …)',
       );
   }
   return out;
+}
+
+/**
+ * The schema hash the baseline was built against, authenticated: the header of the baseline's frozen
+ * protos/prototypes.bin (bytes 12–44), taken from the working copy if its SHA-256 is still the manifest's entry,
+ * else from the reviewed commit's copy (HEAD, or the merge base with dev on another branch) under the same check.
+ * Null when neither is at hand: a bump then cannot count on a schema move.
+ */
+export function reviewedSchemaHash(baseline: Manifest): string | null {
+  const want = baseline.files['protos/prototypes.bin'];
+  const path = 'protos/prototypes.bin';
+  const candidates: (() => Uint8Array)[] = [
+    () => new Uint8Array(readFileSync(join(M0, path))),
+    () => {
+      const git = (args: string[]) => spawnSync('git', args, { cwd: GAME_DIR, encoding: 'buffer' });
+      const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']).stdout.toString().trim();
+      const hasDev = git(['rev-parse', '--verify', '--quiet', 'refs/heads/dev']).status === 0;
+      const base =
+        branch === 'dev' || !hasDev ? 'HEAD' : git(['merge-base', 'HEAD', 'dev']).stdout.toString().trim();
+      const shown = git(['show', `${base}:game/test/golden/m0/${path}`]);
+      if (shown.status !== 0) throw new Error('no reviewed copy');
+      return new Uint8Array(shown.stdout);
+    },
+  ];
+  for (const get of candidates) {
+    try {
+      const b = get();
+      if (sha256(b) === want) return Buffer.from(b.subarray(12, 44)).toString('hex');
+    } catch {
+      // not at hand: try the next source
+    }
+  }
+  return null;
 }
 
 function argAfter(flag: string): string | null {
@@ -298,6 +344,7 @@ function main(): number {
       approval,
       why,
       baseline,
+      baselineSchema: baseline ? reviewedSchemaHash(baseline) : null,
       latest: latest ?? null,
       next: { files: table, external, contract, schemaHash: SCHEMA_HASH },
     });

@@ -57,8 +57,13 @@ overflow-checks = true
 [profile.dev.package."*"]
 opt-level = 3
 
-# Scenario, golden and determinism suites: release speed with every assertion (tests unwind).
+# Scenario, golden and determinism suites: release optimisation with every assertion (tests unwind). No LTO,
+# 16 codegen units and incremental builds keep the native test loop fast (a sim edit rebuilt in about 35 s
+# with fat LTO, about 1 s without; C2a, approved by the manager); release keeps fat LTO.
 [profile.ntest]
 inherits = "release"
 debug-assertions = true
 overflow-checks = true
+lto = false
+codegen-units = 16
+incremental = true
