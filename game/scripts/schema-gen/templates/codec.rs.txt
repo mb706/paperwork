@@ -1,0 +1,788 @@
+//! The byte codec of every generated type (10 §15.1). Little-endian; reads never assume alignment
+//! (`from_le_bytes`); every value is validated as it is read, and a refusal names the field
+//! (`Type.field`) and the byte offset. The error kinds are shared with the TypeScript codec and the
+//! probe fixtures (test/fixtures/codec/probes.txt).
+
+use core::fmt;
+
+/// What was wrong with an encoding.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum ErrorKind {
+@@ERROR_KIND_VARIANTS@@
+}
+
+impl ErrorKind {
+    /// The kind's name, as the TypeScript codec and the fixtures spell it.
+    pub const fn name(self) -> &'static str {
+        match self {
+@@ERROR_KIND_NAMES@@
+        }
+    }
+}
+
+/// A refused encoding: the kind, the field (`Type.field`) and the byte offset where reading failed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DecodeError {
+    pub kind: ErrorKind,
+    pub field: &'static str,
+    pub at: usize,
+}
+
+impl fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} in {} at byte {}", self.kind.name(), self.field, self.at)
+    }
+}
+
+/// A value that cannot be written: the kind and the field.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EncodeError {
+    pub kind: ErrorKind,
+    pub field: &'static str,
+}
+
+impl fmt::Display for EncodeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "cannot encode {}: {}", self.field, self.kind.name())
+    }
+}
+
+pub type DResult<T> = Result<T, DecodeError>;
+pub type EResult = Result<(), EncodeError>;
+
+/// An encode error.
+pub const fn enc_err(kind: ErrorKind, field: &'static str) -> EncodeError {
+    EncodeError { kind, field }
+}
+
+/// A little-endian reader over a byte slice.
+#[derive(Clone, Debug)]
+pub struct Reader<'a> {
+    buf: &'a [u8],
+    pos: usize,
+    base: usize,
+}
+
+macro_rules! read_int {
+    ($name:ident, $t:ty, $n:expr) => {
+        pub fn $name(&mut self, field: &'static str) -> DResult<$t> {
+            let b = self.take($n, field)?;
+            let mut a = [0u8; $n];
+            a.copy_from_slice(b);
+            Ok(<$t>::from_le_bytes(a))
+        }
+    };
+}
+
+impl<'a> Reader<'a> {
+    pub const fn new(buf: &'a [u8]) -> Self {
+        Self { buf, pos: 0, base: 0 }
+    }
+
+    /// A reader whose offsets start at `base` (bytes cut from a larger buffer).
+    pub const fn with_base(buf: &'a [u8], base: usize) -> Self {
+        Self { buf, pos: 0, base }
+    }
+
+    /// The offset of the next byte, from the start of the outermost buffer.
+    pub const fn pos(&self) -> usize {
+        self.base + self.pos
+    }
+
+    pub const fn remaining(&self) -> usize {
+        self.buf.len() - self.pos
+    }
+
+    pub const fn is_empty(&self) -> bool {
+        self.pos >= self.buf.len()
+    }
+
+    pub const fn err(&self, kind: ErrorKind, field: &'static str) -> DecodeError {
+        DecodeError { kind, field, at: self.base + self.pos }
+    }
+
+    pub const fn err_at(&self, at: usize, kind: ErrorKind, field: &'static str) -> DecodeError {
+        DecodeError { kind, field, at }
+    }
+
+    /// The next `n` bytes.
+    pub fn take(&mut self, n: usize, field: &'static str) -> DResult<&'a [u8]> {
+        if n > self.remaining() {
+            return Err(self.err(ErrorKind::Truncated, field));
+        }
+        let b = &self.buf[self.pos..self.pos + n];
+        self.pos += n;
+        Ok(b)
+    }
+
+    /// The rest of the bytes.
+    pub fn rest(&mut self) -> &'a [u8] {
+        let b = &self.buf[self.pos..];
+        self.pos = self.buf.len();
+        b
+    }
+
+    /// A reader over the next `n` bytes, whose offsets continue this one's.
+    pub fn sub(&mut self, n: usize, field: &'static str) -> DResult<Reader<'a>> {
+        let base = self.pos();
+        let buf = self.take(n, field)?;
+        Ok(Reader { buf, pos: 0, base })
+    }
+
+    /// Refuses bytes left over.
+    pub fn finish(&self, field: &'static str) -> DResult<()> {
+        if self.is_empty() { Ok(()) } else { Err(self.err(ErrorKind::Trailing, field)) }
+    }
+
+    /// Refuses a value that did not fill the length its triple declared (§8.1).
+    pub fn finish_len(&self, field: &'static str) -> DResult<()> {
+        if self.is_empty() { Ok(()) } else { Err(self.err(ErrorKind::BadLength, field)) }
+    }
+
+    read_int!(u8, u8, 1);
+    read_int!(u16, u16, 2);
+    read_int!(u32, u32, 4);
+    read_int!(u64, u64, 8);
+    read_int!(i8, i8, 1);
+    read_int!(i16, i16, 2);
+    read_int!(i32, i32, 4);
+    read_int!(i64, i64, 8);
+
+    /// An f32; NaN is refused (no NaN crosses the boundary, D6).
+    pub fn f32(&mut self, field: &'static str) -> DResult<f32> {
+        let at = self.pos();
+        let v = f32::from_bits(self.u32(field)?);
+        if v.is_nan() { Err(self.err_at(at, ErrorKind::NotANumber, field)) } else { Ok(v) }
+    }
+
+    /// An f64; NaN is refused (no NaN crosses the boundary, D6).
+    pub fn f64(&mut self, field: &'static str) -> DResult<f64> {
+        let at = self.pos();
+        let v = f64::from_bits(self.u64(field)?);
+        if v.is_nan() { Err(self.err_at(at, ErrorKind::NotANumber, field)) } else { Ok(v) }
+    }
+
+    /// A bool: 0 or 1.
+    pub fn bool(&mut self, field: &'static str) -> DResult<bool> {
+        let at = self.pos();
+        match self.u8(field)? {
+            0 => Ok(false),
+            1 => Ok(true),
+            _ => Err(self.err_at(at, ErrorKind::BadBool, field)),
+        }
+    }
+
+    /// `n` bytes that must be zero (reserved fields and padding).
+    pub fn zeros(&mut self, n: usize, field: &'static str) -> DResult<()> {
+        let at = self.pos();
+        if self.take(n, field)?.iter().any(|&b| b != 0) {
+            return Err(self.err_at(at, ErrorKind::Reserved, field));
+        }
+        Ok(())
+    }
+
+    /// Zero padding from `start` (a value of `pos()`) to a multiple of `align`.
+    pub fn pad(&mut self, start: usize, align: usize, field: &'static str) -> DResult<()> {
+        let used = self.pos() - start;
+        self.zeros((align - used % align) % align, field)
+    }
+
+    /// A `u16` length, then that many bytes of UTF-8, at most `max` bytes.
+    pub fn str16(&mut self, max: usize, field: &'static str) -> DResult<&'a str> {
+        let at = self.pos();
+        let n = usize::from(self.u16(field)?);
+        if n > max {
+            return Err(self.err_at(at, ErrorKind::TooLong, field));
+        }
+        let b = self.take(n, field)?;
+        core::str::from_utf8(b).map_err(|_| self.err_at(at, ErrorKind::BadUtf8, field))
+    }
+
+    /// A `u16` or `u32` length (`width` 2 or 4), then that many bytes, at most `max`.
+    pub fn bytes(&mut self, width: usize, max: usize, field: &'static str) -> DResult<&'a [u8]> {
+        let at = self.pos();
+        let n = self.count(width, field)?;
+        if n > max {
+            return Err(self.err_at(at, ErrorKind::TooLong, field));
+        }
+        self.take(n, field)
+    }
+
+    /// A `u16` or `u32` count (`width` 2 or 4).
+    pub fn count(&mut self, width: usize, field: &'static str) -> DResult<usize> {
+        if width == 2 { Ok(usize::from(self.u16(field)?)) } else { Ok(self.u32(field)? as usize) }
+    }
+}
+
+/// A little-endian writer that appends to a vector.
+#[derive(Debug)]
+pub struct Writer<'a> {
+    buf: &'a mut Vec<u8>,
+}
+
+macro_rules! write_int {
+    ($name:ident, $t:ty) => {
+        pub fn $name(&mut self, v: $t) {
+            self.buf.extend_from_slice(&v.to_le_bytes());
+        }
+    };
+}
+
+impl<'a> Writer<'a> {
+    pub fn new(buf: &'a mut Vec<u8>) -> Self {
+        Self { buf }
+    }
+
+    /// Bytes in the vector (including any that were there before this writer).
+    pub fn pos(&self) -> usize {
+        self.buf.len()
+    }
+
+    write_int!(u8, u8);
+    write_int!(u16, u16);
+    write_int!(u32, u32);
+    write_int!(u64, u64);
+    write_int!(i8, i8);
+    write_int!(i16, i16);
+    write_int!(i32, i32);
+    write_int!(i64, i64);
+
+    pub fn f32(&mut self, v: f32, field: &'static str) -> EResult {
+        if v.is_nan() {
+            return Err(enc_err(ErrorKind::NotANumber, field));
+        }
+        self.u32(v.to_bits());
+        Ok(())
+    }
+
+    pub fn f64(&mut self, v: f64, field: &'static str) -> EResult {
+        if v.is_nan() {
+            return Err(enc_err(ErrorKind::NotANumber, field));
+        }
+        self.u64(v.to_bits());
+        Ok(())
+    }
+
+    pub fn bool(&mut self, v: bool) {
+        self.u8(u8::from(v));
+    }
+
+    pub fn bytes(&mut self, b: &[u8]) {
+        self.buf.extend_from_slice(b);
+    }
+
+    pub fn zeros(&mut self, n: usize) {
+        self.buf.resize(self.buf.len() + n, 0);
+    }
+
+    /// Zero padding from `start` (a value of `pos()`) to a multiple of `align`.
+    pub fn pad(&mut self, start: usize, align: usize) {
+        let used = self.pos() - start;
+        self.zeros((align - used % align) % align);
+    }
+
+    /// A count in `width` bytes (2 or 4); refuses a count above `max`.
+    pub fn count(&mut self, n: usize, width: usize, max: usize, field: &'static str) -> EResult {
+        if n > max {
+            return Err(enc_err(ErrorKind::TooLong, field));
+        }
+        if width == 2 {
+            self.u16(n as u16);
+        } else {
+            self.u32(n as u32);
+        }
+        Ok(())
+    }
+
+    /// A `u16` length and the UTF-8 of `s`, at most `max` bytes.
+    pub fn str16(&mut self, s: &str, max: usize, field: &'static str) -> EResult {
+        self.count(s.len(), 2, max, field)?;
+        self.bytes(s.as_bytes());
+        Ok(())
+    }
+
+    /// A length in `width` bytes and `b`, at most `max` bytes.
+    pub fn len_bytes(&mut self, b: &[u8], width: usize, max: usize, field: &'static str) -> EResult {
+        self.count(b.len(), width, max, field)?;
+        self.bytes(b);
+        Ok(())
+    }
+
+    /// Overwrites a `u16` written earlier at `at` (a value of `pos()`).
+    pub fn patch_u16(&mut self, at: usize, v: u16) {
+        self.buf[at..at + 2].copy_from_slice(&v.to_le_bytes());
+    }
+
+    /// Overwrites a `u32` written earlier at `at` (a value of `pos()`).
+    pub fn patch_u32(&mut self, at: usize, v: u32) {
+        self.buf[at..at + 4].copy_from_slice(&v.to_le_bytes());
+    }
+
+    /// Starts a length-prefixed region: writes a placeholder `u32` and returns its position.
+    pub fn begin_u32(&mut self) -> usize {
+        let at = self.pos();
+        self.u32(0);
+        at
+    }
+
+    /// Ends a region begun at `at`: patches the length of the bytes written since.
+    pub fn end_u32(&mut self, at: usize, field: &'static str) -> EResult {
+        let n = self.pos() - at - 4;
+        let n = u32::try_from(n).map_err(|_| enc_err(ErrorKind::TooLong, field))?;
+        self.patch_u32(at, n);
+        Ok(())
+    }
+}
+
+/// A fixed-size type: scalars, ids, enums, flags, fixed records and fixed arrays.
+pub trait Fixed: Copy + Sized {
+    /// The encoded size in bytes.
+    const SIZE: usize;
+    /// Reads one value; `field` names it in errors (records name their own fields).
+    fn read(r: &mut Reader<'_>, field: &'static str) -> DResult<Self>;
+    /// Writes one value.
+    fn write(&self, w: &mut Writer<'_>, field: &'static str) -> EResult;
+}
+
+macro_rules! fixed_int {
+    ($t:ty, $n:expr, $rd:ident, $wr:ident) => {
+        impl Fixed for $t {
+            const SIZE: usize = $n;
+            fn read(r: &mut Reader<'_>, field: &'static str) -> DResult<Self> {
+                r.$rd(field)
+            }
+            fn write(&self, w: &mut Writer<'_>, _field: &'static str) -> EResult {
+                w.$wr(*self);
+                Ok(())
+            }
+        }
+    };
+}
+fixed_int!(u8, 1, u8, u8);
+fixed_int!(u16, 2, u16, u16);
+fixed_int!(u32, 4, u32, u32);
+fixed_int!(u64, 8, u64, u64);
+fixed_int!(i8, 1, i8, i8);
+fixed_int!(i16, 2, i16, i16);
+fixed_int!(i32, 4, i32, i32);
+fixed_int!(i64, 8, i64, i64);
+
+impl Fixed for bool {
+    const SIZE: usize = 1;
+    fn read(r: &mut Reader<'_>, field: &'static str) -> DResult<Self> {
+        r.bool(field)
+    }
+    fn write(&self, w: &mut Writer<'_>, _field: &'static str) -> EResult {
+        w.bool(*self);
+        Ok(())
+    }
+}
+
+impl Fixed for f32 {
+    const SIZE: usize = 4;
+    fn read(r: &mut Reader<'_>, field: &'static str) -> DResult<Self> {
+        r.f32(field)
+    }
+    fn write(&self, w: &mut Writer<'_>, field: &'static str) -> EResult {
+        w.f32(*self, field)
+    }
+}
+
+impl Fixed for f64 {
+    const SIZE: usize = 8;
+    fn read(r: &mut Reader<'_>, field: &'static str) -> DResult<Self> {
+        r.f64(field)
+    }
+    fn write(&self, w: &mut Writer<'_>, field: &'static str) -> EResult {
+        w.f64(*self, field)
+    }
+}
+
+impl<T: Fixed + Default, const N: usize> Fixed for [T; N] {
+    const SIZE: usize = T::SIZE * N;
+    fn read(r: &mut Reader<'_>, field: &'static str) -> DResult<Self> {
+        let mut out = [T::default(); N];
+        for x in &mut out {
+            *x = T::read(r, field)?;
+        }
+        Ok(out)
+    }
+    fn write(&self, w: &mut Writer<'_>, field: &'static str) -> EResult {
+        for x in self {
+            x.write(w, field)?;
+        }
+        Ok(())
+    }
+}
+
+/// A variable-length packed type (a message).
+pub trait Packed<'a>: Sized {
+    fn decode(r: &mut Reader<'a>) -> DResult<Self>;
+    fn encode(&self, w: &mut Writer<'_>) -> EResult;
+}
+
+/// A list of fixed-size items: a borrowed slice (to write) or validated bytes (as read), without copying.
+#[derive(Clone, Copy)]
+pub struct List<'a, T: Fixed> {
+    repr: ListRepr<'a, T>,
+}
+
+#[derive(Clone, Copy)]
+enum ListRepr<'a, T> {
+    Slice(&'a [T]),
+    Raw(&'a [u8], usize),
+}
+
+impl<'a, T: Fixed> List<'a, T> {
+    pub const EMPTY: Self = Self { repr: ListRepr::Slice(&[]) };
+
+    pub const fn from_slice(s: &'a [T]) -> Self {
+        Self { repr: ListRepr::Slice(s) }
+    }
+
+    /// Reads a count in `width` bytes (at most `max`), then that many items.
+    pub fn read_counted(r: &mut Reader<'a>, width: usize, max: usize, field: &'static str) -> DResult<Self> {
+        let at = r.pos();
+        let n = r.count(width, field)?;
+        if n > max {
+            return Err(r.err_at(at, ErrorKind::TooLong, field));
+        }
+        Self::read(r, n, field)
+    }
+
+    /// Reads items up to the end of the reader, which must hold a whole number of them.
+    pub fn read_rest(r: &mut Reader<'a>, field: &'static str) -> DResult<Self> {
+        if !r.remaining().is_multiple_of(T::SIZE) {
+            return Err(r.err(ErrorKind::BadLength, field));
+        }
+        let n = r.remaining() / T::SIZE;
+        Self::read(r, n, field)
+    }
+
+    /// Reads `n` items, validating each.
+    pub fn read(r: &mut Reader<'a>, n: usize, field: &'static str) -> DResult<Self> {
+        let bytes = n.checked_mul(T::SIZE).ok_or_else(|| r.err(ErrorKind::Truncated, field))?;
+        let mut sub = r.sub(bytes, field)?;
+        for _ in 0..n {
+            T::read(&mut sub, field)?;
+        }
+        Ok(Self { repr: ListRepr::Raw(sub.buf, n) })
+    }
+
+    pub fn write(&self, w: &mut Writer<'_>, field: &'static str) -> EResult {
+        match self.repr {
+            ListRepr::Slice(s) => {
+                for x in s {
+                    x.write(w, field)?;
+                }
+            }
+            ListRepr::Raw(b, _) => w.bytes(b),
+        }
+        Ok(())
+    }
+
+    pub const fn len(&self) -> usize {
+        match self.repr {
+            ListRepr::Slice(s) => s.len(),
+            ListRepr::Raw(_, n) => n,
+        }
+    }
+
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Item `i`.
+    pub fn get(&self, i: usize) -> Option<T> {
+        match self.repr {
+            ListRepr::Slice(s) => s.get(i).copied(),
+            ListRepr::Raw(b, n) => {
+                if i >= n {
+                    return None;
+                }
+                T::read(&mut Reader::new(&b[i * T::SIZE..(i + 1) * T::SIZE]), "").ok()
+            }
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = T> + '_ {
+        (0..self.len()).filter_map(move |i| self.get(i))
+    }
+}
+
+impl<T: Fixed + PartialEq> PartialEq for List<'_, T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.len() == other.len() && self.iter().zip(other.iter()).all(|(a, b)| a == b)
+    }
+}
+
+impl<T: Fixed + Eq> Eq for List<'_, T> {}
+
+impl<T: Fixed + fmt::Debug> fmt::Debug for List<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.iter()).finish()
+    }
+}
+
+impl<T: Fixed> Default for List<'_, T> {
+    fn default() -> Self {
+        Self::EMPTY
+    }
+}
+
+/// A list of variable-length items (messages): a borrowed slice (to write) or validated bytes (as read).
+#[derive(Clone, Copy)]
+pub struct MsgList<'a, T> {
+    repr: MsgListRepr<'a, T>,
+}
+
+#[derive(Clone, Copy)]
+enum MsgListRepr<'a, T> {
+    Slice(&'a [T]),
+    Raw(&'a [u8], usize),
+}
+
+impl<'a, T: Packed<'a>> MsgList<'a, T> {
+    pub const fn from_slice(s: &'a [T]) -> Self {
+        Self { repr: MsgListRepr::Slice(s) }
+    }
+
+    /// Reads a count in `width` bytes (at most `max`), then that many items.
+    pub fn read_counted(r: &mut Reader<'a>, width: usize, max: usize, field: &'static str) -> DResult<Self> {
+        let at = r.pos();
+        let n = r.count(width, field)?;
+        if n > max {
+            return Err(r.err_at(at, ErrorKind::TooLong, field));
+        }
+        Self::read(r, n)
+    }
+
+    /// Reads `n` items, validating each.
+    pub fn read(r: &mut Reader<'a>, n: usize) -> DResult<Self> {
+        let start = r.pos;
+        for _ in 0..n {
+            T::decode(r)?;
+        }
+        Ok(Self { repr: MsgListRepr::Raw(&r.buf[start..r.pos], n) })
+    }
+
+    pub fn write(&self, w: &mut Writer<'_>) -> EResult {
+        match self.repr {
+            MsgListRepr::Slice(s) => {
+                for x in s {
+                    x.encode(w)?;
+                }
+            }
+            MsgListRepr::Raw(b, _) => w.bytes(b),
+        }
+        Ok(())
+    }
+
+    pub const fn len(&self) -> usize {
+        match self.repr {
+            MsgListRepr::Slice(s) => s.len(),
+            MsgListRepr::Raw(_, n) => n,
+        }
+    }
+
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Calls `f` with each item in order.
+    pub fn for_each(&self, mut f: impl FnMut(&T)) {
+        match self.repr {
+            MsgListRepr::Slice(s) => s.iter().for_each(f),
+            MsgListRepr::Raw(b, n) => {
+                let mut r = Reader::new(b);
+                for _ in 0..n {
+                    if let Ok(x) = T::decode(&mut r) {
+                        f(&x);
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl<'a, T: Packed<'a>> PartialEq for MsgList<'a, T> {
+    /// Equal when the items encode to equal bytes.
+    fn eq(&self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+        let mut a = Vec::new();
+        let mut b = Vec::new();
+        let mut ok = true;
+        self.for_each(|x| ok &= x.encode(&mut Writer::new(&mut a)).is_ok());
+        other.for_each(|x| ok &= x.encode(&mut Writer::new(&mut b)).is_ok());
+        ok && a == b
+    }
+}
+
+impl<'a, T: Packed<'a>> Eq for MsgList<'a, T> {}
+
+impl<'a, T: Packed<'a> + fmt::Debug> fmt::Debug for MsgList<'a, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut l = f.debug_list();
+        self.for_each(|x| {
+            l.entry(x);
+        });
+        l.finish()
+    }
+}
+
+impl<T> Default for MsgList<'_, T> {
+    fn default() -> Self {
+        Self { repr: MsgListRepr::Slice(&[]) }
+    }
+}
+
+/// An action field that carries its bytes inline, or names a blob by its SHA-256 (§15.3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BlobOrBytes<'a> {
+    Bytes(&'a [u8]),
+    Blob([u8; 32]),
+}
+
+impl BlobOrBytes<'_> {
+    pub fn dump(&self, d: &mut Dump, path: &str) {
+        match self {
+            Self::Bytes(b) => d.bytes(&format!("{path}.bytes"), b),
+            Self::Blob(h) => d.bytes(&format!("{path}.blob"), h),
+        }
+    }
+}
+
+impl Default for BlobOrBytes<'_> {
+    fn default() -> Self {
+        Self::Bytes(&[])
+    }
+}
+
+impl<'a> BlobOrBytes<'a> {
+    pub fn read(r: &mut Reader<'a>, max: usize, field: &'static str) -> DResult<Self> {
+        let at = r.pos();
+        match r.u8(field)? {
+            0 => Ok(Self::Bytes(r.bytes(2, max, field)?)),
+            1 => {
+                let mut h = [0u8; 32];
+                h.copy_from_slice(r.take(32, field)?);
+                Ok(Self::Blob(h))
+            }
+            _ => Err(r.err_at(at, ErrorKind::BadEnum, field)),
+        }
+    }
+
+    pub fn write(&self, w: &mut Writer<'_>, max: usize, field: &'static str) -> EResult {
+        match self {
+            Self::Bytes(b) => {
+                w.u8(0);
+                w.len_bytes(b, 2, max, field)
+            }
+            Self::Blob(h) => {
+                w.u8(1);
+                w.bytes(h);
+                Ok(())
+            }
+        }
+    }
+}
+
+/// The count of a list as written, refusing one that does not fit its field.
+pub fn count_of(n: usize, max: u64, field: &'static str) -> Result<u64, EncodeError> {
+    let n = n as u64;
+    if n > max { Err(enc_err(ErrorKind::BadCount, field)) } else { Ok(n) }
+}
+
+/// Reads a count in `width` bytes (at most `max`), then that many fixed-size items (record encoding).
+pub fn read_vec<T: Fixed>(r: &mut Reader<'_>, width: usize, max: usize, field: &'static str) -> DResult<Vec<T>> {
+    let at = r.pos();
+    let n = r.count(width, field)?;
+    if n > max {
+        return Err(r.err_at(at, ErrorKind::TooLong, field));
+    }
+    if n.saturating_mul(T::SIZE) > r.remaining() {
+        return Err(r.err(ErrorKind::Truncated, field));
+    }
+    let mut out = Vec::with_capacity(n);
+    for _ in 0..n {
+        out.push(T::read(r, field)?);
+    }
+    Ok(out)
+}
+
+/// Writes a count in `width` bytes (at most `max`), then the items (record encoding).
+pub fn write_vec<T: Fixed>(w: &mut Writer<'_>, items: &[T], width: usize, max: usize, field: &'static str) -> EResult {
+    w.count(items.len(), width, max, field)?;
+    for x in items {
+        x.write(w, field)?;
+    }
+    Ok(())
+}
+
+/// Strictly ascending: the canonical order of keyed lists and records (§8.1, D3).
+pub fn strictly_ascending<T: PartialOrd>(items: &[T]) -> bool {
+    items.windows(2).all(|w| w[0] < w[1])
+}
+
+/// The text dump the fixtures compare (test/fixtures/codec): one `path=value` line per leaf, floats as
+/// their IEEE bits in hexadecimal, strings JSON-escaped, bytes in hexadecimal. The TypeScript codec writes
+/// the same text.
+#[derive(Debug, Default)]
+pub struct Dump {
+    pub out: String,
+}
+
+impl Dump {
+    pub fn line(&mut self, path: &str, value: &str) {
+        self.out.push_str(path);
+        self.out.push('=');
+        self.out.push_str(value);
+        self.out.push('\n');
+    }
+
+    pub fn int(&mut self, path: &str, v: i128) {
+        self.line(path, &v.to_string());
+    }
+
+    pub fn f32(&mut self, path: &str, v: f32) {
+        self.line(path, &format!("f32:{:08x}", v.to_bits()));
+    }
+
+    pub fn f64(&mut self, path: &str, v: f64) {
+        self.line(path, &format!("f64:{:016x}", v.to_bits()));
+    }
+
+    pub fn bool(&mut self, path: &str, v: bool) {
+        self.line(path, if v { "true" } else { "false" });
+    }
+
+    /// A string, escaped as JavaScript's JSON.stringify escapes it.
+    pub fn str(&mut self, path: &str, v: &str) {
+        let mut s = String::from("\"");
+        for c in v.chars() {
+            match c {
+                '"' => s.push_str("\\\""),
+                '\\' => s.push_str("\\\\"),
+                '\u{8}' => s.push_str("\\b"),
+                '\u{c}' => s.push_str("\\f"),
+                '\n' => s.push_str("\\n"),
+                '\r' => s.push_str("\\r"),
+                '\t' => s.push_str("\\t"),
+                c if (c as u32) < 0x20 => s.push_str(&format!("\\u{:04x}", c as u32)),
+                c => s.push(c),
+            }
+        }
+        s.push('"');
+        self.line(path, &s);
+    }
+
+    pub fn bytes(&mut self, path: &str, v: &[u8]) {
+        let mut s = String::from("hex:");
+        for b in v {
+            s.push_str(&format!("{b:02x}"));
+        }
+        self.line(path, &s);
+    }
+}

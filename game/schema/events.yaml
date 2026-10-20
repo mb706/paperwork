@@ -1,0 +1,127 @@
+# Events (10 §15.6): the packet's EVENTS section holds event records back to back. A record is the
+# 16-byte header, then `len` bytes of payload packed in declaration order, then zero padding to a multiple
+# of 4 (not counted in `len`). A decoder refuses a `len` other than its type's size. Positions in payloads
+# are FinePos or TilePos2. Type ids are append-only.
+#
+# Delivery and suppression: §15.6. The queue holds at most `queue_max_events` events or `queue_max_bytes`
+# of records; on overflow the oldest are dropped and the packet carries EVENTS_DROPPED.
+
+limits:
+  queue_max_events: 8192
+  queue_max_bytes: 524288
+  stale_ticks: 30          # the main thread plays nothing for an event older than this (§15.6)
+
+flags:
+  - EventFlags:
+      base: u8
+      doc: "An event's flags (§15.6)"
+      bits:
+        - historical: 0
+  - EntityBuiltFlags:
+      base: u8
+      bits:
+        - ghost: 0
+
+header: EventHeader
+record: EventRecord
+
+structs:
+  - EventHeader:
+      doc: "An event record's 16-byte header"
+      fields:
+        - type: EventType
+        - len: u16
+        - tick: Tick
+        - seq: {type: Seq, doc: "the action answered, 0 if none"}
+        - player: {type: PlayerIndex, doc: "0xFFFF none"}
+        - flags: EventFlags
+        - surface: {type: u8, doc: "a SurfaceIndex (§4.3)"}
+
+messages:
+  - EventRecord:
+      doc: "One record of the EVENTS section: the header, the payload (the type's fields, exactly `len` bytes), padding to 4"
+      pad_to: 4
+      fields:
+        - type: EventType
+        - len: u16
+        - tick: Tick
+        - seq: Seq
+        - player: PlayerIndex
+        - flags: EventFlags
+        - surface: u8
+        - payload: "u8[len]"
+
+events:
+  - action_failed:
+      id: 1
+      doc: "Flying text and the error sound, unless the reason is a developer reason; tells the latency state which prediction failed (11 §3.5)"
+      fields:
+        - reason: FailReason
+        - reserved: u16
+        - pos: FinePos
+        - serial: {type: Serial, doc: "the entity the reason names (entity_in_the_way), else 0"}
+  - flying_text:
+      id: 2
+      doc: >-
+        "+3 Iron plate (57)". `total` is the acting player's main-inventory count of the item after the change, or
+        -1 when the text shows none (C1b deviation from §15.6, which has no total: I §3.7 and §3.8 show it)
+      fields:
+        - text: FlyingText
+        - item: ItemKey
+        - count: i32
+        - total: i32
+        - pos: FinePos
+  - entity_built:
+      id: 3
+      doc: "Build sound by size; prediction reconciliation"
+      fields:
+        - serial: Serial
+        - proto: EntityId
+        - dir: Direction
+        - flags: EntityBuiltFlags
+        - pos: TilePos2
+  - entity_mined:
+      id: 4
+      doc: "Mine sound by material"
+      fields:
+        - serial: Serial
+        - proto: EntityId
+        - reserved: u16
+        - pos: TilePos2
+  - entity_rotated:
+      id: 5
+      fields:
+        - serial: Serial
+        - dir: Direction
+        - reserved: u8
+        - reserved2: u16
+        - pos: TilePos2
+  - item_crafted:
+      id: 6
+      doc: "Craft-finished sound (the player's own)"
+      fields:
+        - recipe: RecipeId
+        - count: u16
+  - research_completed:
+      id: 7
+      fields:
+        - tech: TechId
+        - level: u16
+  - milestone:
+      id: 8
+      doc: "A log line and toast (07 §15)"
+      fields:
+        - milestone: MilestoneId
+  - alert_raised:
+      id: 9
+      doc: "The alert sound (the alert list itself is in HUD)"
+      fields:
+        - alert: AlertType
+        - reserved: u16
+        - serial: Serial
+        - pos: TilePos2
+  - player_joined: {id: 10, doc: "System lines (11 §8.3); the player is in the header"}
+  - player_left: {id: 11, doc: "System lines (11 §8.3); the player is in the header"}
+  - input_fenced: {id: 12, doc: "A held input was fenced (D22): debug log"}
+  - loop_closed: {id: 13, doc: "The closure cue (A4; M4)"}
+  - victory: {id: 14, doc: "The end (M4)"}

@@ -1,0 +1,169 @@
+# The save container and its sections (10 §8.1, §8.5, §4.8). Generated into crates/sim/src/gen/sections.rs
+# (section writers and readers, the shard map) and src/shared/gen/sections.ts (section ids and names, the
+# container's writer and reader, section writers for the IO worker, tools and the golden set).
+#
+#   magic "SITESAV\0" (8) | u32 formatVersion | u32 headerLength | header (UTF-8 JSON, keys sorted, padded
+#   with spaces so headerLength is a multiple of 8) | sections, repeated
+#
+# A section is a SectionFrame (below): a 16-byte header, its stored bytes, then zero padding to a multiple
+# of 8. C1b decision: the padding is measured from the frame's start (equivalently, stored bytes are padded
+# to a multiple of 8). In the container that equals §8.1's "measured from the file start", because every
+# frame starts at a multiple of 8; in sim_load's input and sim_save's output, which start their first
+# frame at offset 4, it keeps one framing everywhere.
+#
+# Encodings (§8.1): `table` is a column table (directory by name, columns 8-aligned); `record` is one
+# field-id record (u32 count = 1, u32 length, triples); `records` is u32 count, then per record u32 length
+# and its triples, sorted strictly ascending by `key` (a reader refuses unsorted or duplicate records);
+# `raw` bytes are the section's own format. Sections are written in ascending id; the full state hash
+# (§4.8) covers the hashed ones in that order.
+
+container:
+  magic: "SITESAV\0"
+  format_version: 2
+  header_align: 8
+
+enums:
+  - SectionCodec:
+      base: u8
+      values:
+        - raw: 0
+        - deflate: 1          # fflate level 6, in the IO worker only
+  - TypeCode:
+      base: u8
+      doc: "Column types of a column table's directory (§8.1); ids, enums and flags are stored as their base type"
+      values:
+        - u8: 1
+        - u16: 2
+        - u32: 3
+        - u64: 4
+        - i8: 5
+        - i16: 6
+        - i32: 7
+        - i64: 8
+        - f32: 9
+        - f64: 10
+        - bool: 11
+
+flags:
+  - SectionFlags:
+      base: u8
+      bits:
+        - hashed: 0
+  - ClosureLogFlags:
+      base: u8
+      bits:
+        - has_digests: 0
+
+messages:
+  - SectionFrame:
+      doc: "A section in the container's framing (§8.1)"
+      pad_to: 8
+      fields:
+        - id: {type: u32, doc: "a SaveSection in saves, a ProtoSection in prototypes.bin"}
+        - version: u16
+        - codec: SectionCodec
+        - flags: SectionFlags
+        - raw_length: u32
+        - stored_length: u32
+        - data: "u8[stored_length]"
+  - ClosureRecord:
+      doc: "A closure log's record (§8.5): the closure of one tick that had actions"
+      fields:
+        - tick: Tick
+        - length: {type: u32, range: [1, 1048576]}
+        - closure: "u8[length]"
+  - LogBlob:
+      doc: "A closure log's blob (§8.5), ascending by hash, each once"
+      fields:
+        - sha256: Hash256
+        - length: {type: u32, range: [0, 8388608]}
+        - bytes: "u8[length]"
+
+# Save sections. `version` is the schema version at which the layout last changed. `shard` is the digest
+# shard rule (§4.8): every saved byte belongs to exactly one of 3,600 shards.
+#   serial   a table row by its entity's serial; a pool row by its `entity`'s serial
+#   chunk    a record by its chunk key (WORLDGEN_PENDING: the key of (cx, cy))
+#   player   (1,800 + 97 × index) mod 3,600
+#   key      a record by its leading key field
+#   timer    by `serial`, or by `owner` when serial is 0
+#   owner    a slot-heap block by the entity or player that owns it; the sparse lists by their block's owner
+#   pieces   the section's bytes in 4-KiB pieces, piece i at (base + i × step) mod 3,600
+# A table's header (its row count, the high-water mark) is one more piece at `header_shard`.
+shards: 3600
+
+sections:
+  - ENTITY_TABLE: {id: 1, version: 1, encoding: table, table: entity_table, hashed: true, shard: serial, header_shard: 3001}
+  - GLOBALS: {id: 2, version: 1, encoding: record, record: globals, hashed: true, shard: {pieces: {base: 0, step: 1}}}
+  - SLOT_HEAP: {id: 3, version: 1, encoding: record, record: slot_heap, hashed: true, shard: owner}
+  - CHUNKS: {id: 5, version: 1, encoding: records, record: chunk, key: [surface, key], hashed: true, shard: chunk}
+  - TIMERS: {id: 9, version: 1, encoding: records, record: timer, key: [due, serial, event, owner], hashed: true, shard: timer}
+  - RNG: {id: 10, version: 1, encoding: records, record: rng_state, key: [stream], hashed: true, shard: {pieces: {base: 1801, step: 1}}}
+  - PLAYERS: {id: 11, version: 1, encoding: records, record: player, key: [index], hashed: true, shard: player}
+  - STATS: {id: 13, version: 1, encoding: records, record: stat, key: [key], hashed: true, shard: key}
+  - WORLDGEN_PENDING: {id: 16, version: 1, encoding: records, record: worldgen_request, key: [commit_tick, surface, cy, cx], hashed: true, shard: chunk}
+  - GENERATED: {id: 17, version: 1, encoding: records, record: generated_chunk, key: [surface, key], hashed: true, shard: chunk}
+  - POOL_CONTAINER: {id: 32, version: 1, encoding: table, table: container, hashed: true, shard: serial, header_shard: 3002}
+  - CLOSURE_LOG: {id: 1000, version: 1, encoding: raw, format: closure_log, hashed: false, doc: "optional (§8.5)"}
+  - THUMBNAIL: {id: 1001, version: 1, encoding: raw, format: webp, hashed: false, doc: "WebP from the renderer"}
+
+# Ids of later milestones' sections (§8.1), fixed now so ids stay stable.
+reserved_sections:
+  - COLD: 4
+  - CHARTED: 6
+  - THERMAL: 7
+  - NETWORKS: 8
+  - RESEARCH: 12
+  - BLUEPRINTS: 14
+  - UNDO: 15
+
+# The closure log (§8.5): a CLOSURE_LOG section, or a *.pwlog file with the same bytes; packed. A reader
+# refuses a log whose regions do not consume exactly its bytes, a record outside (startTick, endTick] or out
+# of order, an empty record, a digest range outside the tick range, unsorted or duplicate blobs, and a blob
+# that a record names but the log lacks.
+closure_log:
+  magic: 0x4C435750     # "PWCL"
+  format_version: 2
+  header: ClosureLogHeader
+  record: ClosureRecord
+  blob: LogBlob
+
+structs:
+  - ClosureLogHeader:
+      doc: "116 bytes (§8.5)"
+      fields:
+        - magic: u32
+        - format_version: u16
+        - action_schema_version: u8
+        - flags: ClosureLogFlags
+        - start_tick: Tick
+        - end_tick: Tick
+        - build_hash: Hash256
+        - prototypes_hash: Hash256
+        - start_state_hash: u64
+        - record_count: u32
+        - record_bytes: u32
+        - digest_first_tick: Tick
+        - digest_count: u32
+        - blob_count: u32
+        - blob_bytes: u32
+        - reserved: u32
+
+# The container header (§8.1): UTF-8 JSON, keys sorted, outside the state hash. Rust never reads it; the
+# generator emits its TypeScript type and validator.
+save_header:
+  format_version: {json: number, doc: "the container's format version"}
+  game_version: {json: string}
+  build_hash: {json: hex32}
+  protocol_version: {json: number}
+  schema_hash: {json: hex32}
+  prototypes_hash: {json: hex32}
+  tick: {json: number}
+  seed: {json: number}
+  map_settings: {json: object, doc: "a copy of GLOBALS' map settings, for the load screen"}
+  world_settings: {json: object}
+  play_time_ticks: {json: number}
+  saved_at: {json: string, doc: "the wall-clock save time, ISO 8601"}
+  thumbnail_section: {json: number, doc: "THUMBNAIL's id, or 0 without one"}
+  name_tables: {json: object, doc: "per ProtoKind name (item, fluid, …), the prototype names in id order (§8.3)"}
+  roster: {json: array, doc: "[{index, name, colour}] (§4.4: names are not world state)"}
+  lineage: {json: hex16, doc: "the digest lineage r at the save's tick (§4.8), 16 hex digits"}

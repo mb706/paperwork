@@ -1,0 +1,127 @@
+# Engine registries (10 §2.4 step 4, §15.1): the closed vocabularies the data names and the engine
+# implements. Each registry generates a Rust enum (matched exhaustively, so an entry without an
+# implementation does not compile once the sim dispatches on it) and TypeScript lists for the data stage.
+#
+# The data stage checks, over the whole design data, that every name the data uses is in its registry (so
+# the vocabulary is closed), and that the current capability manifest's `registries` lists (the entries
+# that milestone implements) name registry entries. Values are explicit and append-only; names are the
+# data's spelling. C1b decision: a registry lists the full vocabulary, and the capability manifest says
+# which entries a milestone implements (M0: none).
+
+registries:
+  - effects:
+      doc: "Technology effect types: meta.effects (02, 05), named by technologies' unlocks.effects[].type"
+      base: u16
+      values:
+        - laboratory-speed: 1
+        - research-productivity: 2
+        - research-per-paper: 3
+        - mining-productivity: 4
+        - character-mining-speed: 5
+        - character-crafting-speed: 6
+        - character-inventory-slots: 7
+        - worker-robot-speed: 8
+        - construction-agent-speed: 9
+        - agent-hub-charging: 10
+        - worker-robot-storage: 11
+        - inserter-stack-size-bonus: 12
+        - bulk-inserter-capacity-bonus: 13
+        - train-braking-force-bonus: 14
+        - ammo-damage: 15
+        - turret-attack: 16
+        - gun-speed: 17
+        - interceptor-escort-cap: 18
+        - artillery-range: 19
+        - monitor-rate: 20
+        - unlock-circuit-network: 21
+        - radar-circuit-relay: 22
+        - staffing-radius: 23
+        - liquid-cooling: 24
+        - computing-energy: 25
+        - cooling-capacity: 26
+        - mining-with-fluid: 27
+        - create-ghost-on-entity-death: 28
+        - character-logistic-requests: 29
+        - character-logistic-trash-slots: 30
+        - vehicle-logistics: 31
+        - unlock-quality: 32
+        - synthetic-detection: 33
+        - deployment-sigma: 34
+        - show-model-quality: 35
+        - hollow-work-free: 36
+        - rollback: 37
+        - system-cards-per-run: 38
+        - recipe-productivity: 39
+        - hall-mode: 40
+        - research-queue-auto: 41
+        - weight-transplant: 42
+        - hall-energy: 43
+        - compute-energy-floor: 44
+  - triggers:
+      doc: "Trigger-technology types: the TriggerType enum of types.yaml (prototypes.bin's column)"
+      enum: TriggerType
+  - achievement_conditions:
+      doc: "Achievement condition types: text.yaml's achievements[].condition.type (08 §6, §5.20)"
+      base: u16
+      values:
+        - handcraft-count: 1
+        - research: 2
+        - chunk-above-ambient: 3
+        - research-overrun: 4
+        - build-distance: 5
+        - universities-staffing: 6
+        - vehicle-carry-distance: 7
+        - train-carry-path: 8
+        - resource-depleted: 9
+        - exchange-closed: 10
+        - mine-count-while: 11
+        - craft-while: 12
+        - recipe-set: 13
+        - power-rise-after-install: 14
+        - installed-count: 15
+        - constructor-places: 16
+        - agents-built-more: 17
+        - switch-cuts-compromised: 18
+        - hollow-papers: 19
+        - throttled-at-once: 20
+        - frontier-run: 21
+        - install-before-compromise: 22
+        - takeoff-time: 23
+        - research-regime: 24
+        - research-all-finite: 25
+        - win: 26
+        - spoil-count: 27
+  - formula_refs:
+      doc: >-
+        The chapter sections that state rules implemented in code (§2.4 step 4): a data block's formula_ref
+        must begin with one of these ("NN §X.Y"), and the code that implements it carries `// @formula NN §X.Y`
+        under crates/ (the data stage checks the tag for the entries the capability manifest lists)
+      strings:
+        - '01 §12.1'
+        - '01 §12.2'
+        - '01 §12.3'
+        - '01 §3'
+        - '01 §6'
+        - '01 §7'
+        - '01 §8'
+        - '01 §9'
+        - '02 §6'
+        - '03 §1.1'
+        - '03 §1.2'
+        - '03 §1.3'
+        - '03 §1.4'
+        - '03 §2.2'
+        - '03 §3.1'
+        - '03 §3.2'
+        - '03 §3.3'
+        - '03 §3.6'
+        - '03 §4'
+        - '04 §4'
+        - '08 §9.3'
+
+# Names the engine must know (§2.4 step 4): resolved by name when Protos loads, each an Option of its id
+# (absent from a build that lacks it); the data stage checks that the ones the capability manifest needs
+# exist in the build.
+well_known:
+  - character: {kind: entity, doc: "the engine's character (§5.1); game/data/engine/prototypes.yaml defines it"}
+

@@ -1,0 +1,170 @@
+# Actions, batches and closures (10 §15.3; 11 §3.3).
+#
+# An action is `u16 type, u16 len`, then `len` bytes of payload, packed in declaration order. Type ids are
+# explicit, append-only and never reused; names mirror Factorio's defines.input_action (I §8.2) plus
+# Appendix B's additions. A held-input action (`held: true`) starts its payload with `u16 input_gen`
+# (D22), which the generator adds as the first field: the sequencer writes it, the client leaves it 0.
+# At most one variable-length field, and it is last. No action carries a float (11 §3.3).
+#
+# Ids are grouped by I §8.2's areas: movement 1–9, mining 10–19, building 20–39, cursor 40–59, inventory
+# 60–79, crafting 80–89, entities 90–109, research 110–119, meta 120–139, Appendix B 140–199; system
+# actions from 0xFF00. game/data/engine/capabilities.yaml says which ones the current milestone
+# implements: every other one decodes, and is refused at application with the reason `unsupported`.
+
+version: 1          # ACTION_SCHEMA_VERSION (u8, in every batch header): raise on any layout change here
+
+limits:
+  payload_max: 65531          # an encoded action (4 + payload) fits every u16 length (§15.3, 11 §3.2)
+  closure_max: 1048576        # CLOSURE_MAX (§15.3)
+  system_reserve: 4096        # bytes of every tick reserved for system actions (admission, §15.3)
+  batch_count_max: 65535
+  players: 32                 # player indices 0–31 (11 §6.5)
+  system_type_min: 0xFF00     # type ids from here are system actions
+
+# The batch header and the action header (§15.3).
+batch: BatchHeader
+header: ActionHeader
+
+structs:
+  - BatchHeader:
+      doc: "One player's consecutive actions within one tick (16 bytes), then `count` actions"
+      fields:
+        - version: {type: u8, doc: "ACTION_SCHEMA_VERSION; any other value fails the preflight"}
+        - flags: BatchFlags
+        - player: {type: PlayerIndex, doc: "0–31, or 0xFFFF for system batches"}
+        - tick: {type: Tick, doc: "the tick this closure belongs to"}
+        - first_seq: {type: Seq, doc: "the seq of the first action; the i-th has first_seq + i"}
+        - count: {type: u16, doc: "1–65,535"}
+        - reserved: u16
+  - ActionHeader:
+      doc: "An action: `u16 type, u16 len`, then `len` bytes of payload"
+      fields:
+        - type: u16
+        - len: u16
+
+flags:
+  - BatchFlags:
+      base: u8
+      bits:
+        - system: 0           # player must be 0xFFFF
+
+actions:
+  # Movement (I §8.2). Walking is in 8 directions (§5.1), so only the even Direction values.
+  - start_walking: {id: 1, held: true, fields: [{dir: {type: Direction, allowed: [0, 2, 4, 6, 8, 10, 12, 14]}}]}
+  - stop_walking: {id: 2, held: true}
+  # Mining.
+  - begin_mining: {id: 10, held: true, doc: "Mine an entity by hand (I §3.7)", fields: [{target: EntityRef}]}
+  - begin_mining_terrain:
+      id: 11
+      held: true
+      doc: "Mine at a position: a resource tile, a world object, a ground item or a placed tile (MiningTarget)"
+      fields:
+        - kind: MiningTarget
+        - reserved: u8
+        - pos: FinePos
+  - stop_mining: {id: 12, held: true}
+  - change_picking_state: {id: 13, held: true, fields: [{picking: bool}]}
+  # Building.
+  - build:
+      id: 20
+      doc: "Place the hand's item (§5.2, I §3.3); flags carry the smart-belt choice (D11)"
+      fields:
+        - item: ItemKey
+        - pos: TilePos2
+        - dir: Direction
+        - flip: bool
+        - mode: BuildMode
+        - flags: BuildFlags
+        - drag_id: u32
+  - rotate_entity: {id: 21, fields: [{target: EntityRef}, {reverse: bool}]}
+  - flip_entity: {id: 22, fields: [{target: EntityRef}, {axis: FlipAxis}]}
+  - stop_drag_build: {id: 23, fields: [{drag_id: u32}]}
+  - remove_cables: {id: 24, fields: [{target: EntityRef}]}
+  - wire_dragging: {id: 25, fields: [{from: EntityRef}, {to: EntityRef}, {wire: WireKind}]}
+  # Cursor.
+  - pipette: {id: 40, doc: "Pick this item from the inventory into the hand (I §3.13)", fields: [{item: ItemKey}]}
+  - clear_cursor: {id: 41, doc: "Q: the hand returns to its origin slot (I §3.2)"}
+  - set_ghost_cursor: {id: 42, fields: [{item: ItemKey}]}
+  - quick_bar_pick_slot: {id: 43, fields: [{slot: {type: u8, range: [0, 99]}}]}
+  - quick_bar_set_slot: {id: 44, fields: [{slot: {type: u8, range: [0, 99]}}, {item: ItemKey}]}
+  - change_active_quick_bar: {id: 45, fields: [{page: {type: u8, range: [0, 9]}}]}
+  # Inventory (I §3.8). The destination of a stack transfer is the inventory of `to` that accepts the item
+  # (§4.5's acceptance table); tag 0 means the acting player's main inventory.
+  - cursor_transfer: {id: 60, doc: "LMB on a slot", fields: [{slot: InvSlot}]}
+  - cursor_split: {id: 61, doc: "RMB on a slot", fields: [{slot: InvSlot}]}
+  - stack_transfer: {id: 62, doc: "Shift+LMB", fields: [{from: InvSlot}, {to: EntityRef}]}
+  - stack_split: {id: 63, doc: "Shift+RMB", fields: [{from: InvSlot}, {to: EntityRef}]}
+  - inventory_transfer: {id: 64, doc: "Ctrl+LMB: every stack of that item; on an empty slot, everything", fields: [{from: InvSlot}, {to: EntityRef}]}
+  - inventory_split: {id: 65, doc: "Ctrl+RMB", fields: [{from: InvSlot}, {to: EntityRef}]}
+  - fast_entity_transfer: {id: 66, doc: "Ctrl+LMB on an entity in the world", fields: [{target: EntityRef}]}
+  - fast_entity_split: {id: 67, doc: "Ctrl+RMB on an entity in the world", fields: [{target: EntityRef}]}
+  - drop_item:
+      id: 68
+      doc: "Drop one item from the hand: into `target`, or on the ground at `pos` when target's tag is 0"
+      fields:
+        - target: EntityRef
+        - pos: FinePos
+  - set_filter: {id: 69, fields: [{slot: InvSlot}, {item: ItemKey}]}
+  - set_inventory_bar:
+      id: 70
+      doc: "The limit bar: slots from `bar` on are locked; bar = the inventory's size means no limit"
+      fields:
+        - target: EntityRef
+        - inv: InventoryType
+        - reserved: u8
+        - bar: u16
+  # Crafting (I §3.9).
+  - craft: {id: 80, fields: [{recipe: RecipeId}, {count: {type: u32, doc: "units to craft; 0 = all that can be crafted (Shift+LMB)"}}]}
+  - cancel_craft: {id: 81, fields: [{index: {type: u16, doc: "crafting-queue entry"}}, {count: {type: u16, doc: "units to cancel; 0 = all"}}]}
+  # Entities.
+  - setup_assembling_machine: {id: 90, fields: [{target: EntityRef}, {recipe: RecipeId}]}
+  - reset_assembling_machine: {id: 91, fields: [{target: EntityRef}]}
+  - set_inserter_max_stack_size: {id: 92, fields: [{target: EntityRef}, {size: u8}]}
+  - set_splitter_priority:
+      id: 93
+      fields:
+        - target: EntityRef
+        - input: SplitterPriority
+        - output: SplitterPriority
+        - filter: ItemKey
+  - copy_entity_settings: {id: 94, fields: [{source: EntityRef}]}
+  - paste_entity_settings: {id: 95, fields: [{target: EntityRef}]}
+  # Research.
+  - start_research: {id: 110, fields: [{tech: TechId}]}
+  - cancel_research: {id: 111, fields: [{tech: TechId}]}
+  - move_research: {id: 112, fields: [{from: u16}, {to: u16}]}
+  # Meta.
+  - undo: {id: 120}
+  - redo: {id: 121}
+  - console_command: {id: 122, doc: "Console commands that change the world (Appendix B; chat is out of band)", fields: [{text: {type: str, max: 1024}}]}
+  # Appendix B's additions.
+  - set_player_setting: {id: 140, fields: [{setting: PlayerSetting}, {value: u32}]}
+  - set_game_setting: {id: 141, fields: [{setting: GameSetting}, {value: u32}]}
+  - distribute:
+      id: 142
+      doc: "Even distribution (§5.20): spread the hand over the entities, deterministically"
+      fields:
+        - item: ItemKey
+        - count: u32
+        - entities: {type: "list<EntityRef>", max: 4096}
+  - place_blueprint:
+      id: 143
+      fields:
+        - pos: TilePos2
+        - dir: Direction
+        - flip: bool
+        - mode: BuildMode
+        - reserved: u8
+        - record: {type: blob_or_bytes, max: 65516, doc: "inline bytes (tag 0) up to the payload limit, else a blob of at most 8 MiB (11 §3.2) named by its SHA-256 (tag 1)"}
+  - rename: {id: 144, fields: [{target: EntityRef}, {text: {type: str, max: 200}}]}
+  - set_hall_mode: {id: 145, fields: [{target: EntityRef}, {test_time_compute: bool}]}
+  - launch_empty: {id: 146, fields: [{target: EntityRef}]}
+  - set_research_scheduling: {id: 147, fields: [{enabled: bool}]}
+
+# System actions (§15.3): player 0xFFFF, ids from 0xFF00, injected by the sequencer.
+system_actions:
+  - player_joined: {id: 0xFF01, doc: "Creates or re-activates the player's state and character", fields: [{player: {type: PlayerIndex, range: [0, 31]}}, {flags: JoinFlags}, {reserved: u8}]}
+  - player_left: {id: 0xFF02, fields: [{player: {type: PlayerIndex, range: [0, 31]}}]}
+  - release_inputs: {id: 0xFF03, fields: [{player: {type: PlayerIndex, range: [0, 31]}}]}
+  - snapshot_marker: {id: 0xFF04, fields: [{snapshot_id: u32}, {donor: {type: PlayerIndex, range: [0, 31]}}]}
+  - debug_dump: {id: 0xFF05, fields: [{dump_id: u32}]}

@@ -1,0 +1,20 @@
+# The examples of game/schema/README.md ("Fixtures"), so that they stay true.
+
+@type EntityRef                 # a struct, message or record (records strictly)
+39 30 00 00  00 00  01  00      // a = 12345, b = 0, tag 1 (entity), reserved
+@dump
+a=12345
+b=0
+tag=1
+
+@action                         # u16 type, u16 len, payload: rotate_entity
+15 00 09 00  39300000 0000 01 00  02
+@error bad_bool                 # a kind alone, or the full verdict: bad_bool RotateEntityAction.reverse @8
+
+@action
+15 00 09 00  39300000 0000 01 00  02
+@error bad_bool RotateEntityAction.reverse @8
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=
+01 00 0000 07000000 05000000 0100 0000  0200 0200 0000
+@ok batches=1 actions=1         # or: @error framing @<offset> / @error blob_missing @<offset>

@@ -1,0 +1,412 @@
+# The WebAssembly ABI (10 §15.8, §15.9): every export of sim.wasm and gen.wasm with its signature, input
+# record, result and errors, the records that cross the ABI, and the imports. The generator emits the Rust
+# signatures (crates/schema/src/abi.rs: a trait per module and a macro that writes the extern "C" shims)
+# and the shell's typed wrappers (src/shared/gen/abi.ts).
+#
+# Calling convention (§15.8):
+#   - Inputs: the shell gets the input buffer from `<m>_input(len)`, writes the request there and passes its
+#     length to the export that reads it. The buffer stays valid until the next call into the module.
+#   - `status` exports return a SimStatus (u32): 0 OK, otherwise the error that `<m>_last_error` describes.
+#   - `envelope` exports return 0 on failure (the error from `<m>_last_error`), else an 8-byte-aligned
+#     pointer to `{u32 len, bytes[len]}` in the output arena, valid until the next call into the module other
+#     than `sim_memory_epoch` and `sim_last_error`.
+#   - Declared exceptions: `plain` exports return a value; `input` returns a bare pointer (0 if memory cannot
+#     grow); `error` returns an envelope in its own small buffer, valid until the next failing call.
+#   - `sim_memory_epoch` and `sim_last_error` never move memory; any other call may grow it.
+# Pointers and lengths are u32; no export takes or returns i64. Calls are never re-entrant.
+#
+# Standalone records (new_world, sim_meta, load_report, chunk_data) use the record encoding of §8.1: u32
+# length, then (u16 fieldId, u32 length, value) triples in ascending field id. C1b decision: as inputs they
+# must fill the input exactly (the length is the input's length − 4), and unknown field ids are refused
+# (ERR_INPUT): the shell and the module are one build.
+
+abi_version: 1        # sim_abi_version(): raise on any change to the sim export table or its records
+gen_abi_version: 1    # gen_abi_version()
+protocol_version: 1   # PROTOCOL_VERSION of the worker and wire protocols (§3.2, 11 §3.2): raise on any change
+
+enums:
+  - SimStatus:
+      base: u32
+      doc: "Status codes (§15.8); a trap is not a status: it ends the instance (§3.6)"
+      values:
+        - ok: 0
+        - err_framing: 1       # a closure that fails the preflight (§15.3)
+        - err_blob_missing: 2
+        - err_load_format: 3   # corrupt, or a newer format
+        - err_load_schema: 4   # a section the schema cannot read
+        - err_protos: 5        # prototypes.bin refused (header, schema hash, tables, bytecode, contents)
+        - err_order: 6         # a call out of order, e.g. sim_tick before a world exists
+        - err_input: 7         # a malformed request record
+        - err_limit: 8         # a limit of §15.5
+        - err_worldgen: 9      # a save from another worldgen version that was not baked (§8.3)
+  - LogLevel:
+      base: u32
+      doc: "host_log's level (§3.2's log levels)"
+      values:
+        - info: 0
+        - warn: 1
+        - error: 2
+  - Runaways:
+      base: u8
+      doc: "world_settings.runaways (07 §17; DECISIONS §6)"
+      values:
+        - off: 0
+        - contained: 1
+        - wild: 2
+  - RaceMode:
+      base: u8
+      doc: "world_settings.race_mode (07 §17)"
+      values:
+        - off: 0
+        - race: 1
+        - race_hard: 2
+
+flags:
+  - SaveFlags:
+      base: u32
+      bits:
+        - bake: 0          # write every pristine chunk as modified (§4.4)
+  - PreviewFlags:
+      base: u32
+      bits:
+        - ambient: 0       # colour by ambient temperature (07 §17's preview layer)
+
+structs:
+  - ResourceTile:
+      doc: "A resource tile in a chunk (§4.4): its index in the chunk, the resource and the amount left"
+      fields:
+        - tile: {type: u16, range: [0, 1023]}
+        - resource: ResourceId
+        - amount: u32
+  - TreeState:
+      doc: "A tree (§4.4): position, species (the overlay's tree_species index), leaf stages left (4 full … 0 bare), variant"
+      fields:
+        - x: {type: i32, doc: "1/256 tile"}
+        - y: {type: i32, doc: "1/256 tile"}
+        - species: u16
+        - stage: {type: u8, range: [0, 4]}
+        - variant: u8
+  - ObjectState:
+      doc: "A rock, campus, landmark or salvage piece (world.yaml; §4.4)"
+      fields:
+        - x: {type: i32, doc: "1/256 tile"}
+        - y: {type: i32, doc: "1/256 tile"}
+        - object: WorldObjectId
+        - variant: u8
+        - reserved: u8
+  - GroundItem:
+      fields:
+        - x: {type: i32, doc: "1/256 tile"}
+        - y: {type: i32, doc: "1/256 tile"}
+        - key: ItemKey
+        - count: u16
+  - Cliff:
+      doc: "M2"
+      fields:
+        - x: i32
+        - y: i32
+        - shape: u16
+        - reserved: u16
+  - TownFeature:
+      doc: "A town block's building (§5.18 stage 9): the building id indexes the overlay's town_buildings"
+      fields:
+        - tile: {type: u16, range: [0, 1023]}
+        - building: u16
+  - PoolColumn:
+      doc: "sim_pool_dir's entries: a generated column id (POOL_COLUMNS), its pointer and its byte length"
+      fields:
+        - column: u32
+        - ptr: u32
+        - len: u32
+  - AllocStats:
+      doc: "sim_allocs' counting allocator totals (§2.5), each a u64 (low word first)"
+      fields:
+        - allocations: u64
+        - deallocations: u64
+        - live_bytes: u64
+        - peak_bytes: u64
+  - RngWords:
+      fields:
+        - s0: u32
+        - s1: u32
+        - s2: u32
+        - s3: u32
+  - StatCounter:
+      fields:
+        - key: StatKey
+        - value: f64
+  - PlayerDigest:
+      doc: "An online player in the per-tick digest: index, the character's position and the inventory version"
+      fields:
+        - index: PlayerIndex
+        - x: f64
+        - y: f64
+        - inventory_version: u32
+  - PreviewRequest:
+      doc: "gen_preview's input (§5.18): a rectangle sampled every `step` tiles"
+      fields:
+        - x0: i32
+        - y0: i32
+        - width: {type: u32, range: [1, 4096], doc: "samples"}
+        - height: {type: u32, range: [1, 4096]}
+        - step: {type: u32, range: [1, 1024], doc: "tiles per sample"}
+        - flags: PreviewFlags
+
+messages:
+  - InitInput:
+      doc: "sim_init's input"
+      fields:
+        - protos_len: u32
+        - protos: "u8[protos_len]"
+        - flags: SimFlags
+        - reserved: u32
+  - LoadInput:
+      doc: "sim_load's input: the sections (codec raw, stored = raw length), the remap tables (none when the prototypes hash matches) and the lineage"
+      fields:
+        - section_count: u32
+        - sections: "SectionFrame[section_count]"
+        - kind_count: {type: u16, range: [0, 9]}
+        - remaps: "RemapTable[kind_count]"
+        - r: u64
+  - RemapTable:
+      doc: "Old id → new id for one ProtoKind (§8.3); 0xFFFF = removed"
+      fields:
+        - kind: {type: u16, range: [0, 8], doc: "a ProtoKind"}
+        - count: u32
+        - ids: "u16[count]"
+  - SaveInput:
+      fields:
+        - flags: SaveFlags
+  - SaveOutput:
+      doc: "sim_save's output: the sections at the current tick boundary (codec raw) and the lineage the save carries"
+      fields:
+        - section_count: u32
+        - sections: "SectionFrame[section_count]"
+        - r: u64
+  - BlobPut:
+      fields:
+        - sha256: Hash256
+        - bytes: "u8[..]"
+  - PendingChunks:
+      fields:
+        - count: u32
+        - requests: "ChunkRequest[count]"
+  - SubscribeInput:
+      fields:
+        - count: u16
+        - subs: "SubRequest[count]"
+  - UnsubscribeInput:
+      fields:
+        - count: u16
+        - ids: "SubId[count]"
+  - QueryInput:
+      fields:
+        - id: QueryId
+        - header: QueryHeader
+        - params: "u8[..]"
+  - QueryResult:
+      doc: "One finished query in sim_query_step's output: the result when ok, else a u16 UiInvalidReason; padded to 4"
+      pad_to: 4
+      fields:
+        - id: QueryId
+        - ok: bool
+        - flags: QueryResultFlags
+        - reserved: u16
+        - first_tick: Tick
+        - last_tick: Tick
+        - len: u32
+        - body: "u8[len]"
+  - QueryStepOutput:
+      fields:
+        - count: u32
+        - results: "QueryResult[count]"
+  - ErrorEnvelope:
+      doc: "sim_last_error's envelope: the status code, then a UTF-8 message"
+      fields:
+        - code: SimStatus
+        - message: "u8[..]"
+  - PoolDir:
+      fields:
+        - columns: "PoolColumn[..]"
+  - GenInitInput:
+      doc: "gen_init's input: prototypes.bin, then one new_world record (§15.9)"
+      fields:
+        - protos_len: u32
+        - protos: "u8[protos_len]"
+        - world: new_world
+  - GenInitOutput:
+      doc: "XXH64 of the seed, the map settings and prototypes.bin; the sim computes the same at sim_new_world and sim_load"
+      fields:
+        - world_hash: u64
+  - PreviewImage:
+      fields:
+        - width: u32
+        - height: u32
+        - rgba: "u8[..]"
+  - TickDigest:
+      doc: >-
+        The per-tick digest's record (§4.8): XXH64 (seed 0) of these bytes is d_t; never stored. C1b decisions: the
+        RNG words are those of every stream the world holds (the RNG section's records, none in M0), in RngStream order; this
+        tick's nonzero counters form two lists, production then consumption, each in ascending key; each list is
+        preceded by its u32 count (§4.8 states the count only for the counters), so the record decodes unambiguously.
+        The GLOBALS fields that state.yaml marks `digest: tick` follow research_progress, in declaration order (none
+        in M0)
+      fields:
+        - tick: Tick
+        - closure_hash: {type: u64, doc: "XXH64 of the closure's bytes as applied; an empty closure hashes zero bytes"}
+        - rng_count: u32
+        - rng: "RngWords[rng_count]"
+        - entity_count: u32
+        - produced_count: u32
+        - produced: "StatCounter[produced_count]"
+        - consumed_count: u32
+        - consumed: "StatCounter[consumed_count]"
+        - player_count: u32
+        - players: "PlayerDigest[player_count]"
+        - research_tech: {type: TechId, doc: "the current research, 0xFFFF none"}
+        - research_progress: f64
+
+records:
+  - new_world:
+      doc: "sim_new_world's input and gen_init's tail: what the New game screen sets (07 §17)"
+      fields:
+        - seed: {id: 1, type: u32}
+        - map: {id: 2, type: map_settings}
+        - world: {id: 3, type: world_settings}
+        - game: {id: 4, type: game_settings}
+  - map_settings:
+      doc: "The map generator's settings (07 §17, Resources, Terrain and Advanced); multipliers default to 1"
+      fields:
+        - width: {id: 1, type: u32, doc: "tiles; 0 = unbounded (Factorio's map size)"}
+        - height: {id: 2, type: u32, doc: "tiles; 0 = unbounded"}
+        - starting_area: {id: 3, type: f64, default: 1}
+        - resources: {id: 4, type: "list<resource_settings>", max: 256, order: key}
+        - water_scale: {id: 5, type: f64, default: 1}
+        - water_coverage: {id: 6, type: f64, default: 1}
+        - trees_frequency: {id: 7, type: f64, default: 1}
+        - trees_size: {id: 8, type: f64, default: 1}
+        - cliffs_frequency: {id: 9, type: f64, default: 1}
+        - cliffs_continuity: {id: 10, type: f64, default: 1}
+        - towns_frequency: {id: 11, type: f64, default: 1}
+        - towns_size: {id: 12, type: f64, default: 1}
+        - archives_size: {id: 13, type: f64, default: 1}
+        - archives_richness: {id: 14, type: f64, default: 1}
+        - exchanges_richness: {id: 15, type: f64, default: 1}
+  - resource_settings:
+      doc: "One resource's sliders (ISO); a resource the list omits keeps 1, 1, 1"
+      fields:
+        - resource: {id: 1, type: ResourceId}
+        - frequency: {id: 2, type: f64, default: 1}
+        - size: {id: 3, type: f64, default: 1}
+        - richness: {id: 4, type: f64, default: 1}
+  - world_settings:
+      doc: "The presets and World/Advanced values (07 §17, meta.world_settings), fixed for the save"
+      fields:
+        - heat: {id: 1, type: bool, default: true}
+        - staffing: {id: 2, type: bool, default: true}
+        - runaways: {id: 3, type: Runaways, default: 1}
+        - returns_to_research: {id: 4, type: f64, default: 1.7095112913514547, doc: "r (meta.world_settings.returns_to_research)"}
+        - race_mode: {id: 5, type: RaceMode}
+        - scooped: {id: 6, type: bool}
+        - hollow_work: {id: 7, type: bool, default: true}
+        - climate_compass: {id: 8, type: bool, default: true}
+        - tech_price_multiplier: {id: 9, type: f64, default: 1}
+        - field_pace: {id: 10, type: f64, doc: "a custom v₀ in field-years per hour (01 §12.1); 0 = the race mode's"}
+        - leak_rate_multiplier: {id: 11, type: f64, default: 1}
+        - staffing_radius: {id: 12, type: f64, default: 1, doc: "multiplier"}
+        - staffing_supply: {id: 13, type: f64, default: 1, doc: "multiplier, 0.25–4"}
+        - heat_diffusion_share: {id: 14, type: f64, default: 1, doc: "multiplier of meta.heat's value"}
+        - heat_min_diffuse: {id: 15, type: f64, default: 1, doc: "multiplier"}
+        - heat_cooling_multiplier: {id: 16, type: f64, default: 1}
+        - heat_tree_damage_threshold: {id: 17, type: f64, default: 1, doc: "multiplier"}
+  - game_settings:
+      doc: "Rule-affecting game settings that may change at runtime (§7.6), by set_game_setting"
+      fields:
+        - trimmed_collision: {id: 1, type: bool, default: true}
+  - sim_meta:
+      doc: "sim_meta's output (§15.8): what `bound` needs (§3.2)"
+      fields:
+        - tick: {id: 1, type: Tick}
+        - seed: {id: 2, type: u32}
+        - last_system_seq: {id: 3, type: Seq}
+        - worldgen_version: {id: 4, type: u32}
+        - r: {id: 5, type: u64}
+        - players: {id: 6, type: "list<player_meta>", max: 32, order: key}
+  - player_meta:
+      fields:
+        - index: {id: 1, type: PlayerIndex, range: [0, 31]}
+        - online: {id: 2, type: bool}
+        - last_seq: {id: 3, type: Seq}
+        - input_gen: {id: 4, type: u16}
+  - load_report:
+      doc: "sim_load_report's output (§15.8, §8.3)"
+      fields:
+        - new_lineage: {id: 1, type: bool}
+        - r: {id: 2, type: u64, doc: "the new lineage when new_lineage, else the save's"}
+        - removed: {id: 3, type: "list<removed_proto>", max: 65535, order: key}
+  - removed_proto:
+      fields:
+        - kind: {id: 1, type: ProtoKind}
+        - name: {id: 2, type: str, max: 255}
+        - count: {id: 3, type: u32}
+  - chunk_data:
+      doc: "A generated chunk (§15.9): the worldgen workers' answer and the sim's inline generation share it"
+      fields:
+        - world_hash: {id: 1, type: u64}
+        - surface: {id: 2, type: SurfaceIndex}
+        - key: {id: 3, type: ChunkKey}
+        - tiles: {id: 4, type: "[TileId; 1024]"}
+        - theta: {id: 5, type: f64}
+        - sunlight: {id: 6, type: f64}
+        - resources: {id: 7, type: "list<ResourceTile>", max: 1024, order: key}
+        - trees: {id: 8, type: "list<TreeState>", max: 4096, order: key}
+        - objects: {id: 9, type: "list<ObjectState>", max: 4096, order: key}
+        - cliffs: {id: 10, type: "list<Cliff>", max: 1024, order: key}
+        - town_features: {id: 11, type: "list<TownFeature>", max: 1024, order: key}
+        - decor_seed: {id: 12, type: u32}
+
+# Exports. kind: plain | input | status | envelope | error. `params` are the export's own arguments besides
+# `len`; `in` names the input buffer's message or record, `out` the envelope's.
+sim_exports:
+  - sim_abi_version: {kind: plain, returns: u32}
+  - sim_schema_hash: {kind: envelope, out: Hash256}
+  - sim_input: {kind: input}
+  - sim_init: {kind: status, in: InitInput, doc: "loads Protos and installs the panic hook"}
+  - sim_new_world: {kind: status, in: new_world, doc: "creates the world at tick 0 with lineage r₀ (§4.8)"}
+  - sim_load: {kind: status, in: LoadInput, doc: "loads a save or checkpoint (§8.1, §8.3)"}
+  - sim_tick: {kind: status, in: closure, doc: "runs exactly one tick: the closure of tick world.tick + 1 (§15.3)"}
+  - sim_set_flags: {kind: status, params: [{flags: SimFlags}]}
+  - sim_blob_put: {kind: status, in: BlobPut, doc: "holds the blob for the next tick only"}
+  - sim_supply_chunk: {kind: status, in: chunk_data, doc: "ignored unless it answers a pending request"}
+  - sim_pending_chunks: {kind: envelope, out: PendingChunks, doc: "requests issued since the last call; after sim_load, every pending request of the save"}
+  - sim_extract: {kind: envelope, in: ViewRequest, out: packet, doc: "one complete packet, header included (§15.4)"}
+  - sim_subscribe: {kind: status, in: SubscribeInput}
+  - sim_unsubscribe: {kind: status, in: UnsubscribeInput, doc: "unknown ids are ignored"}
+  - sim_query: {kind: status, in: QueryInput, doc: "starts a query; ERR_LIMIT with 4 running"}
+  - sim_query_step: {kind: envelope, params: [{units: u32}], out: QueryStepOutput}
+  - sim_query_cancel: {kind: status, params: [{id: QueryId}], doc: "an unknown id is ignored"}
+  - sim_digest: {kind: envelope, out: DigestResult}
+  - sim_state_hash: {kind: envelope, out: StateHash}
+  - sim_save: {kind: envelope, in: SaveInput, out: SaveOutput}
+  - sim_meta: {kind: envelope, out: sim_meta}
+  - sim_load_report: {kind: envelope, out: load_report, doc: "ERR_ORDER unless the last world call was sim_load"}
+  - sim_last_error: {kind: error, out: ErrorEnvelope}
+  - sim_memory_epoch: {kind: plain, returns: u32, doc: "increments whenever an exported column, the arena or the input buffer moves"}
+  - sim_pool_dir: {kind: envelope, out: PoolDir}
+  - sim_allocs: {kind: envelope, out: AllocStats, doc: "ERR_ORDER without simcheck"}
+
+gen_exports:
+  - gen_abi_version: {kind: plain, returns: u32}
+  - gen_schema_hash: {kind: envelope, out: Hash256}
+  - gen_input: {kind: input}
+  - gen_last_error: {kind: error, out: ErrorEnvelope}
+  - gen_init: {kind: envelope, in: GenInitInput, out: GenInitOutput}
+  - gen_chunk: {kind: envelope, params: [{surface: u32}, {cx: i32}, {cy: i32}], out: chunk_data}
+  - gen_chart: {kind: envelope, params: [{surface: u32}, {cx: i32}, {cy: i32}], out: ChartChunk, doc: "a pristine chunk's chart image (§5.19)"}
+  - gen_preview: {kind: envelope, in: PreviewRequest, out: PreviewImage, doc: "the map preview's colours (§5.18)"}
+
+# Imports, module `env` (§15.8). Only host_now returns a value, visible only to the profiling module (D13).
+imports:
+  - host_log: {params: [{level: LogLevel}, {ptr: u32}, {len: u32}]}
+  - host_panic: {params: [{ptr: u32}, {len: u32}], doc: "called by the panic hook before the abort"}
+  - host_now: {params: [], returns: f64, doc: "milliseconds; the profiling module only"}
