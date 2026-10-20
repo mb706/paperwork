@@ -15,6 +15,7 @@ Phase B:
 Next: codex reviews of A1/A2, then Phase B (an architecture revision that folds A1–A4 into the spec), then M0.
 
 ## Conventions
+- **At most 2 Claude subagents run in parallel** (the user's instruction, 2026-10-20, because of the 5-hour usage limits). That includes resumed agents. Codex runs are unlimited, so use them freely for reviews and QA.
 - Branch `dev`, with local checkpoint commits by the manager. Nothing is pushed unless the user asks.
 - Briefs: `pm/wp/`. Reports: `pm/reports/`. Codex reviews: `pm/reviews/` (via `tools/codex-run.sh` or `codex exec review`).
 - Session-local agent ids for follow-ups: `.scratch/agents.md` (gitignored).
