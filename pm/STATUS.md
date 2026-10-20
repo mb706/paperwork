@@ -50,7 +50,7 @@ The Schema package is split into sequential parts: C1a (scaffold, CI, data stage
 | C1b | Schema, generator, codec fixtures (gate items 1–3) | done (e9f0850..529182a). Codex r1's 10 findings are fixed, with shared fixtures; `npm run ci` takes 35 s |
 | C1c | Fake sim, reference model, frozen M0 golden set (gate items 4 and 6) | done (d4bd2b0..cbfb0d6). Golden set v5. GATE-r1 failed (1 critical, 13 major), and all of it is fixed. GATE-r2 failed on 3 major and 3 minor findings: C2 and C3 are cleared, C1c fixed #1 and #3–#5 (golden v6). #2 is merged (1e86703; golden v7). GATE-r3's last two findings are fixed (99949b5, 8f31a32). **The contract gate passed on 2026-10-20** (manager's call after r3). C1c stays as the golden-set owner for future bumps |
 | C2 | Rust sim (det, worldgen, sim, simabi, genabi, simtool), phases C2a, C2b, C2c | C2a done (6051307). Codex r1: 5 major, 5 minor. The agent is fixing them, then starts **C2b** (the rules) |
-| C3 | Sim worker shell, worldgen and IO workers | running (worktree) |
+| C3 | Sim worker shell, worldgen and IO workers | done, on a branch (8 commits). The golden 3,600-tick log replays with every digest equal (via the reference model); the tick path allocates 0 bytes. Codex r1 running; its fix round waits for a slot. It edited shared `src/app/main.ts` and `src/shared/protocol.ts`, so expect merge conflicts with C4 and C5 |
 | C5 | UI and input v0 (Factorio UI and keybindings, Survey skin) | done, on a branch (4 commits; 62 Vitest and 13 Playwright tests). Codex r1 running. Its fix round waits for a free agent slot. Open: Load cannot load a fake save; the e2e port 5191 collides between worktrees |
 | C4 | Renderer v0 and asset loader (Survey shaders, KTX2) | running (worktree) |
 | C6 | Asset pipeline v0 (Survey): rig, passes, layered renders, KTX2 atlases, manifest, greyboxes, M0 art | done and merged (b2bec76, then the r1 fixes in 78b9e87). The C6-r1 agent is fixing GATE-r2 #2 |
@@ -63,3 +63,6 @@ The Schema package is split into sequential parts: C1a (scaffold, CI, data stage
 - The fake sim uses the M1 prototype build while the art and audio use M0. The renderer and audio need a fake-mode exception that matches by name (C1c issue 4).
 - The data stage does not read `sounds.yaml` yet, and the tree-species table is empty (C1c and C7).
 - §15.10: "3×3 chunks" should read 96×96 tiles (C1c issue 6).
+- Playwright ports collide across worktrees (5191 by default). Run with `PW_PORT` and `PW_RELEASE_PORT` set per worktree; consider auto-picking a free port in the Playwright config.
+- C3 proposal: `debug_dump(0xFFFFFFFF)` should panic in dev builds so the real-module panic test runs (for C2c).
+- Not done: the one-tab lock (needs a C5 dialog) and `POST /__report` (QA tooling).
