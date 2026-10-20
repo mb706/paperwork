@@ -1,0 +1,453 @@
+# The UI's English strings (10 §7.2; 08 §5.1 surfaces 4–8, 23, 24 and 30; C5).
+#
+# Display names of items, recipes, entities, resources and technologies come from the data (prototypes.json
+# `strings`); everything the interface itself says is here. The keys under fail-reason, flying-text,
+# entity-status and alert are prototypes.json's `localeKeys` (C1b decision 13: `<prefix>.<value name, dashed>`).
+# Labels are Factorio's where Factorio has one (08 §5.1 #23, #24); statuses, flying texts and refusals follow
+# 08 §8, I §3 and the schema's comments. Placeholders are Factorio's positional __1__, __2__ …
+#
+# Format: nested maps of strings only (src/ui/i18n/yaml.ts parses this subset strictly; PyYAML reads it for the
+# font coverage check). Quote a value that holds ": ", starts with a YAML indicator, or reads as a number.
+# Rules: sentence case, US spelling, no "!", no ellipsis, no emoji, no "you" (08 §0, §1).
+
+game:
+  title: Paperwork
+  tagline: Information is physical.
+
+menu:
+  continue: Continue
+  new-game: New game
+  load-game: Load game
+  settings: Settings
+  tips-and-tricks: Tips and tricks
+  achievements: Achievements
+  credits: Credits
+  changelog: Changelog
+  footer: build __1__ · storage __2__ of __3__
+  footer-no-storage: build __1__
+  game-menu: Menu
+  save-game: Save game
+  exit-to-main-menu: Exit to main menu
+  unsaved-progress: Unsaved progress will be lost.
+  exit: Exit
+  saved: Saved
+
+new-game:
+  title: New game
+  seed: Seed
+  random-seed: Random seed
+  play: Play
+
+load:
+  title: Load game
+  name: Name
+  game-time: Game time
+  date: Date
+  load: Load
+  empty: No saves.
+
+loading:
+  title: Loading
+  failed: The world did not start. __1__
+
+button:
+  back: Back
+  confirm: Confirm
+  cancel: Cancel
+  close: Close
+  search: Search
+  reset: Reset
+  reset-all: Reset all
+
+window:
+  character: Character
+  crafting: Crafting
+  production-statistics: Production statistics
+  settings: Settings
+
+settings:
+  interface: Interface
+  graphics: Graphics
+  sound: Sound
+  controls: Controls
+  other: Other
+  control: Control
+  primary: Primary
+  alternative: Alternative
+  ui-scale: UI scale
+  ui-scale-auto: Automatic
+  press-a-key: Press a key or button
+  conflicts: "Conflicts with: __1__"
+  reserved: Reserved by the browser unless the game runs fullscreen with Keyboard Lock.
+  not-in-m0: Arrives with a later milestone.
+
+stats:
+  items: Items
+  fluids: Fluids
+  buildings: Buildings
+  heat: Heat
+  production: Production
+  consumption: Consumption
+  per-minute: __1__/m
+  precision-0: 5s
+  precision-1: 1m
+  precision-2: 10m
+  precision-3: 1h
+  precision-4: 10h
+  precision-5: 50h
+  precision-6: 250h
+  precision-7: 1000h
+  precision-8: All
+
+tooltip:
+  recipe: __1__ (Recipe)
+  ingredients: "Ingredients:"
+  products: "Products:"
+  crafting-time: Crafting time
+  craftable-now: "Craftable now: __1__"
+  stack-size: "Stack size:"
+  contents: "Contents:"
+  queue-remaining: "Remaining: __1__"
+  not-handcraftable: Cannot be crafted by hand.
+
+hint:
+  craft: "__1__: craft 1 · __2__: craft 5 · __3__: craft all"
+  cancel-craft: "__1__: cancel 1 · __2__: cancel 5 · __3__: cancel all"
+
+flying:
+  item-delta-total: __1__ __2__ (__3__)
+  item-delta: __1__ __2__
+
+item-group-name:
+  logistics: Logistics
+  production: Production
+  intermediate-products: Intermediate products
+  combat: Combat
+  fluids: Fluids
+  signals: Signals
+  other: Unsorted
+
+# FailReason (§15.6): flying text with the error sound. Developer reasons (malformed … invalid-index) have none.
+fail-reason:
+  target-gone: Target gone
+  out-of-reach: Cannot reach
+  inventory-full: Inventory full
+  not-enough-ingredients: Not enough ingredients.
+  entity-in-the-way: __1__ in the way
+  cannot-build-on-tile: Cannot build on __1__
+  out-of-map: Cannot build outside the map
+  no-item-in-hand: No item in hand
+  not-minable: Cannot mine this
+  nothing-to-mine: Nothing to mine
+  cannot-insert: Cannot insert this item
+  nothing-to-transfer: Nothing to transfer
+  recipe-locked: Recipe not researched
+  cannot-handcraft: Cannot craft by hand
+  compromised: Compromised. Cut its power.
+  needs-weight-transplant: Needs Weight transplant
+
+# FlyingText (§15.6, 08 §8.3). item-delta's text is built from flying.item-delta(-total).
+flying-text:
+  item-delta: __1__ __2__ (__3__)
+  rolled-back: Rolled back
+  swapped: Swapped
+  inventory-full: Cannot insert __1__. Inventory is full.
+  cannot-put-away: Cannot put away the __1__. Player inventory is full.
+
+# Status (I §3.12, Factorio's entity_status vocabulary; ours from 08 §8.2).
+entity-status:
+  none: ""
+  working: Working
+  normal: Normal
+  no-power: No power
+  low-power: Low power
+  no-fuel: No fuel
+  not-plugged-in: Not connected to an electric network
+  no-recipe: No recipe
+  item-ingredient-shortage: Item ingredient shortage
+  fluid-ingredient-shortage: Fluid ingredient shortage
+  full-output: Output full
+  waiting-for-source-items: Waiting for source items
+  waiting-for-space-in-destination: Waiting for space in destination
+  no-minable-resources: No minable resources
+  missing-science-packs: Missing papers
+  no-research-in-progress: No research in progress
+  marked-for-deconstruction: Marked for deconstruction
+  disabled-by-control-behavior: Disabled by control behavior
+  low-input-fluid: Low input fluid
+  charging: Charging
+  pipeline-overextended: Pipeline overextended
+  working-researcher: Working (Researcher)
+  working-linked: Working
+  watching: Watching
+  cleaning: Cleaning
+  understaffed: Understaffed
+  throttled-by-heat: Throttled by heat
+  no-hot-coolant: No hot coolant
+  not-linked: Not linked
+  no-staff: No staff
+  closed-to-crawlers: Closed to crawlers
+  compromised: Compromised
+  missing-accelerators: Missing accelerators
+  no-weights: No weights
+  no-evaluation-sets: No evaluation sets
+  no-university-in-range: No university in range
+
+# AlertType (07 §22, I §4.14): the alert's name; overview rows are 08 §8.1's templates (M2).
+alert:
+  entity-destroyed: Entity destroyed
+  entity-under-attack: Entity under attack
+  not-enough-construction-agents: Not enough construction agents
+  no-material-for-construction: No material for construction
+  no-storage: No storage space
+  train-out-of-fuel: Train out of fuel
+  fluid-mixing: Fluid mixing
+  thermal-throttling: Thermal throttling
+  compromised: Compromised
+  no-evaluation-sets: No evaluation sets
+  closed-to-crawlers: Closed to crawlers
+  escaped: Escaped
+  entity-dismantled: Entity dismantled
+  being-dismantled: Being dismantled
+  field-run: Field
+
+# Key and button labels (I §1.2, §1.6); letters, digits and F-keys come from the code or the layout map.
+keys:
+  ctrl: Ctrl
+  cmd: Cmd
+  shift: Shift
+  alt: Alt
+  mouse-0: Left mouse button
+  mouse-1: Middle mouse button
+  mouse-2: Right mouse button
+  mouse-3: Mouse button 4
+  mouse-4: Mouse button 5
+  wheel-up: Mouse wheel up
+  wheel-down: Mouse wheel down
+  Escape: Escape
+  Tab: Tab
+  Space: Space
+  Enter: Enter
+  NumpadEnter: Numpad Enter
+  Backspace: Backspace
+  Pause: Pause
+  Backquote: "`"
+  Minus: "-"
+  Equal: "="
+  BracketLeft: "["
+  BracketRight: "]"
+  Backslash: \
+  Semicolon: ;
+  Quote: "'"
+  Comma: ","
+  Period: .
+  Slash: /
+  ArrowUp: Up
+  ArrowDown: Down
+  ArrowLeft: Left
+  ArrowRight: Right
+  PageUp: Page up
+  PageDown: Page down
+  Home: Home
+  End: End
+  Insert: Insert
+  Delete: Delete
+  NumpadAdd: Numpad +
+  NumpadSubtract: Numpad -
+  NumpadMultiply: Numpad *
+  NumpadDivide: Numpad /
+  NumpadDecimal: Numpad .
+  Numpad0: Numpad 0
+  Numpad1: Numpad 1
+  Numpad2: Numpad 2
+  Numpad3: Numpad 3
+  Numpad4: Numpad 4
+  Numpad5: Numpad 5
+  Numpad6: Numpad 6
+  Numpad7: Numpad 7
+  Numpad8: Numpad 8
+  Numpad9: Numpad 9
+
+# The Controls screen's sections (I §2) and control names (Factorio's, renamed per 08 §10: Handbook, agents).
+control-group:
+  movement: Movement
+  basic: Basic interaction
+  advanced: Advanced interaction
+  crafting: Crafting
+  inventory: Inventory
+  quickbar: Quickbar
+  tools: Tools
+  panels: Panels
+  misc: Miscellaneous
+  debug: Debug
+  editor: Editor
+  ours: Paperwork
+
+controls:
+  move-up: Move up
+  move-down: Move down
+  move-left: Move left
+  move-right: Move right
+  open-character-gui: Open character screen
+  confirm-gui: Confirm
+  open-gui: Open
+  mine: Mine
+  build: Build
+  build-ghost: Build ghost
+  super-forced-build: Super-forced build
+  clear-cursor: Clear cursor
+  pipette: Pipette
+  rotate: Rotate
+  reverse-rotate: Reverse rotate
+  flip-horizontal: Flip horizontally
+  flip-vertical: Flip vertically
+  pick-items: Pick up items
+  drop-cursor: Drop item
+  show-info: Toggle alt mode
+  hide-tall-entities: Hide tall entities
+  shoot-enemy: Shoot enemy
+  shoot-selected: Shoot selected
+  next-weapon: Next weapon
+  toggle-driving: Enter or leave vehicle
+  zoom-in: Zoom in
+  zoom-out: Zoom out
+  use-item: Use item
+  alternative-use-item: Alternative use item
+  toggle-console: Toggle console
+  copy-entity-settings: Copy entity settings
+  paste-entity-settings: Paste entity settings
+  controller-gui-logistics-tab: Logistics tab
+  controller-gui-character-tab: Character tab
+  controller-gui-crafting-tab: Crafting tab
+  toggle-rail-layer: Toggle rail layer
+  select-for-blueprint: Select for blueprint
+  select-for-cancel-deconstruct: Select for cancel deconstruct
+  select-for-super-forced-deconstruct: Select for super-forced deconstruct
+  reverse-select: Reverse select
+  alt-reverse-select: Alternative reverse select
+  deselect: Deselect
+  cycle-blueprint-forwards: Next blueprint in book
+  cycle-blueprint-backwards: Previous blueprint in book
+  focus-search: Focus search
+  larger-terrain-building-area: Larger terrain building area
+  smaller-terrain-building-area: Smaller terrain building area
+  remove-pole-cables: Remove pole cables
+  build-with-obstacle-avoidance: Build with obstacle avoidance
+  add-station: Add station
+  add-temporary-station: Add temporary station
+  rename-all: Rename all
+  fast-wait-condition: Fast wait condition
+  drag-map: Drag map
+  move-tag: Move tag
+  place-in-chat: Place in chat
+  place-ping: Place ping
+  pin: Pin
+  activate-tooltip: Show tooltip
+  next-surface: Next surface
+  previous-surface: Previous surface
+  cycle-quality-up: Next quality
+  cycle-quality-down: Previous quality
+  scroll-tooltip-up: Scroll tooltip up
+  scroll-tooltip-down: Scroll tooltip down
+  visualize-entity-fluid-segments: Show fluid segment
+  craft: Craft
+  craft-5: Craft 5
+  craft-all: Craft all
+  cancel-craft: Cancel craft
+  cancel-craft-5: Cancel 5 crafts
+  cancel-craft-all: Cancel all crafts
+  pick-item: Pick up or put down
+  stack-transfer: Stack transfer
+  inventory-transfer: Inventory transfer
+  fast-entity-transfer: Fast entity transfer
+  cursor-split: Take half or put one
+  stack-split: Stack split
+  inventory-split: Inventory split
+  fast-entity-split: Fast entity split
+  toggle-filter: Toggle filter
+  open-item: Open item
+  copy-inventory-filter: Copy inventory filter
+  paste-inventory-filter: Paste inventory filter
+  quick-bar-button: Quickbar slot __1__
+  quick-bar-button-secondary: Second quickbar slot __1__
+  action-bar-select-page: Quickbar page __1__
+  rotate-active-quick-bars: Rotate active quickbars
+  next-active-quick-bar: Next quickbar page
+  previous-active-quick-bar: Previous quickbar page
+  copy: Copy
+  cut: Cut
+  paste: Paste
+  cycle-clipboard-forwards: Next clipboard entry
+  cycle-clipboard-backwards: Previous clipboard entry
+  undo: Undo
+  redo: Redo
+  give-blueprint: Blueprint
+  give-blueprint-book: Blueprint book
+  give-deconstruction-planner: Deconstruction planner
+  give-upgrade-planner: Upgrade planner
+  give-copper-wire: Copper wire
+  give-red-wire: Red wire
+  give-green-wire: Green wire
+  give-spidertron-remote: Remote
+  give-artillery-targeting-remote: Artillery targeting remote
+  give-discharge-defense-remote: Discharge defense remote
+  toggle-personal-roboport: Toggle personal assistant
+  toggle-personal-logistic-requests: Toggle personal logistic requests
+  toggle-equipment-movement-bonus: Toggle exoskeleton
+  toggle-menu: Menu
+  toggle-map: Map
+  open-technology-gui: Technologies
+  production-statistics: Production statistics
+  logistic-networks: Logistic networks
+  toggle-blueprint-library: Blueprint library
+  open-trains-gui: Trains
+  open-factoriopedia: Handbook
+  back: Back
+  forward: Forward
+  pause-game: Pause game
+  confirm-message: Confirm message
+  previous-mod: Previous mod
+  connect-train: Connect train
+  disconnect-train: Disconnect train
+  submit-feedback: Submit feedback
+  next-player-in-replay: Next player in replay
+  move-blueprint-absolute-grid-up: Move blueprint grid up
+  move-blueprint-absolute-grid-down: Move blueprint grid down
+  move-blueprint-absolute-grid-left: Move blueprint grid left
+  move-blueprint-absolute-grid-right: Move blueprint grid right
+  move-blueprint-entities-up: Move blueprint entities up
+  move-blueprint-entities-down: Move blueprint entities down
+  move-blueprint-entities-left: Move blueprint entities left
+  move-blueprint-entities-right: Move blueprint entities right
+  toggle-blueprint-snap-to-grid: Toggle blueprint snap to grid
+  play-next-track: Next track
+  play-previous-track: Previous track
+  pause-resume-music: Pause or resume music
+  debug-toggle-gui-visibility: Hide GUI
+  debug-toggle-debug-settings: Debug settings
+  debug-toggle-basic: Toggle debug overlay
+  debug-reset-zoom: Reset zoom
+  debug-reset-zoom-2x: Reset zoom to 2x
+  debug-toggle-atlas-gui: Sprite atlas viewer
+  toggle-gui-debug: Outline GUI
+  toggle-gui-style-view: GUI style view
+  toggle-gui-shadows: GUI shadows
+  toggle-gui-glows: GUI glows
+  open-prototypes-gui: Prototypes
+  open-prototype-explorer-gui: Prototype explorer
+  increase-ui-scale: Increase UI scale
+  decrease-ui-scale: Decrease UI scale
+  reset-ui-scale: Reset UI scale
+  slash-editor: Map editor
+  toggle-entity: Toggle entity
+  editor-speed-up: Game speed up
+  editor-speed-down: Game speed down
+  editor-reset-speed: Reset game speed
+  editor-tick-once: Tick once
+  editor-toggle-pause: Toggle pause
+  give-rate-calculator: Rate calculator
+  toggle-status-lights: Toggle status lights
+  open-world: World
+  toggle-world-strip: Toggle world strip
+  open-milestones: Milestones
+  open-university: University
