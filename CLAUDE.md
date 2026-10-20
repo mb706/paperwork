@@ -94,6 +94,19 @@
   `ci.ts`), `schema/`, `test/`, `e2e/`. Files in `src/shared/gen/`, `crates/schema/src/` and `crates/sim/src/gen/`
   (and `crates/sim/tests/codec_fixtures/generated.rs`) are generated: their header hash refuses hand edits. A
   justified exception to a check-arch rule is a comment on the line before: `// check-arch-ignore <rule>: <reason>`.
+- **Golden set (C1c, 10 §15.10):** `test/golden/m0/` is the frozen M0 referee (prototype set, start save, 600-tick
+  closure log, per-tick digests, states, packets, projections, queries, negative cases); its README says how each
+  package consumes it and lists the rules it fixes. The expected values come from the reference model in
+  `test/golden/model/` (readable TypeScript, spec-cited). `node test/golden/build/main.ts` checks that the model
+  reproduces the set; `--write` rewrites it; `--write --bump "why"` records a new version in `VERSIONS.txt`. A changed
+  golden file fails `test/golden/golden.test.ts` until it is bumped, and reopens the gate for the packages it touches.
+  The tiny atlas is C6's fixture `test/fixtures/sprites/`, frozen in `MANIFEST.json`'s `external`: regenerating it
+  with `fixture.py` needs a bump too. A schema change that alters any golden byte does as well.
+- **Fake sim (C1c, 10 §15.10):** `npm run dev`, then `/?sim=fake` (dev builds only) runs `src/simworker/fake.ts` in a
+  worker on the M1 prototype build, which the dev server builds into `.cache/data/m1/` and serves at `/data/fake/`.
+  It speaks `src/shared/protocol.ts` (§3.2) and sends every section and M0 projection. WASD walks; `?fakeDay=N`
+  shortens the day; `?test=1` pauses it, and `window.__fake.step(n)`, `.act(action)` and `.status()` drive it. Tests
+  run it in-process (`test/fake/harness.ts`); `node test/fake/snapshot.ts out.png [ticks]` draws its packet stream.
 
 ## Assets (`npm run assets`; C6, 10 §9, the *Survey* look of `design/art/DIRECTION.md`)
 - **Sources** (committed): `game/assets/blender/` (`lib/` style, materials, parts, rig, contract; `entities/`,

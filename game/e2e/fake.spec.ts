@@ -20,12 +20,13 @@ test('the fake sim runs in its worker and its packets decode @smoke', async ({ p
   await page.evaluate(() => (window as unknown as { __fake?: Fake }).__fake?.step(120));
   const status = () =>
     page.evaluate(() => (window as unknown as { __fake?: Fake }).__fake?.status() as Status);
-  // The targeted subscriptions (INVENTORY, ENTITY_PANEL, the hover) follow the first CHUNK_ENTITIES.
+  // The step's packet, and the targeted subscriptions (INVENTORY, ENTITY_PANEL, the hover) that follow the first
+  // CHUNK_ENTITIES, arrive in either order.
+  await expect.poll(async () => (await status()).tick).toBe(120);
   await expect
     .poll(async () => (await status()).projections)
     .toEqual(['CHARACTER', 'DEBUG', 'ENTITY_PANEL', 'HOVER', 'HUD', 'INVENTORY', 'STATS']);
   const s = await status();
-  expect(s.tick).toBe(120);
   expect(s.errors).toEqual([]);
   expect(s.sections).toEqual(
     expect.arrayContaining([

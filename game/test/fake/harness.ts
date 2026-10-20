@@ -43,7 +43,9 @@ export class Harness {
   readonly out: SimToMain[] = [];
   readonly packets: Uint8Array[] = [];
   private seq = 0;
+  /** The manual clock (ms) and the wakes the fake scheduled on it. */
   clock = 0;
+  private timers: { at: number; f: () => void }[] = [];
   constructor(protos = fakeProtos()) {
     this.sim = new FakeSim({
       post: (m) => {
@@ -55,8 +57,14 @@ export class Harness {
         }
       },
       now: () => this.clock,
-      wake: () => null,
-      cancel: () => {},
+      wake: (ms, f) => {
+        const t = { at: this.clock + ms, f };
+        this.timers.push(t);
+        return t;
+      },
+      cancel: (h) => {
+        this.timers = this.timers.filter((t) => t !== h);
+      },
       protos: async () => protos,
       protosBin: async () => fakeProtosBin(),
     });
@@ -86,6 +94,18 @@ export class Harness {
     }
     await this.send({ t: 'act', gen, firstSeq: this.seq + 1, actions: total.buffer });
     this.seq += actions.length;
+  }
+  /**
+   * Advances the manual clock in 1-ms steps, running the wakes due at each. A wake scheduled while they run
+   * waits for the next step, as a self-posted message does: so a short wait costs 1 ms, never a spin.
+   */
+  advance(ms: number): void {
+    for (let i = 0; i < ms; i++) {
+      this.clock += 1;
+      const due = this.timers.filter((x) => x.at <= this.clock);
+      this.timers = this.timers.filter((x) => x.at > this.clock);
+      for (const t of due) t.f();
+    }
   }
   async step(n: number): Promise<Uint8Array> {
     await this.send({ t: 'seq', op: { step: n } });

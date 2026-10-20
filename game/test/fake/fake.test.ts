@@ -1,9 +1,11 @@
 // The fake sim (10 §15.10): it speaks §3.2's protocol, follows the replacement protocol, and every packet it
 // writes decodes with the generated decoders, section by section, and survives the round trip.
 import { beforeAll, describe, expect, it } from 'vitest';
+import { NewWorldCodec } from '../../src/shared/gen/abi.ts';
 import { readEvents } from '../../src/shared/gen/events.ts';
 import { decodePacket, PacketFlags, type ViewRequest } from '../../src/shared/gen/packet.ts';
 import {
+  DigestResultCodec,
   HudCodec,
   InspectResultCodec,
   ProjectionKind,
@@ -216,6 +218,11 @@ describe('the fake sim', () => {
     const rates = await ask(q(QueryKind.rates, 0));
     expect(rates.ok).toBe(false);
     expect([...new Uint8Array(rates.value)]).toEqual([1, 0]); // unsupported: outside M0's capability manifest
+    // The dev hooks (§3.5) answer with a `res` of the same id.
+    await h.send({ t: 'dev', id: 99, op: { op: 'digest' } });
+    const dev = h.out[h.out.length - 1] as { t: 'res'; id: number; ok: boolean; value: ArrayBuffer };
+    expect(dev).toMatchObject({ t: 'res', id: 99, ok: true });
+    expect(DigestResultCodec.decode(new Uint8Array(dev.value)).tick).toBe(120);
   });
 
   it('feeds the music: Literature rises and the factory draws power (HUD, §15.6)', async () => {
@@ -227,6 +234,46 @@ describe('the fake sim', () => {
     const v = HudCodec.decode(hud.body);
     expect(v.literature).toBeCloseTo(1946, 6);
     expect(v.activity_w).toBeGreaterThan(100_000);
+  });
+
+  it('paces at 60 UPS on its clock, at most 3 ticks a wake, and rebases a stalled clock (§3.3)', async () => {
+    const h = new Harness();
+    const build = { build: 'm1', buildHash: '0'.repeat(64), dev: true };
+    await h.send({ t: 'boot', build, module: null, ioPort: null, genPorts: [] });
+    await h.send({ t: 'world', gen: 1, op: 'new', settings: { ...NewWorldCodec.defaults(), seed: 1945 } });
+    const tick = () => decodePacket(h.packets[h.packets.length - 1] as Uint8Array).header.tick;
+    const clocks = () => h.out.filter((m) => m.t === 'clock').length;
+    // Tick k is due at k × 16.667 ms: one wake and one packet per tick.
+    h.advance(1001);
+    expect(tick()).toBe(60);
+    expect(h.packets.length).toBe(61); // the FULL packet first
+    // A wake 70 ms late finds 4 ticks due: it runs 3 and extracts once.
+    let n = h.packets.length;
+    h.clock += 70;
+    h.advance(1);
+    expect(tick()).toBe(63);
+    expect(h.packets.length).toBe(n + 1);
+    // A stall of 500 ms (31 ticks due) rebases the clock in a new clock generation and drops the backlog.
+    const c = clocks();
+    h.clock += 500;
+    h.advance(1);
+    expect(clocks()).toBe(c + 1);
+    expect(tick()).toBe(63);
+    h.advance(1001);
+    expect(tick()).toBe(123);
+    // Speed 2 (a new clock generation): 120 ticks a second.
+    await h.send({ t: 'seq', op: { speed: 2 } });
+    n = h.packets.length;
+    h.advance(1001);
+    expect(tick()).toBe(243);
+    expect(h.packets.length).toBe(n + 120);
+    // Paused: no ticks, but a view change is still answered (extraction without ticks, B1-r1 12).
+    await h.send({ t: 'seq', op: 'pause' });
+    h.advance(500);
+    expect(tick()).toBe(243);
+    n = h.packets.length;
+    await h.send({ t: 'view', gen: 1, v: VIEW });
+    expect(h.packets.length).toBe(n + 1);
   });
 
   it('is deterministic: the same inputs give the same packets', async () => {

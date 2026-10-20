@@ -9,6 +9,7 @@
 // runs ticks synchronously, as `__game.step(n)` does in test mode).
 import { decodeAction } from '../shared/gen/actions.ts';
 import { SUPPORTED_ACTIONS } from '../shared/gen/capabilities.ts';
+import { QueryKind } from '../shared/gen/projections.ts';
 import type { PrototypesJson } from '../shared/gen/protos.ts';
 import { ABI_VERSION, SCHEMA_HASH } from '../shared/gen/schema.ts';
 import type { MainToSim, SimToMain } from '../shared/protocol.ts';
@@ -144,9 +145,20 @@ export class FakeSim {
         if (this.extractSoon) this.soon();
         return;
       case 'save':
+        // The fake's world is not a World: there is nothing to save, and no `saved` follows.
         return this.log('warn', 'the fake sim does not save');
-      case 'dev':
-        return this.log('info', `dev op ${m.op.op} is not modelled`);
+      case 'dev': {
+        // §3.5's hooks answer as the queries of the same name do (made-up values: the fake has no state hash).
+        if (!this.world) return;
+        let value = new ArrayBuffer(0);
+        if (m.op.op !== 'flags') {
+          const q = new Uint8Array(4);
+          new DataView(q.buffer).setUint16(0, m.op.op === 'hash' ? QueryKind.hash : QueryKind.digest, true);
+          value = this.x.query(this.world, q).value.slice().buffer;
+        }
+        this.host.post({ t: 'res', gen: this.gen, id: m.id, ok: true, value }, [value]);
+        return;
+      }
     }
   }
 
@@ -214,12 +226,13 @@ export class FakeSim {
   private wakeUp(): void {
     this.timer = null;
     if (this.paused || !this.world) return;
-    const due = Math.floor(((this.host.now() - this.t0) * this.speed) / TICK_MS) - (this.tick - this.tick0);
+    let due = Math.floor(((this.host.now() - this.t0) * this.speed) / TICK_MS) - (this.tick - this.tick0);
     if (due > 6) {
-      this.t0 = this.host.now();
-      this.tick0 = this.tick;
-      this.clockGen = (this.clockGen + 1) & 0xffff;
+      // A backlog over 6 ticks: rebase t₀ and drop it, in a new clock generation (§3.3); game time slows.
+      this.restartClock();
+      return;
     }
+    if (due < 0) due = 0;
     const n = due > 3 ? 3 : due;
     for (let i = 0; i < n; i++) this.runTick();
     if (n > 0) this.extract(false);

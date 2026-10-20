@@ -93,7 +93,9 @@ records the new hashes, and the renderer reruns its golden test.
 
 **Audio (C7).** `packets/tick-0600.bin` holds 70 events of every M0 kind with their players and seqs;
 `AUDIO_WORKING` is absent because nothing works in M0 (use the fake sim, `?sim=fake`, for working sounds and the
-music feed).
+music feed). The fake takes its sound ids from the build's working-sound table (prototypes.bin's `working_sound`);
+until the data stage reads `sounds.yaml` (C1b decision 14) that table is empty, and the fake sends stand-in ids (the
+entity prototype ids of its machines, radars and belts) and says so in a log line at boot.
 
 ## Masked fields
 
