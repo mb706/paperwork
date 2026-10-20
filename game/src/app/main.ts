@@ -59,7 +59,10 @@ async function main(): Promise<void> {
   show('sim-status', `sim.wasm ABI ${abi}, instantiated in the sim worker`);
 }
 
-main().catch((e: unknown) => {
+// `?sim=fake` (10 §15.10) runs the fake sim instead; dev builds only, since the dev server serves its data.
+const fake = import.meta.env.DEV && new URLSearchParams(location.search).get('sim') === 'fake';
+const start = fake ? () => import('./fake-mode.ts').then((m) => m.runFake(show)) : main;
+start().catch((e: unknown) => {
   show('sim-status', `failed: ${e instanceof Error ? e.message : String(e)}`);
   console.error(e);
 });

@@ -203,7 +203,10 @@ describe("the tiny atlas (C6's fixture, test/fixtures/sprites/)", () => {
     expect(m.version).toBe(2);
     m.pages.forEach((pages: { files: string[]; bytes: number[] }[], ai: number) => {
       expect(m.arrays[ai].codec).toBe('rgba8');
-      for (const page of pages) page.files.forEach((f, i) => expect(atlas(f).length, f).toBe(page.bytes[i]));
+      for (const page of pages)
+        page.files.forEach((f, i) => {
+          expect(atlas(f).length, f).toBe(page.bytes[i]);
+        });
     });
   });
 });
