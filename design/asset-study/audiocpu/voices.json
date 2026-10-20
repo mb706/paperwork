@@ -1,0 +1,10 @@
+[
+ {"name": "idle", "voices": 0, "mode": "native"},
+ {"name": "native 16", "voices": 16, "mode": "native"},
+ {"name": "native 48", "voices": 48, "mode": "native"},
+ {"name": "native 48 +pan", "voices": 48, "mode": "native", "pan": true},
+ {"name": "worklet 16", "voices": 16, "mode": "worklet"},
+ {"name": "worklet 48", "voices": 48, "mode": "worklet"},
+ {"name": "native 96", "voices": 96, "mode": "native"},
+ {"name": "worklet 96", "voices": 96, "mode": "worklet"}
+]

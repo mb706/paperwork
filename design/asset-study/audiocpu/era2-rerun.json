@@ -1,0 +1,77 @@
+[
+ {
+  "name": "era2 cuts+fdn @32k",
+  "piece": "era2",
+  "pack": "ship",
+  "sampleRate": 32000,
+  "variant": {
+   "noXfade": true,
+   "voiceCap": 48,
+   "fdn": true
+  },
+  "duration": 140,
+  "params": {
+   "seed": 1962
+  },
+  "automation": [
+   [
+    0,
+    {
+     "activity": 0.8
+    }
+   ]
+  ],
+  "offset": 40
+ },
+ {
+  "name": "era2 bank+fdn @32k",
+  "piece": "era2",
+  "pack": "ship",
+  "sampleRate": 32000,
+  "variant": {
+   "noXfade": true,
+   "workletVoices": true,
+   "voiceCap": 48,
+   "fdn": true
+  },
+  "duration": 140,
+  "params": {
+   "seed": 1962
+  },
+  "automation": [
+   [
+    0,
+    {
+     "activity": 0.8
+    }
+   ]
+  ],
+  "offset": 40
+ },
+ {
+  "name": "era2 bank+fdn+noins @32k",
+  "piece": "era2",
+  "pack": "ship",
+  "sampleRate": 32000,
+  "variant": {
+   "noXfade": true,
+   "workletVoices": true,
+   "voiceCap": 48,
+   "fdn": true,
+   "noInserts": true
+  },
+  "duration": 140,
+  "params": {
+   "seed": 1962
+  },
+  "automation": [
+   [
+    0,
+    {
+     "activity": 0.8
+    }
+   ]
+  ],
+  "offset": 40
+ }
+]

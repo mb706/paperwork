@@ -1,0 +1,92 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>texfmt bench</title></head>
+<body><canvas id="c" width="64" height="64"></canvas>
+<script>
+// B2 texture-format study, step 3 (browser side): decode, transcode and upload timings.
+// Driven by bench.mjs; window.run(list) returns one row per file and operation.
+const med = (a) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+window.run = async (list, reps) => {
+  const out = { rows: [], ua: navigator.userAgent };
+  const gl = document.getElementById('c').getContext('webgl2');
+  out.webgl2 = !!gl;
+  const ext = {};
+  if (gl) {
+    for (const n of ['EXT_texture_compression_bptc', 'WEBGL_compressed_texture_astc', 'WEBGL_compressed_texture_etc',
+      'WEBGL_compressed_texture_s3tc', 'EXT_texture_compression_rgtc']) ext[n] = !!gl.getExtension(n);
+    out.renderer = gl.getParameter(gl.RENDERER);
+  }
+  out.ext = ext;
+  let t = performance.now();
+  const B = await BASIS({ locateFile: (f) => '/basis/' + f });
+  B.initializeBasis();
+  out.transcoderInitMs = performance.now() - t;
+  const FMT = { bc7: 6, astc4: 10, etc2: 1, rgba32: 13 };
+  for (const f of list) {
+    const bytes = new Uint8Array(await (await fetch(f.url)).arrayBuffer());
+    if (f.kind === 'png' || f.kind === 'webp') {
+      const blob = new Blob([bytes], { type: 'image/' + f.kind });
+      const ts = [];
+      let bmp = null;
+      for (let i = 0; i < reps; i++) {
+        if (bmp) bmp.close();
+        t = performance.now();
+        bmp = await createImageBitmap(blob, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+        ts.push(performance.now() - t);
+      }
+      out.rows.push({ page: f.page, variant: f.variant, op: 'decode', ms: med(ts), w: bmp.width, h: bmp.height });
+      if (gl) {
+        const tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
+        gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, bmp.width, bmp.height, 1);
+        const us = [];
+        for (let i = 0; i < reps; i++) {
+          t = performance.now();
+          gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, 0, bmp.width, bmp.height, 1, gl.RGBA, gl.UNSIGNED_BYTE, bmp);
+          gl.finish();
+          us.push(performance.now() - t);
+        }
+        out.rows.push({ page: f.page, variant: f.variant, op: 'upload-rgba8', ms: med(us) });
+        gl.deleteTexture(tex);
+      }
+      bmp.close();
+    } else {
+      for (const [name, code] of Object.entries(FMT)) {
+        const ts = [];
+        let dst = null;
+        let w = 0, h = 0;
+        for (let i = 0; i < reps; i++) {
+          t = performance.now();
+          const k = new B.KTX2File(bytes);
+          if (!k.isValid() || !k.startTranscoding()) { ts.push(NaN); k.close(); k.delete(); break; }
+          w = k.getWidth(); h = k.getHeight();
+          const n = k.getImageTranscodedSizeInBytes(0, 0, 0, code);
+          dst = new Uint8Array(n);
+          const ok = k.transcodeImage(dst, 0, 0, 0, code, 0, -1, -1);
+          k.close(); k.delete();
+          ts.push(ok ? performance.now() - t : NaN);
+        }
+        out.rows.push({ page: f.page, variant: f.variant, op: 'transcode-' + name, ms: med(ts), w, h, bytes: dst ? dst.length : 0 });
+        if (gl && name === 'bc7' && ext.EXT_texture_compression_bptc && dst) {
+          const e = gl.getExtension('EXT_texture_compression_bptc');
+          const tex = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
+          gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, e.COMPRESSED_RGBA_BPTC_UNORM_EXT, w, h, 1);
+          const us = [];
+          for (let i = 0; i < reps; i++) {
+            t = performance.now();
+            gl.compressedTexSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, 0, w, h, 1, e.COMPRESSED_RGBA_BPTC_UNORM_EXT, dst);
+            gl.finish();
+            us.push(performance.now() - t);
+          }
+          out.rows.push({ page: f.page, variant: f.variant, op: 'upload-bc7', ms: med(us), err: gl.getError() });
+          gl.deleteTexture(tex);
+        }
+      }
+    }
+  }
+  return out;
+};
+window.ready = true;
+</script>
+<script src="/basis/basis_transcoder.js"></script>
+</body></html>

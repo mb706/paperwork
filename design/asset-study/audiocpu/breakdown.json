@@ -1,0 +1,12 @@
+[
+ {"name": "idle context", "voices": 0, "mode": "native"},
+ {"name": "era2 A4", "piece": "era2", "pack": "prep", "duration": 140, "params": {"seed": 1962}, "automation": [[0, {"activity": 0.8}]], "offset": 40},
+ {"name": "era2 ship", "piece": "era2", "pack": "ship", "duration": 140, "params": {"seed": 1962}, "automation": [[0, {"activity": 0.8}]], "offset": 40},
+ {"name": "era2 ship+cuts", "piece": "era2", "pack": "ship", "variant": {"noXfade": true, "voiceCap": 48}, "duration": 140, "params": {"seed": 1962}, "automation": [[0, {"activity": 0.8}]], "offset": 40},
+ {"name": "era2 ship+cuts+fdn", "piece": "era2", "pack": "ship", "variant": {"noXfade": true, "voiceCap": 48, "fdn": true}, "duration": 140, "params": {"seed": 1962}, "automation": [[0, {"activity": 0.8}]], "offset": 40},
+ {"name": "era2 cuts+fdn+shaper1x", "piece": "era2", "pack": "ship", "variant": {"noXfade": true, "voiceCap": 48, "fdn": true, "shaper1x": true}, "duration": 140, "params": {"seed": 1962}, "automation": [[0, {"activity": 0.8}]], "offset": 40},
+ {"name": "era2 cuts+fdn+noinserts", "piece": "era2", "pack": "ship", "variant": {"noXfade": true, "voiceCap": 48, "fdn": true, "noInserts": true}, "duration": 140, "params": {"seed": 1962}, "automation": [[0, {"activity": 0.8}]], "offset": 40},
+ {"name": "era2 cuts+fdn @32k", "piece": "era2", "pack": "ship", "sampleRate": 32000, "variant": {"noXfade": true, "voiceCap": 48, "fdn": true}, "duration": 140, "params": {"seed": 1962}, "automation": [[0, {"activity": 0.8}]], "offset": 40},
+ {"name": "era2 cuts+fdn+shaper1x @32k", "piece": "era2", "pack": "ship", "sampleRate": 32000, "variant": {"noXfade": true, "voiceCap": 48, "fdn": true, "shaper1x": true}, "duration": 140, "params": {"seed": 1962}, "automation": [[0, {"activity": 0.8}]], "offset": 40},
+ {"name": "era2 noReverb (A4 opt)", "piece": "era2", "pack": "ship", "mixer": {"noReverb": true}, "variant": {"noXfade": true, "voiceCap": 48}, "duration": 140, "params": {"seed": 1962}, "automation": [[0, {"activity": 0.8}]], "offset": 40}
+]
