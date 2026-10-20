@@ -81,10 +81,12 @@ impl EventSink {
     }
 }
 
-/// The module's presentation state (§3.6). C2a: the event queue.
+/// The module's presentation state (§3.6): the event queue, and each character's displacement in its last
+/// update (MOVERS' velocity, §15.4), which the tick writes and extraction reads.
 #[derive(Clone, Debug, Default)]
 pub struct PresentationState {
     pub events: EventSink,
+    pub moves: [crate::rules::Move; schema::PLAYERS],
 }
 
 #[cfg(test)]

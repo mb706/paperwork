@@ -128,6 +128,16 @@ impl<T: Ord + Copy> BlockList<T> {
         Some(self.blocks[..bi].iter().map(Vec::len).sum::<usize>() + at)
     }
 
+    /// How many items are below `x` (its position when present).
+    pub fn count_below(&self, x: &T) -> usize {
+        if self.blocks.is_empty() {
+            return 0;
+        }
+        let bi = self.block_of(x);
+        let within = self.blocks[bi].partition_point(|y| y < x);
+        self.blocks[..bi].iter().map(Vec::len).sum::<usize>() + within
+    }
+
     /// The items in order.
     pub fn iter(&self) -> impl Iterator<Item = &T> + '_ {
         self.blocks.iter().flatten()

@@ -367,3 +367,66 @@ pub fn load_input_with_remaps(save: &[u8], remaps: &[(u16, &[u16], &[&str])]) ->
     out.extend_from_slice(&r.to_le_bytes());
     out
 }
+
+/// The golden closure log (`closure-log.pwlog`): each tick's closure and the blobs its actions name.
+pub struct GoldenLog {
+    /// `(tick, closure, blobs)` for every tick with a record.
+    pub records: Vec<(u32, Vec<u8>, Vec<Vec<u8>>)>,
+    /// The log's digest region: (first tick, d_t…).
+    pub digests: (u32, Vec<u64>),
+}
+
+impl GoldenLog {
+    pub fn load() -> Self {
+        let bytes = golden("closure-log.pwlog");
+        let l = schema::container::ClosureLog::parse(&bytes).expect("the golden log parses");
+        let records = l
+            .records
+            .iter()
+            .map(|r| {
+                let mut blobs = Vec::new();
+                for a in schema::ClosureIter::new(r.closure) {
+                    if let Ok(act) = schema::Action::decode(a.ty, a.payload)
+                        && let Some(h) = act.blob()
+                        && let Some(b) = l.blobs.iter().find(|b| b.sha256.bytes == h)
+                    {
+                        blobs.push(b.bytes.to_vec());
+                    }
+                }
+                (r.tick.0, r.closure.to_vec(), blobs)
+            })
+            .collect();
+        Self { records, digests: (l.header.digest_first_tick.0, l.digests.clone()) }
+    }
+
+    /// The closure of tick `t` (empty without a record) and its blobs.
+    pub fn at(&self, t: u32) -> (&[u8], &[Vec<u8>]) {
+        match self.records.binary_search_by_key(&t, |r| r.0) {
+            Ok(i) => (&self.records[i].1, &self.records[i].2),
+            Err(_) => (&[], &[]),
+        }
+    }
+
+    /// Supplies tick `t`'s blobs and runs it.
+    pub fn tick(&self, c: &mut SimContext, t: u32) -> sim::SimResult<()> {
+        let (closure, blobs) = self.at(t);
+        for b in blobs {
+            let mut input = sim::sha256::sha256(b).to_vec();
+            input.extend_from_slice(b);
+            c.blob_put(&input)?;
+        }
+        c.tick(closure)
+    }
+}
+
+/// `digest-preimages.txt`: (tick, the bytes d_t hashes).
+pub fn preimages() -> Vec<(u32, Vec<u8>)> {
+    golden_text("digest-preimages.txt")
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
+        .map(|l| {
+            let (t, h) = l.split_once(' ').expect("tick hex");
+            (t.parse().expect("tick"), unhex(h.trim()))
+        })
+        .collect()
+}

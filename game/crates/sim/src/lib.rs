@@ -8,6 +8,12 @@
 //! - [`save`]: the save sections, `sim_save`/`sim_load`'s formats, the full state hash (§4.8, §8.1–§8.3) and
 //!   [`remap`] (§8.3); [`digest`]: d_t, the slices and the rolling digest r (§4.8);
 //! - [`tick`]: `World::tick`'s phases (§4.6); [`context`]: the module's state behind the ABI (§3.6, §15.8);
+//!
+//! The rules (C2b):
+//! - [`rules`]: the action pipeline (§15.3) and M0's player and system actions, characters, inventories,
+//!   building, hand mining and hand crafting (§5.1–§5.2); [`stats`]: phase 15 (§5.20);
+//! - [`terrain`]: tiles and resources as rules see them; [`regen`]: pristine chunks, pre-generation requests
+//!   and inline chunk commits (§5.18, §15.9), over the `worldgen` crate;
 //! - [`testkit`]: the equivalence harness of D18 (NO_SLEEP, save/load, heavy mode) and state diffs;
 //! - [`hash`] (XXH64) and [`sha256`].
 #![forbid(unsafe_code)]
@@ -24,12 +30,16 @@ pub mod heap;
 pub mod index;
 pub mod players;
 pub mod presentation;
+pub mod regen;
 pub mod remap;
 pub mod rng;
+pub mod rules;
 pub mod save;
 pub mod sched;
 pub mod sha256;
 pub mod spatial;
+pub mod stats;
+pub mod terrain;
 pub mod testkit;
 pub mod tick;
 pub mod validate;

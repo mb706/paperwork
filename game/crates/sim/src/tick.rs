@@ -5,26 +5,26 @@
 //!
 //! | # | Phase | M0 |
 //! |---|---|---|
-//! | 1 | Input: the closure's actions in order, each seq consumed first; then the characters | seqs (C2a); the action pipeline and the characters arrive in C2b |
-//! | 2 | Timers: wake timers, then the work timers due, in `(due, serial, event, owner)` order | the scheduler (C2a); M0 has no work timers |
-//! | 3 | Chunk commits (§5.18) | C2b |
+//! | 1 | Input: the closure's actions in order through the action pipeline (rules.rs), then the characters (walking, mining, crafting), then this tick's worldgen requests | §15.3, §5.1, §5.18 |
+//! | 2 | Timers: wake timers, then the work timers due, in `(due, serial, event, owner)` order | the scheduler; M0 has no work timers |
+//! | 3 | Chunk commits (§5.18): the requests due now, a worker's answer or inline generation | regen.rs |
 //! | 4–14 | Energy … units | none in M0 |
-//! | 15 | Statistics (§5.20) | C2b |
-//! | 16 | Digest: d_t, slice_t (r_t is the module's, §4.8) | C2a |
+//! | 15 | Statistics (§5.20) | stats.rs |
+//! | 16 | Digest: d_t, slice_t (r_t is the module's, §4.8) | digest.rs |
 //!
 //! Per-phase digests (§4.8 item 5): when asked for (simcheck tools), the full state hash after each phase.
 
 use crate::digest::{Counters, Slicer, write_preimage};
-use crate::r#gen::{Hand, MiningState, Player};
 use crate::hash::xxh64;
-use crate::presentation::EventSink;
+use crate::presentation::PresentationState;
+use crate::regen::Answers;
+use crate::rules::{Ctx, RuleScratch};
 use crate::save::state_hash;
 use crate::world::World;
 use crate::{SimError, SimResult};
-use schema::{
-    ClosureIter, Direction, InvRef, ItemKey, PLAYERS, PlayerIndex, PreflightError, Seq, SimStatus,
-    SurfaceIndex, Tick, preflight,
-};
+use schema::{ChunkRequest, ClosureIter, PreflightError, SimStatus, SurfaceIndex, Tick, preflight};
+
+pub use crate::rules::watermark_player;
 
 /// The phases of §4.6, for per-phase digests.
 pub const PHASES: usize = 16;
@@ -35,17 +35,26 @@ pub struct TickScratch {
     pub counters: Counters,
     pub preimage: Vec<u8>,
     pub slicer: Slicer,
+    pub rules: RuleScratch,
+    /// This tick's pre-generation wishes, `(surface, cy, cx)`.
+    pub wanted: Vec<(SurfaceIndex, i32, i32)>,
 }
 
 /// What a tick needs besides the World and the closure.
 pub struct TickIo<'a> {
     /// Whether a blob was supplied for this tick (`sim_blob_put`, §15.3).
     pub has_blob: &'a dyn Fn(&[u8; 32]) -> bool,
-    /// The event queue the tick writes (§3.6: borrowed from the presentation state).
-    pub events: &'a mut EventSink,
+    /// The presentation state the tick writes (§3.6): the event queue and the characters' motion.
+    pub pres: &'a mut PresentationState,
     pub scratch: &'a mut TickScratch,
+    /// Worker answers for pending requests (`sim_supply_chunk`); phase 3 takes the ones due.
+    pub answers: &'a mut Answers,
+    /// The requests this tick makes, for `sim_pending_chunks`.
+    pub issued: &'a mut Vec<ChunkRequest>,
     /// When set, the full state hash after each phase (§4.8 item 5).
     pub phase_digests: Option<&'a mut [u64; PHASES]>,
+    /// Verify that refusals change nothing (tests; a state hash per action).
+    pub check_refusals: bool,
 }
 
 /// A tick's digests (§4.8): d_t and slice_t; the module rolls r_t.
@@ -53,35 +62,6 @@ pub struct TickIo<'a> {
 pub struct TickDigests {
     pub d: u64,
     pub slice: u64,
-}
-
-/// A player record without a character (golden rule 12): what the World keeps for a player index that sent an
-/// action before it joined, so that its seqs stay consumed across ticks, saves and its later join. Offline,
-/// every other field at its default (no inventory, an empty hand).
-pub fn watermark_player(index: PlayerIndex) -> Player {
-    Player {
-        index,
-        online: false,
-        character: schema::Serial::NONE,
-        input_gen: 0,
-        last_seq: Seq(0),
-        creation_ring: Vec::new(),
-        inventory_version: 0,
-        main: InvRef::NONE,
-        hand: Hand { key: ItemKey::NONE, ghost: false, origin: 0xFFFF, count: 0 },
-        surface: SurfaceIndex(0),
-        x: 0.0,
-        y: 0.0,
-        walking: false,
-        walking_dir: Direction::North,
-        mining: MiningState::default(),
-        picking: false,
-        crafting_queue: Vec::new(),
-        auto_sort: true,
-        pick_ghost_cursor: false,
-        hand_crafted: 0.0,
-        last_action_tick: Tick(0),
-    }
 }
 
 impl World {
@@ -106,13 +86,25 @@ impl World {
         io.scratch.counters.clear();
         let mut phase = PhaseDigests::new(io.phase_digests.as_deref_mut());
 
-        // Phase 1 (§4.6): the closure's batches in order, each batch's actions in seq order (§15.3).
-        for a in ClosureIter::new(closure) {
-            self.consume_seq(a.system, a.player, Seq(a.seq));
-            // C2b: decode (`malformed`), the capability manifest (`unsupported`), presence, input fencing (D22)
-            // and the action's own rules, refusals as events.
+        // Phase 1 (§4.6): the closure's batches in order, each batch's actions in seq order (§15.3); then every
+        // online character (rule 10); then the worldgen requests of the chunks characters entered (§5.18).
+        {
+            let TickScratch { counters, rules, wanted, .. } = &mut *io.scratch;
+            let mut ctx = Ctx {
+                tick: Tick(t),
+                events: &mut io.pres.events,
+                counters,
+                scratch: rules,
+                moves: &mut io.pres.moves,
+                wanted,
+                check_refusals: io.check_refusals,
+            };
+            for a in ClosureIter::new(closure) {
+                self.apply_action(&mut ctx, &a);
+            }
+            self.characters_tick(&mut ctx);
         }
-        // C2b: the online characters, ascending by player index: walking, mining, crafting (golden rule 10).
+        self.schedule_requests(t, &mut io.scratch.wanted, io.issued);
         phase.after(1, self);
 
         // Phase 2: wake timers (they only mark, wake rule 1), then the work timers due now, in their order.
@@ -122,10 +114,16 @@ impl World {
             // refuses timers due before the next tick, so every timer popped here is due now.
         }
         phase.after(2, self);
-        // Phase 3: chunk commits (C2b). Phases 4–14: no system in M0. Phase 15: statistics (C2b).
-        for p in 3..=15 {
+        // Phase 3 (§5.18): the chunk commits due now.
+        self.commit_chunks(t, io.answers);
+        phase.after(3, self);
+        // Phases 4–14: no system in M0.
+        for p in 4..=14 {
             phase.after(p, self);
         }
+        // Phase 15 (§5.20): statistics.
+        self.flush_stats(t, &io.scratch.counters);
+        phase.after(15, self);
 
         // Phase 16 (§4.8): d_t over §4.8's sequence, then this tick's slice.
         io.scratch.preimage.clear();
@@ -135,22 +133,6 @@ impl World {
         let slice = io.scratch.slicer.slice_hash(self, t % schema::SHARDS).map_err(enc)?;
         phase.after(16, self);
         Ok(TickDigests { d, slice })
-    }
-
-    /// §15.3 "Identity and seq": every action consumes its seq, refused or not. A player index without a record
-    /// gets a watermark record (golden rule 12).
-    fn consume_seq(&mut self, system: bool, player: PlayerIndex, seq: Seq) {
-        if system {
-            self.globals.last_system_seq = seq;
-            return;
-        }
-        debug_assert!(usize::from(player.0) < PLAYERS, "the preflight bounds player indexes");
-        if self.players.get(player).is_none() {
-            self.players.insert(watermark_player(player));
-        }
-        if let Some(p) = self.players.get_mut(player) {
-            p.last_seq = seq;
-        }
     }
 }
 

@@ -6,6 +6,10 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { actionBlob, closureActions, decodeAction } from '../../src/shared/gen/actions.ts';
+import { Reader } from '../../src/shared/gen/codec.ts';
+import { parseClosureLog } from '../../src/shared/gen/container.ts';
+import { DigestResultCodec } from '../../src/shared/gen/projections.ts';
 import { GAME } from '../helpers/paths.ts';
 import { buildModule, initInput, stateInput, WasmSim } from './module.ts';
 
@@ -86,7 +90,7 @@ describe('sim.wasm: the golden set without systems', () => {
     }
   });
 
-  it('replays the boot-and-order and remap-load traces, and watermarks up to the join', () => {
+  it('replays every ABI trace, skipping the exports that arrive with C2c', () => {
     const traces = JSON.parse(readFileSync(join(GOLDEN, 'abi', 'traces.json'), 'utf8')) as {
       traces: {
         name: string;
@@ -100,15 +104,31 @@ describe('sim.wasm: the golden set without systems', () => {
         }[];
       }[];
     };
-    for (const [name, upTo] of [
-      ['boot-and-order', Number.POSITIVE_INFINITY],
-      ['remap-load', Number.POSITIVE_INFINITY],
-      ['watermarks', 9],
-    ] as const) {
-      const t = traces.traces.find((x) => x.name === name);
-      if (!t) throw new Error(`no trace ${name}`);
+    // Extraction, subscriptions and queries arrive with C2c; none of them changes the World (D9).
+    const c2c = [
+      'sim_extract',
+      'sim_subscribe',
+      'sim_unsubscribe',
+      'sim_query',
+      'sim_query_step',
+      'sim_query_cancel',
+    ];
+    expect(traces.traces.map((t) => t.name).sort()).toEqual(
+      [
+        'boot-and-order',
+        'capacity',
+        'packet-transitions',
+        'queries',
+        'remap-load',
+        'subscriptions',
+        'watermarks',
+      ].sort(),
+    );
+    for (const t of traces.traces) {
+      const name = t.name;
       const s = new WasmSim(module);
-      t.calls.slice(0, upTo).forEach((c, i) => {
+      t.calls.forEach((c, i) => {
+        if (c2c.includes(c.call)) return;
         const input = c.in ? golden(c.in) : new Uint8Array();
         const before = s.stateHash();
         let status: string;
@@ -155,6 +175,86 @@ describe('sim.wasm: the golden set without systems', () => {
     }
     expect(n).toBe(19);
   });
+});
+
+/** The golden log's closures and blobs, and `digests.txt` as (d, r) per tick. */
+function goldenRun() {
+  const log = parseClosureLog(golden('closure-log.pwlog'));
+  const closures = new Map(log.records.map((r) => [r.tick, r.closure]));
+  const digests = new Map<number, { d: string; r: string }>();
+  for (const line of new TextDecoder().decode(golden('digests.txt')).split('\n')) {
+    const f = line.split(' ');
+    if (line.startsWith('#') || f.length < 4) continue;
+    digests.set(Number(f[0]), { d: f[1] as string, r: f[3] as string });
+  }
+  return { log, closures, digests };
+}
+
+/** Runs tick `t` of the golden log in `s` (its blobs first) and returns `sim_digest`'s d and r, hex. */
+function tickGolden(s: WasmSim, run: ReturnType<typeof goldenRun>, t: number): { d: string; r: string } {
+  const closure = run.closures.get(t) ?? new Uint8Array();
+  // The blobs this tick's actions name (§15.3), supplied before the tick.
+  for (const a of closureActions(closure)) {
+    let h: Uint8Array | null = null;
+    try {
+      h = actionBlob(decodeAction(a.type, a.payload));
+    } catch {
+      h = null;
+    }
+    const b = h && run.log.blobs.find((x) => hex(x.sha256.bytes) === hex(h as Uint8Array));
+    if (!b) continue;
+    const input = new Uint8Array(32 + b.bytes.length);
+    input.set(b.sha256.bytes, 0);
+    input.set(b.bytes, 32);
+    expect(s.status('sim_blob_put', input)).toBe('ok');
+  }
+  expect(s.status('sim_tick', closure), `tick ${t}: ${s.lastError().message}`).toBe('ok');
+  const out = s.envelope('sim_digest').out as Uint8Array;
+  const v = DigestResultCodec.read(new Reader(out));
+  expect(v.tick).toBe(t);
+  return { d: v.d.toString(16).padStart(16, '0'), r: v.r.toString(16).padStart(16, '0') };
+}
+
+describe('sim.wasm: the golden set ticks', () => {
+  it('runs the closure log: every d_t and r_t, and the states and hashes after 1, 2, 300, 600 and 3,600', () => {
+    const run = goldenRun();
+    const s = fresh();
+    expect(s.status('sim_load', containerInput(golden('start.save')))).toBe('ok');
+    const hashes = new Map(
+      new TextDecoder()
+        .decode(golden('states/hashes.txt'))
+        .split('\n')
+        .filter((l) => l.startsWith('tick '))
+        .map((l) => [Number(l.split(' ')[1]), l.split(' ')[2] as string]),
+    );
+    for (let t = 1; t <= 3600; t++) {
+      const got = tickGolden(s, run, t);
+      const want = run.digests.get(t);
+      if (got.d !== want?.d || got.r !== want?.r) expect(got, `tick ${t}`).toEqual(want);
+      if (hashes.has(t)) {
+        const state = golden(`states/tick-${String(t).padStart(4, '0')}.sections`);
+        expect(hex(s.envelope('sim_save', new Uint8Array(4)).out as Uint8Array), `tick ${t}`).toBe(
+          hex(state),
+        );
+        expect(s.stateHash()?.toString(16).padStart(16, '0'), `tick ${t}`).toBe(hashes.get(t));
+      }
+    }
+    expect(s.panics).toEqual([]);
+  }, 120_000);
+
+  it('continues from states/tick-0300.sections with the same digests', () => {
+    const run = goldenRun();
+    const s = fresh();
+    expect(s.status('sim_load', stateInput(golden('states/tick-0300.sections')))).toBe('ok');
+    for (let t = 301; t <= 3600; t++) {
+      const got = tickGolden(s, run, t);
+      const want = run.digests.get(t);
+      if (got.d !== want?.d || got.r !== want?.r) expect(got, `tick ${t}`).toEqual(want);
+    }
+    expect(hex(s.envelope('sim_save', new Uint8Array(4)).out as Uint8Array)).toBe(
+      hex(golden('states/tick-3600.sections')),
+    );
+  }, 120_000);
 });
 
 describe('sim.wasm: codex C2a-r1 regressions', () => {

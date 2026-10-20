@@ -6,11 +6,13 @@
 //! ten functions over 10⁶ arguments bit-identical natively, in Node, Chrome 156 and Firefox 157).
 //! `std`'s `f64::sin` and friends are banned by `clippy.toml`; call these instead. Besides the libm wrappers
 //! the crate holds the fixed-order integer power [`powi`], [`fmax`]/[`fmin`] as comparisons, half-up unit
-//! rounding, piecewise-linear tables ([`piecewise`]) and the expression bytecode interpreter ([`expr`]).
+//! rounding, piecewise-linear tables ([`piecewise`]), the expression bytecode interpreter ([`expr`]) and XXH64
+//! ([`xxh64`]).
 #![forbid(unsafe_code)]
 
 pub mod expr;
 pub mod piecewise;
+pub mod xxh64;
 
 pub use piecewise::{Piecewise, PiecewiseError, piecewise_linear};
 

@@ -15,7 +15,7 @@ use crate::rng::RngStreams;
 use crate::sched::Scheduler;
 use schema::{
     ChunkKey, Direction, EntityFlags, EntityHandle, EntityId, EntityType, PoolKind, Protos, SHARDS, Serial,
-    StatKey, SurfaceIndex, Tick, TileId, TimerEvent, chunk_key,
+    StatKey, SurfaceIndex, Tick, TimerEvent, chunk_key,
 };
 use std::sync::Arc;
 
@@ -120,6 +120,10 @@ pub struct World {
     pub(crate) pending_shards: ShardBuckets<PendingKey>,
     /// Derived: active sets, wake sequence numbers, registrations and wake timers (§4.6).
     pub sched: Scheduler,
+    /// Derived: the chunks with a pending worldgen request, ascending by `(surface, cy, cx)` (regen.rs).
+    pub(crate) pending_chunks: Vec<(SurfaceIndex, i32, i32)>,
+    /// Derived: the world's generator and the regeneration cache of pristine chunks (regen.rs).
+    pub regen: crate::regen::RegenCache,
     /// Derived from the prototypes: how far any collision box reaches from its entity's centre (spatial.rs).
     pub(crate) entity_reach: f64,
 }
@@ -148,6 +152,8 @@ impl World {
             timer_shards: ShardBuckets::new(),
             pending_shards: ShardBuckets::new(),
             sched,
+            pending_chunks: Vec::new(),
+            regen: crate::regen::RegenCache::default(),
             entity_reach,
         }
     }
@@ -233,6 +239,10 @@ impl World {
         let fresh = self.pending.insert(k);
         if fresh {
             self.pending_shards.insert(pending_shard(&k), k);
+            let c = (k.1, k.2, k.3);
+            if let Err(i) = self.pending_chunks.binary_search(&c) {
+                self.pending_chunks.insert(i, c);
+            }
         }
         fresh
     }
@@ -241,6 +251,9 @@ impl World {
         let had = self.pending.remove(k);
         if had {
             self.pending_shards.remove(pending_shard(k), k);
+            if let Ok(i) = self.pending_chunks.binary_search(&(k.1, k.2, k.3)) {
+                self.pending_chunks.remove(i);
+            }
         }
         had
     }
@@ -258,6 +271,14 @@ impl World {
             self.timer_shards.insert(timer_shard(k), *k);
         }
         self.pending_shards.clear();
+        self.pending_chunks.clear();
+        for k in pending {
+            self.pending_chunks.push((k.1, k.2, k.3));
+        }
+        self.pending_chunks.sort_unstable();
+        if self.pending_chunks.windows(2).any(|w| w[0] == w[1]) {
+            return Err("a chunk is requested twice in WORLDGEN_PENDING".to_owned());
+        }
         for k in pending {
             self.pending_shards.insert(pending_shard(k), *k);
         }
@@ -468,12 +489,6 @@ impl World {
     }
 
     // ------------------------------------------------------------------------------------------- map
-
-    /// The tile at `(tx, ty)` of a modified chunk; `None` outside every modified chunk (a pristine chunk's
-    /// tiles come from worldgen's regeneration cache, C2b).
-    pub fn tile_at(&self, surface: SurfaceIndex, tx: i32, ty: i32) -> Option<TileId> {
-        self.chunks.at_tile(surface, tx, ty).map(|c| c.tile(tx, ty))
-    }
 
     /// Whether `(tx, ty)` lies inside the map (golden rule 1).
     pub fn in_map(&self, tx: i32, ty: i32) -> bool {

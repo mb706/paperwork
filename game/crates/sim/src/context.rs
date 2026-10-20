@@ -10,6 +10,7 @@
 use crate::digest::lineage0;
 use crate::r#gen::{Globals, Surface};
 use crate::presentation::PresentationState;
+use crate::regen::Answers;
 use crate::save::{self, StateHashes, WORLDGEN_VERSION, WorldgenId};
 use crate::sha256::sha256;
 use crate::tick::{PHASES, TickIo, TickScratch};
@@ -43,6 +44,8 @@ enum WorldCall {
 #[derive(Debug)]
 struct Loaded {
     protos: Arc<Protos>,
+    /// `prototypes.bin` itself: the world hash covers it (§15.9).
+    bin: Arc<Vec<u8>>,
     worldgen: WorldgenId,
 }
 
@@ -73,6 +76,12 @@ pub struct SimContext {
     /// Worldgen requests issued since the last `sim_pending_chunks` (after a load: every pending request of
     /// the save, §15.8).
     issued: Vec<ChunkRequest>,
+    /// Worker answers held for pending requests (`sim_supply_chunk`, §15.9).
+    answers: Answers,
+    /// The world hash of the current world (§15.9).
+    world_hash: u64,
+    /// Ticks verify that refusals change nothing (tests).
+    check_refusals: bool,
 }
 
 fn order(m: &str) -> SimError {
@@ -104,6 +113,7 @@ impl SimContext {
         *self = Self::default();
         self.protos = Some(Loaded {
             protos: Arc::new(protos),
+            bin: Arc::new(protos_bin.to_vec()),
             worldgen: WorldgenId { version: WORLDGEN_VERSION, data_hash },
         });
         self.flags = flags;
@@ -168,9 +178,24 @@ impl SimContext {
         self.want_phase_digests = on;
     }
 
+    /// The world hash of a world with these settings under the loaded prototypes (§15.9).
+    fn generator_for(&self, globals: &Globals) -> SimResult<Arc<worldgen::Generator>> {
+        let l = self.loaded()?;
+        let hash = worldgen::world_hash(&l.bin, globals.seed, &globals.map);
+        Ok(Arc::new(worldgen::Generator::new(
+            &l.protos,
+            globals.seed,
+            &globals.map,
+            globals.world.climate_compass,
+            hash,
+        )))
+    }
+
     /// Replaces the world (a new game or a load): fresh presentation and digests, the module's flags applied.
     fn install(&mut self, mut world: World, r: u64, call: WorldCall) {
         world.set_no_sleep(self.flags.contains(SimFlags::NO_SLEEP));
+        self.answers.clear();
+        self.world_hash = world.regen.generator().map_or(0, |g| g.world_hash());
         self.world = Some(world);
         self.r = r;
         self.d = 0;
@@ -205,17 +230,38 @@ impl SimContext {
             next_serial: Serial(1),
             last_system_seq: schema::Seq(0),
         };
-        let world = World::new(l.protos.clone(), globals);
+        let mut world = World::new(l.protos.clone(), globals);
+        world.regen.set_generator(self.generator_for(&world.globals)?);
+        // §5.18 stage 10: every chunk within the pre-generation radius of spawn, inline, before tick 1.
+        let mut wanted = Vec::new();
+        world.pregen_wanted(SurfaceIndex(0), 0, 0, &mut wanted);
+        wanted.sort_unstable();
+        for (surface, cy, cx) in wanted {
+            let d = world.regen.generate(surface, schema::chunk_key(cx, cy));
+            world.commit_generated(d);
+        }
         self.report = None;
         self.install(world, lineage0(nw.seed), WorldCall::NewWorld);
         Ok(())
+    }
+
+    /// The world hash of the current world (§15.9; 0 without a world).
+    pub fn world_hash(&self) -> u64 {
+        self.world_hash
+    }
+
+    /// Ticks verify that every refused action left the state unchanged (§15.3; a state hash per action).
+    pub fn set_check_refusals(&mut self, on: bool) {
+        self.check_refusals = on;
     }
 
     /// `sim_load` (§15.8, §8.1–§8.3): `LoadInput`.
     pub fn load(&mut self, input_bytes: &[u8]) -> SimResult<()> {
         let l = self.loaded()?;
         let req = save::parse_load_input(input_bytes, &l.protos)?;
-        let out = save::load(&l.protos, &l.worldgen, &req)?;
+        let mut out = save::load(&l.protos, &l.worldgen, &req)?;
+        let generator = self.generator_for(&out.world.globals)?;
+        out.world.regen.set_generator(generator);
         self.report = Some(LoadReport { new_lineage: out.new_lineage, r: out.r, removed: out.removed });
         self.install(out.world, out.r, WorldCall::Load);
         Ok(())
@@ -233,11 +279,15 @@ impl SimContext {
         let profile = self.want_phase_digests;
         let mut io = TickIo {
             has_blob: &has_blob,
-            events: &mut self.pres.events,
+            pres: &mut self.pres,
             scratch: &mut self.scratch,
+            answers: &mut self.answers,
+            issued: &mut self.issued,
             phase_digests: if profile { Some(&mut phases) } else { None },
+            check_refusals: self.check_refusals,
         };
         let dg = world.tick(closure, &mut io)?;
+        self.answers.retain_pending(world);
         self.d = dg.d;
         self.slice = dg.slice;
         self.r = digest::roll(self.r, dg.d, dg.slice);
@@ -311,10 +361,27 @@ impl SimContext {
     }
 
     /// `sim_supply_chunk` (§15.8, §15.9): one `chunk_data` record, read strictly. An answer to no pending
-    /// request, or for another world, is ignored (rule 45); C2b's commits take the answers they asked for.
+    /// request (late, or never asked for) or for another world is ignored (rule 45); one that answers a pending
+    /// request is held until its commit tick, which takes it instead of generating the chunk inline. An answer
+    /// with this world's hash but impossible content (a tile or resource the prototypes lack, resources out of
+    /// order) is `ERR_INPUT`.
     pub fn supply_chunk(&mut self, record: &[u8]) -> SimResult<()> {
-        self.world_or_order()?;
-        schema::ChunkData::decode_exact(record, true).map_err(|e| input(format!("chunk_data: {e}")))?;
+        let w = self.world_or_order()?;
+        let d =
+            schema::ChunkData::decode_exact(record, true).map_err(|e| input(format!("chunk_data: {e}")))?;
+        if d.world_hash != self.world_hash || !w.is_pending(d.surface, d.key) {
+            return Ok(());
+        }
+        let tiles = w.protos.tile.len();
+        if let Some(t) = d.tiles.iter().find(|t| usize::from(t.0) >= tiles) {
+            return Err(input(format!("chunk_data: tile {} of {tiles}", t.0)));
+        }
+        let resources = w.protos.resource.len();
+        let ordered = d.resources.windows(2).all(|p| p[0].tile < p[1].tile);
+        if !ordered || d.resources.iter().any(|r| usize::from(r.resource.0) >= resources || r.tile >= 1024) {
+            return Err(input("chunk_data: resources out of order or unknown"));
+        }
+        self.answers.put(d);
         Ok(())
     }
 
@@ -351,10 +418,14 @@ impl SimContext {
         let w = self.world_or_order()?;
         let v = SaveInput::decode_exact(input_bytes).map_err(|e| input(format!("SaveInput: {e}")))?;
         let bake = v.flags.contains(SaveFlags::BAKE);
-        if bake && w.chunks.has_pristine() {
-            return Err(order("baking pristine chunks needs worldgen (C2b)"));
-        }
-        let sections = save::encode_sections(w)?;
+        let sections = if bake && w.chunks.has_pristine() {
+            // §4.4: a baked save stores every generated chunk, so it loads under any worldgen version.
+            let mut baked = w.clone();
+            baked.bake_pristine();
+            save::encode_sections(&baked)?
+        } else {
+            save::encode_sections(w)?
+        };
         let r =
             if bake { digest::lineage_of(save::state_hash_of(&sections), w.current_tick()) } else { self.r };
         let mut out = Vec::new();
