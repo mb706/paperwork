@@ -251,7 +251,7 @@ The mock shows three working furnaces beside an idle one (`mocks/survey-final-1x
 
 | Kind | Frames | Rule |
 |---|---|---|
-| Machines, furnaces, Keypunch | 16, seamless | animated parts on their own layer over a static base, the static parts as holdout (10 §9.1 #4) |
+| Machines, furnaces, Keypunch | 16, seamless | animated parts on their own layer over a static base (10 §9.1: the base has the animated parts hidden; each layer frame is the inked frame cropped to its animation rectangle) |
 | Drills | 16 × 4 directions | the turret's ring gear turns |
 | Belts | 16 per piece | chevron ridges advance 1/16 of their 0.25-tile pitch per frame |
 | Inserters | parts | base, arm and hand rotated in 2D (10 §6.8); arms in the high layer |
@@ -409,6 +409,7 @@ taskset -c 8-15,24-31 blender -b --factory-startup -noaudio --python design/art/
   (about 100 MB).
 - **Download:** colour about 18 MB for the full game, well under 200 MB.
 - **Planned M3 KTX2 compression** (10 §6.13) gives a further 4× when needed.
+- *Update (WP B2, 2026-10-20):* superseded by spec 10 §9.2 and §9.6. Atlases ship as KTX2 XUBC7 transcoded to BC7 from M0, a format chosen by measurement on pages from this pipeline. An itemised model of every sprite set (10 §9.6) gives the slice 8 pages and 43 MB of GPU memory at High, and the full game 33 pages and 183 MB.
 
 ## 14. Do and don't
 

@@ -2297,112 +2297,504 @@ A **checkpoint** (S9) is a complete save written at a tick boundary: "write a ch
 
 ---
 
-## 9. Asset pipeline
+## 9. Assets, audio, loading and streaming
 
-### 9.1 Blender sprites (Blender 5.2.2 LTS, Cycles CPU)
+**Version 2** (WP B2). The art direction *Survey* (IMPL-5; `design/art/DIRECTION.md`, cited as A3 §n) and the generative audio engine (IMPL-6; `design/audio/DIRECTION.md`, cited as A4 §n) replace round 5's plan of Factorio-like grime and music21/FluidSynth tracks. The two DIRECTION documents own the look and the sound; this section owns how both are built, shipped, loaded and run. The measurements were made on this host on 2026-10-20 with the scripts in `design/asset-study/` (texture formats, the layered render, the budget model, the audio CPU study), and their outputs are in the gitignored `design/art/out/` and `design/audio/out/`. §6.4 and §6.13 still describe round 5's WebP transport and a KTX2 plan for M3; §9.2 and §9.7 supersede them.
 
-**Layout:**
-- `assets/blender/lib/rig.py`: camera, lights and render settings.
-- `materials.py`: the palette and PBR materials. The look is Factorio-like: desaturated, a warm key light, grime.
-- `parts.py`: parametric parts such as frames, panels, pipes, fans, cabinets, cable trays, card stacks, tubes, gauges and lamps.
-- `entities/<id>.py`: one per entity. Each builds the model and declares its directions, animated parts, light emitters and fluid-port positions.
+### 9.1 Sprites: the Survey render pipeline (Blender 5.2.2 LTS, Cycles CPU)
 
-Each model is authored from the data's `sprite` lines and the icon and sprite legibility rules of 07-ui §23.
+**Sources.** They are ported from A3's prototype (`design/art/proto/`), which already runs on this host:
 
-**Camera:**
-- orthographic, pitched 45° and viewed from the south;
-- rendered with non-square pixels (`pixel_aspect_x = √2`) so that ground squares stay square and heights render 1:1, which is Factorio's oblique look;
-- 64 px per tile at High.
+```
+game/assets/blender/
+  lib/style.py        style tables, no bpy: palettes, KEY_DIR, SHADOW_DIR, tone bands, ink and hatch parameters.
+                      Survey ships; A3's realism variant stays a one-table switch (IMPL-5)
+  lib/materials.py    flat emission washes in three N·L bands (A3 §4.1); output modes beauty, light, normal, aux
+  lib/parts.py        bmesh primitives: box, taper_box, cyl, cone, sphere, torus, tube, gear, prism, hip_roof,
+                      wedge, rock, blob, lattice, point_light
+  lib/rig.py          camera, canvas, the split light rig, the passes
+  entities/<id>.py    one per entity prototype: META, build(), pose()
+  world/<id>.py       trees, rocks, resources, decoratives, cliffs, town buildings, the campus (same contract)
+  items/<id>.py       item models, for icons
+  render.py, render_icons.py         the Blender entry points: one sprite set per process
+game/scripts/assets/  post.py (ink, glow, downscale), pack.py, encode.py, contact.py, metrics.py, checks.py
+game/scripts/build-assets.ts         the driver: content hashes, the job queue, the manifest (npm run assets)
+```
 
-**A calibration test** (`test/assets/projection.py`) renders a 1×1×1 m cube. Its top face must be 64×64 px and its south face 64 px tall, within ±1 px.
+**The entity contract.** An entity script exports three things:
+- **`META`:**
+  - `size` (w, h in tiles) and `height` (m);
+  - `dirs`: the `Direction` values that get art (§4.2), e.g. `[8]` for a symmetric machine drawn from the south, `[0, 4, 8, 12]` for a drill;
+  - `variants` (connection masks or shapes) and `states` (`working`, plus `idle` where the emitters go dark, A3 §8);
+  - `layers`: the animated layers, each a list of part names and a frame count;
+  - `light` (emitters present), `smoke` (chimney points for the render-time smoke of §9.8), `margin`, and `ink`, the weight class (machine 1.0, archive 0.75, ore 0.70, decorative 0.45; A3 §5).
+- **`build(P, dir, variant, state)`:** the model at rest, with every animated part named.
+- **`pose(parts, layer, frame)`:** moves one layer's named parts to frame f by transform alone (rotation, translation, visibility). No geometry is rebuilt per frame.
 
-**Lighting:** a sun from the north-west (shadows fall east), sky fill, fixed exposure, the *Standard* view transform for predictable colour, and a fixed seed.
+Each model follows the data's `sprite` line, the entity's description and 07 §23's legibility rules, under A3 §6's modelling rules.
 
-**Passes per entity, direction and frame:**
-1. **Colour:** RGBA with a transparent film, 32–64 samples plus OIDN denoising.
-2. **Shadow:** the object as holdout plus a shadow-catcher ground plane, giving the shadow alpha.
-3. **Light:** emission only, for night glow.
-4. **Animated parts** render as a separate layer over a static base, with the static parts as holdout. That keeps animation sheets small.
+**Camera and projection** are unchanged; A3 §2 measured them. The camera is orthographic, pitched 45° from the south, with `pixel_aspect_x = √2` and 64 px per tile at High. The calibration test `test/assets/projection.py` renders a unit cube: its top face must be 64×64 px and its south face 64 px tall, within ±1 px.
 
-**Directions and frames** (defaults, overridable per entity):
+**Light.** The colour pass renders no lights. Each material is an emission wash multiplied by a tone band from N·L against the shading key (−0.62, −0.30, 0.73), with A3 §4.1's bands, and the dark band is hatched by the ink pass. Cast shadows come from a second sun at (−0.80, 0.22, 0.56). They therefore fall east-south-east as in Factorio, while the south faces the camera sees stay lit (A3, decision 2). Emitters are flat and unbanded.
 
-| Kind | Directions | Frames |
-|---|---|---|
-| Machines | 1 (4 if asymmetric) | 16 working frames, seamless |
-| Belts | 4 straight + 8 curves + start/end caps | 16 |
-| Inserters | Parts only (rotated in 2D) | — |
-| Drills | 4 | 16 |
-| Rolling stock | 64 | — |
-| Agents | 16 | 2 |
-| Trees | Variants × leaf stages | — |
+**Passes** (A3 §13.3's settings: the *Standard* view transform, a transparent film, 16 fixed threads, seed 7, adaptive threshold 0.02, no denoiser):
 
-**Throughput:**
-- 4 parallel Blender processes of 8 threads each, all frames of an entity per process: `blender -b --factory-startup -noaudio --python render.py -- --entity id --res high`.
-- About 1–2 s per 256² frame, so the slice's ~1,500 frames take about 30 minutes and the full set of about 6,000 about 2 hours.
-- Incremental by content hash of the entity script, the library version and the parameters.
+| Pass | Content | Samples | Resolution | Used for |
+|---|---|---|---|---|
+| colour | the washes | 16 | High | the sprite, before ink |
+| normal | world normal as (n + 1)/2, 8-bit | 1, filter 0.01 | 2× High | crease lines over 32° and the dark band's hatching |
+| aux | material id, object id, organic flag | 1, filter 0.01 | 2× High | material and object boundary lines |
+| light | emitters only; everything else black | 4 | High | the glow (the light array) |
+| shadow | a shadow catcher; the object is invisible to the camera; a 1° sun and no sky | 64 | **Normal** | the shadow mask |
 
-### 9.2 Post-processing and atlases
+The shadow pass renders at Normal resolution, because masks are stored there anyway (A3 §4.2) and it is the costliest pass: 46–56 µs per canvas pixel at High.
 
-`scripts/build-assets.ts` (Node) calls Python with Pillow and numpy:
-1. trim transparent borders and record anchor offsets;
-2. premultiply alpha;
-3. convert shadows to a single channel;
-4. produce Normal resolution (½);
-5. check alpha and footprint bounds;
-6. pack with `maxrects-packer` 2.7.4 into 2048² pages, animation sheets as units, grouped by tier;
-7. emit `sprites.json`;
-8. encode WebP (cwebp) or PNG (oxipng).
+**Render only what moves (binding, IMPL-5).** A sprite set is one static base per direction, variant and state, plus animated layers per frame. A3's prototype rebuilt and rendered the whole scene for every frame, which would take about 11 hours for the full set. The algorithm:
+1. **Build** the model once per (direction, variant, state).
+2. **The base:** hide the animated parts and render colour, normal, aux and light.
+3. **The shadow:** render it once, at Normal resolution, with the animated parts at their frame-0 pose. A moving part's shadow is low-frequency hatching. A set may declare `animShadow` for the few cases where it matters, such as the radar dish.
+4. **The animation rectangle R of each layer:** the union over all frames of the projected bounds of the layer's parts, plus 8 px at High (the silhouette line and the ink filters' reach), rounded out to multiples of 8 px.
+5. **Each frame:** `pose()` the layer, then render colour, normal and aux inside R only (a Cycles border render, cropped). Every static part stays in the scene, so occlusion is right in both directions.
+6. **Ink per frame:** paste R's passes into the base's full-size passes and run the ink pass on R plus a 16 px margin. Lines between a moving part and a static one are object-boundary lines, and only the composite knows where they are. The layer's frame is the result cropped to R: premultiplied RGBA drawn over the base.
+7. **Light per frame** only where an emitter moves. Flicker is a shader effect driven by `DYN.light` (§15.4).
 
-**Placeholders.** From M0, every entity gets an **automatic greybox model**: its footprint as a bevelled box in its family's colour with a stencilled label. Every entity is renderable from day one, and its art replaces the greybox entity by entity.
+Base plus layer reproduces the full frame, except at anti-aliased silhouettes. The composite check of §9.5 holds it to ΔE ≤ 3 on 99.9% of the pixels against two full renders per set.
 
-### 9.3 Icons and UI art (SVG)
+**Measured** (`design/asset-study/render/render_layers.py`, on A3's own entity scripts and rig, 16 threads on socket 1). The shadow column was rendered at High here, so the Normal-resolution shadow saves about a further 4× on it.
 
-- **Item, fluid, signal and technology icons** are hand-authored SVG at `assets/svg/**/<id>.svg`, following 07-ui §23's family rules: one silhouette per family, type by colour, tier by one detail, and the hexagon meaning weights.
-- **Rendering:** `resvg` at 64, 32 and 16 px (technology icons at 256 and 128), packed into the icon atlas and CSS sheets.
-- **GUI frame pieces, buttons and glyphs** are SVG rendered to PNG 9-slices.
+| Entity, frames | Canvas (px) | R ÷ canvas | Moving parts | Base passes | Shadow | Per animated frame | All frames, layered | A3's per-frame rebuild |
+|---|---|---|---|---|---|---|---|---|
+| Keypunch, 16 | 352×384 | 2.5% | 2 | 0.63 s | 6.4 s | 0.11 s | 9.9 s | 117 s |
+| Assembling machine 1, 16 | 448×448 | 3.6% | 3 | 0.83 s | 10.1 s | 0.16 s | 17.5 s | 181 s |
+| Electric mining drill (south), 16 | 512×480 | 7.0% | 1 | 0.78 s | 12.0 s | 0.23 s | 17.6 s | 217 s |
+| Steam engine, 16 | 672×544 | 15.1% | 13 | 1.15 s | 18.8 s | 0.25 s | 25.5 s | 330 s |
+| Research hall, 8 | 864×864 | 13.4% | 96 | 2.04 s | 41.6 s | 0.51 s | 49.6 s | 357 s |
+| Transport belt, one piece, 16 | 160×160 | 17.9% | 6 | 0.17 s | 1.2 s | 0.06 s | 2.6 s | — |
 
-### 9.4 Audio
+- Layered sets render 7–13× faster, and most of what remains is the single shadow. The last column is 16 (8 for the hall) × A3's measured time per frame.
+- The prototype found the moving parts by comparing frames. Production scripts name them.
 
-**Music.**
-- Composed by script (music21 and pretty_midi) and rendered with FluidSynth (GeneralUser-GS).
-- Mastered with pedalboard to about −16 LUFS.
-- Encoded as **Opus in WebM** (96 kbps), with an AAC `.m4a` fallback chosen via `canPlayType`.
+**Frames and the layer split per entity class.** These are the defaults; an entity overrides them in `META`.
 
-**SFX** are synthesized in Python with numpy and pedalboard (noise, filters, envelopes, convolution reverb):
-- inserter swings, belt rattle loops and machine hums by family;
-- build, mine and craft-finished sounds;
-- UI clicks and tabs;
-- alerts.
+| Class | Directions | Variants | Base images | Animated layers | Shadow | Light |
+|---|---|---|---|---|---|---|
+| Crafting machines, Seminar, Switch | 1; 4 for the asymmetric fluid machines (chemical plant, data refinery) | 1 | working, idle | 1–2 layers, 16 frames, seamless; R about 25% of the sprite (A3 §9's 3% rule is the floor) | 1 per direction | 1 per state |
+| Furnaces, Keypunch, boiler | 1; boiler 4 | 1 | working, idle | fire and mechanism, 16 frames | 1 | working only |
+| Drills | 4 | 1 | 1 | the turret, 16 frames | 4 | burner drill only |
+| Steam engine, turbines, generators | 2 (north–south and east–west, as Factorio) | 1 | 1 | flywheel and crank, 16 frames | 2 | — |
+| Radar | 1 | 1 | 1 | the dish, 64 frames | the dish, 64 (`animShadow`) | — |
+| Belts, per tier | — | 20 pieces: 4 straight, 8 curves, 8 caps | — | full frame, 16 frames (the whole deck moves) | 1 per piece | — |
+| Splitters | 4 | 1 | 1 | the belts under it, 16 frames | 4 | — |
+| Underground belts, pipes, pipe-to-ground, poles, chests, walls | 4 or 1 | connection masks (pipes 16) | 1 each | — | 1 each | — |
+| Inserters, per type | 4 platform directions | parts: base, arm, forearm, hand open, hand closed | 1 each | none: parts are rotated in 2D (§6.8) | 1 per part | — |
+| Lamps, signals, train stops | 1, 4 or 16 | — | 1 per light state | — | 1 | 1 per state |
+| Rolling stock, cars, turrets, agents | 64 orientations (agents 16) | — | 1 per orientation | none; a turret's head is a second set | 1 per orientation | — |
+| Trees | — | 10 species × 4 shapes | × 4 leaf stages | — | 1 per shape | — |
+| Resources, rocks, decoratives | — | resources 6 shapes × 8 depletion bands; rocks 4; decoratives 4 | 1 each | — | 1 each | — |
+| Town buildings, the campus | — | 8 per town class and skin | 1 each | — | 1 each | lit windows at night |
+| The character | 8 | — | — | full frame: run 16, mine 16, idle 4 per direction | 1 per frame | — |
 
-They are normalised and encoded the same way.
+**Throughput and caching.**
+- One Blender process renders one sprite set, pinned to socket 1 with 16 threads. Only one heavy job runs at a time, because the host is shared (`CLAUDE.md`). The numpy steps (ink, packing, encoding) run in parallel on socket 0.
+- Builds are incremental. A set's cache key is the SHA-256 of its entity script, `lib/`, the style table, the pipeline version and Blender's version string. Outputs live in `game/.cache/assets/<key>/` (gitignored), and only sources are committed (§9.6).
 
-**Runtime** (`src/audio/`):
-- Web Audio with one `AudioBuffer` per sound.
-- **Working sounds** loop per entity type, with volume aggregated from visible working entities of that type (Factorio aggregates similarly) and panned by screen position.
-- **Event sounds** come from `ev`, rate-limited (the error sound at most once per 100 ms, I §3.12).
-- The mixer has I §4.20's categories with mute.
+### 9.2 Post-processing, atlases and the texture format
 
-### 9.5 Headless visual verification (what Claude does on this machine)
+**Steps** (`scripts/assets/*.py` under `gamedev-python`, driven by `build-assets.ts`):
+1. **Ink** every base and every layer frame with A3's `survey_ink`: lines from the 2× passes, hatching on the dark band, watercolour edge darkening, mottle and paper grain. The pen-pressure seed is the `crc32` of entity, direction and variant, never of the frame, so lines do not shimmer (A3 §5).
+2. **Glow:** the light pass is dilated 0.12 tile, blurred 0.22 tile, multiplied by 1.8 and clipped (A3 §4.3). It is stored at quarter resolution, 16 px per tile, because it is that soft.
+3. **Trim** on alpha with a 1 px border, record the anchor, and **premultiply** alpha.
+4. **Shadows:** clip values below 0.03, keep them at Normal resolution, trim.
+5. **Pack** each atlas group (§9.7) separately with `maxrects-packer` 2.7.4 into 2048² pages at High. Rectangles sit at multiples of 8 px, with an 8 px gutter. The Normal level is then exactly the page halved, sprite for sprite, and at Normal every sprite starts on a 4×4 block, so block compression never mixes two sprites.
+6. **Levels:** level 0 is the High page, and levels 1–3 are box-filtered halvings of the premultiplied page. Level 1 is the Normal page.
+7. **Encode** each page into two files: level 0, and levels 1–3 (§9.7 streams them separately). File names carry the content hash, for example `atlases/colour-core-0.3f2a9c1e.h.ktx2` and `atlases/colour-core-0.9be04d17.n.ktx2`.
+8. **Emit** `public/atlases/sprites.json` (§15.7) and run the checks of §9.5.
 
-1. **Contact sheets.** `magick montage` lays out every entity's directions and frames at 1× and ½×, plus colour, shadow and light passes side by side. Claude reads the PNG.
-2. **Animation strips:** GIFs via `gifski` for review, and **frame registration** checked automatically: static pixels must be identical across frames.
-3. **Automated asset checks:**
-   - footprint and overhang limits per size class;
-   - shadow direction (the centroid offset points east);
-   - palette and brightness histograms within the style ranges;
-   - icon **legibility**: a belt line-up sheet showing every item at 16 px on a belt, plus a confusability report (pairwise distance of 8×8 Lab-colour thumbnails; pairs below a threshold are flagged), which automates 07-ui §23's rule.
-4. **In-game galleries.** `?scenario=gallery` places every entity in a grid with alt-mode on and off, by day and by night, at zooms 0.5, 1 and 2. Playwright screenshots it (seconds per frame on SwiftShader: fine for stills). Claude reviews it, and golden diffs guard regressions.
-5. **Audio:** spectrograms (`ffmpeg showspectrumpic`) and EBU R128 loudness, per `CLAUDE.md`.
+**The texture format, decided by measurement** (`design/asset-study/texfmt/`).
+- The test pages are real ones made with A3's pipeline: a 2048² High colour page of 120 inked *Survey* sprites (86% occupancy), the same sprites as a 1024² Normal page, a 512² icon page, a Normal shadow page and three 512² terrain textures.
+- Quality is measured on the decoded result as the GPU sees it (Basis files transcoded to BC7), composited on the paper.
+- Timings are the median of 5 in headless Chrome 156 and Firefox 157 on this host, one thread.
+
+| Format (GPU format) | High page | Normal page | PSNR, High / Normal (dB) | ΔE mean / p99, High | Detail kept | High page decode or transcode, Chrome / Firefox | GPU bytes per pixel |
+|---|---|---|---|---|---|---|---|
+| PNG, oxipng (RGBA8) | 2,900 kB | 931 kB | lossless | 0 | 1.000 | 88 / 83 ms | 4 |
+| WebP lossless (RGBA8) | 2,038 kB | 600 kB | lossless | 0 | 1.000 | 123 / 117 ms | 4 |
+| WebP q90, lossless alpha (RGBA8; A3's budget setting) | 525 kB | 209 kB | 38.6 / 36.8 | 1.71 / 11.6 | 1.000 | 150 / 138 ms | 4 |
+| WebP q80 (RGBA8) | 365 kB | 160 kB | 36.4 / 34.9 | 2.17 / 13.0 | 1.001 | 136 / 125 ms | 4 |
+| KTX2 ETC1S, q 255 (BC7) | 443 kB | 166 kB | 31.7 / 30.4 | 3.29 / 18.9 | 0.982 | 135 / 142 ms | 1 |
+| KTX2 UASTC 4×4, Zstandard (BC7) | 2,026 kB | 568 kB | 43.6 / 39.6 | 0.77 / 3.8 | 0.997 | 154 / 155 ms | 1 |
+| KTX2 UASTC, RDO λ = 1 (BC7) | 1,433 kB | 439 kB | 40.9 / 38.2 | 0.94 / 4.6 | 0.997 | 154 / 157 ms | 1 |
+| KTX2 XUASTC 4×4, quality 90 (BC7) | 1,461 kB | 456 kB | 41.7 / 37.8 | 0.88 / 4.7 | 1.000 | 295 / 304 ms | 1 |
+| **KTX2 XUBC7, quality 90 (BC7)** | **1,021 kB** | **345 kB** | **43.6 / 39.9** | **0.72 / 3.7** | **1.001** | **219 / 230 ms** | **1** |
+| KTX2 XUBC7, lossless (BC7) | 1,379 kB | 424 kB | 44.4 / 40.2 | 0.65 / 3.6 | 1.001 | 149 / 157 ms | 1 |
+
+- "Detail kept" is the band-pass (0.7–2 px) energy of the decoded page inside the original's top 20% detail pixels, relative to the original. Below 1 means mushed lines and hatching; above 1 means added noise.
+- Uploading one 2048² layer on SwiftShader takes 22–24 ms as RGBA8 and about 1 ms as BC7. Brotli and gzip gain at most 1% on any of these files.
+
+What the numbers and the magnified crops (`design/art/out/texfmt/crops/`) show:
+- **ETC1S mushes the plate:** blocks in the paper, smeared hatching, shifted small colours (ΔE p99 19). It is rejected for colour.
+- **WebP's chroma subsampling eats small colour details.** The ink lines and the hatching survive (detail 1.000), but a character's hand turns grey, a 2 px science-colour band on a 16 px icon or a status lamp smears, and 16 px copper icons get a faint orange halo on the paper: ΔE p99 is 11–13, against 3.7–6 for BC7. WebP is the smallest download, but it decodes to RGBA8, four bytes per pixel on the GPU.
+- **XUBC7 at quality 90** (Basis Universal 2.50) cannot be told from the original at 7× magnification and keeps the colours. Its download is twice WebP q90's, its GPU memory and texture bandwidth are a quarter, and it transcodes in about the time WebP takes to decode.
+
+**The decision:**
+
+| Array | Codec (KTX2) | GPU format, in order of preference | Why |
+|---|---|---|---|
+| colour, light, icon | XUBC7, quality 90 | BC7 (`EXT_texture_compression_bptc`), ASTC 4×4, BC3, RGBA8 | the measurement above. A quarter of RGBA8's memory and texture bandwidth, which matters most for the weak iGPU's fill rate (§6.12) |
+| shadow | ETC1S, `-q 255`, one channel | BC4 (`EXT_texture_compression_rgtc`), EAC R11, R8 | a soft mask that the shader hatches: 35.6 dB is ±1% of ink. 79 kB per Normal page, against 313 kB as PNG, and 0.5 B/px |
+| terrain materials (§9.9) | XUBC7, quality 90 | as colour | 78–92 kB per 512² texture, against 8–32 kB as WebP q90. But terrain is sampled for every pixel of every frame, so its bandwidth matters most |
+| DOM images: the UI skin, CSS icon sheets, technology icons, the menu background | WebP: lossless for the skin and the icon sheets, q90 for technology icons and the background | decoded by the browser | the DOM cannot use GPU formats |
+
+- **The fallback order.** The asset worker (§9.7) probes the extensions once and transcodes to the first format available.
+  - BC7 is the expected path on desktops: the reference laptop's UHD 620 class decodes it in hardware, and Chrome, Edge and Firefox expose it on Windows and Linux. Firefox on macOS may lack it and get BC3. `bench.html` records the extensions on the user's machines (§10.6).
+  - SwiftShader on this host exposes BC7, ASTC, ETC2, S3TC and RGTC, so tests and screenshots run the main path.
+  - RGBA8 is the last resort: transcoding to RGBA32 takes 315 ms per High page here, and the default resolution becomes Normal (§9.7).
+- **The transcoder** is Basis Universal 2.50's `basis_transcoder.wasm` (Apache-2.0), pinned together with its encoder `basisu` 2.50. The encoder is built here from source into `~/.local/opt/basisu-2.50` (`CLAUDE.md`).
+  - The stock build is 1,061 kB (361 kB brotli), because it carries every codec. A build with only XUBC7 and ETC1S and the six target formats is a follow-up for the asset work package; Emscripten runs in the podman fallback.
+  - It initialises in 184 ms in Chrome and 208 ms in Firefox here, inside the asset worker and in parallel with other loading.
+- **Encoding** costs about 3 s per 2048² page for XUBC7 and 0.6 s per shadow page.
+
+**Placeholders.** From M0, every entity has an automatic greybox set: its footprint as a bevelled box in its family's colour, rendered by this pipeline. There is no text in the world: dev builds print the prototype's name in the debug overlay instead. A set whose page is not resident yet draws its greybox (§9.7).
+
+### 9.3 Icons, the UI skin and fonts
+
+**Icons** are the item's 3D model, rendered in the world's camera, auto-framed and passed through the ink pass with sel-out outlines (A3 §7 and decision 3; they replace round 5's hand-drawn SVG). `render_icons.py` renders at 128 px, and post-processing derives 64, 32 and 16 px (box filter) with A3 §7's icon line widths. The families keep 07 §23's rules: one silhouette per family, type by colour, tier by one detail, and the hexagon meaning weights. The data has 230 items and 251 technologies.
+- **The GPU icon array** (XUBC7): one 64 px frame per icon, with 32 and 16 px as its levels 1 and 2. It serves belt items (32 px at High), ground and held items, alt-mode and world-anchored icons.
+- **CSS sheets for the DOM:** 32 and 64 px, for device pixel ratios 1 and 2, as WebP lossless. There is one sheet per atlas group, so the sheets stream with the groups (§9.7).
+- **Technology icons** (256 and 128 px) appear only in the DOM, on the technology screen and in tooltips: WebP q90 sheets per tier, loaded when the technology screen first opens.
+- **Checks** (07 §23, A3 §7), on every build: the belt line-up at 16 and 32 px; the 8×8 Lab confusability report under normal vision, deuteranopia and protanopia, flagging pairs closer than 7; the information/matter lightness rule (§9.5).
+
+**The UI skin** (A3 §12). Only the skin changes; the layout is Factorio's (§7.4).
+- **Sources** are SVG in `assets/svg/ui/`: manila folder frames, index cards ruled in pale blue, slot cards with a red top rule, buttons and tabs, the hatched green progress bar, scrollbars, checkboxes and the minimap frame. `resvg` renders them at 1× and 2× into one UI sheet (WebP lossless), which CSS uses as `border-image` 9-slices. The colours are CSS variables (§7.4).
+- **The paper fibre** is one 256² tileable texture (WebP q85).
+- **Glyphs** (arrows, ⇒, warning and status icons) are SVG paths in an inline sprite, never font glyphs (A3 §12).
+
+**Fonts.** All are under the SIL Open Font License 1.1; the licence files ship in `public/fonts/`, and the credits list the fonts.
+
+| Face | Weights | Use | Source | WOFF2 subset |
+|---|---|---|---|---|
+| Libre Franklin | 400, 600, 800 | printed text: labels and descriptions; window titles in ExtraBold capitals | Impallari Type (github.com/impallari/Libre-Franklin) | 22.8, 23.0, 23.4 kB |
+| Courier Prime | 400, 700 | typed values: counts, years, percentages | Quote-Unquote Apps, via Google Fonts | 22.8, 23.4 kB |
+| Titillium Web | 400, 600 | world labels in the glyph atlas (§6.11), unless they move to Libre Franklin (A3's proposal) | Accademia di Belle Arti di Urbino, via Google Fonts | 16.9, 16.9 kB |
+
+- **Subsets** are made with `fontTools` (now in the `gamedev-python` venv). They keep Basic Latin, Latin-1, Latin Extended-A (Ł, ă and ő occur in citations), Greek (σ, Σ, κ), general punctuation, super- and subscripts, ℓ, arrows and the few mathematical signs the text canon uses (− ≤ ≥ ≈ √ ∞ ⌊ ⌋), and the features `kern`, `liga`, `lnum`, `tnum` and `case`. All seven faces measure 149 kB together.
+- **Coverage is checked.** The data stage compares the text canon and the locale file with each subset's coverage and fails on a gap, so no player-facing string falls back to a system font.
+- **Loading:** the three faces of the main menu are preloaded with `font-display: block`; the rest use `swap`.
+
+### 9.4 Audio (v2)
+
+The engine is A4's generative-first hybrid (IMPL-6): `src/audio/` plays the rule sets live, and the same code renders offline through `OfflineAudioContext` for the menu loop, recorded fallbacks and trailers (A4 §6.1). A4 §2–§8 own the music, the SFX palette and the mix. This section owns the runtime: its architecture, the CPU and memory budgets and how they are met, the sample packs, the SFX system, Safari and licences. The SFX themselves are synthesised in Python by A4's `sfx.py` (numpy and pedalboard), for the whole list of A4 §7.4.
+
+**Architecture.**
+
+```
+main thread (src/audio/)                                 audio rendering thread
+ Conductor ─► Piece (rules) ─► Scheduler                 voice bank (AudioWorklet): every sampler voice, music and SFX;
+   (100 ms tick, 0.8 s lookahead) ── note batches ──────►  Int16 samples at 32 kHz; 48 music + 24 SFX voices;
+ SFX dispatcher (EVENTS, AUDIO_WORKING; §15.6) ─ batches ►  one stereo output per mixer channel
+ asset worker (§9.7) ── Int16 samples, MessagePort ─────►        │
+ synth voices (organ, sine, FM): native oscillators ────►        ▼
+                                                         channel: trim, EQ, tape and tremolo (in the bank), pan
+                                                           ├─ dry ─────────────────────────────────► era bus
+                                                           └─ send ─► FDN reverb (AudioWorklet) ───► era bus
+                                                         era buses (≤ 2, crossfading) ─► music bus ─► HP 30 Hz ─► air ─► glue ─► Music
+                                                         SFX category buses: GUI, game effects, alerts, walking, environment ─► faders
+                                                         Master fader ─► limiter at −1 dBTP ─► destination
+```
+
+- **An AudioWorklet is needed**, for three things, all measured below:
+  1. **The voice bank.** A single AudioWorklet node mixes every sampler voice. A native voice (`AudioBufferSourceNode` plus `GainNode`) costs 0.53% of a host core and a worklet voice 0.14%. The bank also halves sample memory (Int16 instead of the `AudioBuffer`'s Float32) and creates no audio nodes and no garbage per note on the main thread.
+  2. **The FDN reverb** (A4 §6.5 #1): 8 delay lines, a Hadamard matrix and damping per line, one node per era bus. It replaces every `ConvolverNode`.
+  3. **The tape and tremolo inserts**, as per-channel processing inside the bank instead of node chains of delays, oscillators, a 2×-oversampled shaper and filters.
+- Native nodes remain for channel trims and EQ, the buses, the glue compressor and the limiter, and the few synthesised notes: organ, sine and FM, at a few notes per second. Voices with many partials, such as Risset's bell (22 nodes a note), are pre-rendered into the sample pack at build time.
+- **The engine runs at 32 kHz** (`new AudioContext({ sampleRate: 32000, latencyHint: 'balanced' })`). The music's spectrum is dark by design (A4 §8), and nothing above 7 kHz matters in the SFX (A4 §7.1). The browser resamples to the device. The offline renderer keeps 48 kHz for masters. The audio work package A/B-checks a 32 kHz render against A4's demos (the spectrum above 12 kHz, loudness); if the user hears a difference, the engine rate becomes 48 kHz and the voice caps shrink to stay in budget.
+- **Scheduling** is A4 §6.3's: a 100 ms tick, 0.8 s lookahead, notes posted to the bank in one pooled message per tick, sample-accurate start times, and notes more than 50 ms late dropped and counted. A hidden page with *Keep running in background tab* ticks from a Worker timer.
+
+**Measured** (`design/asset-study/audiocpu/`: A4's engine and rule sets, played live in headless Chrome on this host with each change applied in turn; the audio threads' CPU from `/proc`, means of A/B-interleaved runs):
+
+| Configuration (cumulative) | Era I | Era II | Takeoff |
+|---|---|---|---|
+| A4 as built: full sample pack, convolution reverbs, native voices, 48 kHz | 41.0% | 51.4% | 67.8% |
+| the shipping pack, one velocity layer for short and percussive notes, a 48-voice cap | — | 43.4% | — |
+| + the FDN worklet instead of convolution | — | 33.9% | — |
+| + the engine at 32 kHz | 16.5% | 25.8% | 25.5% |
+| + every sampler voice in the worklet bank | 12.9% | 25.0% | 21.1% |
+| + Era II's tape and tremolo inserts out of the node graph (their cost, to be recovered inside the bank) | — | 16.9% | — |
+| **Reference machine (÷ 2.4, §11)**, everything above | **5.4%** | **7.0%** | **8.8%** |
+
+- **Voices.** A microbenchmark of 16, 48 and 96 concurrent sample voices costs 10.1%, 27.2% and 36% of a host core as native nodes (33.7% at 48 with a panner per voice), against 5.5%, 9.6% and 14.9% in the worklet bank. In the engine, the bank saves 3.6 points in Era I and 4.4 in the takeoff, where voices are many and long, and 0.8 in Era II, whose 25 voices are short marimba notes.
+- **Single parts,** on Era II at 48 kHz: convolution costs 10 points (the FDN 2.6), the inserts 6 to 8, and the shaper's oversampling under 1. An idle context costs 1.6%.
+- **The main thread.** The scheduler costs 0.09–0.18% of a core with the bank, against 0.15–0.6% with native voices, and its longest tick drops from 3.0 to 2.1 ms in Era II. In the takeoff the longest tick is 23–34 ms either way, a burst of note generation that M4 must spread across ticks.
+- **Memory.** The bank stores Int16 samples, half of an `AudioBuffer`'s Float32, and 32 kHz takes another third off.
+
+**The budget** (on the reference machine; host values × 2.4):
+
+| Measure | Budget |
+|---|---|
+| Audio-thread CPU, music and SFX together, averaged over a piece | ≤ 8% of one core (host ≤ 19%) |
+| The same, in any 1 s window | ≤ 15% (host ≤ 36%) |
+| Main-thread audio work (conductor, scheduler, SFX dispatch) | ≤ 0.5% of a core on average; every tick ≤ 2 ms |
+| Decoded samples resident | ≤ 96 MB |
+
+- **Eras I and II meet it** with the voice bank and with Era II's inserts inside the bank: 5.4% and about 7.5% (7.0% plus the inserts' own cost in the bank), plus about 1% for the SFX (24 voices and 12 loops in the bank at most). Era II is the tight one; its next levers are a 32-voice cap and pre-rendered marimba loops.
+- **The takeoff measures 8.8% before SFX,** so M4 must cut further: a 32-voice cap on its streams and pre-rendered shimmer layers.
+- `bench.html` gets an audio page (§10.6) that plays each era for 60 s and reports the audio thread's CPU on the user's machine. If a machine averages over 15% there, the engine switches to recorded music (A4 §6.1's fallback (a)) and keeps the SFX live.
+
+**Sample packs and loading.** The game ships only A4's *ship* profile (A4 §6.4); the 47 MB full pack is for offline renders. Files are Ogg Opus, content-hashed, with `loopStart`/`loopEnd` in the manifest (never file boundaries).
+
+| Pack | Contents | Download | Decoded (Int16 at 32 kHz) | Loaded |
+|---|---|---|---|---|
+| SFX, slice set | about 90 files: UI, build, mine, footsteps, alerts, working loops of the slice's entities | about 0.6 MB | about 6 MB | with the first frame of a game |
+| Era I | piano (shared by later eras), violin, viola and cello sections, contrabass, clarinet, harp, glockenspiel | 6.3 MB | 79 MB, of which the piano 55 MB | during the first piece (below) |
+| Era II | marimba, vibraphone; the piano | +1.0 MB | +10 MB | in idle time after Era I |
+| Era III (M2), IV and IV′ (M3), the takeoff (M4) | FM piano; glass; grains of the earlier packs | +0.2–0.4 MB each | +2–4 MB each | when the Literature year comes within about 5 years of the era (A4 §6.4) |
+| The menu loop | the charter piece, rendered offline | 1.8 MB (Opus 96 kbps, 150 s) | none: a media element streams it | on the main menu |
+
+- **The first piece of a game is the charter piece** (A4 §5.1 rule 1), the same in every game. It plays from the menu loop's recording, which the HTTP cache already holds, while the Era I pack (6.3 MB) downloads behind it. Generative pieces begin with the second piece.
+- **Decoding:** in the asset worker with WebCodecs `AudioDecoder` where it exists, resampled to 32 kHz and converted to Int16 there. Otherwise `decodeAudioData` on an `OfflineAudioContext` at 32 kHz on the main thread (the browser decodes off-thread). The samples go to the voice bank over a `MessagePort`, transferred, never copied.
+- **Residency:** the current era's and the next era's instruments stay decoded; older eras' instruments are freed unless a resident era shares them (the piano). Eras I and II together decode to 89 MB, the whole shipping pack to 95 MB.
+
+**The SFX system** (consuming §15.6; rules after A4 §7.3):
+- **Sounds are data.** `game/data/engine/sounds.yaml` maps an event type plus an entity type or material to a sound id. Each sound id has its variant files, category bus, gain, pitch and gain jitter, rate limit, voice cap, priority and whether it is positional. The audio module has no per-event code.
+- **Variation:** every repeating sound has 3–4 variants, chosen at random but never the same twice in a row, with jitter of ±3% pitch (UI ±1.5%) and ±1.5 dB gain.
+- **Rate limits** per sound type and 100 ms window: error 1 (I §3.12), build 3, mine 2, UI click 1 per 30 ms. Footsteps follow the walk cycle. Over the limit a sound is dropped, never queued.
+- **Voices:** 24 SFX voices in the bank and at most 4 per type; steal the quietest, then the oldest.
+- **Positional attenuation and mixing, as in Factorio.** World sounds are heard around the camera, which is the listener, and fall off with distance; UI sounds are not positional.
+  - Gain: 1 ÷ (1 + (d ÷ R)²) for distance d from the view centre, with R = `audio_half_range` (§15.4), half the view width in tiles, so a sound half a screen away plays at −6 dB.
+  - Pan: the screen x, mapped to ±0.7 at the edges.
+  - Zoom: entity sounds lose 9 dB × clamp(log₂(1 ÷ zoom) ÷ 2, 0, 1), so −9 dB at 0.25×. Map view mutes world sounds and keeps UI sounds and alerts.
+  - Multiplayer: other players' world events sound like one's own, by position. UI sounds play only for one's own events (the event's `player`).
+- **Working sounds by proximity and count** (`AUDIO_WORKING`, §15.6): one looping voice per sound id.
+  - Gain: min(1, 0.5 · log₂(1 + n)) × (wsum ÷ n) × the zoom factor, where n is the count of working entities and wsum their distance weights.
+  - Pan: by the centroid. A loop starts at a random offset and fades in and out over 0.3 s.
+  - At most 12 loops sound at once, the loudest.
+- **Silence during catch-up and replay.** Historical events, and events more than 30 ticks old, never sound (§15.6). Extraction is off during catch-up and fast-forward, so no `AUDIO_WORKING` arrives. When no packet has arrived for 0.5 s, working loops fade out. A new state generation resets all audio state (§3.4).
+- **Pause and focus.** A paused single-player game fades world sounds and working loops out over 0.3 s; UI sounds and music go on. A hidden page fades the music over 1 s and suspends the context (A4 §5.4).
+- **The AudioContext** is created on the first click or key on the main menu (07 §18).
+
+**Mixing targets** are A4 §8's:
+- Music: each era bus is calibrated to −18 LUFS integrated at 100% (takeoff −16). The default music volume is 70% on a squared slider (−6 dB).
+- SFX play at their authored levels (UI click −36 LUFS-M; builds −22 to −26; a working loop −28 for one entity, up to −22 aggregated).
+- Alerts sit 8–10 LU above the music bed. There is no ducking, except the fade before the closure cue.
+- The master is limited at −1 dBTP.
+- The sliders are I §4.20's categories: Master, Music, Game effects (the effects, walking and environment buses), GUI and Alerts.
+
+**Safari and the AAC fallback.**
+- At start-up the engine decodes a 0.1 s Ogg Opus probe with `decodeAudioData`, and checks `canPlayType('audio/ogg; codecs=opus')` for the menu loop. If either fails, it loads the AAC pack: `.m4a` at the same bitrates, made by the asset build with ffmpeg's AAC encoder.
+- Loop points come from the manifest, so AAC's priming samples cannot click (A4 §6.4).
+- The AAC pack is about 25% larger; only browsers that fail the probe download it.
+
+**Licences.** The sources are in A4's `LICENSES.md`, which moves to `game/assets/audio/LICENSES.md`: VCSL and VSCO 2 Community Edition, both CC0 at pinned commits, plus our own synthesis code and renders. GeneralUser GS is excluded. The sample fetch pins the commits and checks each file's SHA-256, and the credits carry A4's recommended credit line.
+
+### 9.5 Quality control (headless; what Claude does on this machine)
+
+1. **Contact sheets** per set: the base, the idle variant, the animated layer as a strip, the shadow and the glow, side by side at 1× and ½×, on the paper and on the cyanotype (`magick montage`). Claude reads the PNG.
+2. **Animation:**
+   - GIFs via `gifski`, for review;
+   - **registration:** static pixels outside R are identical across frames by construction, and are checked anyway;
+   - **the composite check:** the base with layer k over it, against full renders of frames 0 and count ÷ 2, must agree within ΔE76 ≤ 3 on 99.9% of pixels;
+   - **the 3% rule** (A3 §9): a working machine's layer changes at least 3% of the sprite's pixels per loop, with one moving part of at least 0.3 tile.
+3. **Geometry:** footprint and overhang per size class; the anchor on the footprint centre; the projection calibration (§9.1); the shadow direction (the mask's centroid lies east-south-east of the anchor).
+4. **Legibility** (`metrics.py`, A3 §7):
+   - the belt line-up at 16 and 32 px;
+   - pairwise 8×8 Lab thumbnails under normal vision, deuteranopia and protanopia (Machado 2009), flagging pairs closer than 7; this automates 07 §23's rule;
+   - information items at L\* ≥ 84 with ink marks, matter at ≤ 74 except quartz, and 20 L\* between same-hue pairs (A3 §3.2);
+   - machines 25–60% darker than the paper.
+5. **Compression:** every encoded page is transcoded back to BC7 and compared with its source. It must reach PSNR ≥ 40 dB at High and ≥ 37 dB at Normal, ΔE p99 ≤ 6 and detail kept ≥ 0.98 (§9.2's measures). A failure names the page and its worst sprite.
+6. **In-game galleries.** `?scenario=gallery` places every set in a grid with alt-mode off and on, by day and at night, at zooms 0.5, 1 and 2, at device pixel ratios 1 and 2. Playwright screenshots it on SwiftShader with BC7 textures (seconds per frame: fine for stills). Claude reviews it, and `pixelmatch` goldens guard regressions (threshold 0.1, at most 0.2% of pixels).
+7. **Audio:** EBU R128 loudness and true peak of the offline renders, spectrograms (`ffmpeg showspectrumpic`), loop seams after decoding, A4 §4.2's dissonance check on the note logs, and the CPU benchmark of §9.4.
 
 ### 9.6 Budgets
 
-- **Download:** slice ≤ 30 MB (§11); full game ≤ 200 MB, lazy by tier.
-- **GPU memory:** §6.13.
-- **Asset builds** are reproducible from the scripts. Outputs are cached outside git by content hash, and only the sources are committed.
+**The model.** `design/asset-study/render/budget_model.py` itemises every sprite set of the slice and of the full game: the data's 104 entities by class (§9.1's table), trees, rocks, resources, decoratives, cliffs, town buildings, the campus, the character and agents. It applies the per-unit costs measured on this host and the formats measured in §9.2. Sizes follow a calibration on A3's 120 sprites: a trimmed colour area of 0.75 (w + 0.2)(h + height + 0.2) × 64² px at High, and a render canvas four times that. It is an estimate (±30%) until the art exists; the asset work package re-runs it on the real sets at each milestone.
+
+| | M1 slice | Full game |
+|---|---|---|
+| Sprite sets (direction × variant × state) / animated-layer frames | 708 / 1,504 | 2,215 / 2,955 |
+| Colour at High, Mpx / the same with full-frame animation instead of layers | 30 / 38 | 119 / 173 |
+| Colour pages (2048² at High; each also a 1024² Normal page) | 8.3 | 33 |
+| Render time on this host, 16 threads on socket 1 (base, shadow, layers, ink, icons) | 0.5 h (0.07, 0.16, 0.07, 0.20, 0.02) | 2.4 h (0.30, 1.09, 0.13, 0.77, 0.12) |
+| GPU in BC7: High (levels 0–3) / Normal (levels 1–3) | 43 / 14 MB | 183 / 69 MB |
+| GPU in the RGBA8 fallback: High / Normal | 159 / 44 MB | 644 / 190 MB |
+| Art download in the chosen formats (XUBC7, ETC1S): without / with every High level 0 | 5.3 / 14.1 MB | 23 / 58 MB |
+| The same art as WebP q90, for comparison | 3.9 / 8.4 MB | 17 / 35 MB |
+
+- The largest items are trees (40 shapes × 4 leaf stages), town buildings, rails, the 64-orientation rolling stock and the Frontier cluster.
+- The render time meets version 1's 2-hour target. A3's per-frame rebuild would take about 11 hours.
+- §6.13's GPU budgets hold with wide margins in BC7 (the slice ≤ 256 MB; the full game ≤ 768 MB at High and ≤ 192 MB at Normal). The RGBA8 fallback fits only at Normal for the full game, which is why that fallback defaults to Normal (§9.7).
+
+**Downloads, everything** (sizes on the wire; code is estimated from A1's sizes per line, the rest is measured or modelled):
+
+| | M1 slice | Full game |
+|---|---|---|
+| Code and data: JavaScript, `sim.wasm`, `gen.wasm`, prototypes, locale (brotli) | about 0.7 MB | about 1.4 MB |
+| Fonts (7 WOFF2 subsets), the UI skin, the menu background | 0.5 MB | 0.5 MB |
+| The Basis transcoder (stock build; brotli) | 0.4 MB | 0.4 MB |
+| Art: atlases, shadows, icons, sheets, terrain (Normal levels) | 5.3 MB | 23 MB |
+| Audio: SFX, the era packs, the menu loop | 9.7 MB | about 15 MB |
+| **Total** | **about 17 MB** | **about 40 MB** |
+| High level 0 of every page, fetched only where needed (§9.7) | +8.8 MB | +35 MB |
+
+Both stay within §11's limits, 30 MB for the slice and 200 MB for the full game, even with every High page. Asset builds are reproducible from the scripts; outputs are cached outside git by content hash, and only sources are committed. §9.7 gives the budget per loading stage.
+
+**Audio** (§9.4): ≤ 8% of a reference core on average and ≤ 15% in any second; decoded samples ≤ 96 MB.
 
 ### 9.7 Loading and streaming
 
-*Stub: WP B2 writes this section (code splitting, assets on demand by tier and era, caching, compression and memory). It may rely on the sprite manifest's `group` field (§15.7), `build-manifest.json` (§2.3) and the one-world-per-worker rule (§3.1).*
+**Principles.**
+- A player downloads what the next screen needs, and the rest streams behind it in priority order.
+- Nothing the simulation needs ever waits for an asset, and nothing the player sees waits for an asset it does not show: missing art draws a placeholder.
+- Every file except `index.html`, `build-manifest.json` and `sw.js` is content-addressed and cached forever.
+- The game works fully on a plain static host: a service worker is optional.
+- All of it is measured against a **reference connection** of 25 Mbit/s (about 3 MB/s) with a 50 ms round trip. A Playwright test throttles the network to it and checks the stage budgets below.
+
+**Budgets per stage** (cold cache; sizes on the wire after brotli; the Download column is the requirement, §11):
+
+| Stage | What it needs | Download | Time on the reference connection |
+|---|---|---|---|
+| **First paint** | `index.html` with inline critical CSS, the paper background and the wordmark as inline SVG, and a progress line | ≤ 30 kB | 1 round trip plus 10 ms |
+| **The main menu, interactive** | boot script; the menu chunk (Solid and the menu, new-game, load and settings screens); `build-manifest.json`; 3 font faces; the UI sheet; the menu background (07 §18: a static image first, 1280 px WebP, 161 kB) | ≤ 0.5 MB | ≤ 0.5 s |
+| **Music on the main menu** | the menu loop, streamed by a media element from the first gesture (07 §18): 1.8 MB, of which 64 kB before the first note | 64 kB to start | ≤ 0.3 s after the first click |
+| **The first frame of a new game** | the game chunk (renderer, HUD, input, decoders, audio engine) and the worker chunks; `sim.wasm` and `gen.wasm`; prototypes and locale; 4 more font faces; the transcoder; the **core** atlas group's Normal levels, shadows and icons; the start's terrain textures (9); the slice SFX | ≤ 5 MB (estimate 4.3 MB: code and data 0.6, fonts 0.1, transcoder 0.4, art 2.6, SFX 0.6) | transfer about 1.4 s, overlapped with worldgen and compilation; the 8 s cold budget of §11 holds at 10 Mbit/s |
+| **The first frame of a loaded save** | as above, plus every group the save shows on screen | ≤ 5 MB plus about 0.4 MB per extra group | as above |
+| **Each later tier or era** | its atlas group's Normal levels and DOM sheets; its era's sample pack; its town skin when W crosses a threshold (01 §5.3) | ≤ 3 MB, prefetched before it is needed (below) | in the background |
+| **High level 0** | per page, when zoom × device pixel ratio first exceeds 1 on a page in view | about 1 MB per page | in the background; Normal is drawn meanwhile |
+
+- The main menu prefetches the first frame's set while the player reads it: at low priority, after the menu is idle, and not when `navigator.connection.saveData` is set. A player who spends 5 s on the menu finds New game nearly instant.
+- A warm start, with everything cached, revalidates `build-manifest.json` only; compiled WebAssembly also comes from the browser's code cache.
+- The game's first piece of music is the charter piece played from the cached menu recording, so Era I's 6.3 MB pack is not in the first frame (§9.4).
+
+**Code splitting** (Vite 8 with Rolldown; module workers):
+- **Entry:** `index.html` loads `boot.ts` (about 8 kB). It reads `build-manifest.json`, starts the menu chunk, and registers the optional service worker.
+- **Per screen:** every UI screen is a lazy Solid component behind a dynamic `import()`, in its own chunk. The screens are the main menu and its subscreens, the charter, the technology screen, the Handbook, statistics, the map view, settings and controls, the run report, and the entity windows grouped by kind. A screen's chunk is prefetched when its key or button is hovered, and in idle time once the HUD runs; the first open of a screen costs at most one round trip.
+- **The game chunk** (renderer, HUD, input, decoders, the audio engine) loads on New game, Continue or Load game, and is prefetched in idle time on the main menu.
+- **Workers** are module workers with their own chunks: the sim worker's shell, the worldgen worker, the IO worker and the asset worker (below).
+- **WebAssembly:** `sim.wasm` and `gen.wasm` are imported as `?url` assets and compiled with `WebAssembly.compileStreaming(fetch(url))` (§2.3), which compiles while the bytes arrive. The main thread compiles each module once per page and sends the `WebAssembly.Module` to every fresh sim and worldgen worker (modules are structured-cloneable), so the fresh worker per world of §3.1 never recompiles.
+- **Data is not split by milestone or era.** All of `spec/data` measures 327 kB as JSON and 54 kB with brotli, and the locale adds about 25 kB. Splitting would save about 50 kB and add a failure mode.
+- **Dev code** (`__game`, the debug overlays, `bench.html`) lives in chunks loaded only by dev builds or `?dev=1`.
+
+**Assets on demand.**
+- **Atlas groups.** The asset build packs each group into its own pages (§9.2), and every set, page, DOM sheet and sound names its group:
+  - `core`: everything the first minutes of any game can show. That is the start's world (terrain textures of the start biome, its trees, rocks, decoratives and resources), the character, town skin 1 with its campus and landmarks, the Laboratory salvage, the Prior art entities, the smoke puffs, and a greybox set for every entity in the data. About 3 pages.
+  - one group per tier: `memo`, `report`, `article`, `proceedings`, `preprint`, `model-card`, `system-card`;
+  - one per town skin after the first, one per biome's trees and decoratives, and `wild` (M5).
+- **What loads when:**
+  1. **New game:** `core` blocks the first frame; `memo` follows at once in the background.
+  2. **Before a tier is reached:** a tier's group is prefetched at low priority when the first technology of that tier becomes available to research. Nothing of a tier can be built before its technology finishes and its item is crafted, which leaves minutes to spare.
+  3. **On load or join:** the groups of every tier the save has researched (from the `RESEARCH` projection, §15.5) load at normal priority, after the groups of what is on screen.
+  4. **By visibility, always:** the renderer reports every set it drew without a resident page, and the asset worker fetches that page at high priority.
+  5. **High level 0:** requested at high priority for pages drawn with more than one source pixel per device pixel (§15.7), and at low priority in idle time for all resident pages on screens with a device pixel ratio of 2.
+- **Placeholders, never waits:**
+  - a set whose page is not resident draws its greybox from `core`;
+  - a page without its High level draws its Normal levels (soft, but the right drawing);
+  - a missing sound is silent;
+  - a missing technology icon shows its tier's blank sheet.
+- **Audio by era** (§9.4): SFX with the first frame; Era I during the charter piece; each later era's pack as the Literature year approaches it. Working loops of later entities ship with their tier's group.
+
+**The asset worker** (`src/assets/worker.ts`, a module worker; a new thread beside those of §3.1):
+- **Fetches** with priorities (`fetch(url, { priority })`, at most 6 requests in flight) from a queue that the main thread re-orders every frame by its residency misses.
+- **Transcodes** with the Basis transcoder (§9.2): it parses KTX2, transcodes each level to the GPU format chosen at start-up (the main thread probes the WebGL extensions once and tells the worker), and transfers the result to the main thread.
+- **Decodes audio:** Opus to Int16 at 32 kHz, sent straight to the voice bank (§9.4).
+- **Keeps a cache** of the compressed KTX2 bytes of resident pages, at most 64 MB, so that a lost WebGL context or a growing texture array re-transcodes without refetching. Beyond that, the HTTP cache serves.
+- **Uploads stay on the main thread.** `compressedTexSubImage3D` of one level of one layer takes about 1 ms for BC7, and uploads are limited to 2 ms per frame, at most one layer level per frame while the frame budget is tight.
+- **Cost** per page on the reference machine: about 90 ms of worker time to transcode a High page (219 ms on this host) and 25 ms for a Normal page. None of it is on the main thread.
+
+**Caching.**
+- **Content-addressed names** for every file except `index.html`, `build-manifest.json` and `sw.js`. Vite hashes the JavaScript, CSS and WebAssembly chunks; the asset build hashes atlases, sheets, fonts and audio (`name.<hash8>.ext`), and `sprites.json` and the audio manifest name the hashed files. `build-manifest.json`'s asset list carries every file's SHA-256 (§2.3).
+- **Old builds stay loadable** from the build archive of 11 §6.3. Because asset names are content hashes, all builds share one asset directory: an archived build costs its `index.html`, its manifests and the files it does not share.
+- **HTTP headers:**
+  - `Cache-Control: public, max-age=31536000, immutable` for hashed files;
+  - `Cache-Control: no-cache` with an ETag for `index.html`, `build-manifest.json` and `sw.js`;
+  - `Content-Type: application/wasm` for WebAssembly, which `compileStreaming` requires, and `image/ktx2` for KTX2.
+- **The service worker is optional.** `sw.js` is registered only on a secure context where `navigator.serviceWorker` exists, and a failed registration is silent.
+  - It precaches the menu set; after the first game, also `core`, the SFX and Era I. Hashed URLs are served cache-first, and `index.html` and `build-manifest.json` network-first. That gives offline play once a game has been loaded (07 §19.2).
+  - **Updates:** when `build-manifest.json` carries a new `buildHash`, the worker caches the new build in the background, and the main menu shows that a new version is ready. It never switches builds during a game.
+  - Its Cache Storage counts against the origin's quota with the saves (§8.2). It is capped at 150 MB and drops old builds first.
+  - **Without it** (Claude's Artifact pages, `file://`, a browser that refuses it) the game works fully and the HTTP cache does the same job online. A Playwright test runs with service workers blocked.
+
+**Compression.**
+- The build writes brotli (quality 11) and gzip (level 9) siblings, `.br` and `.gz`, for every text-like file: JavaScript, CSS, HTML, JSON, WebAssembly, SVG, `prototypes.bin` and the locale. Measured ratios: WebAssembly 0.31 (A1), the data's JSON 0.17.
+- It writes none for files that are compressed already: KTX2 (Zstandard inside), WebP, PNG, Opus, M4A and WOFF2. Brotli gains at most 1% on them (measured, §9.2).
+- `npm run preview` and the dev server serve the siblings by `Accept-Encoding`, as nginx's `brotli_static` or Cloudflare would. A host without precompression serves the plain files: correct, about 1 MB more for the first frame.
+
+**Memory.**
+- **GPU:**
+  - Each kind of atlas is one `TEXTURE_2D_ARRAY` with immutable storage (`texStorage3D`). Its layer count covers the resident groups and doubles when a new group does not fit; growing re-creates the array and re-uploads from the worker's cache, a handful of times in a game.
+  - Per layer in BC7: colour (2048², 4 levels) 5.6 MB, icons (1024², 3 levels) 1.4 MB, light (512², 2 levels) 0.33 MB; shadow (1024², 3 levels) in BC4 0.7 MB.
+  - **The resolution setting** is Factorio's *Sprite resolution: High / Normal*. It defaults to High when BC7 or ASTC exists and a probe allocation of 256 MB succeeds; otherwise Normal, which allocates 1024² arrays from the Normal files and never downloads a High level. The RGBA8 fallback always defaults to Normal.
+  - **A page without its High level** is sampled from level 1 up. The fragment shader clamps the level of detail per layer from a uniform array (`uMinLod`, one value per layer), and sets it to 0 when level 0 arrives.
+  - **No eviction during play.** Every unlocked group stays resident, as all sprites do in Factorio, and the budgets of §9.6 hold with margin. On an allocation failure or a lost context that does not come back, the renderer re-creates its arrays at Normal.
+- **Audio:** decoded samples ≤ 96 MB, as Int16 in the voice bank (§9.4).
+- **JavaScript heap:** the KTX2 cache lives in the asset worker (≤ 64 MB). The main thread holds the manifests and lookup tables only, a few MB.
+
+**Multiplayer** (chapter 11).
+- **The same build.** `HELLO` carries the build hash, and the relay refuses a different one (11 §3.2, §6.3; D14). A refused client loads the room's build: it fetches that build's `build-manifest.json` past every cache, the service worker's included, from the build archive when the room runs an older build, and reloads.
+- **Assets never block the lockstep.** The simulation never waits for an asset; art and sound are presentation only. A joining client downloads the checkpoint at high priority and assets at low priority in parallel. Catch-up runs with extraction off (§3.3), and meanwhile the asset worker fetches the groups of the room's research state. If play starts before a page arrives, placeholders draw.
+- **Every peer draws the same picture.** Variant choices that the packet does not carry (tree shapes, resource shapes, decoratives) use the position hash of §15.7, so screenshots and bug reports agree across peers.
+- **A join is silent until it is live.** Historical events never sound (§15.6).
+
+### 9.8 The *Survey* look in the renderer
+
+The look is a few shader stages over the frame structure of §6.2, parameterised by the style constants of §15.7, so another style is a new constant table and not new code (IMPL-5). The numbers are A3's and were checked on its mocks; `design/art/proto/scene.py` and `extras.py` are the reference implementations, and a screenshot test compares the engine with them on the gallery (§9.5).
+
+**Shadows: hatching, not darkness** (§6.2 step 3; A3 §4.2). The shadow pass MAX-blends every visible shadow mask into an R8 target at half resolution. The composite draws world-anchored hatching through it, so the lines never swim when the camera pans:
+
+```glsl
+// uPeriod = 7/64 tile, uWidth = 1.7/64 tile, uInk = 0.55, uDarken = 0.06, uInkColour = #2b2723,
+// uPxPerTile = PX_PER_TILE · zoom · dpr (§15.7)
+float hatch(vec2 tiles) {                                   // ground position in tiles
+  float u = dot(tiles, vec2(0.70710678, -0.70710678));     // across the −45° lines
+  float dist = (0.5 - abs(fract(u / uPeriod) - 0.5)) * uPeriod;   // to the nearest line, tiles
+  float aa = 0.75 / uPxPerTile;                             // a 1.5-device-pixel edge
+  float line = 1.0 - smoothstep(0.5 * uWidth - aa, 0.5 * uWidth + aa, dist);
+  // band limit: below 3 device px per period the lines would alias, so fade to their mean coverage
+  return mix(uWidth / uPeriod, line, smoothstep(2.0, 3.0, uPeriod * uPxPerTile));
+}
+float m = clamp(texture(uShadowTarget, vScreenUv).r * 1.4, 0.0, 1.0);
+float h = hatch(vGroundTiles) * m;
+colour = mix(colour, uInkColour, uInk * h) * (1.0 - uDarken * m);
+```
+
+At zoom 1 and dpr 1 the period is 3.5 device pixels. Between 0.86× and 0.57× the lines fade into a flat 13% ink tone, which is what the eye averages the hatching to anyway.
+
+**Lights.** The light pass (§6.2 step 7) adds every lit emitter's glow sprite (the light array), scaled by `DYN.light`, into the half-resolution light target (RGBA16F where `EXT_color_buffer_half_float` exists, otherwise RGBA8, which clips the sum at 1). Then one full-screen pass composites day and night:
+
+```glsl
+// L = the light target; n = night strength = clamp((1 − daylight) ÷ (1 − AMBIENT_FLOOR), 0, 1)
+vec3  L    = texture(uLightTarget, vScreenUv).rgb;
+float a    = clamp(max(L.r, max(L.g, L.b)), 0.0, 1.0);
+vec3  hue  = L / max(a, 1e-4);
+// by day: a warm watercolour stain on the paper (A3 §4.3)
+vec3  day  = colour * (1.0 - 0.6 * a * (1.0 - hue));
+// at night: the cyanotype (A3 §4.4), with the day colours revealed where the light falls
+vec3  cyan   = texture(uCyanotypeLut, colour).rgb;          // 32³ LUT of the formula below
+float reveal = clamp(a * 1.6 * 1.4, 0.0, 1.0);              // the half-resolution target is soft already
+vec3  night  = mix(cyan, colour, reveal);
+night = 1.0 - (1.0 - night) * (1.0 - clamp(L * 0.9, 0.0, 1.0));
+colour = mix(day, night, n);
+```
+
+**The cyanotype LUT** is computed at start-up into a 32³ RGBA8 3D texture (128 kB), from A3's formula: lum = Rec. 709 luminance of the day colour; cyan = pale `#d6e4ec` + (deep `#13304f` − pale) × clamp((lum − 0.12) ÷ 0.80, 0, 1); then cyan × 0.82 + day × (0.45, 0.55, 0.85) × 0.18, so that belts and machines keep a trace of their coding.
+
+**Post** (§6.2 step 9): the colour-blind LUT, when enabled, comes last, after the night grade.
+
+**Smoke** (A3 §8): three inked cloud puffs per chimney of a working burner, drifting east and fading over 2 s. The puffs are sprites in the core group; the renderer spawns them from `DYN` state with a seeded counter. They are never simulated (§6.8).
+
+**Paper grain** lives in the terrain textures and the sprites. There is no screen-space grain, vignette, bloom or depth of field (A3 §14).
+
+### 9.9 Terrain, water and decoratives (assets)
+
+**Material textures** (A3 §11). Each tile type has a seamless 512² texture that covers 8×8 tiles at High and is sampled in world space (§6.5). There is one per tile type of `tiles.yaml` (18 in the slice), plus a dry and a cold wash of grass for biomes, about 22 in all. They are made procedurally by A3's `terrain.py` (paper grain, grass ticks, stipple) or from an image model's flat, unlit wash written to `assets/textures/survey/<tile>.png` (A3 §6). They are encoded as XUBC7 at quality 90 with three levels: 1 B/px on the GPU, about 7 MB for all of them.
+
+**Edges** (A3 §11; §6.5's noise mask). The terrain shader reads the chunk's tile ids (§6.5) and, for each pixel, looks the tile id up at a position warped by world-anchored noise (0.32 tile amplitude, 1.6-tile cells, from the position hash of §15.7) and blended over 0.55 tile. Every pixel takes the strongest type. Crisp types (town streets, town blocks, the concretes) skip the warp and get an inked kerb line, `#3b332b`, at their edges.
+
+**Water-lining.** Lines parallel to the shore at 0.12, 0.30, 0.52, 0.80, 1.15, 1.60, 2.2 and 3.0 tiles, fading with distance, plus an inked shoreline (A3 §11).
+- They need the distance to the shore. When a chunk enters the held set (§3.4), the main thread computes a per-chunk RG8 texture at 4 texels per tile, with a 3-tile border taken from neighbouring held chunks. Its red channel is the shore distance, by a two-pass chamfer transform (about 0.2 ms per chunk). Chunks with neither water nor trees skip it.
+- The terrain shader draws each line where the distance crosses its value, at a width of one device pixel, so the lining stays crisp at every zoom and fades below 0.5×.
+
+**The woodland tint** (A3 §3.1): a 30% wash of `#c9dca8` under tree clusters. The main thread rasterises the held chunks' trees (`CHUNK_OBJECTS`) into the same texture's green channel (radius 1.6 tiles, blurred 0.6 tile), and the terrain shader applies it.
+
+**Resources** are sprites per tile at 70% ink (the archive's bundles at 75%): 6 shapes × 8 depletion bands, chosen by `CHUNK_RESOURCES.band` and the position hash. **Decoratives** are sprites at 45% ink, 4 variants each, with their density capped per chunk by worldgen and culled below 0.5× (§6.12). **Trees** are 10 species × 4 shapes × 4 leaf stages; the species comes from the biome (an engine overlay table), the shape from the position hash, and the leaf stage from `ObjectView.variant` (heat strips leaves, 01 §2.2). **Cliffs** (M2) are inked escarpments in 8 orientations, with straight, corner and end pieces.
 
 ---
 
@@ -2643,7 +3035,7 @@ This section is the **single source** of the game's performance targets (J7). 09
 | UI time per frame, character screen and one entity window open | ≤ 2 ms (§7.3) |
 | Chart pan and zoom; the minimap with an overlay | 60 FPS |
 | Sim worker memory | ≤ 150 MB |
-| GPU textures | ≤ 256 MB at High (§6.13) |
+| GPU textures | ≤ 256 MB at High (§6.13); expected about 43 MB in BC7 (§9.6) |
 | Heat field | < 0.01 ms per tick for 4,096 chunks (§5.9) |
 | Staffing recompute (every 60 ticks) | ≤ 50 µs (§5.10) |
 | Input to visible response | ≤ 2 frames (I §1.3) |
@@ -2651,8 +3043,8 @@ This section is the **single source** of the game's performance targets (J7). 09
 | Autosave stall | ≤ 100 ms (the section copy only) |
 | A window opens; a Handbook search keystroke | ≤ 100 ms; ≤ 50 ms |
 | Save size at the slice's end | ≤ 5 MB |
-| Download | ≤ 30 MB |
-| Audio | the audio-thread budget of §9.4 (set by WP B2) |
+| Download | ≤ 30 MB in all (expected about 17 MB, 26 MB with every High page; §9.6). By stage (§9.7): first paint ≤ 30 kB; the main menu ≤ 0.5 MB; the first frame of a new game ≤ 5 MB; each later tier or era ≤ 3 MB |
+| Audio | audio thread ≤ 8% of one core averaged over a piece and ≤ 15% in any second, music and SFX together; main-thread audio ≤ 0.5%; decoded samples ≤ 96 MB (§9.4) |
 
 **Every scale:**
 - **Loading** a late save ≤ 3 s; `WebAssembly.compileStreaming` of `sim.wasm` ≤ 50 ms (A1: 4.7 ms in Chrome, 8.9 ms in Firefox for a 70 kB study module). Pristine chunks are not regenerated at load (§4.4): at 1–2 ms per chunk, regenerating a late game's 30k explored chunks would take far longer than the budget, so they come back lazily, the characters' surroundings first and at most 8 per tick, and the heat model never needs them (B1-r1 16). The map's images of pristine chunks come from the worldgen pool (§5.19).
@@ -2661,7 +3053,8 @@ This section is the **single source** of the game's performance targets (J7). 09
 - **Input latency** ≤ 2 frames from key to rendered effect in single player (multiplayer: 11 §3.4).
 - **Memory:** the whole tab ≤ 1.5 GB in a late game, plus GPU textures (§6.13).
 - **Spikes:** a research effect burst costs ≤ 2 ms in its worst tick (§4.7).
-- **Audio** (IMPL-6): A4 measured the audio thread at 36–76% of a core on this host, about 20–42% on the reference. Its budget and the cuts that meet it belong to §9.4 (WP B2); `bench.html` measures it before M1 exits.
+- **Audio** (IMPL-6; §9.4): the audio thread ≤ 8% of one core averaged over a piece and ≤ 15% in any second, in every era, music and SFX together; main-thread audio ≤ 0.5% with every scheduler tick ≤ 2 ms; decoded samples ≤ 96 MB. A4's engine measured 41–68% of a host core; with the shipping pack, the FDN reverb, the AudioWorklet voice bank and a 32 kHz engine it measures 12.9–21.1% (5.4–8.8% on the reference). `bench.html` measures it on the user's machine before M1 exits.
+- **Streaming** (§9.7): nothing waits for an asset it does not show, the simulation never waits for one, and each later tier or era downloads at most 3 MB, prefetched before it is needed.
 - **Catch-up** (multiplayer joins and re-syncs; 11 §4.4): the sim must run at **≥ 3× game speed** with extraction off (≤ 5.5 ms per tick) at Late scale on the reference machine, so that the backlog of a 20-s download and load (1,200 ticks) clears in about 10 s. §4.7's model predicts about 1.8 ms per tick without extraction, i.e. about 9×.
 
 ---
@@ -2744,8 +3137,8 @@ manifests:
 | **Shell** | The sim worker: module loading and the schema handshake, `MemoryLease`, the `LocalSequencer` with pacing and clock generations, packets and pooling, subscriptions, the world-replacement protocol (S15) and the worker swap (S11), checkpoint copies, closure logs and replay, trap recovery (§3.6); the worldgen and IO workers; `__game` | 3.5k / 1.5k | 3–4 |
 | **Renderer v0** | The batcher, atlases from the manifest (§15.7), the terrain shader, camera and zoom, layers, belt-item expansion from gap arrays, F4/F5 debug overlays; built against the fake sim | 2.5k / 0.5k | 2–3 |
 | **UI and input v0** | The Solid shell, Window and Slot, the character screen's skeleton on real projections, the input core (action map, capture layer, resolver skeleton, action encoder); built against the fake sim | 2k / 0.5k | 2 |
-| **Asset pipeline v0** | Per §9 (WP B2): the rig, greybox auto-models, the projection calibration test, atlas packing, the sprite manifest, contact sheets | 1.5k / 0.3k | 1–2 |
-| **Audio v0** | Per A4 and §9.4 (WP B2): the engine port, the mixer and buses, the event-to-sound map, working sounds from `AUDIO_WORKING` | 2k / 0.5k | 2–3 |
+| **Asset pipeline v0** | Per §9 (WP B2). **Build:** A3's rig, materials and parts ported to `assets/blender/` with the entity contract (`META`, `build`, `pose`); the layered render (base, Normal-resolution shadow, animated layers in R); ink, glow, trim; packing per group into 8-px-aligned pages with levels; XUBC7 and ETC1S encoding with `basisu` 2.50; `sprites.json` version 2 (§15.7); greybox sets for every entity; the projection calibration test; contact sheets, the composite and compression checks (§9.5); `npm run assets` with its cache. **Run time** (`src/assets/`): the asset worker with the Basis transcoder, the format probe and fallback chain, groups and priorities, residency and the level-0 clamp (§9.7); the build's `.br`/`.gz` siblings. Exit: the keypunch and a belt rendered through the whole chain and drawn by the renderer at dpr 1 and 2 | 2.5k / 0.6k | 2–3 |
+| **Audio v0** | Per A4 and §9.4 (WP B2): the engine ported to TypeScript at 32 kHz; the voice-bank and FDN AudioWorklets; the mixer and I §4.20's buses; the conductor with the Era I rule set; the SFX system (the event-to-sound map, variants, rate and voice limits, attenuation, working sounds from `AUDIO_WORKING`, historical silence); the Opus probe and AAC fallback; the CPU benchmark page. Exit: Era I and the prototype SFX inside §9.4's budget on this host (host ≤ 19%) | 2.8k / 0.7k | 3–4 |
 | **Integration and QA** | The test harness (the scenario DSL, the rule-scenario folder (§10.8), D18's suites, the trace page, the Playwright config, golden helpers), the benchmark runners and `bench.html`, the dev-server endpoints, the exit review | 1.5k / 1k | 2–3 |
 | **Total** | | **29k / 11k** | **25–34** (about 16–20 calendar days: the schema package alone, then the others in parallel, then integration) |
 
@@ -2819,10 +3212,11 @@ The three phases below group those steps for sizing: M1a ≈ S0 and S2's hand, M
 - `simtool diff` and `bisect`, and the migration framework with the first format change that needs it (§8.3, B1-r1 22).
 
 **M1c — Slice content, art and audio:**
-- Blender art for about 45 slice entities and the town and salvage world objects;
-- about 70 item icons and the slice's technology icons;
-- about 30 SFX, and the music engine with its Era I and Era II rule sets (A4, IMPL-6; WP B2 sizes it);
-- night lighting;
+- the slice's art through the layered pipeline (§9.1): the 32 entities and their greyboxes, the town and salvage world objects, town skins 1 and 2, trees, rocks, resources and the character. That is about 700 sprite sets and 1,500 animated-layer frames, about half an hour of rendering on this host and 8 colour pages (§9.6);
+- the icons of the slice's 57 items, in the GPU array and as DOM sheets, and its 23 technology icons (§9.3);
+- about 30 SFX in about 90 files, and the music engine's Era I and Era II rule sets on the voice bank and the FDN reverb, the offline-rendered menu loop and the AAC pack (A4, IMPL-6; §9.4). The audio page of `bench.html` must meet §9.4's budget on the user's laptop before M1 exits;
+- streaming: the `core`, `memo` and `report` atlas groups, the stage budgets of §9.7 checked under network throttling, and play without a service worker;
+- night lighting: the cyanotype and the light pass (§9.8);
 - golden tuning;
 - **playtests with the user** through the tunnel, and `bench.html` on their laptop.
 
@@ -3397,77 +3791,138 @@ Kinds (ids append-only): 1 `rates` (entities or an area; §5.20's rate calculato
 
 **Suppression** (D15, S15). The shell sets the module's `HISTORICAL` flag (§15.8) while it runs catch-up, replay or the fast-forward after a load or a join; events from those ticks carry the flag. The main thread never plays a sound, shows flying text or raises a toast for a historical event, nor for any event more than 30 ticks older than the packet that carries it (a hidden page that kept running). Log-type events are appended to their logs silently. After a new state generation, audio state is reset (§3.4).
 
-**Sounds are data.** The event-to-sound map (event type plus entity type or material → sound id) is engine overlay data (§2.4), so the audio module needs no per-event code (A4 DIRECTION §10). Rate and voice limits are the audio module's (A4 §7.3).
+**Sounds are data.** The event-to-sound map (an event type plus an entity type or material → a sound id) is engine overlay data, `game/data/engine/sounds.yaml` (§2.4), so the audio module needs no per-event code (A4 §10). Each sound id also carries its variant files, category bus, gain, jitter, rate limit, voice cap and whether it is positional. The SFX rules (variation, rate and voice limits, attenuation, mixing) are §9.4's.
 
-**Working sounds** (`AUDIO_WORKING`, 16 bytes per sound): `u16 sound, u16 n, f32 cx, f32 cy, f32 wsum`, one record per working-sound id with n > 0 among the visible working entities. (cx, cy) is their centroid relative to the view centre in tiles, and wsum = Σ 1 ÷ (1 + (d ÷ R)²) over them, with d each one's distance from the view centre and R the view request's `audio_half_range`, so that one entity at R counts half (−6 dB). The audio module turns n, wsum and the centroid into loop gain and pan (A4 §7.3: gain from n, pan by the centroid, distance weighting); extraction only aggregates.
+**Working sounds** (`AUDIO_WORKING`, 16 bytes per sound): `u16 sound, u16 n, f32 cx, f32 cy, f32 wsum`, one record per working-sound id with n > 0 among the working entities within the view rectangle grown by R ÷ 2 on every side (and inside the held set). (cx, cy) is their centroid relative to the view centre in tiles, and wsum = Σ 1 ÷ (1 + (d ÷ R)²) over them, with d each one's distance from the view centre and R the view request's `audio_half_range`, so that one entity at R counts half (−6 dB). The main thread sets `audio_half_range` to half the view's width in tiles, at most 64. Extraction only aggregates; the audio module turns n, wsum and the centroid into a loop's gain and pan (§9.4).
+- **The section is a snapshot.** A packet that carries it lists every working sound that should play; an id absent from it fades out over 0.3 s. A packet without the section (audio off in the view request) changes nothing.
+- **Staleness.** When no packet has arrived for 0.5 s (catch-up, fast-forward, a hidden page), the audio module fades every loop out. A new state generation resets all audio state (§3.4).
 
-**The music feed** is part of `HUD` (§15.5): the Literature year picks the era, activity gates layers, the doubling time drives the takeoff's tempo, and `loop_closed` and `victory` are events (A4 §5).
+**The music feed** is part of `HUD` (§15.5): the Literature year picks the era, activity gates layers, the doubling time drives the takeoff's tempo, and `loop_closed` and `victory` are events (A4 §5). The conductor reads it once a second.
 
 ### 15.7 World-to-screen projection and the sprite manifest
 
-**Projection.** World x points east and y south, in tiles (1 tile = 1 m, A3). For a camera at (cx, cy) in tiles and zoom z:
+*Revised by WP B2: one placement formula in device pixels, generated direction tables, the lookup contracts of every namespace, and manifest version 2 for the streamed, block-compressed atlases of §9.2 and §9.7 (codex B1-r1, finding 14).*
+
+**Projection, in device pixels.** World x points east and y south, in tiles (1 tile = 1 m, A3). Let the camera be at (cx, cy) in tiles with zoom z, and let dpr be the canvas's device pixel ratio (§6.10: `devicePixelRatio` capped at 2, times the render-resolution setting). Then:
 
 ```
-screen_x = (x − cx) · PX_PER_TILE · z · dpr          device pixels from the canvas centre
-screen_y = (y − cy) · PX_PER_TILE · z · dpr
-a point at height h tiles is drawn HEIGHT_SCALE · h · PX_PER_TILE · z · dpr higher (oblique; §9.1's camera)
+S        = PX_PER_TILE · z · dpr                 device pixels per tile
+screen_x = (x − cx) · S                          device pixels right of the canvas centre
+screen_y = (y − cy) · S − HEIGHT_SCALE · h · S   device pixels below it; h = height above the ground in tiles
 ```
 
-Sprites are pre-rendered in this projection, so the renderer only places them: a frame's anchor pixel `(ax, ay)` lands on the entity's ground anchor (its footprint centre, from `x2, y2`), scaled by `PX_PER_TILE · z ÷ SOURCE_PX_PER_TILE`. Positions are subtracted from the camera in `f64` and stored in vertices as `f32` (§6.3), so precision does not depend on distance from the origin.
+**Placing a sprite frame.** Sprites are pre-rendered in this projection (§9.1's camera), so the renderer only places them. A frame is `[array, layer, x, y, w, h, ax, ay]` in its array's level-0 pixels, and the array has P = `pxPerTile` (the manifest, below). For an entity whose ground anchor (its footprint centre, from `x2, y2`) is at (ex, ey):
 
-**Named constants.** Format constants live in `src/render/projection.ts`; style constants in `src/render/style.ts`, which the art direction sets (IMPL-5) without changing any format.
+```
+k      = S ÷ P                                   device pixels per source pixel, whatever level is sampled
+left   = (ex − cx) · S − ax · k                   the quad's top-left corner, device pixels from the canvas centre
+top    = (ey − cy) · S − ay · k
+size   = (w · k, h · k)
+uv     = (x, y, w, h) ÷ the array's page size at level 0
+```
+
+- Every quantity is in device pixels, so the formula is the same at dpr 1 and 2. The camera, not each sprite, is rounded to whole device pixels, so a still scene does not shimmer.
+- Positions are subtracted from the camera in `f64` and stored in vertices as `f32` (§6.3), so precision does not depend on the distance from the origin.
+- **Icons** are drawn centred at a size given in tiles (`BELT_ITEM_SIZE` on belts), so for the icon array P is the icon's level-0 size, 64 px, per icon rather than per tile.
+- **Levels.** A colour page's level 0 is needed when k > 0.5 (more than one source pixel per device pixel at High: zoom × dpr > 1); otherwise level 1, the Normal page, is enough (§9.7). The renderer requests level 0 for the pages it draws with k > 0.5.
+- **Fixtures:** `test/fixtures/projection/*.json` hold the expected quads of a calibration sprite (the unit cube of §9.1) at (z, dpr) = (1, 1), (1, 2), (0.5, 1), (3, 1) and (2, 2), at positions with negative and large coordinates. A Vitest test checks `projection.ts` against them, and the gallery screenshots (§9.5) check the result at dpr 1 and 2.
+
+**Directions.** `Direction` is 0–15, as Factorio 2.0's: north 0, east 4, south 8, west 12 (§4.2).
+- Each set lists the `Direction` values it has art for in `dirs`, in its frame order.
+- The asset build also writes `dirIndex`, a table of 16 entries that maps every `Direction` value to an index into `dirs`, or −1 where the set cannot face that way. The renderer never derives a direction index itself:
+  - a set drawn once (`dirs: [8]`) maps all 16 values to 0;
+  - a two-way set (the steam engine: north–south and east–west) maps 0 and 8 to 0, and 4 and 12 to 1;
+  - a four-way set maps 0, 4, 8 and 12, and −1 elsewhere; rails and signals use all 16.
+- **Movers** (`MOVERS`, §15.4) use orientations instead: frame index = round(orientation × count ÷ 65,536) mod count, with count 64 for rolling stock, vehicles and turret heads, 16 for agents and 8 for the character.
+
+**Frames.** The frame of part p (the base, the idle variant, a layer, the shadow or the light) for `Direction` d, variant v and animation frame f is `p.first + (dirIndex[d] × variants + v) × p.count + f`. An animated layer's f is `floor(phase × count ÷ 65,536)` from `DYN` (§15.4); the other parts use f = 0. `variants` counts connection masks (belts, pipes) or shapes.
+
+**Lookup contracts.** Set names are `<namespace>/<name>`. The renderer builds dense `Int32Array` tables from `prototypes.json` (§15.2) and `sprites.json` at load, so drawing never looks up a string:
+
+| Namespace | Drawn for | Key in the packet | Where the name comes from |
+|---|---|---|---|
+| `entity/` | entities, ghosts, inserter parts (`CHUNK_ENTITIES`, `DYN`, `HANDS`) | `proto` | the entity record's `sprite` in `prototypes.json` (engine overlay; default `entity/<name>`) |
+| `greybox/` | an entity whose set is missing or not resident | `proto` | `greybox/<name>`, generated for every entity (§9.2) |
+| `item/`, `fluid/` | icons: belt items, held items, ground items, alt-mode | `ItemKey` (`BELT_ITEMS`, `HANDS.held`, `ObjectView` kind 3), `EntityView.alt_icon` | the item or fluid record's `icon`; `alt_icon` indexes `prototypes.json`'s icon table |
+| `object/` | trees (`ObjectView` kind 0), rocks and other world objects (kind 1) | kind 0: the tree species; kind 1: the world object id (`world.yaml`) | trees: the species table (engine overlay) in `prototypes.json`; others: the world object's `sprite` |
+| `decor/` | decoratives (kind 4) | the decorative id | the decoratives table (engine overlay) in `prototypes.json` |
+| `cliff/` | cliffs (kind 2; M2) | the cliff shape id | the cliff table (engine overlay) |
+| `resource/` | resource tiles (`CHUNK_RESOURCES`) | `resource`; `band` picks the depletion stage | the resource record's `sprite` |
+| `town/` | town buildings on town-block tiles | the building id and skin from the chunk's town features (§15.9) | the town tables (engine overlay) |
+| `mover/` | characters, agents, rolling stock, vehicles (`MOVERS`) | `proto` and `kind` | the prototype record's `sprite` |
+| `fx/` | smoke puffs and particles | fixed names | `src/render/style.ts` |
+
+- A name without a set draws the entity's greybox, or the `fx/missing` icon for icons. The asset build fails if any data prototype lacks both a set and a greybox.
+- **Variants the packet does not carry** (a tree's shape, a resource tile's shape, a decorative's variant) come from one position hash, so every peer draws the same picture:
+
+  ```ts
+  // x, y: the object's position in 1/256 tile (ObjectView) or its tile coordinates (resources), as i32
+  function posHash(x: number, y: number): number {
+    let h = Math.imul(x, 0x27d4eb2d) ^ Math.imul(y, 0x165667b1);
+    h ^= h >>> 15; h = Math.imul(h, 0x85ebca77); h ^= h >>> 13;
+    return h >>> 0;                                   // variant = posHash(x, y) % variants
+  }
+  ```
+
+**Named constants.** Format constants live in `src/render/projection.ts`, style constants in `src/render/style.ts`. The art direction sets the style constants (IMPL-5) without changing any format; §9.8 is the code that uses them.
 
 | Constant | Value | Kind | Source |
 |---|---|---|---|
 | `PX_PER_TILE` | 32 (CSS px at zoom 1) | format | I §3.15 |
 | `ZOOM_MAX`, `ZOOM_MIN_WORLD`, `ZOOM_MIN_CHART` | 3, ≈ 0.3, 1/64 | format | §6.10 |
-| `SOURCE_PX_PER_TILE` | High 64, Normal 32 | format | §6.13 |
+| `SOURCE_PX_PER_TILE` | colour 64 at level 0 (High), 32 at level 1 (Normal); shadows 32; lights 16 | format | §9.2 |
 | `HEIGHT_SCALE` | 1 (heights render 1:1) | format | §9.1 calibration |
 | `CULL_MARGIN_TILES` | 6 | format | §6.6 |
 | `SHADOW_REACH` | 1.43 × height east, 0.39 × height south | style (culling) | A3 §2 |
 | `AMBIENT_FLOOR` | 0.15 | style | §5.7 |
-| `SHADOW_COMPOSITE` | Survey: hatching at −45°, period 7 px, line 1.7 px, 55% ink, plus 6% darkening | style | A3 §4.2 |
-| `LIGHT_COMPOSITE_DAY` | Survey: a warm stain, `colour × (1 − 0.6 · a · (1 − hue))` | style | A3 §4.3 |
-| `NIGHT_GRADE` | Survey: blend from the identity LUT to the cyanotype LUT by (1 − daylight), then the additive light | style | A3 §4.4 |
+| `SHADOW_COMPOSITE` | *Survey*: hatching at −45°, period 7/64 tile, line 1.7/64 tile, 55% ink, plus 6% darkening; band-limited below 3 device px per period | style | A3 §4.2, §9.8 |
+| `LIGHT_COMPOSITE_DAY` | *Survey*: a warm stain, `colour × (1 − 0.6 · a · (1 − hue))` | style | A3 §4.3, §9.8 |
+| `NIGHT_GRADE` | *Survey*: the cyanotype LUT and the light's reveal, blended by n = (1 − daylight) ÷ (1 − `AMBIENT_FLOOR`) | style | A3 §4.4, §9.8 |
+| `INK_COLOUR`, `CYANOTYPE_DEEP`, `CYANOTYPE_PALE` | `#2b2723`, `#13304f`, `#d6e4ec` | style | A3 §3.1, §4.4 |
 | `BELT_ITEM_SIZE` | 0.5 tile | style | A3 §2 |
-| `CLEAR_COLOUR`, `PAPER_TONE` | the paper colour | style | A3 §3.1 |
+| `CLEAR_COLOUR`, `PAPER_TONE` | the paper colour, `#ece3cb` | style | A3 §3.1 |
 
-**The sprite manifest** (`public/atlases/sprites.json`), as far as the renderer reads it. The asset pipeline (§9, WP B2) writes it.
+**The sprite manifest** (`public/atlases/sprites.json`), written by the asset build (§9.2) and checked against a JSON schema in that build:
 
 ```jsonc
 {
-  "version": 1,
-  "style": "survey-1",                                   // informational
-  "arrays": [                                            // ordered: a frame's first field indexes this list
-    { "kind": "colour", "format": "rgba8-premultiplied" },
-    { "kind": "shadow", "format": "r8" },
-    { "kind": "light",  "format": "rgba8-premultiplied" },
-    { "kind": "icon",   "format": "rgba8-premultiplied" }
+  "version": 2,
+  "style": "survey-1",                                         // informational
+  "arrays": [                                                  // a frame's first field indexes this list
+    { "kind": "colour", "pxPerTile": 64, "pageSize": 2048, "levels": 4, "codec": "xubc7" },
+    { "kind": "shadow", "pxPerTile": 32, "pageSize": 1024, "levels": 3, "codec": "etc1s" },
+    { "kind": "light",  "pxPerTile": 16, "pageSize": 512,  "levels": 2, "codec": "xubc7" },
+    { "kind": "icon",   "pxPerTile": 64, "pageSize": 1024, "levels": 3, "codec": "xubc7" }   // 64 px per icon at level 0
   ],
-  "resolutions": {                                       // one page list and one frame table per resolution
-    "high":   { "pxPerTile": 64,
-                "pages":  [[{ "file": "atlases/colour-h-00.webp", "group": "m1" }], [], [], []],   // per array
-                "frames": [[0, 0, 12, 40, 128, 150, 64, 118]] },   // [array, layer, x, y, w, h, ax, ay] in this resolution's px
-    "normal": { "pxPerTile": 32, "pages": [[], [], [], []], "frames": [] }
-  },
-  "sets": {                                              // frame ids are the same in both resolutions' tables
+  "pages": [                                                   // per array, in layer order
+    [ { "group": "core",                                       // §9.7's atlas groups
+        "files": ["atlases/colour-core-0.3f2a9c1e.h.ktx2",    // level 0
+                  "atlases/colour-core-0.9be04d17.n.ktx2"],   // levels 1 to levels − 1
+        "bytes": [1021000, 451000] } ],
+    [], [], []                                                 // shadow, light, icon pages: one file each
+  ],
+  "frames": [[0, 0, 16, 40, 128, 152, 64, 120]],               // [array, layer, x, y, w, h, ax, ay], level-0 px
+  "sets": {
     "entity/stone-furnace": {
-      "size": [2, 2], "directions": 1, "variants": 1,
+      "group": "core", "size": [2, 2],
+      "dirs": [8], "dirIndex": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "variants": 1,
       "base":   { "first": 0, "count": 1 },
-      "idle":   { "first": 1, "count": 1 },              // optional idle variant (A3 §8)
-      "anim":   { "first": 2, "count": 16, "loop": "seamless" },   // the animated layer over the base: frames 2–17
+      "idle":   { "first": 1, "count": 1 },                    // optional (A3 §8)
+      "layers": [ { "first": 2, "count": 16, "loop": "seamless" } ],   // animated layers, drawn in order over the base
       "shadow": { "first": 18, "count": 1 },
       "light":  { "first": 19, "count": 1 }
     },
-    "item/iron-plate": { "icon": { "16": 20, "32": 21, "64": 22 } }
-  }
+    "item/iron-plate": { "group": "core", "icon": { "first": 20, "count": 1 } }   // 32 and 16 px are its levels 1 and 2
+  },
+  "dom": { "icons": { "core": ["sheets/icons-core-32.1a2b3c4d.webp", "sheets/icons-core-64.5e6f7a8b.webp"] },
+           "tech":  { "memo": "sheets/tech-memo.0c1d2e3f.webp" } }
 }
 ```
 
-- A part's frame for direction d, variant v and animation frame f is `first + (d × variants + v) × count + f`, the same id in every resolution's frame table; `variants` counts connection-mask variants (belts and pipes).
-- `prototypes.json` names each entity's set (`entity/<name>` by default, from the overlay's animation definitions), and items' icons; the renderer builds `proto id → set` tables at load. A missing set draws the greybox placeholder (§9.2).
-- `group` lets the loader fetch pages by milestone or tier (§6.4; B2's streaming plan).
-- The frame chosen for an animated layer is `floor(phase × count ÷ 65,536)` from `DYN`.
+- Frame rectangles of the colour and icon arrays sit on multiples of 8 px at level 0, so they map exactly onto every level and onto 4×4 compression blocks (§9.2).
+- `files` and `bytes` let the asset worker fetch and prioritise by group and level (§9.7). Only colour pages split level 0 into its own file; the other arrays have one file per page. The GPU format is not in the manifest: the asset worker chooses it at run time from `codec` and the WebGL extensions (§9.2).
+- `codec` is `xubc7`, `etc1s` or `rgba8`. The last is an uncompressed KTX2 that needs no transcoder; the golden set's tiny atlas (§15.10) uses it, so the renderer can be built before the asset pipeline exists.
+- Version 1's `resolutions` (separate High and Normal page lists and frame tables) is gone, because Normal is level 1 of the same page. Version 1's single `anim` is now `layers`, a list, because big machines have animated parts far apart.
 
 ### 15.8 The WebAssembly ABI
 

@@ -14,6 +14,7 @@
 - A WebAudio engine plays rule sets live, from about 7 MB of CC0 samples, with generated reverbs and synthesized voices. The same code renders offline, through `OfflineAudioContext`, the fallback tracks, the menu loop and these demos.
 - It costs under 1% of the main thread (measured).
 - The audio thread is the real budget: 36% of a core for Era I, 53% for Era II and 76% for the takeoff on this host. That is roughly 20–40% on the reference laptop. §6.5 lists the cuts that bring it under 15–25%.
+- *Update (WP B2, 2026-10-20):* the runtime is now specified in spec 10 §9.4. Its budget is ≤ 8% of a reference core on average and ≤ 15% in any second. With the shipping pack, an FDN reverb worklet, every sampler voice in one AudioWorklet and a 32 kHz engine, the measured cost is 5.4% (Era I), 7.0% (Era II without its inserts) and 8.8% (takeoff) on the reference machine.
 
 **The demos** (`demos/`; Opus 128 kbps; −16 LUFS, true peak ≤ −1 dBTP):
 
@@ -190,7 +191,7 @@ The cue is 15 s long. A cue on this scale does not break the register; it has no
 
 ### 5.4 Elsewhere
 
-- **The main menu** plays the charter piece on a loop, rendered offline into one ~3 MB Opus file (§6.4), so the menu does not need the engine.
+- **The main menu** plays the charter piece on a loop, rendered offline into one Opus file of about 2 MB (96 kbps, §6.4), so the menu does not need the engine. The first piece of every game plays from the same cached recording while the Era I pack loads (spec 10 §9.4).
 - **Audio context.** The first click or key on the main menu starts the AudioContext (07 §18).
 - **A hidden tab** pauses the game (07 §19.3). The music fades over 1 s and the context suspends; it resumes on return. With *Keep running in background tab*, a Worker-driven clock keeps scheduling.
 - **Map view and zoom** do not change the music; they change SFX (§7.3).
@@ -206,7 +207,7 @@ The cue is 15 s long. A cue on this scale does not break the register; it has no
 | Adaptivity | Crossfades between tracks only. Cannot follow the doubling time continuously, or place a cue at an exact moment, without many variants | Continuous: tempo, density, instruments, the convergence cue at the exact moment, activity gates | As (b) |
 | Download | Slice: 2–3 tracks × 4 min × 96 kbps ≈ 6–9 MB for 10 min of music. Full game ~130 MB for 3 h | Slice ≈ 7.5 MB (shipping profile: Era I 6.3 MB, Era II +1 MB, SFX 0.3 MB). Full game ~15–20 MB. Packs lazy per era | As (b), plus a 3 MB menu loop and optional fallbacks |
 | Main-thread CPU | ~0 (a media element) | Scheduler 0.09–0.6% of a core; worst tick 1.7–14 ms (measured, §6.5) | As (b) |
-| Audio-thread CPU | ~2% | Measured 36% (Era I), 53% (Era II), 76% (takeoff) of a core on this host, about 20–42% on the reference laptop. Optimized target ≤15% / ≤25% (§6.5) | As (b), with a fallback to (a) on weak machines |
+| Audio-thread CPU | ~2% | Measured 36% (Era I), 53% (Era II), 76% (takeoff) of a core on this host, about 20–42% on the reference laptop. Optimized target ≤15% / ≤25% (§6.5); spec 10 §9.4 now sets ≤ 8% on average and measures 5.4–8.8% | As (b), with a fallback to (a) on weak machines |
 | Effort | Low: 2–3 agent-days | High: the engine port, rule sets and tests, ~7–9 agent-days for M1 | (b) + ~1 day (offline-render tooling exists: `render/render.mjs`) |
 
 **Recommendation: (c).**
@@ -219,6 +220,8 @@ The cue is 15 s long. A cue on this scale does not break the register; it has no
   - trailers.
 
 ### 6.2 Architecture (the prototype: `proto/engine/`)
+
+*The game's runtime differs from this prototype graph; spec 10 §9.4 (WP B2) is binding for it. Every sampler voice is mixed in one AudioWorklet (Int16 samples), an FDN worklet replaces the convolvers, the tape and tremolo inserts move into the worklet, and the engine runs at 32 kHz. The offline renderer may keep this graph.*
 
 ```
  game state (sim → main thread, per second): literatureYear, activity, closure, doublingTime, victory, paused
@@ -278,8 +281,9 @@ The cue is 15 s long. A cue on this scale does not break the register; it has no
   - mallets are mono at 40–48 kbps;
   - only the ranges the rules use are kept.
 - **Per era:** Era I 6.3 MB (the piano 3.8 MB); Era II +1.0 MB (marimba, vibraphone; the piano is shared); SFX 0.3 MB.
-- **Load order:**
-  - SFX and Era I at boot, after the first gesture;
+- **Load order** (spec 10 §9.4, §9.7):
+  - SFX with the first frame of a game;
+  - Era I during the first piece, which plays from the menu loop's cached recording;
   - Era II in idle time;
   - each later era when the Literature year comes within ~5 years of its boundary.
 - **Size reductions, if more are needed:**
@@ -287,7 +291,7 @@ The cue is 15 s long. A cue on this scale does not break the register; it has no
   - give it one layer, with a velocity lowpass: −1.9 MB.
 - **Format.**
   - Ogg/Opus decodes sample-exact in Chrome: the decoded length equals the source and the lag is 0, so encoder pre-skip is handled (`render/looptest.mjs`). WebM/Opus also decodes.
-  - The spec's plan (10 §9.4) stands: Opus in WebM, with an AAC `.m4a` fallback chosen by probing `decodeAudioData` at startup. Safari is the reason.
+  - Samples and SFX ship as Ogg Opus, with an AAC `.m4a` fallback chosen by probing `decodeAudioData` at startup (spec 10 §9.4). Safari is the reason.
   - Loops never rely on the file boundary. The manifest carries `loopStart` and `loopEnd`, so an AAC fallback's priming samples cannot click.
 - **Music tracks** (the menu loop, fallbacks): Opus at 96–128 kbps, streamed through a media element, not decoded into memory.
 
@@ -301,6 +305,7 @@ The cue is 15 s long. A cue on this scale does not break the register; it has no
 
 - This host runs single-threaded at about 0.55× the reference laptop, so these figures are roughly 20/29/42% there.
 - Compressors and limiters cost nothing measurable.
+- *Update (WP B2):* spec 10 §9.4 now sets the budget at ≤ 8% of a reference core on average and ≤ 15% in any second, and measures the cuts below plus an AudioWorklet voice bank and a 32 kHz engine: 5.4% (Era I), 7.0% (Era II without its inserts) and 8.8% (takeoff). The FDN replaces every convolver at run time, not only the long tails, and the fallback to recorded pieces starts above 15% on the user's machine.
 - **The cost is reverb (about one third) and voices.** The audio WP must reach ≤15% (Eras I–II) and ≤25% (takeoff) on the reference laptop, by:
   1. **One convolver per era bus, IR ≤ 4 s.** Longer tails (Eras IV–V; the takeoff's 12 s `vast`) come from a feedback-delay-network reverb in an AudioWorklet: 8 lines, about 1–2% of a core.
   2. **No velocity-layer crossfade** for notes shorter than 0.5 s or faster than 6 per second: one voice per note.
@@ -431,7 +436,7 @@ All instrument samples are CC0 (VCSL; VSCO 2 Community Edition); everything else
 **M1 (the slice: Literature up to 1969, so Eras I and II):**
 1. **`src/audio/`, ported from `proto/engine/` to TypeScript:**
    - Clock, Mixer (buses per I §4.20 category: Master, music, game effects, GUI, alerts, environment, walking, ambient; mute per category);
-   - Sampler, Synth, IR generator, inserts;
+   - Sampler, Synth, IR generator, inserts; at run time the sampler voices, the inserts and the reverb are the AudioWorklets of spec 10 §9.4 (the voice bank and the FDN);
    - MusicEngine, Conductor;
    - the Era I and Era II rule sets.
 2. **The state feed from the sim** (10 §3.2 packets): Literature year, activity (power over 60 s), pause. Closure, doubling time and victory come at M4.
@@ -453,7 +458,7 @@ All instrument samples are CC0 (VCSL; VSCO 2 Community Edition); everything else
 **M2–M4:**
 - Era III (M2) and Era IV/IV′ (M3), each a rule set plus a pack;
 - the takeoff with the closure cue and the doubling-time feed (M4);
-- the FDN reverb worklet before the takeoff ships;
+- the FDN reverb worklet (built in M0, spec 10 §9.4) tuned for the long tails before the takeoff ships;
 - the after-victory callback.
 
 **Effort.** About 7–9 agent-days for M1 audio: the engine port 3, the SFX system and set 2–3, tests and calibration 2. About 2–3 per later era.
