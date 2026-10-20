@@ -6,3 +6,7 @@ target/
 public/data/
 test-results/
 playwright-report/
+# The asset build's outputs (10 §9.6: only sources are committed; npm run assets rebuilds them from the cache)
+public/atlases/
+public/sheets/
+public/fonts/

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="28" viewBox="0 0 32 28" data-slice="6 6 6 6" data-repeat="stretch">
+  <title>button-confirm-hover</title>
+  <desc>Confirm, hovered.</desc>
+  <g opacity="1.0">
+  <rect x="0.5" y="0.5" width="31" height="27" rx="1.5" fill="#c6d9b1" stroke="#4f7a3c" stroke-width="1"/>
+  <path d="M2 25 V2.5 Q2 2 2.5 2 H29.5" fill="none" stroke="#e4eed8" stroke-width="1"/>
+  <path d="M30 3 V25.5 Q30 26 29.5 26 H2.5" fill="none" stroke="#5f8a4a" stroke-width="1.5"/>
+  </g>
+</svg>

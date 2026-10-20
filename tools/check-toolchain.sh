@@ -41,6 +41,8 @@ check clippy         cargo clippy --version
 check rustfmt        rustfmt --version
 check pyyaml         gamedev-python -c "import yaml; print('pyyaml', yaml.__version__)"
 check numactl        sh -c "numactl --show | head -1"
+check basisu         sh -c "basisu -version 2>&1 | grep -m1 -o 'Basis Universal.*'"
+check jsonschema     gamedev-python -c "import importlib.metadata as m; print('jsonschema', m.version('jsonschema'))"
 
 echo "functional:"
 sf=$HOME/.local/share/soundfonts/GeneralUser-GS.sf2
@@ -53,6 +55,11 @@ check audio-render   sh -c "
 check svg-render     sh -c "
     echo '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\"><rect width=\"8\" height=\"8\" fill=\"red\"/></svg>' > '$work/t.svg' &&
     resvg '$work/t.svg' '$work/t.png' && magick identify '$work/t.png'"
+check ktx2-xubc7    sh -c "
+    magick -size 64x64 gradient:red-blue '$work/k.png' &&
+    basisu -ktx2 -no_stats -xubc7 -quality 90 '$work/k.png' -output_file '$work/k.ktx2' >/dev/null 2>&1 &&
+    mkdir -p '$work/ku' && basisu -unpack -format_only 6 -no_ktx '$work/k.ktx2' -output_path '$work/ku' >/dev/null 2>&1 &&
+    ls '$work/ku' | grep -q BC7 && echo 'PNG -> KTX2 XUBC7 -> BC7'"
 check chrome-webgl2  node --input-type=module -e "
     import { chromium } from '$HOME/.local/lib/node_modules/playwright/index.mjs';
     const b = await chromium.launch();

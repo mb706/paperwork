@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" data-slice="10 10 10 10" data-repeat="stretch">
+  <title>minimap-frame</title>
+  <desc>Minimap frame: a survey sheet's double neatline with corner ticks (the centre is transparent).</desc>
+  <rect x="0.75" y="0.75" width="46.5" height="46.5" rx="1" fill="none" stroke="#6f5a36" stroke-width="1.5"/>
+  <rect x="5.5" y="5.5" width="37" height="37" fill="none" stroke="#2b2723" stroke-width="1"/>
+  <rect x="7.5" y="7.5" width="33" height="33" fill="none" stroke="#2b2723" stroke-width="0.6"/>
+  <path d="M7.5 3 V7.5 M3 7.5 H7.5 M40.5 3 V7.5 M45 7.5 H40.5 M7.5 45 V40.5 M3 40.5 H7.5 M40.5 45 V40.5 M45 40.5 H40.5" stroke="#2b2723" stroke-width="0.8"/>
+</svg>
