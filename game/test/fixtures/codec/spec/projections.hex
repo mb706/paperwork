@@ -1,0 +1,218 @@
+# Projections, subscriptions and queries (10 §15.5; projections.yaml).
+#
+# Hand-written from the README and projections.yaml only. ProjectionKind (`kinds:`, ids 1–10) and QueryKind
+# (`queries:`, ids 1–8) are generated enums; §15.5 gives their width (u16). Messages: lists are a u16 count
+# then the items; `bytes` is a u16 length then the bytes; a `when:` field is present iff its flag bit is set.
+#
+# Covers: UiRecordHeader (a struct: `len` dumped), UiRecord (a message: `len` hidden, body as hex, padded
+# to 4) with a status-2 reason, SubRequest without and with its `when: flags.tail` tail, Hud (f32, f64
+# including -0.0, a list of structs), Character (three lists, one of ids), Inventory (a nested message),
+# QueryHeader, StatSeries (two `f32[count]` arrays on one hidden count), InspectResult (a list of messages
+# holding a str and bytes).
+
+@type UiRecordHeader
+03 00 00 00                               // sub_id 3
+03 00                                     // kind 3 (INVENTORY)
+00 00                                     // status 0 (ok)
+07 00 00 00                               // version 7
+28 00 00 00                               // len 40
+@dump
+sub_id=3
+kind=3
+status=0
+version=7
+len=40
+
+@type UiRecord                            # status 2 (invalid): the body is a u16 UiInvalidReason, then padding
+04 00 00 00                               // sub_id 4
+06 00                                     // kind 6 (RESEARCH)
+02 00                                     // status 2 (invalid)
+01 00 00 00                               // version 1
+02 00 00 00                               // len 2
+01 00                                     // body: reason 1 (unsupported)
+00 00                                     // padding to 4
+@dump
+sub_id=4
+kind=6
+status=2
+version=1
+body=hex:0100
+
+@type SubRequest                          # flags 0: no tail
+01 00 00 00                               // sub_id 1
+02 00                                     // kind 2 (CHARACTER)
+00 00                                     // flags 0
+00 00 00 00                               // target 0 (player 0)
+00 00 00 00  00 00 00 00                  // p0 0, p1 0
+00 00 00 00  00 00 00 00                  // p2 0, p3 0
+@dump
+sub_id=1
+kind=2
+flags=0
+target=0
+p0=0
+p1=0
+p2=0
+p3=0
+
+@type SubRequest                          # flags 1 (tail): STATS with two StatKeys in the tail
+02 00 00 00                               // sub_id 2
+07 00                                     // kind 7 (STATS)
+01 00                                     // flags 1 (tail)
+00 00 00 00                               // target 0
+01 00 00 00                               // p0 1 (m1)
+00 00 00 00                               // p1 0 (items)
+01 00 00 00                               // p2 1 (series)
+00 00 00 00                               // p3 0
+08 00                                     // tail: u16 length 8
+28 00 00 01  29 00 00 01                  //   StatKeys 0x01000028, 0x01000029
+@dump
+sub_id=2
+kind=7
+flags=1
+target=0
+p0=1
+p1=0
+p2=1
+p3=0
+tail=hex:2800000129000001
+
+@type Hud
+10 0e 00 00                               // tick 3600
+ff ff                                     // research_tech 0xFFFF (none)
+00 00                                     // research_level 0
+00 00 00 00                               // research_progress 0.0f
+00 00                                     // takeoff_level 0
+00                                        // flags 0
+00                                        // reserved
+00 00 00 00 00 00 f0 3f                   // field 1.0
+00 00 00 00 00 64 9e 40                   // literature 1945.0
+00 00 00 00 00 66 9e 40                   // your_year 1945.5
+00 00 00 00 00 00 e0 bf                   // years_ahead -0.5
+00 00 00 00 60 e3 36 41                   // activity_w 1.5e6
+00 00 00 00 00 00 00 80                   // doubling_time_s -0.0 (its bits are kept)
+02 00                                     // alerts: count 2
+01 00  02 00                              //   [0] alert 1 (entity_destroyed), count 2
+21 00  01 00                              //   [1] alert 33 (compromised), count 1
+@dump
+tick=3600
+research_tech=65535
+research_level=0
+research_progress=f32:00000000
+takeoff_level=0
+flags=0
+field=f64:3ff0000000000000
+literature=f64:409e640000000000
+your_year=f64:409e660000000000
+years_ahead=f64:bfe0000000000000
+activity_w=f64:4136e36000000000
+doubling_time_s=f64:8000000000000000
+alerts.len=2
+alerts[0].alert=1
+alerts[0].count=2
+alerts[1].alert=33
+alerts[1].count=1
+
+@type Character
+00 00                                     // player 0
+09                                        // flags 9 (online | auto_sort)
+01                                        // quickbar_page 1
+01 00 00 00                               // serial 1
+02 00                                     // input_gen 2
+05 00                                     // hand_origin 5
+28 00                                     // hand_key 40
+00 00                                     // reserved
+0c 00 00 00                               // hand_count 12
+00 00 80 3e                               // mining_progress 0.25f
+02 00                                     // main: count 2
+28 00  ff ff  32 00 00 00                 //   [0] key 40, filter none, count 50
+ff ff  29 00  00 00 00 00                 //   [1] key none, filter 41, count 0
+03 00                                     // quickbar: count 3
+28 00  ff ff  29 00                       //   40, none, 41
+01 00                                     // queue: count 1
+03 00  02 00  00 00 00 3f  01  00  00 00  //   [0] recipe 3, count 2, progress 0.5f, flags 1 (intermediate), reserved, reserved2
+@dump
+player=0
+flags=9
+quickbar_page=1
+serial=1
+input_gen=2
+hand_origin=5
+hand_key=40
+hand_count=12
+mining_progress=f32:3e800000
+main.len=2
+main[0].key=40
+main[0].filter=65535
+main[0].count=50
+main[1].key=65535
+main[1].filter=41
+main[1].count=0
+quickbar.len=3
+quickbar[0]=40
+quickbar[1]=65535
+quickbar[2]=41
+queue.len=1
+queue[0].recipe=3
+queue[0].count=2
+queue[0].progress=f32:3f000000
+queue[0].flags=1
+
+@type Inventory                           # a nested message (InventoryView)
+4d 00 00 00                               // serial 77
+02                                        // view.inv 2 (chest)
+00                                        // view.reserved
+10 00                                     // view.bar 16
+01 00                                     // view.slots: count 1
+28 00  ff ff  64 00 00 00                 //   [0] key 40, filter none, count 100
+@dump
+serial=77
+view.inv=2
+view.bar=16
+view.slots.len=1
+view.slots[0].key=40
+view.slots[0].filter=65535
+view.slots[0].count=100
+
+@type QueryHeader
+08 00                                     // kind 8 (digest)
+00 00                                     // flags 0
+@dump
+kind=8
+flags=0
+
+@type StatSeries                          # count (hidden) drives both arrays
+28 00 00 01                               // key 0x01000028 (item 40)
+ff ff                                     // from 65535
+02 00                                     // count 2
+00 00 80 3f  00 00 00 40                  // produced 1.0f, 2.0f
+00 00 00 00  00 00 00 3f                  // consumed 0.0f, 0.5f
+@dump
+key=16777256
+from=65535
+produced.len=2
+produced[0]=f32:3f800000
+produced[1]=f32:40000000
+consumed.len=2
+consumed[0]=f32:00000000
+consumed[1]=f32:3f000000
+
+@type InspectResult                       # list<InspectField>: messages with a str and bytes
+92 10 00 00                               // serial 4242
+01                                        // found true
+00                                        // reserved
+00 00                                     // reserved2
+01 00                                     // fields: count 1
+01 00 00 00                               //   [0] section 1
+03                                        //       type 3 (u32)
+00                                        //       reserved
+06 00  73 65 72 69 61 6c                  //       name "serial"
+04 00  92 10 00 00                        //       value: 4 bytes
+@dump
+serial=4242
+found=true
+fields.len=1
+fields[0].section=1
+fields[0].type=3
+fields[0].name="serial"
+fields[0].value=hex:92100000

@@ -1,0 +1,204 @@
+# Save-side formats (10 §8.1, §8.5; sections.yaml, state.yaml).
+#
+# Hand-written from the README, sections.yaml and state.yaml only (record hex laid out with a throwaway
+# helper from the field ids and types of state.yaml; every byte is annotated). SectionFrame is the
+# container's section framing: a 16-byte header, `stored_length` data bytes (the hidden count of
+# `data: u8[stored_length]`), zero padding to a multiple of 8 measured from the frame's start.
+#
+# Covers: SectionFrame with padding (5 data bytes + 3), without (8 data bytes, deflate codec) and with no
+# data; the closure log's ClosureLogHeader (116 bytes, two Hash256), ClosureRecord (a closure as u8[length])
+# and LogBlob; the records rng_state ([u32; 4]: fixed array, no .len), timer and player (structs Hand and
+# MiningState with nested FinePos, lists of CreationEntry and CraftEntry, f64, bools).
+
+@type SectionFrame                        # 5 data bytes, then 3 bytes of padding (16 + 5 = 21 → 24)
+02 00 00 00                               // id 2 (GLOBALS)
+01 00                                     // version 1
+00                                        // codec 0 (raw)
+01                                        // flags 1 (hashed)
+05 00 00 00                               // raw_length 5
+05 00 00 00                               // stored_length 5
+01 02 03 04 05                            // data
+00 00 00                                  // padding
+@dump
+id=2
+version=1
+codec=0
+flags=1
+raw_length=5
+data=hex:0102030405
+
+@type SectionFrame                        # 8 stored bytes: no padding; codec 1 (deflate), raw_length differs
+05 00 00 00                               // id 5 (CHUNKS)
+01 00                                     // version 1
+01                                        // codec 1 (deflate)
+01                                        // flags 1 (hashed)
+64 00 00 00                               // raw_length 100
+08 00 00 00                               // stored_length 8
+78 9c 03 00 00 00 00 01                   // data
+@dump
+id=5
+version=1
+codec=1
+flags=1
+raw_length=100
+data=hex:789c030000000001
+
+@type SectionFrame                        # no data: the 16-byte header alone
+e8 03 00 00                               // id 1000 (CLOSURE_LOG)
+01 00  00  00                             // version 1, codec 0, flags 0
+00 00 00 00  00 00 00 00                  // raw_length 0, stored_length 0
+@dump
+id=1000
+version=1
+codec=0
+flags=0
+raw_length=0
+data=hex:
+
+@type ClosureLogHeader                    # 116 bytes
+50 57 43 4c                               // magic 0x4C435750 ("PWCL")
+02 00                                     // format_version 2
+01                                        // action_schema_version 1
+01                                        // flags 1 (has_digests)
+58 02 00 00                               // start_tick 600
+b0 04 00 00                               // end_tick 1200
+00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f   // build_hash
+ba 78 16 bf 8f 01 cf ea 41 41 40 de 5d ae 22 23 b0 03 61 a3 96 17 7a 9c b4 10 ff 61 f2 00 15 ad   // prototypes_hash
+ef cd ab 89 67 45 23 01                   // start_state_hash 0x0123456789ABCDEF
+02 00 00 00                               // record_count 2
+40 00 00 00                               // record_bytes 64
+59 02 00 00                               // digest_first_tick 601
+58 02 00 00                               // digest_count 600
+01 00 00 00                               // blob_count 1
+27 00 00 00                               // blob_bytes 39
+00 00 00 00                               // reserved
+@dump
+magic=1279481680
+format_version=2
+action_schema_version=1
+flags=1
+start_tick=600
+end_tick=1200
+build_hash.bytes=hex:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+prototypes_hash.bytes=hex:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+start_state_hash=81985529216486895
+record_count=2
+record_bytes=64
+digest_first_tick=601
+digest_count=600
+blob_count=1
+blob_bytes=39
+
+@type ClosureRecord                       # tick, length (hidden, range [1, 1048576]), the closure
+07 00 00 00                               // tick 7
+16 00 00 00                               // length 22
+01 00 0000 07000000 05000000 0100 0000    // closure: batch v1, player 0, tick 7, first_seq 5, count 1
+0200 0200 0000                            //          stop_walking, input_gen 0
+@dump
+tick=7
+closure=hex:01000000070000000500000001000000020002000000
+
+@type LogBlob                             # sha256, length (hidden, range [0, 8 MiB]), bytes
+ba 78 16 bf 8f 01 cf ea 41 41 40 de 5d ae 22 23 b0 03 61 a3 96 17 7a 9c b4 10 ff 61 f2 00 15 ad   // SHA-256("abc")
+03 00 00 00                               // length 3
+61 62 63                                  // "abc"
+@dump
+sha256.bytes=hex:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+bytes=hex:616263
+
+@type rng_state                           # RNG: stream, [u32; 4] (a fixed array: no .len line)
+1e 00 00 00                                            // rng_state: L = 30
+01 00 02 00 00 00  02 00                               // id 1 stream, len 2: 2 (ambient)
+02 00 10 00 00 00                                      // id 2 state, len 16:
+  78 56 34 12                                          //   305419896
+  f0 de bc 9a                                          //   2596069104
+  01 00 00 00                                          //   1
+  ff ff ff ff                                          //   4294967295
+@dump
+stream=2
+state[0]=305419896
+state[1]=2596069104
+state[2]=1
+state[3]=4294967295
+
+@type timer                               # TIMERS
+26 00 00 00                                            // timer: L = 38
+01 00 04 00 00 00  b0 04 00 00                         // id 1 due, len 4: 1200
+02 00 04 00 00 00  92 10 00 00                         // id 2 serial, len 4: 4242
+03 00 02 00 00 00  01 00                               // id 3 event, len 2: 1 (ghost_expiry)
+04 00 04 00 00 00  00 00 00 00                         // id 4 owner, len 4: 0
+@dump
+due=1200
+serial=4242
+event=1
+owner=0
+
+@type player                              # PLAYERS: 21 fields, structs and lists inside a record
+08 01 00 00                                            // player: L = 264
+01 00 02 00 00 00  00 00                               // id 1 index, len 2: 0
+02 00 01 00 00 00  01                                  // id 2 online, len 1: true
+03 00 04 00 00 00  01 00 00 00                         // id 3 character, len 4: 1
+04 00 02 00 00 00  02 00                               // id 4 input_gen, len 2: 2
+05 00 04 00 00 00  2a 00 00 00                         // id 5 last_seq, len 4: 42
+06 00 1c 00 00 00                                      // id 6 creation_ring, len 28:
+  02 00 00 00                                          //   list: u32 count 2
+    05 00 00 00  92 10 00 00  01 00  00 00             //     [0] CreationEntry {seq 5, first_serial 4242, count 1}
+    09 00 00 00  93 10 00 00  02 00  00 00             //     [1] CreationEntry {seq 9, first_serial 4243, count 2}
+07 00 04 00 00 00  11 00 00 00                         // id 7 inventory_version, len 4: 17
+08 00 04 00 00 00  00 00 00 01                         // id 8 main, len 4: 16777216 (class 1, block 0)
+09 00 0a 00 00 00  28 00  00  00  05 00  0c 00 00 00   // id 9 hand, len 10: Hand {key 40, ghost false, origin 5, count 12}
+0a 00 02 00 00 00  00 00                               // id 10 surface, len 2: 0
+0b 00 08 00 00 00  00 00 00 00 00 00 e0 3f             // id 11 x, len 8: 0.5
+0c 00 08 00 00 00  00 00 00 00 00 00 f4 bf             // id 12 y, len 8: -1.25
+0d 00 01 00 00 00  01                                  // id 13 walking, len 1: true
+0e 00 01 00 00 00  04                                  // id 14 walking_dir, len 1: 4
+0f 00 18 00 00 00                                      // id 15 mining, len 24:
+  02  00  00 00  00 00 00 00  80 02 00 00  c0 fe ff ff  00 00 00 00 00 00 d0 3f //   MiningState {mode 2 (resource_tile), serial 0, pos FinePos {x 640, y -320}, progress 0.25}
+10 00 01 00 00 00  00                                  // id 16 picking, len 1: false
+11 00 14 00 00 00                                      // id 17 crafting_queue, len 20:
+  01 00 00 00                                          //   list: u32 count 1
+    03 00  02 00  00  00  ff ff  00 00 00 00 00 00 e0 3f //     [0] CraftEntry {recipe 3, count 2, flags 0, parent 65535, progress 0.5}
+12 00 01 00 00 00  01                                  // id 18 auto_sort, len 1: true
+13 00 01 00 00 00  00                                  // id 19 pick_ghost_cursor, len 1: false
+14 00 08 00 00 00  00 00 00 00 00 00 1c 40             // id 20 hand_crafted, len 8: 7.0
+15 00 04 00 00 00  57 02 00 00                         // id 21 last_action_tick, len 4: 599
+@dump
+index=0
+online=true
+character=1
+input_gen=2
+last_seq=42
+creation_ring.len=2
+creation_ring[0].seq=5
+creation_ring[0].first_serial=4242
+creation_ring[0].count=1
+creation_ring[1].seq=9
+creation_ring[1].first_serial=4243
+creation_ring[1].count=2
+inventory_version=17
+main=16777216
+hand.key=40
+hand.ghost=false
+hand.origin=5
+hand.count=12
+surface=0
+x=f64:3fe0000000000000
+y=f64:bff4000000000000
+walking=true
+walking_dir=4
+mining.mode=2
+mining.serial=0
+mining.pos.x=640
+mining.pos.y=-320
+mining.progress=f64:3fd0000000000000
+picking=false
+crafting_queue.len=1
+crafting_queue[0].recipe=3
+crafting_queue[0].count=2
+crafting_queue[0].flags=0
+crafting_queue[0].parent=65535
+crafting_queue[0].progress=f64:3fe0000000000000
+auto_sort=true
+pick_ghost_cursor=false
+hand_crafted=f64:401c000000000000
+last_action_tick=599

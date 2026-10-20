@@ -1,0 +1,103 @@
+# prototypes.bin's fixed records (10 §15.2; protos.yaml).
+#
+# Hand-written from the README and protos.yaml only. ProtosHeader is the 56-byte header (magic as
+# [u8; 8], dumped as hex; schema_hash a Hash256). IngredientEntry (16 bytes) and ProductEntry (32 bytes)
+# are LISTS entries; meta_start and meta_contents are META's typed records (strict field-id records).
+#
+# Covers: ProtosHeader, IngredientEntry (a fluid), ProductEntry (flags, an ExprRef none, three f64),
+# meta_start, meta_contents (list<str>, `order: key`; strings compared as UTF-8 bytes, i.e. by code
+# point: U+FF5E sorts before U+1F600, which UTF-16 code units would reverse).
+
+@type ProtosHeader                        # 56 bytes
+50 57 50 52 4f 54 4f 00                   // magic "PWPROTO\0"
+01 00 00 00                               // format_version 1
+e3 b0 c4 42 98 fc 1c 14 9a fb f4 c8 99 6f b9 24 27 ae 41 e4 64 9b 93 4c a4 95 99 1b 78 52 b8 55   // schema_hash
+02 00 00 00                               // data_version 2
+0d 00 00 00                               // section_count 13
+00 00 00 00                               // reserved
+@dump
+magic=hex:505750524f544f00
+format_version=1
+schema_hash.bytes=hex:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+data_version=2
+section_count=13
+
+@type IngredientEntry                     # 16 bytes: a fluid ingredient
+01                                        // kind 1 (fluid)
+00                                        // reserved
+02 00                                     // id 2 (a FluidId, by kind)
+00 00 00 00                               // reserved2
+00 00 00 00 00 00 2e 40                   // amount 15.0
+@dump
+kind=1
+id=2
+amount=f64:402e000000000000
+
+@type ProductEntry                        # 32 bytes
+00                                        // kind 0 (item)
+01                                        // flags 1 (not_affected_by_quality)
+09 00                                     // id 9
+ff ff ff ff                               // amount_expr 0xFFFFFFFF (none)
+00 00 00 00 00 00 f0 3f                   // amount 1.0
+00 00 00 00 00 00 e0 3f                   // probability 0.5
+00 00 00 00 00 00 f0 3f                   // catalyst 1.0
+@dump
+kind=0
+flags=1
+id=9
+amount_expr=4294967295
+amount=f64:3ff0000000000000
+probability=f64:3fe0000000000000
+catalyst=f64:3ff0000000000000
+
+@type meta_start                          # META type 1: list<start_item> (records) ascending by item
+36 00 00 00                                            // meta_start: L = 54
+01 00 30 00 00 00                                      // id 1 inventory, len 48:
+  02 00 00 00                                          //   list: u32 count 2
+    12 00 00 00                                        //     [0] start_item: L = 18
+    01 00 02 00 00 00  03 00                           //     [0] id 1 item, len 2: 3
+    02 00 04 00 00 00  08 00 00 00                     //     [0] id 2 count, len 4: 8
+    12 00 00 00                                        //     [1] start_item: L = 18
+    01 00 02 00 00 00  09 00                           //     [1] id 1 item, len 2: 9
+    02 00 04 00 00 00  01 00 00 00                     //     [1] id 2 count, len 4: 1
+@dump
+inventory.len=2
+inventory[0].item=3
+inventory[0].count=8
+inventory[1].item=9
+inventory[1].count=1
+
+@type meta_contents                       # META type 2: list<str> in a record (u32 count, u16-length strings), an empty list
+25 00 00 00                                            // meta_contents: L = 37
+01 00 15 00 00 00                                      // id 1 meta, len 21:
+  02 00 00 00                                          //   list: u32 count 2
+    08 00  63 6f 6e 74 65 6e 74 73                     //     [0] str: u16 length 8, "contents"
+    05 00  73 74 61 72 74                              //     [1] str: u16 length 5, "start"
+02 00 04 00 00 00  00 00 00 00                         // id 2 omitted, len 4: list: u32 count 0
+@dump
+meta.len=2
+meta[0]="contents"
+meta[1]="start"
+omitted.len=0
+
+@type meta_contents                       # strings ascend in UTF-8 byte (= code point) order: U+FF5E before U+1F600
+1f 00 00 00                                            // meta_contents: L = 31
+01 00 0f 00 00 00                                      // id 1 meta, len 15:
+  02 00 00 00                                          //   list: u32 count 2
+    03 00  ef bd 9e                                    //     [0] str: u16 length 3, "～"
+    04 00  f0 9f 98 80                                 //     [1] str: u16 length 4, "😀"
+02 00 04 00 00 00  00 00 00 00                         // id 2 omitted, len 4: list: u32 count 0
+@dump
+meta.len=2
+meta[0]="～"
+meta[1]="😀"
+omitted.len=0
+
+@type meta_contents                       # U+1F600 before U+FF5E: descending in byte order (UTF-16 code units would call it ascending)
+1f 00 00 00                                            // meta_contents: L = 31
+01 00 0f 00 00 00                                      // id 1 meta, len 15:
+  02 00 00 00                                          //   list: u32 count 2
+    04 00  f0 9f 98 80                                 //     [0] str: u16 length 4, "😀"
+    03 00  ef bd 9e                                    //     [1] str: u16 length 3, "～"
+02 00 04 00 00 00  00 00 00 00                         // id 2 omitted, len 4: list: u32 count 0
+@error unsorted

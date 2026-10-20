@@ -11,7 +11,7 @@ test('the dev page loads its data and the simulation module @smoke', async ({ pa
   await expect(page).toHaveTitle('Paperwork');
   await expect(page.getByTestId('sim-status')).toHaveText(/^sim\.wasm ABI 0,/);
   await expect(page.getByTestId('data-status')).toHaveText(
-    /^m0: 3 items, 1 recipe, 1 entity, 1 resource, 6 tiles$/,
+    /^m0: 3 items, 1 recipe, 2 entities, 1 resource, 6 tiles$/, // the chest and the engine's character
   );
   await expect(page.getByTestId('build-status')).toHaveText(/^m0 \(dev\) · [0-9a-f]{12}$/);
   await page.screenshot({ path: info.outputPath('smoke.png') });

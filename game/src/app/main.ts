@@ -39,10 +39,12 @@ async function main(): Promise<void> {
     'build-status',
     `${manifest.build}${manifest.dev ? ' (dev)' : ''} · ${manifest.buildHash.slice(0, 12)}`,
   );
+  const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   show(
     'data-status',
-    `${protos.build}: ${protos.item.length + protos.fluid.length} items, ${protos.recipe.length} recipe, ` +
-      `${protos.entity.length} entity, ${protos.resource.length} resource, ${protos.tile.length} tiles`,
+    `${protos.build}: ${count(protos.item.length + protos.fluid.length, 'item', 'items')}, ` +
+      `${count(protos.recipe.length, 'recipe', 'recipes')}, ${count(protos.entity.length, 'entity', 'entities')}, ` +
+      `${count(protos.resource.length, 'resource', 'resources')}, ${count(protos.tile.length, 'tile', 'tiles')}`,
   );
   const module = await WebAssembly.compileStreaming(fetch(simWasmUrl));
   const worker = new Worker(new URL('./workers/sim.ts', import.meta.url), { type: 'module', name: 'sim' });

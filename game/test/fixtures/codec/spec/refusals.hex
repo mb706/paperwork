@@ -1,0 +1,534 @@
+# Refusals (README "Encoding": the error kinds; 10 §15.3 "Malformed actions").
+#
+# Hand-written from the README and the YAML only. Full verdicts (`<kind> <Type>.<field> @<offset>`) are
+# given only where the README fixes both parts: a top-level field of the decoded struct, message or
+# action, named `<Type>.<field>` (the README's examples: `EntityView.serial`, `RotateEntityAction.reverse`),
+# at the offset where that field starts (from the payload for actions, as in readme.hex). Nested fields,
+# records, lengths, padding and framing errors give the kind alone: the README defines neither their path
+# nor their offset.
+#
+# Covers every error kind: truncated (incl. a record triple whose value needs more than its `len`), trailing, bad_enum, bad_flags, bad_bool, reserved (a field and pad_to
+# padding), range (incl. `allowed` and a hidden count with a range), too_long (str, list, list<str>
+# item_max), bad_utf8, bad_ref, not_a_number (f32 and f64), bad_length (T[..] and record triples),
+# field_order (swapped and repeated ids), unknown_field, missing_field (incl. in a nested record), unsorted
+# (out of order and a repeated key), unknown_type.
+
+# ---- structs and messages --------------------------------------------------------------------------------
+
+@type EntityRef                           # 7 of 8 bytes
+39 30 00 00  00 00  01                    // a 12345, b 0, tag 1, (reserved missing)
+@error truncated
+
+@type EntityRef                           # 9 bytes: one left over
+39 30 00 00  00 00  01  00  00            // a 12345, b 0, tag 1, reserved, then an extra byte
+@error trailing
+
+@type EntityRef                           # tag 1 (serial) with a = 0: a serial is never 0
+00 00 00 00  00 00  01  00
+@error bad_ref
+
+@type EntityRef                           # tag 0 (none) with a = 5: a and b must be zero
+05 00 00 00  00 00  00  00
+@error bad_ref
+
+@type EntityRef                           # tag 3: EntityRefTag has 0, 1, 2
+39 30 00 00  00 00  03  00
+@error bad_enum EntityRef.tag @6
+
+@type EntityRef                           # reserved = 1
+39 30 00 00  00 00  01  01
+@error reserved EntityRef.reserved @7
+
+@type BatchHeader                         # flags bit 1: BatchFlags has bit 0 only
+01  02  00 00  07 00 00 00  05 00 00 00  01 00  00 00
+@error bad_flags BatchHeader.flags @1
+
+@type BatchHeader                         # reserved = 1
+01  00  00 00  07 00 00 00  05 00 00 00  01 00  01 00
+@error reserved BatchHeader.reserved @14
+
+@type EntityView                          # flags bit 4: EntityViewFlags has bits 0-3
+92 10 00 00  ff ff ff ff  03 00 00 00  07 00  ff ff  04 01 02 0f  44  10  00 00
+@error bad_flags EntityView.flags @21
+
+@type ResourceView                        # band 8: range [0, 7]
+ff 03  02 00  08  00  00 00
+@error range ResourceView.band @4
+
+@type IngredientEntry                     # amount = NaN (f64)
+01  00  02 00  00 00 00 00                // kind 1, reserved, id 2, reserved2
+00 00 00 00 00 00 f8 7f                   // amount: 0x7FF8000000000000
+@error not_a_number IngredientEntry.amount @8
+
+@type Hud                                 # research_progress = NaN (f32, a non-canonical payload)
+10 0e 00 00  ff ff  00 00                 // tick 3600, research_tech none, research_level 0
+01 00 c0 7f                               // research_progress: 0x7FC00001
+00 00  00  00                             // takeoff_level, flags, reserved
+00 00 00 00 00 00 f0 3f  00 00 00 00 00 00 f0 3f  00 00 00 00 00 00 f0 3f   // field, literature, your_year
+00 00 00 00 00 00 f0 3f  00 00 00 00 00 00 f0 3f  00 00 00 00 00 00 f0 3f   // years_ahead, activity_w, doubling_time_s
+00 00                                     // alerts: none
+@error not_a_number Hud.research_progress @8
+
+@type Hud                                 # alerts: 65 items, max 64
+10 0e 00 00  ff ff  00 00  00 00 00 00  00 00  00  00
+00 00 00 00 00 00 f0 3f  00 00 00 00 00 00 f0 3f  00 00 00 00 00 00 f0 3f
+00 00 00 00 00 00 f0 3f  00 00 00 00 00 00 f0 3f  00 00 00 00 00 00 f0 3f
+41 00                                     // alerts: count 65, then 65 × (alert 1, count i)
+01 00 00 00 01 00 01 00 01 00 02 00 01 00 03 00 01 00 04 00 01 00 05 00 01 00 06 00 01 00 07 00
+01 00 08 00 01 00 09 00 01 00 0a 00 01 00 0b 00 01 00 0c 00 01 00 0d 00 01 00 0e 00 01 00 0f 00
+01 00 10 00 01 00 11 00 01 00 12 00 01 00 13 00 01 00 14 00 01 00 15 00 01 00 16 00 01 00 17 00
+01 00 18 00 01 00 19 00 01 00 1a 00 01 00 1b 00 01 00 1c 00 01 00 1d 00 01 00 1e 00 01 00 1f 00
+01 00 20 00 01 00 21 00 01 00 22 00 01 00 23 00 01 00 24 00 01 00 25 00 01 00 26 00 01 00 27 00
+01 00 28 00 01 00 29 00 01 00 2a 00 01 00 2b 00 01 00 2c 00 01 00 2d 00 01 00 2e 00 01 00 2f 00
+01 00 30 00 01 00 31 00 01 00 32 00 01 00 33 00 01 00 34 00 01 00 35 00 01 00 36 00 01 00 37 00
+01 00 38 00 01 00 39 00 01 00 3a 00 01 00 3b 00 01 00 3c 00 01 00 3d 00 01 00 3e 00 01 00 3f 00
+01 00 40 00
+@error too_long
+
+@type BeltItems                           # count 1 with its 2 padding bytes not zero
+05 00 00 00  11 00 00 00  40 00 00 00  01 00  00 00   // line_id 5, geom_gen 17, front_gap 64, count 1, reserved
+28 00                                     // keys[0] 40
+00 01                                     // padding: not zero
+@error reserved
+
+@type BeltItems                           # count 1 without its padding (18 of 20 bytes)
+05 00 00 00  11 00 00 00  40 00 00 00  01 00  00 00
+28 00
+@error truncated
+
+@type PoolDir                             # PoolColumn[..]: 13 bytes is one item and a partial one
+01 00 00 00  00 00 01 00  40 00 00 00     // [0] column 1, ptr 0x10000, len 64
+ff                                        // a partial item
+@error bad_length
+
+@type ClosureRecord                       # length 0: range [1, 1048576] (a hidden count with a range)
+07 00 00 00                               // tick 7
+00 00 00 00                               // length 0
+@error range ClosureRecord.length @4
+
+@type SubRequest                          # flags bit 1: SubFlags has bit 0 only
+01 00 00 00  02 00  02 00  00 00 00 00
+00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
+@error bad_flags SubRequest.flags @6
+
+@type SubRequest                          # flags.tail set, but the tail is missing
+02 00 00 00  07 00  01 00  00 00 00 00
+00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
+@error truncated
+
+@type SubRequest                          # flags.tail clear: two bytes after p3 are left over
+01 00 00 00  02 00  00 00  00 00 00 00
+00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
+00 00
+@error trailing
+
+@type InspectResult                       # found = 2
+92 10 00 00  02  00  00 00  00 00         // serial 4242, found 2, reserved, reserved2, fields: none
+@error bad_bool InspectResult.found @4
+
+@type EventHeader                         # type 15: events has ids 1-14
+0f 00  00 00  01 00 00 00  00 00 00 00  00 00  00  00
+@error bad_enum EventHeader.type @0
+
+@type EntityBuiltEvent                    # flags bit 1: EntityBuiltFlags has bit 0 only
+92 10 00 00  07 00  0c  02  fb ff ff ff  09 00 00 00
+@error bad_flags EntityBuiltEvent.flags @7
+
+@type QueryHeader                         # kind 9: queries has ids 1-8
+09 00  00 00
+@error bad_enum QueryHeader.kind @0
+
+@type UiRecordHeader                      # kind 11: kinds has ids 1-10
+03 00 00 00  0b 00  00 00  07 00 00 00  28 00 00 00
+@error bad_enum UiRecordHeader.kind @4
+
+@type SectionEntry                        # type 18: sections has ids 1-17
+12 00  01 00  40 00 00 00  24 00 00 00  01 00 00 00
+@error bad_enum SectionEntry.type @0
+
+@event                                    # flying_text with len 16: its payload is 20 bytes
+02 00  10 00  e8 03 00 00  0c 00 00 00  00 00  00  00   // header: type 2, len 16, tick 1000, seq 12, player 0
+01 00  28 00  03 00 00 00  39 00 00 00  00 05 00 00     // 16 payload bytes
+@error bad_length EventHeader.len @2
+
+@event                                    # entity_built with flags bit 1 in its payload
+03 00  10 00  e8 03 00 00  0c 00 00 00  00 00  00  00   // header: type 3, len 16
+92 10 00 00  07 00  0c  02  fb ff ff ff  09 00 00 00     // serial, proto, dir, flags 2, pos
+@error bad_flags
+
+@event                                    # milestone with its 2 padding bytes not zero
+08 00  02 00  07 00 00 00  00 00 00 00  ff ff  00  00   // header: type 8, len 2
+05 00                                     // milestone 5
+00 01                                     // padding: not zero
+@error reserved
+
+@event                                    # milestone without its padding
+08 00  02 00  07 00 00 00  00 00 00 00  ff ff  00  00
+05 00
+@error truncated
+
+# ---- records (strict) --------------------------------------------------------------------------------------
+
+@type timer                               # id 4 (owner) missing
+1c 00 00 00                               // L = 28
+01 00 04 00 00 00  b0 04 00 00            // id 1 due 1200
+02 00 04 00 00 00  92 10 00 00            // id 2 serial 4242
+03 00 02 00 00 00  01 00                  // id 3 event 1
+@error missing_field
+
+@type timer                               # an id 5 that timer does not declare
+30 00 00 00                               // L = 48
+01 00 04 00 00 00  b0 04 00 00            // id 1 due 1200
+02 00 04 00 00 00  92 10 00 00            // id 2 serial 4242
+03 00 02 00 00 00  01 00                  // id 3 event 1
+04 00 04 00 00 00  00 00 00 00            // id 4 owner 0
+05 00 04 00 00 00  07 00 00 00            // id 5: unknown
+@error unknown_field
+
+@type timer                               # ids 1, 3, 2, 4
+26 00 00 00                               // L = 38
+01 00 04 00 00 00  b0 04 00 00            // id 1 due 1200
+03 00 02 00 00 00  01 00                  // id 3 event 1
+02 00 04 00 00 00  92 10 00 00            // id 2 serial 4242
+04 00 04 00 00 00  00 00 00 00            // id 4 owner 0
+@error field_order
+
+@type timer                               # id 2 twice
+30 00 00 00                               // L = 48
+01 00 04 00 00 00  b0 04 00 00            // id 1 due 1200
+02 00 04 00 00 00  92 10 00 00            // id 2 serial 4242
+02 00 04 00 00 00  93 10 00 00            // id 2 again
+03 00 02 00 00 00  01 00                  // id 3 event 1
+04 00 04 00 00 00  00 00 00 00            // id 4 owner 0
+@error field_order
+
+@type timer                               # id 3 (event, a u16) with len 1: the value needs more bytes than len
+25 00 00 00                               // L = 37
+01 00 04 00 00 00  b0 04 00 00            // id 1 due 1200
+02 00 04 00 00 00  92 10 00 00            // id 2 serial 4242
+03 00 01 00 00 00  01                     // id 3, len 1: a u16 needs 2
+04 00 04 00 00 00  00 00 00 00            // id 4 owner 0
+@error truncated
+
+@type removed_proto                       # name's triple has len 5, but the str it holds needs 2 + 8 bytes
+1c 00 00 00                               // L = 28
+01 00 01 00 00 00  00                     // id 1 kind 0
+02 00 05 00 00 00  08 00  6f 6c 64        // id 2 name, len 5: a u16 length 8, then only 3 bytes ("old") in the triple
+03 00 04 00 00 00  0c 00 00 00            // id 3 count 12
+@error truncated
+
+@type timer                               # id 1 (due, a u32) with len 8: bytes left over in the triple
+2a 00 00 00                               // L = 42
+01 00 08 00 00 00  b0 04 00 00 00 00 00 00   // id 1, len 8: does not match a u32
+02 00 04 00 00 00  92 10 00 00            // id 2 serial 4242
+03 00 02 00 00 00  01 00                  // id 3 event 1
+04 00 04 00 00 00  00 00 00 00            // id 4 owner 0
+@error bad_length
+
+@type timer                               # L = 38, but only 28 bytes follow
+26 00 00 00                               // L = 38
+01 00 04 00 00 00  b0 04 00 00            // id 1 due 1200
+02 00 04 00 00 00  92 10 00 00            // id 2 serial 4242
+03 00 02 00 00 00  01 00                  // id 3 event 1
+@error truncated
+
+@type timer                               # a valid timer, then one byte more
+26 00 00 00                               // L = 38
+01 00 04 00 00 00  b0 04 00 00            // id 1 due 1200
+02 00 04 00 00 00  92 10 00 00            // id 2 serial 4242
+03 00 02 00 00 00  01 00                  // id 3 event 1
+04 00 04 00 00 00  00 00 00 00            // id 4 owner 0
+00                                        // left over
+@error trailing
+
+@type sim_meta                            # players (order: key) not ascending: index 1, then 0
+8a 00 00 00                                            // sim_meta: L = 138
+01 00 04 00 00 00  58 02 00 00                         // id 1 tick, len 4: 600
+02 00 04 00 00 00  ee ff c0 00                         // id 2 seed, len 4: 12648430
+03 00 04 00 00 00  03 00 00 00                         // id 3 last_system_seq, len 4: 3
+04 00 04 00 00 00  01 00 00 00                         // id 4 worldgen_version, len 4: 1
+05 00 08 00 00 00  ef cd ab 89 67 45 23 01             // id 5 r, len 8: 81985529216486895
+06 00 4e 00 00 00                                      // id 6 players, len 78:
+  02 00 00 00                                          //   list: u32 count 2
+    21 00 00 00                                        //     [0] player_meta: L = 33
+    01 00 02 00 00 00  01 00                           //     [0] id 1 index, len 2: 1
+    02 00 01 00 00 00  01                              //     [0] id 2 online, len 1: true
+    03 00 04 00 00 00  09 00 00 00                     //     [0] id 3 last_seq, len 4: 9
+    04 00 02 00 00 00  00 00                           //     [0] id 4 input_gen, len 2: 0
+    21 00 00 00                                        //     [1] player_meta: L = 33
+    01 00 02 00 00 00  00 00                           //     [1] id 1 index, len 2: 0
+    02 00 01 00 00 00  01                              //     [1] id 2 online, len 1: true
+    03 00 04 00 00 00  2a 00 00 00                     //     [1] id 3 last_seq, len 4: 42
+    04 00 02 00 00 00  01 00                           //     [1] id 4 input_gen, len 2: 1
+@error unsorted
+
+@type sim_meta                            # players: the same entry twice (strictly ascending forbids equal items)
+8a 00 00 00                                            // sim_meta: L = 138
+01 00 04 00 00 00  58 02 00 00                         // id 1 tick, len 4: 600
+02 00 04 00 00 00  ee ff c0 00                         // id 2 seed, len 4: 12648430
+03 00 04 00 00 00  03 00 00 00                         // id 3 last_system_seq, len 4: 3
+04 00 04 00 00 00  01 00 00 00                         // id 4 worldgen_version, len 4: 1
+05 00 08 00 00 00  ef cd ab 89 67 45 23 01             // id 5 r, len 8: 81985529216486895
+06 00 4e 00 00 00                                      // id 6 players, len 78:
+  02 00 00 00                                          //   list: u32 count 2
+    21 00 00 00                                        //     [0] player_meta: L = 33
+    01 00 02 00 00 00  01 00                           //     [0] id 1 index, len 2: 1
+    02 00 01 00 00 00  01                              //     [0] id 2 online, len 1: true
+    03 00 04 00 00 00  09 00 00 00                     //     [0] id 3 last_seq, len 4: 9
+    04 00 02 00 00 00  00 00                           //     [0] id 4 input_gen, len 2: 0
+    21 00 00 00                                        //     [1] player_meta: L = 33
+    01 00 02 00 00 00  01 00                           //     [1] id 1 index, len 2: 1
+    02 00 01 00 00 00  01                              //     [1] id 2 online, len 1: true
+    03 00 04 00 00 00  09 00 00 00                     //     [1] id 3 last_seq, len 4: 9
+    04 00 02 00 00 00  00 00                           //     [1] id 4 input_gen, len 2: 0
+@error unsorted
+
+@type sim_meta                            # player_meta.index 32: outside range [0, 31]
+65 00 00 00                                            // sim_meta: L = 101
+01 00 04 00 00 00  58 02 00 00                         // id 1 tick, len 4: 600
+02 00 04 00 00 00  ee ff c0 00                         // id 2 seed, len 4: 12648430
+03 00 04 00 00 00  03 00 00 00                         // id 3 last_system_seq, len 4: 3
+04 00 04 00 00 00  01 00 00 00                         // id 4 worldgen_version, len 4: 1
+05 00 08 00 00 00  ef cd ab 89 67 45 23 01             // id 5 r, len 8: 81985529216486895
+06 00 29 00 00 00                                      // id 6 players, len 41:
+  01 00 00 00                                          //   list: u32 count 1
+    21 00 00 00                                        //     [0] player_meta: L = 33
+    01 00 02 00 00 00  20 00                           //     [0] id 1 index, len 2: 32
+    02 00 01 00 00 00  01                              //     [0] id 2 online, len 1: true
+    03 00 04 00 00 00  09 00 00 00                     //     [0] id 3 last_seq, len 4: 9
+    04 00 02 00 00 00  00 00                           //     [0] id 4 input_gen, len 2: 0
+@error range
+
+@type world_settings                      # heat (bool) = 2
+bd 00 00 00                                            // world_settings: L = 189
+01 00 01 00 00 00  02                                  // id 1 heat, len 1: 2 (not 0 or 1)
+02 00 01 00 00 00  01                                  // id 2 staffing, len 1: true
+03 00 01 00 00 00  01                                  // id 3 runaways, len 1: 1
+04 00 08 00 00 00  a3 f4 07 83 28 5a fb 3f             // id 4 returns_to_research, len 8: 1.7095112913514547
+05 00 01 00 00 00  00                                  // id 5 race_mode, len 1: 0
+06 00 01 00 00 00  00                                  // id 6 scooped, len 1: false
+07 00 01 00 00 00  01                                  // id 7 hollow_work, len 1: true
+08 00 01 00 00 00  01                                  // id 8 climate_compass, len 1: true
+09 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 9 tech_price_multiplier, len 8: 1.0
+0a 00 08 00 00 00  00 00 00 00 00 00 00 00             // id 10 field_pace, len 8: 0.0
+0b 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 11 leak_rate_multiplier, len 8: 1.0
+0c 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 12 staffing_radius, len 8: 1.0
+0d 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 13 staffing_supply, len 8: 1.0
+0e 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 14 heat_diffusion_share, len 8: 1.0
+0f 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 15 heat_min_diffuse, len 8: 1.0
+10 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 16 heat_cooling_multiplier, len 8: 1.0
+11 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 17 heat_tree_damage_threshold, len 8: 1.0
+@error bad_bool
+
+@type map_settings                        # starting_area = NaN
+c6 00 00 00                                            // map_settings: L = 198
+01 00 04 00 00 00  00 00 00 00                         // id 1 width, len 4: 0
+02 00 04 00 00 00  00 00 00 00                         // id 2 height, len 4: 0
+03 00 08 00 00 00  00 00 00 00 00 00 f8 7f             // id 3 starting_area, len 8: NaN (0x7FF8000000000000)
+04 00 04 00 00 00  00 00 00 00                         // id 4 resources, len 4: list: u32 count 0
+05 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 5 water_scale, len 8: 1.0
+06 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 6 water_coverage, len 8: 1.0
+07 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 7 trees_frequency, len 8: 1.0
+08 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 8 trees_size, len 8: 1.0
+09 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 9 cliffs_frequency, len 8: 1.0
+0a 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 10 cliffs_continuity, len 8: 1.0
+0b 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 11 towns_frequency, len 8: 1.0
+0c 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 12 towns_size, len 8: 1.0
+0d 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 13 archives_size, len 8: 1.0
+0e 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 14 archives_richness, len 8: 1.0
+0f 00 08 00 00 00  00 00 00 00 00 00 f0 3f             // id 15 exchanges_richness, len 8: 1.0
+@error not_a_number
+
+@type new_world                           # the nested map_settings lacks id 15 (exchanges_richness); strict
+a4 01 00 00                                            // new_world: L = 420
+01 00 04 00 00 00  01 00 00 00                         // id 1 seed, len 4: 1
+02 00 bc 00 00 00                                      // id 2 map, len 188:
+  b8 00 00 00                                          //   map_settings: L = 184
+  01 00 04 00 00 00  00 00 00 00                       //   id 1 width, len 4: 0
+  02 00 04 00 00 00  00 00 00 00                       //   id 2 height, len 4: 0
+  03 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 3 starting_area, len 8: 1.0
+  04 00 04 00 00 00  00 00 00 00                       //   id 4 resources, len 4: list: u32 count 0
+  05 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 5 water_scale, len 8: 1.0
+  06 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 6 water_coverage, len 8: 1.0
+  07 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 7 trees_frequency, len 8: 1.0
+  08 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 8 trees_size, len 8: 1.0
+  09 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 9 cliffs_frequency, len 8: 1.0
+  0a 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 10 cliffs_continuity, len 8: 1.0
+  0b 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 11 towns_frequency, len 8: 1.0
+  0c 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 12 towns_size, len 8: 1.0
+  0d 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 13 archives_size, len 8: 1.0
+  0e 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 14 archives_richness, len 8: 1.0
+03 00 c1 00 00 00                                      // id 3 world, len 193:
+  bd 00 00 00                                          //   world_settings: L = 189
+  01 00 01 00 00 00  01                                //   id 1 heat, len 1: true
+  02 00 01 00 00 00  00                                //   id 2 staffing, len 1: false
+  03 00 01 00 00 00  02                                //   id 3 runaways, len 1: 2 (wild)
+  04 00 08 00 00 00  a3 f4 07 83 28 5a fb 3f           //   id 4 returns_to_research, len 8: 1.7095112913514547
+  05 00 01 00 00 00  01                                //   id 5 race_mode, len 1: 1 (race)
+  06 00 01 00 00 00  01                                //   id 6 scooped, len 1: true
+  07 00 01 00 00 00  01                                //   id 7 hollow_work, len 1: true
+  08 00 01 00 00 00  00                                //   id 8 climate_compass, len 1: false
+  09 00 08 00 00 00  00 00 00 00 00 00 00 40           //   id 9 tech_price_multiplier, len 8: 2.0
+  0a 00 08 00 00 00  00 00 00 00 00 00 00 00           //   id 10 field_pace, len 8: 0.0
+  0b 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 11 leak_rate_multiplier, len 8: 1.0
+  0c 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 12 staffing_radius, len 8: 1.0
+  0d 00 08 00 00 00  00 00 00 00 00 00 d0 3f           //   id 13 staffing_supply, len 8: 0.25
+  0e 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 14 heat_diffusion_share, len 8: 1.0
+  0f 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 15 heat_min_diffuse, len 8: 1.0
+  10 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 16 heat_cooling_multiplier, len 8: 1.0
+  11 00 08 00 00 00  00 00 00 00 00 00 f0 3f           //   id 17 heat_tree_damage_threshold, len 8: 1.0
+04 00 0b 00 00 00                                      // id 4 game, len 11:
+  07 00 00 00                                          //   game_settings: L = 7
+  01 00 01 00 00 00  01                                //   id 1 trimmed_collision, len 1: true
+@error missing_field
+
+@type removed_proto                       # name: 256 bytes, max 255
+19 01 00 00                                            // removed_proto: L = 281
+01 00 01 00 00 00  00                                  // id 1 kind, len 1: 0
+02 00 02 01 00 00                                      // id 2 name, len 258:
+  00 01 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 //   str: u16 length 256, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+  61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+  61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+  61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+  61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+  61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+  61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+  61 61
+03 00 04 00 00 00  01 00 00 00                         // id 3 count, len 4: 1
+@error too_long
+
+@type removed_proto                       # name is not UTF-8
+1c 00 00 00                                            // removed_proto: L = 28
+01 00 01 00 00 00  00                                  // id 1 kind, len 1: 0
+02 00 05 00 00 00  03 00  61 ff 62                     // id 2 name, len 5: str: u16 length 3, "a" 0xFF "b" (0xFF never occurs in UTF-8)
+03 00 04 00 00 00  01 00 00 00                         // id 3 count, len 4: 1
+@error bad_utf8
+
+@type meta_contents                       # meta[0]: 256 bytes, item_max 255
+16 01 00 00                                            // meta_contents: L = 278
+01 00 06 01 00 00                                      // id 1 meta, len 262:
+  01 00 00 00                                          //   list: u32 count 1
+    00 01 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 //     [0] str: u16 length 256, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+    61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+    61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+    61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+    61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+    61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+    61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+    61 61
+02 00 04 00 00 00  00 00 00 00                         // id 2 omitted, len 4: list: u32 count 0
+@error too_long
+
+@type rng_state                           # stream 5: RngStream has 1-4, 16, 17
+1e 00 00 00                                            // rng_state: L = 30
+01 00 02 00 00 00  05 00                               // id 1 stream, len 2: 5 (undeclared)
+02 00 10 00 00 00                                      // id 2 state, len 16:
+  01 00 00 00                                          //   1
+  02 00 00 00                                          //   2
+  03 00 00 00                                          //   3
+  04 00 00 00                                          //   4
+@error bad_enum
+
+# ---- actions (offsets count from the payload) ---------------------------------------------------------------
+
+@action                                   # start_walking dir 1: declared in Direction, not in `allowed`
+01 00 03 00  07 00  01                    // input_gen 7, dir 1
+@error range StartWalkingAction.dir @2
+
+@action                                   # change_picking_state picking 2: the offset counts input_gen
+0d 00 03 00  00 00  02                    // input_gen 0, picking 2
+@error bad_bool ChangePickingStateAction.picking @2
+
+@action                                   # begin_mining_terrain with reserved = 1
+0b 00 0c 00  03 00  01  01  80 fd ff ff  40 0a 00 00   // input_gen 3, kind 1, reserved 1, pos
+@error reserved BeginMiningTerrainAction.reserved @3
+
+@action                                   # build flags bit 1: BuildFlags has bit 0 only
+14 00 12 00  28 00  fd ff ff ff  07 00 00 00  04  01  01  02  78 56 34 12
+@error bad_flags BuildAction.flags @13
+
+@action                                   # build mode 3: BuildMode has 0-2
+14 00 12 00  28 00  fd ff ff ff  07 00 00 00  04  01  03  01  78 56 34 12
+@error bad_enum BuildAction.mode @12
+
+@action                                   # rotate_entity: target tag 1 with a = 0
+15 00 09 00  00 00 00 00  00 00  01  00  00
+@error bad_ref
+
+@action                                   # rotate_entity: target tag 3
+15 00 09 00  39 30 00 00  00 00  03  00  00
+@error bad_enum
+
+@action                                   # rotate_entity: target.reserved = 1
+15 00 09 00  39 30 00 00  00 00  01  01  00
+@error reserved
+
+@action                                   # player_joined player 32: range [0, 31]
+01 ff 04 00  20 00  00  00
+@error range PlayerJoinedAction.player @0
+
+@action                                   # place_blueprint with reserved = 1
+8f 00 0f 00  00 00 00 00  00 00 00 00  00  00  00  01  00  00 00   // pos, dir, flip, mode, reserved 1, record tag 0 length 0
+@error reserved PlaceBlueprintAction.reserved @11
+
+@action                                   # place_blueprint: blob_or_bytes tag 2
+8f 00 0d 00  00 00 00 00  00 00 00 00  00  00  00  00  02
+@error bad_enum
+
+@action                                   # place_blueprint: tag 0, length 5, but 2 bytes left in the payload
+8f 00 11 00  00 00 00 00  00 00 00 00  00  00  00  00  00  05 00  01 02
+@error truncated
+
+@action                                   # rename: 201 bytes, max 200
+90 00 d3 00  4d 00 00 00  00 00  01  00   // type 144, len 211, target serial 77
+c9 00                                     // text: 201 bytes of "a"
+61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61
+61 61 61 61 61 61 61 61 61
+@error too_long
+
+@action                                   # rename: 0xFF is never UTF-8
+90 00 0b 00  4d 00 00 00  00 00  01  00  01 00  ff
+@error bad_utf8
+
+@action                                   # rename: a UTF-16 surrogate encoded in UTF-8 (ED A0 80 = U+D800)
+90 00 0d 00  4d 00 00 00  00 00  01  00  03 00  ed a0 80
+@error bad_utf8
+
+@action                                   # distribute: count 2, one EntityRef in the payload
+8e 00 10 00  29 00  0a 00 00 00  02 00  64 00 00 00  00 00  01  00
+@error truncated
+
+@action                                   # rotate_entity with len 10: one payload byte left over
+15 00 0a 00  39 30 00 00  00 00  01  00  01  00
+@error trailing
+
+@action                                   # rotate_entity with len 8: reverse is missing
+15 00 08 00  39 30 00 00  00 00  01  00
+@error truncated
+
+@action                                   # len 9, but the input ends after 5 payload bytes
+15 00 09 00  39 30 00 00  00
+@error truncated
+
+@action                                   # a byte after the framed action
+02 00 02 00  00 00  ff
+@error trailing
+
+@action                                   # a 3-byte action header
+15 00 09
+@error truncated
+
+@action                                   # type 3 is not declared
+03 00 00 00
+@error unknown_type
+
+@action                                   # type 0xFF00 is in the system range but not declared
+00 ff 00 00
+@error unknown_type

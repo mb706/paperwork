@@ -1,0 +1,259 @@
+# The render packet (10 §15.4; packet.yaml): header, directory entry and section records.
+#
+# Hand-written from the README and packet.yaml only. Section types are the generated enum of `sections:`
+# (ids 1–17, u16 per §15.4's directory). Messages: a `T[count]` array carries its count field, which the
+# dump leaves out (hidden) and replaces by `path.len=N`; BeltItems pads to 4.
+#
+# Covers: PacketHeader, SectionEntry, ViewRequest (f32 fields), EntityView (a high Status value), Dyn,
+# Mover (negative i32 and i16), BeltItems with count 0 (no gaps, no padding), 1 (`count-1` = 0 gaps,
+# 2 bytes of padding) and 3, BeltGeom (an i8 and a struct array), ChunkEntities with two EntityViews.
+
+@type PacketHeader
+50 57 50 4b                               // magic 0x4B505750 ("PWPK")
+01 00                                     // version 1
+05 00                                     // flags 5 (full | coalesced)
+00 00 00 00                               // state_gen 0
+58 02 00 00                               // tick 600
+00 00 00 00                               // view_seq 0
+ff ff                                     // daylight 65535
+02 00                                     // section_count 2
+80 00 00 00                               // byte_length 128
+00 00 00 00                               // reserved
+@dump
+magic=1263556432
+version=1
+flags=5
+state_gen=0
+tick=600
+view_seq=0
+daylight=65535
+section_count=2
+byte_length=128
+
+@type SectionEntry
+0b 00                                     // type 11 (EVENTS)
+01 00                                     // record_version 1
+40 00 00 00                               // offset 64
+24 00 00 00                               // byte_length 36
+01 00 00 00                               // count 1
+@dump
+type=11
+record_version=1
+offset=64
+byte_length=36
+count=1
+
+@type ViewRequest                         # 52 bytes
+2a 00 00 00                               // view_seq 42
+00 00                                     // surface 0
+0d 00                                     // flags 13 (thermal_overlay | chart | audio)
+ec ff ff ff  f4 ff ff ff                  // x0 -20, y0 -12
+14 00 00 00  0c 00 00 00                  // x1 20, y1 12
+00 00 c0 3f                               // zoom 1.5f
+92 10 00 00                               // hovered_serial 4242
+00 00 a0 41                               // audio_half_range 20.0f
+fe ff ff ff  ff ff ff ff                  // chart_x0 -2, chart_y0 -1
+02 00 00 00  01 00 00 00                  // chart_x1 2, chart_y1 1
+@dump
+view_seq=42
+surface=0
+flags=13
+x0=-20
+y0=-12
+x1=20
+y1=12
+zoom=f32:3fc00000
+hovered_serial=4242
+audio_half_range=f32:41a00000
+chart_x0=-2
+chart_y0=-1
+chart_x1=2
+chart_y1=1
+
+@type EntityView                          # 24 bytes
+92 10 00 00                               // serial 4242
+ff ff ff ff                               // x2 -1
+03 00 00 00                               // y2 3
+07 00                                     // proto 7
+ff ff                                     // alt_icon 0xFFFF (none)
+04                                        // dir 4
+01                                        // flip 1
+02                                        // quality 2
+0f                                        // variant 15
+44                                        // status 68 (understaffed)
+03                                        // flags 3 (ghost | deconstruct)
+00 00                                     // reserved
+@dump
+serial=4242
+x2=-1
+y2=3
+proto=7
+alt_icon=65535
+dir=4
+flip=1
+quality=2
+variant=15
+status=68
+flags=3
+
+@type Dyn                                 # 20 bytes
+64 00 00 00                               // x2 100
+9c ff ff ff                               // y2 -100
+09 00 00 00                               // serial 9
+03 00                                     // proto 3
+00 80                                     // phase 32768
+08                                        // dir 8
+01                                        // state 1 (working)
+ff                                        // light 255
+00                                        // quality 0
+@dump
+x2=100
+y2=-100
+serial=9
+proto=3
+phase=32768
+dir=8
+state=1
+light=255
+quality=0
+
+@type Mover                               # 32 bytes
+01 00 00 00                               // serial 1
+00 00                                     // proto 0
+00                                        // kind 0 (character)
+01                                        // flags 1 (mining)
+18 fc ff ff                               // x -1000
+d0 07 00 00                               // y 2000
+da ff                                     // vx -38
+26 00                                     // vy 38
+58 02 00 00                               // base_tick 600
+00 40                                     // orientation 16384 (a quarter turn)
+00 00                                     // aux 0 (player 0)
+00 00 00 00                               // reserved
+@dump
+serial=1
+proto=0
+kind=0
+flags=1
+x=-1000
+y=2000
+vx=-38
+vy=38
+base_tick=600
+orientation=16384
+aux=0
+
+@type BeltItems                           # count 0: no keys, no gaps, 16 bytes, no padding
+05 00 00 00                               // line_id 5
+11 00 00 00                               // geom_gen 17
+00 00 00 00                               // front_gap 0
+00 00                                     // count 0
+00 00                                     // reserved
+@dump
+line_id=5
+geom_gen=17
+front_gap=0
+keys.len=0
+gaps.len=0
+
+@type BeltItems                           # count 1: one key, count-1 = 0 gaps, 18 bytes + 2 of padding
+05 00 00 00                               // line_id 5
+11 00 00 00                               // geom_gen 17
+40 00 00 00                               // front_gap 64
+01 00                                     // count 1
+00 00                                     // reserved
+28 00                                     // keys[0] 40
+00 00                                     // padding to 20
+@dump
+line_id=5
+geom_gen=17
+front_gap=64
+keys.len=1
+keys[0]=40
+gaps.len=0
+
+@type BeltItems                           # count 3: three keys, two gaps, 26 bytes + 2 of padding
+05 00 00 00                               // line_id 5
+12 00 00 00                               // geom_gen 18
+f6 ff ff ff                               // front_gap -10
+03 00                                     // count 3
+00 00                                     // reserved
+28 00  29 00  30 00                       // keys 40, 41, 48
+00 00  64 00                              // gaps 0, 100
+00 00                                     // padding to 28
+@dump
+line_id=5
+geom_gen=18
+front_gap=-10
+keys.len=3
+keys[0]=40
+keys[1]=41
+keys[2]=48
+gaps.len=2
+gaps[0]=0
+gaps[1]=100
+
+@type BeltGeom                            # one arc segment
+05 00 00 00                               // line_id 5
+12 00 00 00                               // geom_gen 18
+01 00                                     // seg_count 1
+00                                        // lane 0
+08                                        // speed 8
+00 01 00 00                               // length 256
+80 00 00 00  80 02 00 00                  // segments[0]: x 128, y 640
+00 01 00 00                               //   len 256
+04                                        //   dir 4
+ff                                        //   turn -1 (left arc)
+00 00                                     //   reserved
+80 00 00 00                               //   radius 128
+@dump
+line_id=5
+geom_gen=18
+lane=0
+speed=8
+length=256
+segments.len=1
+segments[0].x=128
+segments[0].y=640
+segments[0].len=256
+segments[0].dir=4
+segments[0].turn=-1
+segments[0].radius=128
+
+@type ChunkEntities                       # two EntityViews
+00 80 ff 7f                               // chunk_key 0x7FFF8000: (cx -1, cy 0)
+00 00                                     // surface 0
+02 00                                     // count 2
+03 00 00 00                               // version 3
+00 00 00 00                               // reserved
+92 10 00 00  c0 ff ff ff  10 00 00 00  07 00  ff ff  00 00 00 00  01  00  00 00
+   // [0] serial 4242, x2 -64, y2 16, proto 7, alt_icon none, dir/flip/quality/variant 0, status 1, flags 0, reserved
+93 10 00 00  c2 ff ff ff  10 00 00 00  08 00  05 00  08 00 01 00  00  01  00 00
+   // [1] serial 4243, x2 -62, y2 16, proto 8, alt_icon 5, dir 8, flip 0, quality 1, variant 0, status 0, flags 1 (ghost)
+@dump
+chunk_key=2147450880
+surface=0
+version=3
+entities.len=2
+entities[0].serial=4242
+entities[0].x2=-64
+entities[0].y2=16
+entities[0].proto=7
+entities[0].alt_icon=65535
+entities[0].dir=0
+entities[0].flip=0
+entities[0].quality=0
+entities[0].variant=0
+entities[0].status=1
+entities[0].flags=0
+entities[1].serial=4243
+entities[1].x2=-62
+entities[1].y2=16
+entities[1].proto=8
+entities[1].alt_icon=5
+entities[1].dir=8
+entities[1].flip=0
+entities[1].quality=1
+entities[1].variant=0
+entities[1].status=0
+entities[1].flags=1

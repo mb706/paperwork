@@ -111,8 +111,24 @@ exactly (`truncated` when the value needs more bytes, `bad_length` when bytes ar
 (saves, §8.3) skips unknown ids and gives missing fields their `default`.
 
 Every decoder also refuses running out of bytes (`truncated`) and bytes left over (`trailing`). An error
-carries its kind, a field path (`EntityView.serial`, `map_settings.width`) and a byte offset; the kinds
-are in `scripts/schema-gen/error-kinds.ts`.
+carries its kind, a field path and a byte offset; the kinds are in `scripts/schema-gen/error-kinds.ts`.
+
+Details every consumer must match:
+- **Checks run in wire order**; the first failure is the error. A field is read, then its enum, flag, bool,
+  NaN and reference checks, then `range`/`allowed`; a list's `order: key` is checked after the whole list.
+- **Error paths** are `<declaration>.<field>` of the declaration being read: a nested struct names its own
+  fields (`EntityRef` …), a record its own (`map_settings.width`). **Offsets** count from the start of the
+  value decoded (a whole message, record or struct; an action's payload, not its frame). A field error points
+  at the field's first byte, `truncated` at the value that ran out, `trailing` at the first byte left over.
+- **`order: key`** compares whole items, field by field in order; strings by their UTF-8 bytes; items must
+  strictly ascend (a duplicate is `unsorted`).
+- **`pad_to`** counts from the message's own start.
+- **An action's `len`** frames its payload: a payload shorter than its fields is `truncated`, a longer one
+  `trailing`. The event readers check `len` against the type first (`bad_length`).
+- **Lists with ids generate enums**: `actions:` → `ActionType` (u16), `events:` → `EventType` (u16), the
+  packet's `sections:` → `PacketSection` (u16), `kinds:` → `ProjectionKind` (u16), `queries:` → `QueryKind`
+  (u16), the save's `sections:` → `SaveSection` (u32), `protos.yaml`'s `sections:` → `ProtoSection` (u32) and
+  `meta:` → `MetaRecord` (u16); registries with values generate theirs (`Effect` …).
 
 Column tables (`tables:` in `state.yaml`, §8.1) are saved column by column: u32 rows, u16 column count,
 u16 zero; per saved column u8 name length, name, u8 type code (`TypeCode`), u8 zero, u32 offset, u32 byte
@@ -204,10 +220,12 @@ interpreter independent of the emitted code); a new type is covered without furt
 The dump (`Dump` in both runtimes): one `path=value` line per leaf in field order; nested values as
 `outer.inner`, list and array items as `path[i]` after a `path.len=N` line (fixed arrays have no `.len`);
 integers, ids, enums and flags as decimal numbers; `bool` as `true`/`false`; floats as
-`f32:<8 hex digits>` / `f64:<16 hex digits>` of their IEEE bits; strings JSON-escaped in double quotes;
-`bytes`, `u8` arrays and `u8[f]`/`u8[..]` as `hex:<digits>`; `blob_or_bytes` as `path.bytes=hex:…` or
-`path.blob=hex:…`. Reserved fields, hidden counts and absent `when` fields are left out; records dump
-every field. An action's dump starts with `type=<action name>`.
+`f32:<8 hex digits>` / `f64:<16 hex digits>` of their IEEE bits; strings in double quotes, escaped as
+JavaScript's `JSON.stringify` escapes them (`"`, `\`, and control characters; everything else literal);
+`bytes`, `[u8; N]`, `u8[f]` and `u8[..]` as `hex:<lowercase digits>` with no `.len` line (arrays of any other
+type, `[TileId; N]` included, print one line per item); `blob_or_bytes` as `path.bytes=hex:…` or
+`path.blob=hex:…`. Reserved fields, hidden counts (the `count` of `T[count]`) and absent `when` fields are
+left out; records dump every field. An action's dump starts with `type=<action name>`.
 
 A `spec/*.hex` file holds cases; `#` starts a comment line, `//` a comment after hex digits:
 ```
@@ -228,6 +246,8 @@ tag=1
 ```
 `@event` decodes one EVENTS record with the event readers (`read_event`, `readEvent`), which check `len`
 against the type; its dump is the header's fields under `header.`, then the payload's (`type=<name>` first).
+In `@closure`, several `last_seq` pairs are separated by commas, and a case may have no hex (the empty
+closure).
 A directive line may end in a ` # comment`. An action's error offsets count from its payload. `@closure`
 runs the preflight (§15.3) on the bytes: `last_seq` lists `player:seq` pairs (others 0), `system_seq` is
 the system watermark, `blobs` the SHA-256s supplied (comma-separated hex). Both

@@ -1,0 +1,189 @@
+# Closures and the preflight (10 §15.3; actions.yaml; README "Fixtures").
+#
+# Hand-written from the README, actions.yaml and §15.3 only. A closure is batches back to back; a batch is
+# the 16-byte BatchHeader (u8 version = ACTION_SCHEMA_VERSION 1, u8 flags (bit 0 system), u16 player,
+# u32 tick, u32 first_seq, u16 count, u16 reserved), then `count` actions (u16 type, u16 len, payload).
+# `tick=` is the closure's tick (world.tick + 1), `last_seq=` the players' watermarks, `system_seq=` the
+# system watermark, `blobs=` the supplied SHA-256s.
+#
+# Covers: a valid multi-batch closure (two players, a system batch, one player twice), the empty closure,
+# seq gaps, the u32::MAX seq edge, one failing case per preflight rule (version, flags, reserved, tick,
+# count 0, player out of range, system/player mismatch both ways, seqs not rising across ticks, within a
+# tick and for the system watermark, seq overflow, truncated batch header, a partial batch after a valid
+# one, truncated action header, payload past the end, a system action in a player batch and the reverse),
+# blobs (missing, supplied, two supplied, and an action that does not decode, whose blob is not
+# required), and actions that are malformed or of an unknown type, which the preflight passes (they are
+# refused at application with `malformed`).
+#
+# Hashes used: SHA-256("")    = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+#              SHA-256("abc") = ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+
+# ---- valid ---------------------------------------------------------------------------------------------
+
+@closure tick=100 last_seq=0:4,1:2 system_seq=10 blobs=    # system batch, player 0, player 1, player 0 again
+01 01 ffff 64000000 0b000000 0100 0000    // batch: v1, flags system, player 0xFFFF, tick 100, first_seq 11, count 1
+01ff 0400  0100 00 00                     //   player_joined (0xFF01) len 4: player 1, flags 0, reserved
+01 00 0000 64000000 05000000 0200 0000    // batch: v1, flags 0, player 0, tick 100, first_seq 5, count 2
+1400 1200  2800 fdffffff 07000000 04 00 00 00 00000000   // seq 5 build len 18: item 40, (-3, 7), dir 4, flip 0, mode 0, flags 0, drag 0
+1500 0900  05000000 0000 02 00 00         // seq 6 rotate_entity len 9: target = creation id (seq 5, index 0), reverse 0
+01 00 0100 64000000 03000000 0100 0000    // batch: player 1, tick 100, first_seq 3 (> last_seq 2), count 1
+0100 0300  0000 02                        //   start_walking len 3: input_gen 0, dir 2
+01 00 0000 64000000 07000000 0100 0000    // batch: player 0 again, first_seq 7 (> 6), count 1
+5000 0600  0300 01000000                  //   craft len 6: recipe 3, count 1
+@ok batches=4 actions=5
+
+@closure tick=1 last_seq=0:0 system_seq=0 blobs=    # the empty closure is zero bytes (§15.3)
+@ok batches=0 actions=0
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # seqs must rise, not be contiguous: a gap is allowed
+01 00 0000 07000000 09000000 0100 0000    // player 0, tick 7, first_seq 9 (> 4), count 1
+0200 0200  0000                           //   stop_walking: input_gen 0
+@ok batches=1 actions=1
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # first_seq + count - 1 = u32::MAX exactly: no overflow
+01 00 0000 07000000 ffffffff 0100 0000    // player 0, first_seq 0xFFFFFFFF, count 1
+0200 0200  0000                           //   stop_walking
+@ok batches=1 actions=1
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # a malformed action is refused at application, not by the preflight
+01 00 0000 07000000 05000000 0100 0000    // player 0, first_seq 5, count 1
+1500 0900  39300000 0000 01 00 02         //   rotate_entity: target serial 12345, reverse = 2 (bad_bool)
+@ok batches=1 actions=1
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # an unknown player action type passes the preflight (rule 3 only splits at 0xFF00)
+01 00 0000 07000000 05000000 0100 0000    // player 0, first_seq 5, count 1
+0300 0000                                 //   type 3 (undeclared), len 0
+@ok batches=1 actions=1
+
+# ---- rule 2: batch header ------------------------------------------------------------------------------
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # version 2 is not ACTION_SCHEMA_VERSION
+02 00 0000 07000000 05000000 0100 0000    // version 2
+0200 0200  0000
+@error framing
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # flags bit 1 is undeclared
+01 02 0000 07000000 05000000 0100 0000    // flags 0x02
+0200 0200  0000
+@error framing
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # reserved must be 0
+01 00 0000 07000000 05000000 0100 0100    // reserved = 1
+0200 0200  0000
+@error framing
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # tick must be world.tick + 1
+01 00 0000 08000000 05000000 0100 0000    // tick 8, closure is for tick 7
+0200 0200  0000
+@error framing
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # an empty batch (count 0)
+01 00 0000 07000000 05000000 0000 0000    // count 0, no actions follow
+@error framing
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # player 32 without SYSTEM
+01 00 2000 07000000 01000000 0100 0000    // player 32
+0200 0200  0000
+@error framing
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # SYSTEM with player 0 (must be 0xFFFF)
+01 01 0000 07000000 01000000 0100 0000    // flags system, player 0
+03ff 0200  0000                           //   release_inputs(0)
+@error framing
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # player 0xFFFF without SYSTEM
+01 00 ffff 07000000 01000000 0100 0000    // flags 0, player 0xFFFF
+0200 0200  0000
+@error framing
+
+# ---- rule 4: seqs rise ---------------------------------------------------------------------------------
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # first_seq equal to the watermark
+01 00 0000 07000000 04000000 0100 0000    // first_seq 4, last_seq 4
+0200 0200  0000
+@error framing
+
+@closure tick=7 last_seq=0:4,1:0 system_seq=0 blobs=    # player 0's second batch overlaps its first
+01 00 0000 07000000 05000000 0200 0000    // player 0, seqs 5..6
+0200 0200  0000
+0200 0200  0000
+01 00 0100 07000000 01000000 0100 0000    // player 1, seq 1
+0200 0200  0000
+01 00 0000 07000000 06000000 0100 0000    // player 0 again, first_seq 6: not above the temporary watermark 6
+0200 0200  0000
+@error framing
+
+@closure tick=7 last_seq=0:0 system_seq=10 blobs=    # the system watermark: first_seq 10 is not above 10
+01 01 ffff 07000000 0a000000 0100 0000    // system batch, first_seq 10
+01ff 0400  0000 00 00                     //   player_joined(0)
+@error framing
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # first_seq + count - 1 passes u32::MAX
+01 00 0000 07000000 ffffffff 0200 0000    // first_seq 0xFFFFFFFF, count 2
+0200 0200  0000
+0200 0200  0000
+@error framing
+
+# ---- rules 1 and 3: framing ----------------------------------------------------------------------------
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # truncated batch header (10 of 16 bytes)
+01 00 0000 07000000 0500
+@error framing
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # a valid batch, then 3 bytes that are not a batch
+01 00 0000 07000000 05000000 0100 0000
+0200 0200  0000
+01 00 00
+@error framing
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # truncated action header: count 2, the second header has 2 of 4 bytes
+01 00 0000 07000000 05000000 0200 0000
+0200 0200  0000
+0200
+@error framing
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # payload past the end: len 9, 6 bytes left
+01 00 0000 07000000 05000000 0100 0000
+1500 0900  39300000 0000                  // rotate_entity, len 9, only 6 payload bytes
+@error framing
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # a system action type in a player batch
+01 00 0000 07000000 05000000 0100 0000
+03ff 0200  0000                           // release_inputs (0xFF03) in player 0's batch
+@error framing
+
+@closure tick=7 last_seq=0:0 system_seq=0 blobs=    # a player action type in a system batch
+01 01 ffff 07000000 01000000 0100 0000
+0200 0200  0000                           // stop_walking (2) in the system batch
+@error framing
+
+# ---- rule 5: blobs -------------------------------------------------------------------------------------
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # place_blueprint names a blob that was not supplied
+01 00 0000 07000000 05000000 0100 0000
+8f00 2d00                                 // place_blueprint, len 45
+00000000 00000000 00 00 00 00             //   pos (0, 0), dir 0, flip 0, mode 0, reserved
+01 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855   // record: tag 1, SHA-256("")
+@error blob_missing
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855    # the same, blob supplied
+01 00 0000 07000000 05000000 0100 0000
+8f00 2d00
+00000000 00000000 00 00 00 00
+01 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+@ok batches=1 actions=1
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855,ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+01 00 0000 07000000 05000000 0200 0000    // two place_blueprint actions, each naming one of the two supplied blobs
+8f00 2d00  00000000 00000000 00 00 00 00
+01 ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+8f00 2d00  02000000 02000000 04 00 00 00   // pos (2, 2), dir 4
+01 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+@ok batches=1 actions=2
+
+@closure tick=7 last_seq=0:4 system_seq=0 blobs=    # rule 5 covers actions that decode: mode 3 does not, so no blob is needed
+01 00 0000 07000000 05000000 0100 0000
+8f00 2d00
+00000000 00000000 00 00 03 00             //   mode = 3 (undeclared BuildMode)
+01 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+@ok batches=1 actions=1
