@@ -113,6 +113,9 @@ interface GlState {
   lightT: Target | null;
 }
 
+/** The frame's clock (one function, not a closure per frame). */
+const clock = (): number => performance.now();
+
 /** The context's attributes (the app's WebGL2 check creates the context with the same ones). */
 export const CONTEXT_ATTRS: WebGLContextAttributes = {
   alpha: false,
@@ -309,11 +312,17 @@ export class Renderer {
     return Math.min(2, globalThis.devicePixelRatio || 1) * this.renderScale;
   }
 
-  private backingSize(): [number, number] {
+  /** The backing store's size in device px: the canvas's CSS size × dpr (into bw, bh; no allocation). */
+  private bw = 1;
+  private bh = 1;
+  private measure(): void {
     const dpr = this.dpr();
-    const w = Math.max(1, Math.round((this.canvas.clientWidth || this.canvas.width) * dpr));
-    const h = Math.max(1, Math.round((this.canvas.clientHeight || this.canvas.height) * dpr));
-    return [w, h];
+    this.bw = Math.max(1, Math.round((this.canvas.clientWidth || this.canvas.width) * dpr));
+    this.bh = Math.max(1, Math.round((this.canvas.clientHeight || this.canvas.height) * dpr));
+  }
+  private backingSize(): [number, number] {
+    this.measure();
+    return [this.bw, this.bh];
   }
 
   /** Zooms by wheel notches (×1.1 each, I §3.15), clamped to the world's range; positive zooms in. */
@@ -335,20 +344,19 @@ export class Renderer {
     };
   }
 
-  /** The followed character's position (tiles), extrapolated like its sprite, or null. */
-  private followed(renderTick: number): [number, number] | null {
+  /** Moves the camera onto the followed character, extrapolated like its sprite; false when it is not in view. */
+  private followCamera(renderTick: number): boolean {
     const mv = this.mirror.movers;
     for (let i = 0; i < mv.count; i++) {
       const o = i * 32;
       if (mv.view.getUint8(o + MO.kind) !== 0 || mv.view.getUint16(o + MO.aux, true) !== this.follow)
         continue;
       const dt = this.mode === 'continuous' ? renderTick - mv.view.getUint32(o + MO.base_tick, true) : 0;
-      return [
-        (mv.view.getInt32(o + MO.x, true) + mv.view.getInt16(o + MO.vx, true) * dt) / 256,
-        (mv.view.getInt32(o + MO.y, true) + mv.view.getInt16(o + MO.vy, true) * dt) / 256,
-      ];
+      this.camera.cx = (mv.view.getInt32(o + MO.x, true) + mv.view.getInt16(o + MO.vx, true) * dt) / 256;
+      this.camera.cy = (mv.view.getInt32(o + MO.y, true) + mv.view.getInt16(o + MO.vy, true) * dt) / 256;
+      return true;
     }
-    return null;
+    return false;
   }
 
   // -------------------------------------------------------------------------------------------- the frame
@@ -371,7 +379,9 @@ export class Renderer {
     }
     this.lastFrame = now;
     // the backing store follows the canvas's CSS size and dpr
-    const [w, h] = this.backingSize();
+    this.measure();
+    const w = this.bw;
+    const h = this.bh;
     if (this.canvas.width !== w || this.canvas.height !== h) {
       this.canvas.width = w;
       this.canvas.height = h;
@@ -381,19 +391,13 @@ export class Renderer {
     const ahead =
       this.mode === 'continuous' ? Math.min(2, Math.max(0, ((now - this.packetTime) * 60) / 1000)) : 0;
     const renderTick = this.mirror.tick + ahead;
-    if (this.follow >= 0) {
-      const p = this.followed(renderTick);
-      if (p) {
-        this.camera.cx = p[0];
-        this.camera.cy = p[1];
-      }
-    }
+    if (this.follow >= 0) this.followCamera(renderTick);
     this.camera.dpr = this.dpr();
     const cam = snapCamera(this.camera, this.snapped);
     const S = scaleOf(cam);
     // uploads within 2 ms (10 §9.7), then the scene
     const tp = performance.now();
-    g.textures.pump(2, () => performance.now());
+    g.textures.pump(2, clock);
     const tb = performance.now();
     this.scene.resident = g.textures.setResident;
     this.scene.extrapolate = this.mode === 'continuous';
@@ -419,9 +423,7 @@ export class Renderer {
     gl.disable(gl.BLEND);
     gl.clearColor(CLEAR_COLOUR[0], CLEAR_COLOUR[1], CLEAR_COLOUR[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    g.terrain.draw(this.mirror, cam, this.rect, [ox, oy], [w, h], g.textures.terrain?.tex ?? null, 3, () =>
-      performance.now(),
-    );
+    g.terrain.draw(this.mirror, cam, this.rect, ox, oy, w, h, g.textures.terrain?.tex ?? null, 3, clock);
     gl.enable(gl.BLEND);
     gl.blendEquation(gl.FUNC_ADD);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -469,7 +471,7 @@ export class Renderer {
     st.submit = te - ts;
     st.total = te - t0;
     let sprites = 0;
-    for (const s of streams) sprites += s.quads;
+    for (let i = 0; i < streams.length; i++) sprites += (streams[i] as Stream).quads;
     st.sprites = sprites;
     st.draws = g.batcher.draws + (g.terrain.drawn > 0 ? 1 : 0) + 2;
     st.uploadedKb = g.batcher.uploaded / 1024;

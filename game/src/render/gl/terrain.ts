@@ -167,15 +167,20 @@ export class TerrainPass {
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
-  /** Releases the layers of chunks the mirror no longer holds. */
+  /** Releases the layers of chunks the mirror no longer holds (bound callbacks: no iterator per frame). */
   private collect(mirror: Mirror): void {
-    for (const [key, slot] of this.slots)
-      if (!mirror.chunks.has(key)) {
-        this.freeIds.push(slot.idLayer);
-        if (slot.shoreLayer >= 0) this.freeShore.push(slot.shoreLayer);
-        this.slots.delete(key);
-      }
+    this.mirrorNow = mirror;
+    if (this.slots.size > mirror.chunks.size || this.slotsSeen !== mirror.terrainRev)
+      this.slots.forEach(this.release);
+    this.slotsSeen = mirror.terrainRev;
   }
+  private slotsSeen = -1;
+  private readonly release = (slot: Slot, key: number): void => {
+    if (this.mirrorNow?.chunks.has(key)) return;
+    this.freeIds.push(slot.idLayer);
+    if (slot.shoreLayer >= 0) this.freeShore.push(slot.shoreLayer);
+    this.slots.delete(key);
+  };
 
   /** The neighbourhood's signature: the chunk's and its eight neighbours' terrain revisions and presence. */
   private signature(mirror: Mirror, c: ChunkView): number {
@@ -279,20 +284,32 @@ export class TerrainPass {
     this.mirrorNow = mirror;
     this.shoresBuilt = 0;
     this.pending = 0;
-    const t0 = now();
-    for (let pass = 0; pass < 2; pass++)
-      for (const c of mirror.chunks.values()) {
-        if (!c.tiles) continue;
-        const visible = c.cx >= cx0 && c.cx <= cx1 && c.cy >= cy0 && c.cy <= cy1;
-        if (visible !== (pass === 0)) continue;
-        const slot = this.slotOf(mirror, c);
-        if (slot === null) continue;
-        slot.frame = this.frameNo;
-        if (slot.shoreSig === slot.sig) continue;
-        if (this.shoresBuilt === 0 || now() - t0 < budgetMs) this.buildShoreOf(mirror, c, slot);
-        else this.pending++;
-      }
+    this.pr.cx0 = cx0;
+    this.pr.cy0 = cy0;
+    this.pr.cx1 = cx1;
+    this.pr.cy1 = cy1;
+    this.pr.budget = budgetMs;
+    this.pr.now = now;
+    this.pr.t0 = now();
+    for (let pass = 0; pass < 2; pass++) {
+      this.pr.pass = pass;
+      mirror.chunks.forEach(this.prepareOne);
+    }
   }
+  private readonly pr = { cx0: 0, cy0: 0, cx1: 0, cy1: 0, budget: 0, t0: 0, pass: 0, now: (): number => 0 };
+  private readonly prepareOne = (c: ChunkView): void => {
+    const mirror = this.mirrorNow;
+    const pr = this.pr;
+    if (mirror === null || !c.tiles) return;
+    const visible = c.cx >= pr.cx0 && c.cx <= pr.cx1 && c.cy >= pr.cy0 && c.cy <= pr.cy1;
+    if (visible !== (pr.pass === 0)) return;
+    const slot = this.slotOf(mirror, c);
+    if (slot === null) return;
+    slot.frame = this.frameNo;
+    if (slot.shoreSig === slot.sig) return;
+    if (this.shoresBuilt === 0 || pr.now() - pr.t0 < pr.budget) this.buildShoreOf(mirror, c, slot);
+    else this.pending++;
+  };
 
   /**
    * Draws the visible chunks after preparing the held ones (shore textures within `shoreBudgetMs`): one quad each.
@@ -302,8 +319,10 @@ export class TerrainPass {
     mirror: Mirror,
     cam: Camera,
     rect: Float64Array,
-    origin: [number, number],
-    target: [number, number],
+    ox: number,
+    oy: number,
+    tw: number,
+    th: number,
     materials: WebGLTexture | null,
     shoreBudgetMs: number,
     now: () => number,
@@ -341,8 +360,8 @@ export class TerrainPass {
     if (quads === 0) return;
     const p = this.prog;
     gl.useProgram(p.program);
-    gl.uniform2f(p.u.uOrigin as WebGLUniformLocation, origin[0], origin[1]);
-    gl.uniform2f(p.u.uTarget as WebGLUniformLocation, target[0], target[1]);
+    gl.uniform2f(p.u.uOrigin as WebGLUniformLocation, ox, oy);
+    gl.uniform2f(p.u.uTarget as WebGLUniformLocation, tw, th);
     gl.uniform1f(p.u.uS as WebGLUniformLocation, S);
     gl.uniform1f(p.u.uMatTiles as WebGLUniformLocation, TERRAIN.materialTiles);
     gl.uniform1f(p.u.uWarp as WebGLUniformLocation, TERRAIN.warpTiles);
@@ -357,7 +376,7 @@ export class TerrainPass {
     gl.uniform3fv(p.u.uShore as WebGLUniformLocation, TERRAIN.shore);
     gl.uniform1f(p.u.uShoreAlpha as WebGLUniformLocation, TERRAIN.shoreAlpha);
     gl.uniform1f(p.u.uShorePx as WebGLUniformLocation, TERRAIN.shorePx);
-    gl.uniform3fv(p.u.uWoodland as WebGLUniformLocation, ratio(TERRAIN.woodland, PAPER_TONE));
+    gl.uniform3fv(p.u.uWoodland as WebGLUniformLocation, WOODLAND_RATIO);
     gl.uniform1f(p.u.uWoodlandAlpha as WebGLUniformLocation, TERRAIN.woodlandAlpha);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.ids);
@@ -458,6 +477,12 @@ export class TerrainPass {
     gl.deleteProgram(this.prog.program);
   }
 }
+
+/** The woodland wash as a multiplier of the paper (A3 §3.1: a 30 % wash of #c9dca8). */
+const WOODLAND_RATIO = Float32Array.from(
+  [0, 1, 2],
+  (i) => (TERRAIN.woodland[i] as number) / (PAPER_TONE[i] as number),
+);
 
 function ratio(a: readonly number[], b: readonly number[]): [number, number, number] {
   return [

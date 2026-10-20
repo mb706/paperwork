@@ -119,10 +119,19 @@ export class Scene implements SpriteSink {
   private buckets = new Int32Array(64);
   private n = 0;
   private chunkRefs: ChunkView[] = [];
+  /** How many of chunkRefs this frame visits (the array is never shrunk, so it never regrows). */
+  private nChunks = 0;
   private readonly movers = new Map<number, MoverState>();
   private readonly pagesColour: number;
   /** Icon frame → its set (icons are single-frame sets), for residency checks. */
   private readonly iconSetOf: Int32Array;
+  /** Per frame: its four corners' packed uv words (u | v << 16, u16 normalised), its array, its layer. */
+  private readonly uvWords: Uint32Array;
+  private readonly frameArray: Int32Array;
+  private readonly frameLayer: Uint32Array;
+  private readonly colourArray: number;
+  /** This frame's colour pages are drawn with k > 0.5 (they want High level 0, 10 §15.7). */
+  private colourWantsLevel0 = false;
 
   constructor(atlas: Atlas, look: Lookups) {
     this.atlas = atlas;
@@ -130,6 +139,29 @@ export class Scene implements SpriteSink {
     this.missed = new Uint8Array(atlas.sets.length);
     this.pagesColour = Math.max(1, atlas.json.pages[atlas.arrayOfKind[KIND.colour] as number]?.length ?? 1);
     this.wantLevel0 = new Uint8Array(this.pagesColour);
+    // the uv words of every frame, once: a quad then only copies them (10 §6.3's u16 normalised uv)
+    const n = atlas.frameCount;
+    this.uvWords = new Uint32Array(n * 4);
+    this.frameArray = new Int32Array(n);
+    this.frameLayer = new Uint32Array(n);
+    for (let f = 0; f < n; f++) {
+      const o = f * 8;
+      const a = atlas.frames[o] as number;
+      const k = 65535 / (atlas.pageSize[a] as number);
+      const x = atlas.frames[o + 2] as number;
+      const y = atlas.frames[o + 3] as number;
+      const u0 = Math.round(x * k);
+      const v0 = Math.round(y * k);
+      const u1 = Math.round((x + (atlas.frames[o + 4] as number)) * k);
+      const v1 = Math.round((y + (atlas.frames[o + 5] as number)) * k);
+      this.uvWords[f * 4] = (u0 | (v0 << 16)) >>> 0;
+      this.uvWords[f * 4 + 1] = (u1 | (v0 << 16)) >>> 0;
+      this.uvWords[f * 4 + 2] = (u0 | (v1 << 16)) >>> 0;
+      this.uvWords[f * 4 + 3] = (u1 | (v1 << 16)) >>> 0;
+      this.frameArray[f] = a;
+      this.frameLayer[f] = atlas.frames[o + 1] as number;
+    }
+    this.colourArray = atlas.arrayOfKind[KIND.colour] as number;
     this.iconSetOf = new Int32Array(atlas.frameCount).fill(-1);
     for (const s of atlas.sets)
       if (s.icon !== null && (s.icon.entries[1] as number) > 0)
@@ -181,30 +213,10 @@ export class Scene implements SpriteSink {
     }
     if (alpha <= 0 && stream === STREAM.light) return;
     if (left > this.halfW || top > this.halfH || left + w < -this.halfW || top + h < -this.halfH) return;
-    const fr = this.atlas.frames;
-    const o = f * 8;
-    const a = fr[o] as number;
-    const layer = fr[o + 1] as number;
-    const P = this.atlas.pageSize[a] as number;
-    const x = fr[o + 2] as number;
-    const y = fr[o + 3] as number;
-    const fw = fr[o + 4] as number;
-    const fh = fr[o + 5] as number;
-    if (this.atlas.kindOfArray[a] === KIND.colour && w > 0.5 * fw && layer < this.pagesColour)
+    const layer = this.frameLayer[f] as number;
+    if (this.colourWantsLevel0 && this.frameArray[f] === this.colourArray && layer < this.pagesColour)
       this.wantLevel0[layer] = 1;
-    const k = 65535 / P;
-    (this.streams[st] as Stream).rect(
-      left,
-      top,
-      w,
-      h,
-      Math.round(x * k),
-      Math.round(y * k),
-      Math.round((x + fw) * k),
-      Math.round((y + fh) * k),
-      layer,
-      tint,
-    );
+    (this.streams[st] as Stream).rect(left, top, w, h, this.uvWords, f * 4, layer, tint);
   }
 
   rotated(
@@ -346,6 +358,7 @@ export class Scene implements SpriteSink {
     this.lastTick = renderTick;
     const S = scaleOf(cam);
     this.S = S;
+    this.colourWantsLevel0 = S / (this.atlas.pxPerTile[this.colourArray] as number) > 0.5;
     this.halfW = W / 2;
     this.halfH = H / 2;
     const vx0 = cam.cx - W / 2 / S - CULL_MARGIN_TILES;
@@ -364,7 +377,7 @@ export class Scene implements SpriteSink {
         if (c === undefined) continue;
         this.chunkRefs[nc++] = c;
       }
-    this.chunkRefs.length = nc;
+    this.nChunks = nc;
     st.chunks = nc;
     this.n = 0;
     const tick = mirror.tick;
@@ -826,7 +839,8 @@ export class Scene implements SpriteSink {
     const cc = col(DEBUG_COLOURS.collision);
     const sc = col(DEBUG_COLOURS.selection);
     const pc = col(DEBUG_COLOURS.position);
-    for (const c of this.chunkRefs) {
+    for (let ci = 0; ci < this.nChunks; ci++) {
+      const c = this.chunkRefs[ci] as ChunkView;
       const v = c.entityView;
       for (let i = 0; i < c.entityCount; i++) {
         const o = i * 24;

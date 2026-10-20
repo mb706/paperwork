@@ -401,3 +401,16 @@ export function benchScene(
   }
   return { packet: packet(sections, 600, 1), view: viewOf(x0, y0, x1, y1) };
 }
+
+/** One iron chest at tile (0, 0) on grass (the golden prototypes): the pixel-exact placement check. */
+export function singleScene(
+  protos: PrototypesJson,
+  night: boolean,
+): { packet: Uint8Array; view: ViewRequest } {
+  const grass = T(protos, 'grass');
+  const sections: Section[] = [
+    tilesSection(-1, -1, 0, 0, () => grass),
+    entitiesSection(-1, -1, 0, 0, [ev(2, E(protos, 'iron-chest'), 1, 1)]),
+  ];
+  return { packet: packet(sections, 1, night ? 0 : 1), view: viewOf(-8, -8, 8, 8) };
+}

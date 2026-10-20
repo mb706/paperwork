@@ -156,6 +156,10 @@ export async function createWorldView(o: WorldViewOptions): Promise<WorldView> {
       console.info(`asset ${url}: attempt ${attempt} failed (${error}); retrying`),
   });
   loader.start();
+  // on a screen with a device pixel ratio of 2, every page's High level 0 is fetched in idle time once core is in
+  // (10 §9.7 rule 5); elsewhere only the pages drawn with k > 0.5 ask for it
+  if (renderer.dpr() >= 2)
+    void loader.ready('core').then(() => setTimeout(() => loader?.prefetchLevel0(), 2000));
   const colourArray = atlas.arrayOfKind[0] as number;
 
   // the HUD (F5) and the visible-tiles watch

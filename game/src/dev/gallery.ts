@@ -5,12 +5,13 @@
 //   transitions  the golden set's packet-transitions trace, packet by packet (`&step=N`, default all)
 //   survey       C6's preview scene on the real atlas (scenes.ts), `&night=1` for the cyanotype
 //   bench        a dense factory (`&entities=N&items=M&w=W&h=H`) for §6.12's main-thread frame cost
+//   single       one iron chest on grass (the golden prototypes; `&atlas=real` for the Survey atlas)
 // `&zoom=`, `&x=`, `&y=` set the camera; `&clean=1` hides the status line. `window.__gallery` reports readiness.
 
 import { createWorldView } from '../app/world-view.ts';
 import { type ViewRequest, ViewRequestCodec } from '../shared/gen/packet.ts';
 import type { PrototypesJson } from '../shared/gen/protos.ts';
-import { benchScene, surveyScene } from './scenes.ts';
+import { benchScene, singleScene, surveyScene } from './scenes.ts';
 
 declare global {
   interface Window {
@@ -39,8 +40,9 @@ interface Trace {
 }
 
 async function run(): Promise<number> {
-  const fixture = scene === 'golden' || scene === 'transitions';
-  const goldenData = scene.startsWith('golden') || scene === 'transitions';
+  const fixture =
+    scene === 'golden' || scene === 'transitions' || (scene === 'single' && params.get('atlas') !== 'real');
+  const goldenData = scene.startsWith('golden') || scene === 'transitions' || scene === 'single';
   const protos = await json<PrototypesJson>(
     goldenData ? `${GOLDEN}protos/prototypes.json` : '/data/fake/prototypes.json',
   );
@@ -88,6 +90,12 @@ async function run(): Promise<number> {
     world.applyPacket(s.packet, s.view);
     packets = 1;
     centre = s.centre;
+  } else if (scene === 'single') {
+    // one iron chest at tile (0, 0) on grass: the pixel-exact placement check (e2e/render.spec.ts)
+    const s = singleScene(protos, params.get('night') === '1');
+    world.applyPacket(s.packet, s.view);
+    packets = 1;
+    centre = [0.5, 0.5];
   } else if (scene === 'bench') {
     const w = Number(params.get('w') ?? 60);
     const h = Number(params.get('h') ?? 34);

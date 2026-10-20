@@ -293,12 +293,12 @@ export function drawInserter(
   h: InserterInput,
   platformStream: number,
 ): boolean {
-  const gb = () =>
-    greybox !== null && drawGreybox(atlas, sink, cam, greybox, h.x2, h.y2, h.dir, 0, platformStream);
-  if (s === null || s.platform === null) return gb();
+  if (s === null || s.platform === null)
+    return greybox !== null && drawGreybox(atlas, sink, cam, greybox, h.x2, h.y2, h.dir, 0, platformStream);
   vals[AXIS.dir] = h.dir;
   const ep = lookup(s.platform, vals);
-  if (entryEmpty(s.platform, ep)) return gb();
+  if (entryEmpty(s.platform, ep))
+    return greybox !== null && drawGreybox(atlas, sink, cam, greybox, h.x2, h.y2, h.dir, 0, platformStream);
   const S = scaleOf(cam);
   const ex = h.x2 / 2;
   const ey = h.y2 / 2;

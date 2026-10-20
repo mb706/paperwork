@@ -77,27 +77,54 @@ export class Stream {
     this.quads++;
   }
 
-  /** An axis-aligned quad. */
+  /** An axis-aligned quad whose uv words (u|v<<16 at its four corners) are precomputed at `uv[uo…uo+3]`. */
   rect(
     l: number,
     t: number,
     w: number,
     h: number,
-    u0: number,
-    v0: number,
-    u1: number,
-    v1: number,
+    uv: Uint32Array,
+    uo: number,
     lf: number,
     tint: number,
   ): void {
-    this.quad(l, t, l + w, t, l, t + h, l + w, t + h, u0, v0, u1, v1, lf, tint);
+    if ((this.quads + 1) * QUAD_WORDS > this.u32.length) this.grow();
+    const f = this.f32;
+    const u = this.u32;
+    const o = this.quads * QUAD_WORDS;
+    const r = l + w;
+    const b = t + h;
+    f[o] = l;
+    f[o + 1] = t;
+    u[o + 2] = uv[uo] as number;
+    u[o + 3] = lf;
+    u[o + 4] = tint;
+    f[o + 5] = r;
+    f[o + 6] = t;
+    u[o + 7] = uv[uo + 1] as number;
+    u[o + 8] = lf;
+    u[o + 9] = tint;
+    f[o + 10] = l;
+    f[o + 11] = b;
+    u[o + 12] = uv[uo + 2] as number;
+    u[o + 13] = lf;
+    u[o + 14] = tint;
+    f[o + 15] = r;
+    f[o + 16] = b;
+    u[o + 17] = uv[uo + 3] as number;
+    u[o + 18] = lf;
+    u[o + 19] = tint;
+    this.quads++;
   }
 }
 
 /** RGBA8 tint, r in the low byte (as the vertex stores it). */
 export function rgba8(r: number, g: number, b: number, a: number): number {
-  const c = (x: number) => Math.max(0, Math.min(255, Math.round(x * 255)));
-  return (c(r) | (c(g) << 8) | (c(b) << 16) | (c(a) << 24)) >>> 0;
+  return (byte(r) | (byte(g) << 8) | (byte(b) << 16) | (byte(a) << 24)) >>> 0;
+}
+function byte(x: number): number {
+  const v = Math.round(x * 255);
+  return v < 0 ? 0 : v > 255 ? 255 : v;
 }
 export const WHITE = 0xffffffff;
 
