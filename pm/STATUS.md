@@ -37,9 +37,13 @@ Next: codex reviews of A1/A2, then Phase B (an architecture revision that folds 
 
 ## Follow-ups (not yet assigned)
 - 08 text: a player-facing message for refusing a save made with a different worldgen version (B1-r1).
+- Design data hygiene (C1a J1): prose values the engine will read must become typed fields: pole `supply` 5x5, beacon `supply_area` and `profile`, silo `payload` and `returns`, combinator fields, `fluid_box` and `circuit`, turret fields. Do it before the M1 systems need them (poles are M1). It touches design/spec/data, its SCHEMA and the validator, and the data-stage schemas in game/.
+- Engine overlay content for later milestones (C1a item 5): nine mirrored entities, inserter vectors, drill areas, belt lane geometry, map colours, the event-to-sound map, and so on.
+- Expressions: Python's `pow` and `det::powi` differ by 1–2 at unreachable infinite-tech levels (≥ 66). If exact agreement is wanted, switch the validator to repeated multiplication.
 
 ## Phase C: M0 (started 2026-10-20)
 The Schema package is split into sequential parts: C1a (scaffold, CI, data stage), then C1b (schema, generator, codec fixtures), then C1c (fake sim, reference model, golden set). After that, the contract gate: a codex review. Then the parallel packages start.
 | WP | Topic | Status |
 |---|---|---|
-| C1a | Scaffold, toolchains, CI, check-arch, data stage, capability manifest | running (commits to `dev`) |
+| C1a | Scaffold, toolchains, CI, check-arch, data stage, capability manifest | done (3ebd435..4036076); `npm run ci` takes about 30 s. Codex r1 running |
+| C1b | Schema, generator, codec fixtures (gate items 1–3) | brief ready; starts after the C1a review fixes |
