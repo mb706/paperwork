@@ -622,8 +622,11 @@ button {
   padding: 0;
 }
 
+/* The queue grows from the left, 10 per row (I §4.5), and wraps upward before it would reach the quickbar. */
 .crafting-queue .slot-grid {
-  grid-template-columns: repeat(10, 40px);
+  display: flex;
+  flex-wrap: wrap-reverse;
+  max-width: min(418px, calc(50vw - 300px));
 }
 
 .docked {
@@ -823,8 +826,15 @@ button {
   z-index: 39;
 }
 
-.game-menu {
+/* The game menu and the windows it opens (settings, load) sit above the veil that dims the game. */
+.game-menu-layer {
+  position: absolute;
+  inset: 0;
   z-index: 35;
+  pointer-events: none;
+}
+
+.game-menu {
   width: 260px;
 }
 

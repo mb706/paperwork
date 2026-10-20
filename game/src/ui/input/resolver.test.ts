@@ -264,6 +264,22 @@ describe('mining (I §3.7)', () => {
     ]);
   });
 
+  it('stops when the cursor leaves every target and starts again on the next one (drag-mining)', () => {
+    r.world.set(100, chestAt(7));
+    r.world.set(160, chestAt(9));
+    r.core.pointermove(mouse(2, WORLD, 100));
+    r.core.pointerdown(mouse(2, WORLD, 100));
+    r.core.pointermove(mouse(2, WORLD, 130)); // bare ground
+    r.core.pointermove(mouse(2, WORLD, 160));
+    r.core.pointerup(mouse(2, WORLD, 160));
+    expect(r.take().map((a) => a.type)).toEqual([
+      'begin_mining',
+      'stop_mining',
+      'begin_mining',
+      'stop_mining',
+    ]);
+  });
+
   it('mines a resource tile at the tile centre', () => {
     r.world.set(100, { kind: 'resource', tx: 3, ty: -2, resource: 0, band: 1 });
     r.click(2, WORLD);

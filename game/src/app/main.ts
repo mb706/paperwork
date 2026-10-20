@@ -30,6 +30,9 @@ function show(id: string, text: string): void {
   if (el) el.textContent = text;
 }
 
+/** The diagnostics line's counts (developer text, not the canon's). */
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
 async function json<T>(url: string): Promise<T> {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
@@ -97,13 +100,16 @@ async function main(): Promise<void> {
   ]);
   show(
     'data-status',
-    `${protos.build}: ${protos.item.length} items, ${protos.recipe.length} recipes, ${protos.entity.length} entities, ${protos.resource.length} resources, ${protos.tile.length} tiles`,
+    `${protos.build}: ${count(protos.item.length, 'item', 'items')}, ${count(protos.recipe.length, 'recipe', 'recipes')}, ` +
+      `${count(protos.entity.length, 'entity', 'entities')}, ${count(protos.resource.length, 'resource', 'resources')}, ` +
+      `${count(protos.tile.length, 'tile', 'tiles')}`,
   );
   const sim = params.get('sim');
   const backend: Backend = sim === 'real' ? 'real' : sim === 'fake' || import.meta.env.DEV ? 'fake' : 'real';
   const session = new Session({
     backend,
     test: params.get('test') === '1',
+    fakeDay: Number(params.get('fakeDay') ?? 0) || 0,
     build: manifest,
     module: () => compileSim().catch(() => null),
   });
@@ -134,7 +140,12 @@ async function main(): Promise<void> {
   await probe();
 }
 
+// A page that is leaving aborts its fetches; that is not a failure worth an error.
+let leaving = false;
+addEventListener('pagehide', () => {
+  leaving = true;
+});
 main().catch((e: unknown) => {
   show('sim-status', `failed: ${e instanceof Error ? e.message : String(e)}`);
-  console.error(e);
+  if (!leaving) console.error(e);
 });

@@ -10,7 +10,7 @@
 // worker (no IO worker), so the session lists the saves made this session as not loadable; the IO worker (C3)
 // supplies loadable ones.
 import { NewWorldCodec } from '../shared/gen/abi.ts';
-import { decodePacket } from '../shared/gen/packet.ts';
+import { decodePacket, type Packet } from '../shared/gen/packet.ts';
 import type { PrototypesJson } from '../shared/gen/protos.ts';
 import { readPrototypesBin } from '../shared/gen/protos.ts';
 import type { BuildManifest, MainToSim, SeqOp, SimToMain } from '../shared/protocol.ts';
@@ -22,6 +22,8 @@ export interface SessionOptions {
   backend: Backend;
   /** `?test=1`: the clock stops; `step(n)` runs ticks (10 §3.3 test mode). */
   test: boolean;
+  /** The fake's day length in ticks, 0 for its default (`?fakeDay=N`). */
+  fakeDay: number;
   /** The page's build manifest (the real worker's boot). */
   build: BuildManifest;
   /** The compiled sim.wasm for the real backend. */
@@ -52,10 +54,20 @@ export class Session implements SessionApi {
   private readonly opts: SessionOptions;
   /** Packets applied so far in this world (tests). */
   packets = 0;
+  private readonly packetListeners: ((p: Packet) => void)[] = [];
   tick = 0;
 
   constructor(opts: SessionOptions) {
     this.opts = opts;
+  }
+
+  /** Other consumers of the current world's packets (the renderer, audio), after the UI; returns the remover. */
+  onPacket(f: (p: Packet) => void): () => void {
+    this.packetListeners.push(f);
+    return () => {
+      const i = this.packetListeners.indexOf(f);
+      if (i >= 0) this.packetListeners.splice(i, 1);
+    };
   }
 
   attach(ui: UiHandle): void {
@@ -174,7 +186,8 @@ export class Session implements SessionApi {
           json<PrototypesJson>('/data/fake/prototypes.json'),
           bytes('/data/fake/prototypes.bin'),
         ]);
-        build = manifest;
+        // `?fakeDay=N` shortens the fake's day to N ticks (Factorio's is 25,000), to see the night and the lamps.
+        build = this.opts.fakeDay > 0 ? { ...manifest, fake: { dayTicks: this.opts.fakeDay } } : manifest;
         ui.setPrototypes(protos, characterFacts(protos, bin));
       } else {
         const [protos, bin] = await Promise.all([
@@ -233,6 +246,7 @@ export class Session implements SessionApi {
             this.packets += 1;
             this.tick = p.header.tick;
             ui.packet(p);
+            for (const f of this.packetListeners) f(p);
           }
         } catch (err) {
           console.error('session: packet', err);

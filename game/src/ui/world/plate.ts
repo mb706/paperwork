@@ -78,7 +78,13 @@ export class Plate {
     return img;
   }
 
-  draw(mirror: Mirror, camera: FollowCamera, selection: Selection | null, characterSerial: number): void {
+  draw(
+    mirror: Mirror,
+    camera: FollowCamera,
+    selection: Selection | null,
+    characterSerial: number,
+    preview: { x0: number; y0: number; x1: number; y1: number } | null = null,
+  ): void {
     const g = this.g;
     const p = this.protos();
     const dpr = this.dpr;
@@ -152,6 +158,17 @@ export class Plate {
       g.arc(x, y, 0.3 * S, 0, Math.PI * 2);
       g.fill();
       g.stroke();
+    }
+    if (preview) {
+      // The held entity's footprint (the renderer draws the tinted sprite preview, I §3.3).
+      g.strokeStyle = '#4f7a3c';
+      g.fillStyle = 'rgba(79, 122, 60, 0.18)';
+      g.setLineDash([5 * dpr, 3 * dpr]);
+      const x = toX(preview.x0);
+      const y = toY(preview.y0);
+      g.fillRect(x, y, (preview.x1 - preview.x0) * S, (preview.y1 - preview.y0) * S);
+      g.strokeRect(x, y, (preview.x1 - preview.x0) * S, (preview.y1 - preview.y0) * S);
+      g.setLineDash([]);
     }
     if (selection && selection.kind !== 'tile') this.brackets(p, selection, toX, toY, S);
   }

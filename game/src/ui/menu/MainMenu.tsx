@@ -3,7 +3,7 @@
 // browser BEND (no Exit): Continue (hidden when there is no save), New game, Load game, Settings, Tips and tricks,
 // Credits, Changelog; Achievements joins in M4. M0 works: New game, Load game, Settings. The footer shows the
 // build and the storage use. The first click or key anywhere also starts the audio (07 §18; the app's hook).
-import { createResource, createSignal, For, type JSX, Match, onMount, Show, Switch } from 'solid-js';
+import { createResource, createSignal, For, type JSX, Match, Show, Switch } from 'solid-js';
 import { type SaveEntry, useServices } from '../core/context.ts';
 import { Button, Panel, Window } from '../core/Window.tsx';
 import { formatDuration, t } from '../i18n/locale.ts';
@@ -94,8 +94,6 @@ export function MainMenu(): JSX.Element {
 function NewGame(props: { onBack: () => void }): JSX.Element {
   const s = useServices();
   const [seed, setSeed] = createSignal(1945);
-  let field: HTMLInputElement | undefined;
-  onMount(() => field?.select());
   const roll = () => setSeed(Math.floor(Math.random() * 4294967295));
   return (
     <Window id="new-game" title={t('new-game.title')} onClose={props.onBack} testid="window-new-game">
@@ -103,7 +101,6 @@ function NewGame(props: { onBack: () => void }): JSX.Element {
         <label class="field-row">
           <span>{t('new-game.seed')}</span>
           <input
-            ref={field}
             class="pw-textfield typed"
             data-testid="seed"
             inputMode="numeric"

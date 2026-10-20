@@ -181,7 +181,7 @@ export class Resolver implements InputSink {
       this.onSelectionChanged();
     }
     if (this.drag) this.continueDrag();
-    if (this.dropping && s && s.kind !== 'entity') this.continueDrop();
+    if (this.dropping) this.continueDrop();
   }
 
   releaseAll(): void {
@@ -202,11 +202,13 @@ export class Resolver implements InputSink {
   textKey(code: string, mods: number, target: Element): boolean {
     // I §1.3: Esc unfocuses, Enter confirms ([2.1] in a search field it just unfocuses), Tab moves on, Ctrl+F
     // focuses the window's search.
-    if (
-      code === 'Escape' ||
-      ((code === 'Enter' || code === 'NumpadEnter') && target.matches('[data-search]'))
-    ) {
+    if (code === 'Escape') {
       (target as HTMLElement).blur();
+      return true;
+    }
+    if (code === 'Enter' || code === 'NumpadEnter') {
+      (target as HTMLElement).blur();
+      if (!target.matches('[data-search]')) this.h.ui.pressConfirm();
       return true;
     }
     if (code === 'KeyF' && mods === 1) return this.h.commands.focusSearch();
@@ -583,7 +585,15 @@ export class Resolver implements InputSink {
 
   private onSelectionChanged(): void {
     const s = this.selection;
-    if (this.miningHeld && s && s.kind !== 'tile') this.mine(s);
+    // Drag-mining (I §3.7): the held button mines whatever minable thing the cursor reaches; off any target the
+    // mining stops, and it starts again on the next one.
+    if (this.miningHeld) {
+      if (s && s.kind !== 'tile') this.mine(s);
+      else if (this.mining) {
+        this.send({ type: 'stop_mining', input_gen: 0 });
+        this.mining = null;
+      }
+    }
     if (this.sweep && s?.kind === 'entity') this.sweepOnto(s);
   }
 
@@ -621,6 +631,17 @@ export class Resolver implements InputSink {
     if (sel?.kind !== 'entity') return false;
     this.send({ type: 'rotate_entity', target: serialRef(sel.serial), reverse });
     return true;
+  }
+
+  /** The held placeable's footprint under the cursor (tiles), for the build preview; null when none applies. */
+  preview(): { x0: number; y0: number; x1: number; y1: number } | null {
+    const proto = this.handPlaceable();
+    if (proto === undefined || !this.overWorld(this.pointerEl)) return null;
+    const dir = this.h.protos.entity(proto)?.rotatable ? this.buildDir : NORTH;
+    const w = this.cursorWorld();
+    const p = this.placement(proto, dir, w.x, w.y);
+    const [sw, sh] = this.h.protos.size(proto, dir);
+    return { x0: p.x2 / 2 - sw / 2, y0: p.y2 / 2 - sh / 2, x1: p.x2 / 2 + sw / 2, y1: p.y2 / 2 + sh / 2 };
   }
 
   /** Where the held entity would stand: odd footprints centre on the tile, even ones snap to corners (I §3.3). */

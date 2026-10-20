@@ -97,6 +97,8 @@ export interface UiTestHooks {
   toScreen(x: number, y: number): { x: number; y: number };
   entities(): { serial: number; proto: number; name: string; x: number; y: number }[];
   character(): { x: number; y: number } | null;
+  /** The last 600 packet applications and UI frames, ms. */
+  perf(): { packet: number[]; frame: number[] };
 }
 
 const DEV_REASONS = new Set([1, 2, 3, 4, 5]);
@@ -250,19 +252,41 @@ export function mountUi(o: UiOptions): UiHandle {
   let raf = 0;
   let lastMirror = -1;
   let lastCam = '';
+  let lastPlate = '';
+  /** The last 600 packet applications and frames, in ms (the UI budget, 10 §7.3 step 6 and §11). */
+  const perf = { packet: [] as number[], frame: [] as number[] };
+  const record = (list: number[], ms: number) => {
+    list.push(ms);
+    if (list.length > 600) list.shift();
+  };
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
+    const t0 = performance.now();
+    let plateMs = 0;
     const pos = characterPos();
     if (pos) camera.follow(pos.x, pos.y);
     const camKey = `${camera.cx},${camera.cy},${camera.zoom}`;
-    if (camKey !== lastCam || mirror.version !== lastMirror) {
+    const moved = camKey !== lastCam || mirror.version !== lastMirror;
+    if (moved) {
       lastCam = camKey;
       lastMirror = mirror.version;
       resolver.refreshSelection();
       sendView();
-      if (plate && ui.screen[0]() === 'game') plate.draw(mirror, camera, selection(), characterSerial);
+    }
+    if (plate && ui.screen[0]() === 'game') {
+      const preview = resolver.preview();
+      const sel = selection();
+      const key = `${preview ? `${preview.x0},${preview.y0}` : ''}|${sel?.kind === 'entity' ? sel.serial : sel ? `${sel.kind}` : ''}`;
+      if (moved || key !== lastPlate) {
+        lastPlate = key;
+        const p0 = performance.now();
+        plate.draw(mirror, camera, sel, characterSerial, preview);
+        plateMs = performance.now() - p0;
+      }
     }
     flying.frame(camera, now, scale());
+    // The UI's own frame work (the stand-in plate is the renderer's job, so it is left out; §7.3 step 6).
+    record(perf.frame, performance.now() - t0 - plateMs);
   };
   raf = requestAnimationFrame(frame);
 
@@ -443,6 +467,7 @@ export function mountUi(o: UiOptions): UiHandle {
         characterSerial = game.character.serial;
       if (ui.screen[0]() === 'loading' && game.character.present) ui.screen[1]('game');
       game.lastApplyMs = performance.now() - t0;
+      record(perf.packet, game.lastApplyMs);
     },
     unbound() {
       port = null;
@@ -491,6 +516,7 @@ export function mountUi(o: UiOptions): UiHandle {
         }));
       },
       character: characterPos,
+      perf: () => ({ packet: [...perf.packet], frame: [...perf.frame] }),
     },
     dispose() {
       cancelAnimationFrame(raf);

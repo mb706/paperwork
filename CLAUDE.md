@@ -108,13 +108,13 @@
   for the packages it touches. The tiny atlas is C6's fixture `test/fixtures/sprites/` (frozen in `MANIFEST.json`'s
   `external`; its `prototypesHash` must be the golden build's): after `npm run data`, regenerate it with
   `gamedev-python scripts/assets/fixture.py`, then bump.
-- **Fake sim (C1c, 10 §15.10):** `npm run dev`, then `/?sim=fake` (dev builds only) runs `src/simworker/fake.ts` in a
-  worker on the M1 prototype build, which the dev server builds into `.cache/data/m1/` and serves at `/data/fake/`
-  (its `AUDIO_WORKING` uses the build's sound ids, from `data/engine/sounds.yaml`). Its M0 interactions follow the
-  reference model's rules (`src/simworker/fake/rules.ts`), and `save` answers `saved`.
-  It speaks `src/shared/protocol.ts` (§3.2) and sends every section and M0 projection. WASD walks; `?fakeDay=N`
-  shortens the day; `?test=1` pauses it, and `window.__fake.step(n)`, `.act(action)` and `.status()` drive it. Tests
-  run it in-process (`test/fake/harness.ts`); `node test/fake/snapshot.ts out.png [ticks]` draws its packet stream.
+- **Fake sim (C1c, 10 §15.10):** `npm run dev`, then New game on `/`: dev builds run worlds on `src/simworker/fake.ts`
+  in a worker (`?sim=fake` forces it, `?sim=real` picks the shell) on the M1 prototype build, which the dev server builds
+  into `.cache/data/m1/` and serves at `/data/fake/` (its `AUDIO_WORKING` uses the build's sound ids, from
+  `data/engine/sounds.yaml`). Its M0 interactions follow the reference model's rules (`src/simworker/fake/rules.ts`),
+  and `save` answers `saved`. It speaks `src/shared/protocol.ts` (§3.2) and sends every section and M0 projection.
+  `?fakeDay=N` shortens the day; `?test=1` stops the clock and `window.__game.step(n)` runs ticks. Tests run it
+  in-process (`test/fake/harness.ts`); `node test/fake/snapshot.ts out.png [ticks]` draws its packet stream.
 
 ## Assets (`npm run assets`; C6, 10 §9, the *Survey* look of `design/art/DIRECTION.md`)
 - **Sources** (committed): `game/assets/blender/` (`lib/` style, materials, parts, rig, contract; `entities/`,
@@ -184,6 +184,28 @@
   against A4's IRs, the conductor); `npx playwright test e2e/audio.spec.ts` (@audio).
 - **Rules:** the worklet's `process()` never allocates. Keep native nodes few: beside an AudioWorklet each one renders
   on its thread (≈ 0.1 % of a host core per GainNode), so rooms, reverbs and bus faders live in the bank.
+
+## UI and input (`game/src/ui/`; M0 by C5; 10 §7, I §1–§4, 07)
+- **Run:** `npm run dev`, open `/`: the main menu (07 §18) → New game → the game on the fake sim. E character screen,
+  P production statistics, Esc game menu, LMB on a chest opens it; WASD, RMB mining, LMB building with drag lines,
+  Q, number keys, Alt-tap alt-mode; Settings → Controls rebinds (two columns, conflicts listed). Until the renderer is
+  wired, `src/ui/world/plate.ts` draws a flat stand-in of the world (`?render=none` turns it off).
+- **Where:** `input/` (the action map with Factorio's defaults `controls.ts`, the live table and settings shape
+  `bindings.ts`, the event core and capture layer `core.ts`, the context resolver `resolver.ts`, the action encoder
+  `encoder.ts`), `store/` (projection records → Solid stores, subscriptions by sub_id, UI state), `core/` (Window,
+  Slot, Tooltip, Icon in the Survey skin), `hud/`, `windows/`, `menu/`, `world/` (camera, the input's mirror slice,
+  hover selection), `mount.tsx` (wiring); the page and the worker session are `src/app/main.ts` and `session.ts`.
+- **Strings:** only from `game/locale/en.yaml` (UI) and prototypes.json `strings` (data names); `test/ui/locale.test.ts`
+  fails on a missing key, on a key of `localeKeys` without a string, and on "!", ellipses or "you".
+- **Rules:** slot clicks never act in their own handlers: a slot registers what it is (`input/slots.ts`) and the input
+  core resolves the binding, so every control stays rebindable. No layout reads in the frame loop. Pure UI state never
+  enters the sim. A green button is what E presses (`ui.addConfirm`).
+- **Test hooks** (dev builds): `window.__ui.state()`, `.sent()` (the encoded actions with seqs), `.toScreen(x, y)`,
+  `.entities()`, `.character()`, `.perf()`; `window.__game.step(n)`. Client settings live in localStorage
+  (`paperwork.settings`).
+- **Tests:** `npx vitest run src/ui test/ui` (bindings, resolution through the real core, golden projections and
+  traces, the locale); `npx playwright test e2e/ui.spec.ts` (the input layer against the fake sim, both browsers);
+  `npx playwright test e2e/perf.spec.ts --project=chrome` (UI ms per frame, window opening, input latency).
 
 ## Showing the game to the user
 - Dev server on `127.0.0.1:<high port>`; the user tunnels in: `ssh -L 5173:127.0.0.1:5173 cpuserver10`.

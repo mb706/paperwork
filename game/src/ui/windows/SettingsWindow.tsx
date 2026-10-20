@@ -162,14 +162,11 @@ function ControlsTab(props: { table: BindingTable; setTable: (b: BindingTable) =
     stop();
     setCapture({ id, column });
     s.setInputEnabled(false);
-    // Listen from the next task, so the click that started the capture is not taken as the binding.
-    setTimeout(() => {
-      if (!capture()) return;
-      window.addEventListener('keydown', listen, true);
-      window.addEventListener('keyup', loneUp, true);
-      window.addEventListener('pointerdown', listen, true);
-      window.addEventListener('wheel', listen, { capture: true, passive: false });
-    }, 0);
+    // The click that started the capture has passed its pointerdown already, so it is never taken as the binding.
+    window.addEventListener('keydown', listen, true);
+    window.addEventListener('keyup', loneUp, true);
+    window.addEventListener('pointerdown', listen, true);
+    window.addEventListener('wheel', listen, { capture: true, passive: false });
   };
   const reserved = (c: ControlDef) =>
     props.table.get(c.id).some((b) => b !== null && BROWSER_RESERVED.some((r) => sameBinding(r, b)));

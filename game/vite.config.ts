@@ -46,4 +46,7 @@ export default defineConfig({
     reportCompressedSize: false,
   },
   worker: { format: 'es' },
+  // The UI's dependencies are pre-bundled when the server starts, so the first page load never triggers a
+  // re-optimisation and a full reload (C5: a cold e2e server reloaded mid-load in Firefox).
+  optimizeDeps: { include: ['solid-js', 'solid-js/web', 'solid-js/store'] },
 });

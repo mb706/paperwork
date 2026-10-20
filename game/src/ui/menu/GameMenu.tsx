@@ -47,36 +47,38 @@ export function GameMenu(): JSX.Element {
   return (
     <Show when={s.ui.gameMenu[0]()}>
       <div class="menu-veil" data-gui="" />
-      <Switch>
-        <Match when={page() === 'menu'}>
-          <Window id="game-menu" title={t('menu.game-menu')} testid="game-menu" class="game-menu">
-            <div class="menu-column">
-              <Button variant="confirm" onClick={close} testid="game-menu-continue">
-                {t('menu.continue')}
-              </Button>
-              <Button onClick={() => void save()} disabled={saving()} testid="game-menu-save">
-                {savedOnce() ? t('menu.saved') : t('menu.save-game')}
-              </Button>
-              <Button onClick={() => setPage('load')} testid="game-menu-load">
-                {t('menu.load-game')}
-              </Button>
-              <Button onClick={() => setPage('settings')} testid="game-menu-settings">
-                {t('menu.settings')}
-              </Button>
-              <Button disabled>{t('menu.tips-and-tricks')}</Button>
-              <Button variant="red" onClick={exit} testid="game-menu-exit">
-                {t('menu.exit-to-main-menu')}
-              </Button>
-            </div>
-          </Window>
-        </Match>
-        <Match when={page() === 'settings'}>
-          <SettingsWindow onClose={() => setPage('menu')} />
-        </Match>
-        <Match when={page() === 'load'}>
-          <InGameLoad onBack={() => setPage('menu')} />
-        </Match>
-      </Switch>
+      <div class="game-menu-layer">
+        <Switch>
+          <Match when={page() === 'menu'}>
+            <Window id="game-menu" title={t('menu.game-menu')} testid="game-menu" class="game-menu">
+              <div class="menu-column">
+                <Button variant="confirm" onClick={close} testid="game-menu-continue">
+                  {t('menu.continue')}
+                </Button>
+                <Button onClick={() => void save()} disabled={saving()} testid="game-menu-save">
+                  {savedOnce() ? t('menu.saved') : t('menu.save-game')}
+                </Button>
+                <Button onClick={() => setPage('load')} testid="game-menu-load">
+                  {t('menu.load-game')}
+                </Button>
+                <Button onClick={() => setPage('settings')} testid="game-menu-settings">
+                  {t('menu.settings')}
+                </Button>
+                <Button disabled>{t('menu.tips-and-tricks')}</Button>
+                <Button variant="red" onClick={exit} testid="game-menu-exit">
+                  {t('menu.exit-to-main-menu')}
+                </Button>
+              </div>
+            </Window>
+          </Match>
+          <Match when={page() === 'settings'}>
+            <SettingsWindow onClose={() => setPage('menu')} />
+          </Match>
+          <Match when={page() === 'load'}>
+            <InGameLoad onBack={() => setPage('menu')} />
+          </Match>
+        </Switch>
+      </div>
     </Show>
   );
 }

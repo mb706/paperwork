@@ -1,0 +1,90 @@
+// The UI's quality bar (C5 brief; 10 §7.3 step 6, §11): UI time per frame with the character screen open, the
+// time a window takes to open, and input latency, measured against the fake sim running at 60 UPS (not test mode).
+// The numbers are printed for the report; the assertions are the brief's limits with headroom for SwiftShader
+// and a loaded host. Run alone: `npx playwright test e2e/perf.spec.ts --project=chrome`.
+import { expect, test } from '@playwright/test';
+import { watchConsole } from './console.ts';
+import { startGame } from './ui-helpers.ts';
+
+const pct = (xs: number[], p: number) => {
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.min(s.length - 1, Math.floor((p / 100) * s.length))] ?? 0;
+};
+
+test('UI time per frame, window opening and input latency @perf', async ({ page }, info) => {
+  test.skip(info.project.name !== 'chrome', 'measured in Chrome');
+  const problems = watchConsole(page);
+  await startGame(page, '');
+  // Window opening: from the key event to the first frame painted with the window (≤ 100 ms).
+  const openMs = await page.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        const t0 = performance.now();
+        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', key: 'e' }));
+        window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyE', key: 'e' }));
+        const check = () => {
+          if (document.querySelector('[data-testid=character-screen]'))
+            requestAnimationFrame(() => resolve(performance.now() - t0));
+          else requestAnimationFrame(check);
+        };
+        check();
+      }),
+  );
+  // UI time with the character screen open, the world running at 60 UPS: 3 s of packets and frames.
+  await page.waitForTimeout(500);
+  await page.evaluate(() => {
+    const p = window.__ui?.perf();
+    p?.packet.splice(0);
+    p?.frame.splice(0);
+  });
+  await page.waitForTimeout(3000);
+  const perf = await page.evaluate(() => window.__ui?.perf() ?? { packet: [], frame: [] });
+  // Input latency: key down to the action posted, and to the first frame showing the character moved.
+  const latency = await page.evaluate(
+    () =>
+      new Promise<{ act: number; seen: number }>((resolve) => {
+        const ui = window.__ui;
+        const start = ui?.character();
+        const before = ui?.sent().at(-1)?.seq ?? 0;
+        const t0 = performance.now();
+        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', key: 'd' }));
+        const check = () => {
+          const now = ui?.character();
+          if (now && start && now.x !== start.x) {
+            const act = (ui?.sent().find((x) => x.seq > before)?.at ?? t0) - t0;
+            window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyD', key: 'd' }));
+            resolve({ act, seen: performance.now() - t0 });
+          } else requestAnimationFrame(check);
+        };
+        requestAnimationFrame(check);
+      }),
+  );
+  const report = {
+    windowOpenMs: Number(openMs.toFixed(1)),
+    packets: perf.packet.length,
+    packetMs: {
+      p50: pct(perf.packet, 50),
+      p95: pct(perf.packet, 95),
+      p99: pct(perf.packet, 99),
+      max: pct(perf.packet, 100),
+    },
+    frames: perf.frame.length,
+    frameMs: {
+      p50: pct(perf.frame, 50),
+      p95: pct(perf.frame, 95),
+      p99: pct(perf.frame, 99),
+      max: pct(perf.frame, 100),
+    },
+    inputLatencyMs: { act: Number(latency.act.toFixed(2)), seen: Number(latency.seen.toFixed(1)) },
+  };
+  console.log(`UI perf: ${JSON.stringify(report)}`);
+  await info.attach('ui-perf.json', {
+    body: JSON.stringify(report, null, 2),
+    contentType: 'application/json',
+  });
+  expect(openMs).toBeLessThan(100);
+  expect(report.packetMs.p95 + report.frameMs.p95).toBeLessThan(2);
+  expect(latency.act).toBeLessThan(8); // posted within the event's own task, never a frame later
+  expect(latency.seen).toBeLessThan(3 * (1000 / 60) + 5); // two frames, plus the tick it lands in
+  expect(problems).toEqual([]);
+});
