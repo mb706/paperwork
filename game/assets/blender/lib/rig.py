@@ -15,6 +15,8 @@ adaptive threshold 0.02, no denoiser):
   aux      material id (R, G), object id or the organic flag (B); 1 sample, filter 0.01, 2x High
   light    emitters only, everything else black; 4 samples, High
   shadow   a shadow catcher; the model invisible to the camera; a 1-degree sun, no sky; 64 samples, Normal
+  pos      (sets with a self_region) the position in a reference object's frame as (p / 4 + 1/2), 16-bit, 2x,
+           1 sample: the post step cuts a piece exactly at its tile's edges with it
 A border render (`border=(x0, y0, x1, y1)` in High px of the canvas) renders and crops exactly that rectangle:
 Blender truncates border x canvas size to whole pixels, so the edges are offset by a quarter pixel.
 """
@@ -129,6 +131,7 @@ def aim_camera(scene, cam, canvas, px):
     target = Vector((cx, cu, 0.0))
     view = Vector((0.0, math.cos(math.radians(S.PITCH_DEG)), -math.sin(math.radians(S.PITCH_DEG))))
     cam.location = target - view * CAM_DIST
+    bpy.context.view_layer.update()              # projections (project_px, bounds_px) read the camera's matrix
     return W, H
 
 
@@ -252,7 +255,7 @@ class Rig:
             for o in model_objs:
                 o.visible_camera = False
                 o.visible_shadow = True
-        elif which in ('light', 'normal', 'aux'):
+        elif which in ('light', 'normal', 'aux', 'pos'):
             sc.world = self.world_shadow
             for lt in self.lights_colour:
                 lt.hide_render = True
@@ -264,7 +267,7 @@ class Rig:
             raise ValueError(which)
 
 
-def render_pass(scene, rig, which, objs, path, border=None):
+def render_pass(scene, rig, which, objs, path, border=None, pos_ref=None, shadow_samples=64):
     """Render one pass of the current scene to `path` (PNG). `border` = (x0, y0, x1, y1) in High px of the
     canvas crops the render to that rectangle (at the pass's own scale). Returns the expected (w, h)."""
     st = rig.st
@@ -279,17 +282,19 @@ def render_pass(scene, rig, which, objs, path, border=None):
         pass
     elif which == 'light':
         scene.cycles.samples = 4
-    elif which in ('normal', 'aux'):
+    elif which in ('normal', 'aux', 'pos'):
         scene.cycles.samples = 1
         scene.cycles.filter_width = 0.01
         r.resolution_x, r.resolution_y = W * 2, H * 2
+        if which == 'pos':
+            r.image_settings.color_depth = '16'
         scale = 2.0
     elif which == 'shadow':
-        scene.cycles.samples = 64 if flat else max(16, st['samples'] // 2)
+        scene.cycles.samples = shadow_samples if flat else max(16, st['samples'] // 2)
         r.resolution_percentage = 50          # Normal resolution (10 §9.1)
         scale = 0.5
-    if flat and which in ('normal', 'aux', 'light'):
-        M.set_output(which)
+    if flat and which in ('normal', 'aux', 'light', 'pos'):
+        M.set_output(which, ref=pos_ref)
     if border is not None:
         x0, y0, x1, y1 = border
         r.use_border = True
@@ -305,7 +310,7 @@ def render_pass(scene, rig, which, objs, path, border=None):
         size = (int(round(W * scale)), int(round(H * scale)))
     r.filepath = path
     bpy.ops.render.render(write_still=True)
-    if flat and which in ('normal', 'aux', 'light'):
+    if flat and which in ('normal', 'aux', 'light', 'pos'):
         M.set_output('beauty')
     r.use_border = False
     r.use_crop_to_border = False

@@ -116,6 +116,7 @@
         "shadowShoulder": { "$ref": "#/$defs/point" },
         "smoke": { "type": "array", "items": { "$ref": "#/$defs/point" } },
         "framesPerTile": { "type": "integer", "minimum": 1 },
+        "lightFrom": { "enum": ["status", "dyn"] },
         "radiusTiles": { "type": "number" }
       }
     },

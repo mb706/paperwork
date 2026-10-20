@@ -126,9 +126,40 @@ def read_passes(rdir, files):
     return [K.read_png(os.path.join(rdir, files[p])) for p in ('colour', 'normal', 'aux')]
 
 
-def shadow_frame(store, rdir, fn, anchor_high):
+def cut_mask(rdir, pos_file, region):
+    """The fraction of each High pixel that lies inside `region` = (x0, x1, y0, y1), bounds in the reference
+    frame of the pos pass (None: unbounded). Pixels without geometry (ink outside the silhouette) take the
+    decision of the nearest pixel with geometry, so lines stay whole except where the cut crosses them."""
+    p = K.read_png(os.path.join(rdir, pos_file))
+    cov = p[..., 3] > 0.5
+    loc = (K.srgb2lin(p[..., :3]) - 0.5) * 4.0
+    x0, x1, y0, y1 = region
+    inside = cov.copy()
+    if x0 is not None:
+        inside &= loc[..., 0] >= x0
+    if x1 is not None:
+        inside &= loc[..., 0] <= x1
+    if y0 is not None:
+        inside &= loc[..., 1] >= y0
+    if y1 is not None:
+        inside &= loc[..., 1] <= y1
+    if cov.any() and not cov.all():
+        iy, ix = ndi.distance_transform_edt(~cov, return_distances=False, return_indices=True)
+        inside = inside[iy, ix]
+    H2, W2 = inside.shape
+    return inside.astype(np.float32).reshape(H2 // 2, 2, W2 // 2, 2).mean(axis=(1, 3))
+
+
+def shadow_frame(store, rdir, fn, anchor_high, own=None):
+    """The shadow mask at Normal resolution, values below 0.03 clipped, minus the set's own colour alpha `own`
+    (canvas-sized, High): a set never shadows itself, which matters for ground-layer sets (belts, resource tiles)
+    that the shadow pass composites over (10 §6.2 step 3)."""
     s = K.read_png(os.path.join(rdir, fn))[..., 3]
     s = np.where(s < SHADOW_CLIP, 0.0, s).astype(np.float32)
+    if own is not None:
+        a = K.box_down(own[..., None], 2)[..., 0][:s.shape[0], :s.shape[1]]
+        s[:a.shape[0], :a.shape[1]] *= np.clip(1.0 - a, 0, 1)
+        s = np.where(s < SHADOW_CLIP, 0.0, s).astype(np.float32)
     rect = trim_rect(s, thr=0.0, pad=1, align=4)
     if rect is None:
         return None
@@ -251,6 +282,7 @@ def post_entity(rec, rdir, store, mod):
     base_t, idle_t, shadow_t, light_t = {}, {}, {}, {}
     layer_ts = []
     fields_cache = {}
+    extra_meta = {}
     for combo in rec['combos']:
         di = meta['dirs'].index(combo['dir'])
         vi = combo['variant']
@@ -260,16 +292,27 @@ def post_entity(rec, rdir, store, mod):
         if key not in fields_cache:
             fields_cache[key] = I.ink_fields(H, W, I.ink_seed(name, combo['dir'], vi))
         fields = fields_cache[key]
+        region = mod.self_region(vi) if meta.get('cut') else None
+        own = None
         if meta['full_frame']:
             L = combo['layers'][0]
             for fi, img in enumerate(L['images']):
                 c, n, a = read_passes(rdir, img)
                 pm = K.premul(I.ink_canvas(c, n, a, fields, lw))
+                if fi == 0:
+                    # the uncut piece runs half a tile into its neighbours: its alpha keeps this piece's shadow
+                    # off them too (a belt's rails would otherwise hatch the next tile's deck)
+                    own = pm[..., 3].copy()
+                if region is not None:
+                    pm *= cut_mask(rdir, img['pos'], region)[..., None]
                 rect = trim_rect(pm[..., 3])
                 base_t[(di, vi, fi)] = [store.add('colour', pm, rect, anchor)]
         else:
             c0, n0, a0 = read_passes(rdir, combo['base'])
             pm0 = K.premul(I.ink_canvas(c0, n0, a0, fields, lw))
+            own = pm0[..., 3].copy()
+            if region is not None:
+                pm0 *= cut_mask(rdir, combo['base']['pos'], region)[..., None]
             working = combo['state'] == 'working'
             if working and combo['layers']:
                 rects = [L['rect'] for L in combo['layers']]
@@ -284,6 +327,15 @@ def post_entity(rec, rdir, store, mod):
                 base_t[(di, vi)] = pieces
                 while len(layer_ts) < len(combo['layers']):
                     layer_ts.append({})
+                if 'verify' not in extra_meta:
+                    L0 = combo['layers'][0]
+                    k = L0['verify']['frame'] if L0.get('verify') else L0['frames'] // 2
+                    extra_meta['canvas'] = [W, H]
+                    extra_meta['verify'] = dict(base={p: combo['base'][p] for p in ('colour', 'normal', 'aux')},
+                                                rect=L0['rect'], frame=L0['images'][k],
+                                                full={p: L0['verify'][p] for p in ('colour', 'normal', 'aux')}
+                                                if L0.get('verify') else None,
+                                                seed=I.ink_seed(name, combo['dir'], vi), lw=lw)
                 for gi, L in enumerate(combo['layers']):
                     x0, y0, x1, y1 = L['rect']
                     cx0, cy0 = max(0, x0 - RHO), max(0, y0 - RHO)
@@ -304,8 +356,8 @@ def post_entity(rec, rdir, store, mod):
                 rect0 = trim_rect(pm0[..., 3])
                 fid = store.add('colour', pm0, rect0, anchor)
                 (base_t if working else idle_t)[(di, vi)] = [fid]
-        if combo.get('shadow'):
-            sid = shadow_frame(store, rdir, combo['shadow'], anchor)
+        if combo.get('shadow') and (di, vi) not in shadow_t:
+            sid = shadow_frame(store, rdir, combo['shadow'], anchor, own)
             if sid is not None:
                 shadow_t[(di, vi)] = [sid]
         if combo['base'].get('light'):
@@ -330,7 +382,7 @@ def post_entity(rec, rdir, store, mod):
         extra['smoke'] = [[round(p[0] * S.PX_HIGH, 2), round(-(p[1] + p[2]) * S.PX_HIGH, 2)] for p in meta['smoke']]
     if hasattr(mod, 'FRAMES_PER_TILE'):
         extra['framesPerTile'] = mod.FRAMES_PER_TILE
-    return parts, extra
+    return parts, extra, extra_meta
 
 
 def post_mover(rec, rdir, store, mod):
@@ -351,7 +403,7 @@ def post_mover(rec, rdir, store, mod):
                 c, nn, a = read_passes(rdir, img)
                 pm = K.premul(I.ink_canvas(c, nn, a, fields[k], lw))
                 col[(k, f)] = [store.add('colour', pm, trim_rect(pm[..., 3]), anchor)]
-                sid = shadow_frame(store, rdir, img['shadow'], anchor)
+                sid = shadow_frame(store, rdir, img['shadow'], anchor, pm[..., 3])
                 sh[(k, f)] = [sid] if sid is not None else []
         shape = [n, frames]
         cm = meta['clips'][cname]
@@ -379,7 +431,7 @@ def post_inserter(rec, rdir, store, mod):
         c, n, a = read_passes(rdir, img)
         pm = K.premul(I.ink_canvas(c, n, a, fields, lw))
         plat[i] = [store.add('colour', pm, trim_rect(pm[..., 3]), img['anchor'])]
-        sid = shadow_frame(store, rdir, img['shadow'], img['anchor'])
+        sid = shadow_frame(store, rdir, img['shadow'], img['anchor'], pm[..., 3])
         plat_sh[i] = [sid] if sid is not None else []
 
     def dir_part(t):
@@ -427,7 +479,7 @@ def post_resource(rec, rdir, store, mod):
             rect = trim_rect(pm[..., 3])
             key = (shp['shape'], img['band'])
             col[key] = [store.add('colour', pm, rect, shp['anchor'])] if rect else []
-            sid = shadow_frame(store, rdir, img['shadow'], shp['anchor'])
+            sid = shadow_frame(store, rdir, img['shadow'], shp['anchor'], pm[..., 3])
             sh[key] = [sid] if sid is not None else []
     shape = [meta['shapes'], meta['bands']]
     parts = {'base': dict(axes=['shape', 'band'], shape=shape, table=make_table(shape, lambda i: col[i])),
@@ -468,10 +520,13 @@ def run(render_dir, out_dir, script, params=None):
     if params:
         mod.setup(params)
     store = FrameStore(out_dir)
-    parts, extra = POST[rec['kind']](rec, render_dir, store, mod)
+    got = POST[rec['kind']](rec, render_dir, store, mod)
+    parts, extra = got[0], got[1]
     meta = rec.get('meta', {})
     out = dict(set=rec['set'], kind=rec['kind'], frames=store.frames, parts=parts, extra=extra,
-               size=list(meta.get('size', [1, 1])))
+               size=list(meta.get('size', [1, 1])), render_dir=os.path.abspath(render_dir))
+    if len(got) > 2:
+        out.update(got[2])
     K.dump_json(os.path.join(out_dir, 'set.json'), out)
     print(f'[post] {rec["set"]}: {len(store.frames)} frames', flush=True)
 

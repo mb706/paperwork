@@ -403,6 +403,17 @@ def _build_flat(key, entry):
     em_a.location = (600, -700)
     nt.links.new(comb.outputs[0], em_a.inputs['Color'])
 
+    # --- pos: the shading point in a reference object's frame, p / 4 + 1/2 (set_output('pos', ref=...) sets it) ---
+    tc = nt.nodes.new('ShaderNodeTexCoord')
+    tc.location = (-300, -1300)
+    mad = nt.nodes.new('ShaderNodeVectorMath')
+    mad.operation = 'MULTIPLY_ADD'
+    nt.links.new(tc.outputs['Object'], mad.inputs[0])
+    mad.inputs[1].default_value = (0.25, 0.25, 0.25)
+    mad.inputs[2].default_value = (0.5, 0.5, 0.5)
+    em_p = nt.nodes.new('ShaderNodeEmission')
+    em_p.location = (600, -1300)
+    nt.links.new(mad.outputs[0], em_p.inputs['Color'])
     # --- light: emitters (fire, lamps) in their colour, everything else opaque black (occludes) ---
     em_l = nt.nodes.new('ShaderNodeEmission')
     em_l.location = (600, -1000)
@@ -417,19 +428,23 @@ def _build_flat(key, entry):
         tr2 = nt.nodes.new('ShaderNodeBsdfTransparent')
         tr3 = nt.nodes.new('ShaderNodeBsdfTransparent')
         tr4 = nt.nodes.new('ShaderNodeBsdfTransparent')
-        em, em_n, em_a, em_l = mix, tr2, tr3, tr4
-    link = nt.links.new(em.outputs[0], out.inputs['Surface'])
-    _FLAT_NODES[m.name] = dict(out=out, beauty=em, normal=em_n, aux=em_a, light=em_l)
+        tr5 = nt.nodes.new('ShaderNodeBsdfTransparent')
+        em, em_n, em_a, em_l, em_p = mix, tr2, tr3, tr4, tr5
+    nt.links.new(em.outputs[0], out.inputs['Surface'])
+    _FLAT_NODES[m.name] = dict(out=out, beauty=em, normal=em_n, aux=em_a, light=em_l, pos=em_p, pos_tc=tc)
     return m
 
 
-def set_output(which):
-    """Flat style only: route every material's output to 'beauty', 'normal' or 'aux'."""
+def set_output(which, ref=None):
+    """Flat style only: route every material's output to 'beauty', 'normal', 'aux', 'light' or 'pos' (the
+    position in `ref`'s frame)."""
     for name, d in _FLAT_NODES.items():
         mat = bpy.data.materials.get(name)
         if mat is None:
             continue
         nt = mat.node_tree
-        for l in list(d['out'].inputs['Surface'].links):
-            nt.links.remove(l)
+        for link in list(d['out'].inputs['Surface'].links):
+            nt.links.remove(link)
+        if which == 'pos':
+            d['pos_tc'].object = ref
         nt.links.new(d[which].outputs[0], d['out'].inputs['Surface'])

@@ -3,9 +3,9 @@
 No bpy: the build's planner imports it. Heights are the modelled heights of 10 §9.6's budget model and A3's
 scripts (metres; a tile is a metre): a greybox is height-correct, so placement, sorting and shadows behave as the
 real model's will. The family colour follows Factorio's coding where it exists (belt and inserter tiers, logistic
-chest colours) and the entity's type elsewhere. Rotatable types (game/data/engine/defaults.yaml) get four
-directions, each with a dark stripe along the front edge of the top face, so a rotation reads before the art
-exists; the others are drawn from the south.
+chest colours) and the entity's type elsewhere. A greybox is drawn once per footprint orientation: a non-square
+rotatable footprint (game/data/engine/defaults.yaml) twice, north-south and east-west; every other one once
+(greybox.py says why).
 """
 
 import os
@@ -27,7 +27,7 @@ HEIGHT = {
     'underground-belt': 0.6, 'fast-underground-belt': 0.6, 'express-underground-belt': 0.6,
     'splitter': 0.8, 'fast-splitter': 0.8, 'express-splitter': 0.8,
     'burner-inserter': 0.75, 'inserter': 0.75, 'long-handed-inserter': 0.75, 'fast-inserter': 0.75,
-    'bulk-inserter': 0.75, 'wooden-chest': 0.95, 'iron-chest': 0.74, 'steel-chest': 0.85,
+    'bulk-inserter': 0.75, 'wooden-chest': 0.95, 'iron-chest': 0.56, 'steel-chest': 0.62,
     'active-provider-chest': 0.9, 'passive-provider-chest': 0.9, 'storage-chest': 0.9, 'buffer-chest': 0.9,
     'requester-chest': 0.9, 'pipe': 0.55, 'pipe-to-ground': 0.6, 'pump': 1.0, 'storage-tank': 2.5,
     'data-line': 0.4, 'underground-line': 0.5, 'repeater': 1.0, 'data-lake': 2.5, 'terminal': 1.8, 'rail': 0.3,

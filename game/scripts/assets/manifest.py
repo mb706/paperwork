@@ -15,7 +15,9 @@ Interpretations this file fixes where 10 §15.7 is silent (recorded in pm/report
   * a part P's shadow is the part `P_shadow`, except `base`, whose shadow is `shadow` (10 §15.7's example);
   * the inserter's shadows rotate like its parts about the shoulder's shadow, anchor + shadowShoulder (shadow
     array px), the hand's shadow at that point plus r S (sin 2 pi theta, -cos 2 pi theta);
-  * `orientation` rounds half up: floor(o n / 65,536 + 1/2) mod n.
+  * `orientation` rounds half up: floor(o n / 65,536 + 1/2) mod n;
+  * a set whose parts have a `light` axis says where its value comes from: `lightFrom` "status" (signals, train
+    stops: EntityView.status) or, by default, DYN.light > 0 as 0 or 1 (lamps).
 """
 
 import math
@@ -142,7 +144,9 @@ def draw_entity(man, name, view, cam, tick=0, belt_speed=0):
     if 'framesPerTile' in s:
         # belts (10 §6.8): frame = (tick x speed x framesPerTile / 256) mod frames
         fidx = tick * belt_speed * s['framesPerTile'] // 256
-    values = dict(dir=view.get('dir', 0), mask=view.get('variant', 0), frame=phase)
+    # the light axis: EntityView.status for signals and train stops (lightFrom 'status'), else DYN.light > 0
+    lit = view.get('status', 0) if s.get('lightFrom') == 'status' else (1 if dyn and dyn['light'] > 0 else 0)
+    values = dict(dir=view.get('dir', 0), mask=view.get('variant', 0), frame=phase, light=lit)
     working = dyn is not None and dyn['state'] == 1
     out = []
     if working or 'idle' not in parts or dyn is None:

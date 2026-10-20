@@ -131,7 +131,7 @@ function run(cmd: string, args: string[], opts: { cpus?: string; quiet?: boolean
   if (!opts.quiet) {
     for (const line of out.split('\n'))
       if (
-        /^\[(post|fx|render|icon|assemble|terrain|ui|fonts|check|qc|contact|metrics|fixture|budget)\]/.test(
+        /^\[(post|fx|render|icon|assemble|terrain|ui|fonts|check|qc|contact|metrics|fixture|budget|calibration)\]/.test(
           line,
         )
       )
@@ -601,16 +601,34 @@ async function main(): Promise<number> {
   const assembled = readJson<Assembled>(join(CACHE, 'assembled.json'));
   py('terrain.py', ['--out', join(CACHE, 'terrain.json')], { cpus: RENDER_CPUS });
   const terrain = readJson<Record<string, unknown>>(join(CACHE, 'terrain.json'));
+  // the fonts first: the skin's stylesheet carries their @font-face rules
+  py('fonts.py', ['--out', join(CACHE, 'fonts.json')], { cpus: RENDER_CPUS });
+  py('ui.py', ['--out', join(CACHE, 'ui.json')], { cpus: RENDER_CPUS });
+  const ui = readJson<{ css: string; fibre: string; glyphs: string }>(join(CACHE, 'ui.json'));
+  assembled.dom = {
+    ...assembled.dom,
+    ui: { css: ui.css, fibre: ui.fibre, glyphs: ui.glyphs },
+    fonts: 'fonts/fonts.json',
+  };
   const manifest = buildManifest(loaded, pages, assembled, prototypesHash, { terrain });
   mkdirSync(ATLASES, { recursive: true });
   writeText(join(ATLASES, 'sprites.json'), canonicalJson(manifest, 1));
-  py('ui.py', ['--out', join(CACHE, 'ui.json')], { cpus: RENDER_CPUS });
-  py('fonts.py', ['--out', join(CACHE, 'fonts.json')], { cpus: RENDER_CPUS });
   py('inventory.py', ['--gate-core', String(CORE_CAP_BYTES), '--gate-group', String(GROUP_CAP_BYTES)]);
   py('checks.py', ['--manifest', join(ATLASES, 'sprites.json'), '--layout', layoutPath]);
   if (args.qc) {
+    // review material in .cache/assets/qc/: contact sheets and GIFs, the legibility metrics, the preview scene,
+    // the projection calibration (renders its model with Blender) and the budgets
     py('contact.py', [], { cpus: RENDER_CPUS });
     py('metrics.py', [], { cpus: RENDER_CPUS });
+    for (const [zoom, dpr, night] of [
+      ['1', '1', '0'],
+      ['2', '1', '0'],
+      ['1', '2', '0'],
+      ['1', '1', '1'],
+    ] as const)
+      py('preview.py', ['--zoom', zoom, '--dpr', dpr, '--night', night], { cpus: RENDER_CPUS });
+    run(PYTHON, [join(GAME, 'test', 'assets', 'projection.py')]);
+    py('budget.py', [], { quiet: true });
   }
   log(`done in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
   return 0;

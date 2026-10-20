@@ -66,7 +66,7 @@ SURVEY_MATS = {
     'steel_bare':       ('#b0b8bd', 0, 0, {}),
     'steel_dark':       ('#727a80', 0, 0, {}),
     'cast_iron':        ('#5d6166', 0, 0, {}),
-    'iron_chest':       ('#7d868d', 0, 0, {}),
+    'iron_chest':       ('#8c959b', 0, 0, {}),
     'brass':            ('#d6ad55', 0, 0, {}),
     'copper':           ('#c27648', 0, 0, {}),
     'enamel_cream':     ('#f3ead2', 0, 0, {}),

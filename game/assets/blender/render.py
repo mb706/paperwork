@@ -77,9 +77,13 @@ def descendants(o):
 
 
 def collect(objs):
-    """Every object of the given parts and their children, in a stable order, without duplicates."""
+    """Every object of the given parts (objects or lists of objects) and their children, in a stable order,
+    without duplicates."""
     seen, out = set(), []
+    flat = []
     for o in objs:
+        flat.extend(o if isinstance(o, (list, tuple)) else [o])
+    for o in flat:
         for d in descendants(o):
             if d.name not in seen:
                 seen.add(d.name)
@@ -142,6 +146,9 @@ def write_record(out, rec):
 
 def render_entity(job, mod, meta, out, threads, T):
     style = job.get('style', S.PIPELINE_STYLE)
+    if meta['anim_shadow'] and not meta['full_frame']:
+        # a layered set with an animated shadow (the radar's dish, M1): shadows per layer frame are not built yet
+        raise NotImplementedError(f'{job["set"]}: anim_shadow on a layered (not full-frame) set')
     combos = []
     for d in meta['dirs']:
         w, h = C.footprint(meta['size'], d, meta['rotate_footprint'])
@@ -163,22 +170,34 @@ def render_entity(job, mod, meta, out, threads, T):
                 stem = f'd{d:02d}-v{vi}-{state}'
                 combo = dict(dir=d, variant=vi, variant_name=vname, state=state, canvas=[W, H], anchor=[ax, ay],
                              tiles=canvas.as_dict(), footprint=[w, h], base={}, layers=[])
+                cut = bool(meta.get('cut'))
+                passes = ('colour', 'normal', 'aux', 'pos') if cut else ('colour', 'normal', 'aux')
                 if not meta['full_frame']:
-                    for ps in ('colour', 'normal', 'aux'):
+                    for ps in passes:
                         fn = f'{stem}.{ps}.png'
-                        T.run(f'base_{ps}', R.render_pass, scene, rig, ps, objs, os.path.join(out, fn))
+                        T.run(f'base_{ps}', R.render_pass, scene, rig, ps, objs, os.path.join(out, fn),
+                              pos_ref=parts.get('root'))
                         combo['base'][ps] = fn
                 if meta['light'] and working:
                     fn = f'{stem}.light.png'
                     T.run('light', R.render_pass, scene, rig, 'light', objs, os.path.join(out, fn))
                     combo['base']['light'] = fn
-                if shadow_file is None and not meta['anim_shadow']:
-                    shadow_file = f'd{d:02d}-v{vi}.shadow.png'
-                    T.run('shadow', R.render_pass, scene, rig, 'shadow', objs, os.path.join(out, shadow_file))
-                combo['shadow'] = shadow_file
                 if layers:
                     combo['layers'] = render_layers(job, mod, meta, parts, objs, scene, cam, rig, W, H, stem, out,
                                                     T)
+                if shadow_file is None and not meta['anim_shadow']:
+                    shadow_file = f'd{d:02d}-v{vi}.shadow.png'
+                    if hasattr(mod, 'build_shadow'):
+                        # a set whose drawing geometry runs past its tile (a cut set) casts its own tile's shadow
+                        scene, cam, rig = fresh(style, threads)
+                        sparts = as_parts(mod.build_shadow(P, dir=d, variant=vi))
+                        sobjs = collect(sparts.values())
+                        R.aim_camera(scene, cam, canvas, PX)
+                    else:
+                        sobjs = objs
+                    T.run('shadow', R.render_pass, scene, rig, 'shadow', sobjs, os.path.join(out, shadow_file),
+                          shadow_samples=meta.get('shadow_samples', 64))
+                combo['shadow'] = shadow_file
                 combos.append(combo)
     return dict(combos=combos)
 
@@ -189,13 +208,14 @@ def render_layers(job, mod, meta, parts, objs, scene, cam, rig, W, H, stem, out,
         L = layers[0]
         frames = []
         t0 = time.time()
+        passes = ('colour', 'normal', 'aux', 'pos') if meta.get('cut') else ('colour', 'normal', 'aux')
         for f in range(L['frames']):
             mod.pose(parts, 0, f)
             update()
             img = {}
-            for ps in ('colour', 'normal', 'aux'):
+            for ps in passes:
                 fn = f'{stem}-f{f:02d}.{ps}.png'
-                R.render_pass(scene, rig, ps, objs, os.path.join(out, fn))
+                R.render_pass(scene, rig, ps, objs, os.path.join(out, fn), pos_ref=parts.get('root'))
                 img[ps] = fn
             if meta['anim_shadow']:
                 fn = f'{stem}-f{f:02d}.shadow.png'
@@ -260,12 +280,22 @@ def render_layers(job, mod, meta, parts, objs, scene, cam, rig, W, H, stem, out,
                 img[ps] = fn
                 img[ps + '_size'] = list(size)
             images.append(img)
+        # a full render of the middle frame, for the check that the layered frame matches it (10 §9.5 #2)
+        k = g['frames'] // 2
+        for li in g['ids']:
+            mod.pose(parts, li, k)
+        update()
+        verify = dict(frame=k)
+        for ps in ('colour', 'normal', 'aux'):
+            fn = f'{stem}-L{gi}-verify.{ps}.png'
+            R.render_pass(scene, rig, ps, objs, os.path.join(out, fn))
+            verify[ps] = fn
         for li in g['ids']:
             mod.pose(parts, li, 0)
         update()
         T.add('layer_frames', time.time() - t1)
         out_layers.append(dict(layer_ids=g['ids'], parts=[n for li in g['ids'] for n in layers[li]['parts']],
-                               frames=g['frames'], rect=g['rect'], images=images, full_frame=False))
+                               frames=g['frames'], rect=g['rect'], images=images, full_frame=False, verify=verify))
     return out_layers
 
 
@@ -388,20 +418,21 @@ def render_mover(job, mod, meta, out, threads, T):
     W, H = R.aim_camera(scene, cam, canvas, PX)
     ax, ay = canvas.anchor_px(PX)
     n = meta['orientations']
+    preview = job.get('preview')          # {orientations: [...], frames: {clip: [...]}}: a quick look, no shadows
     clips = {}
     for cname, cm in meta['clips'].items():
         clips[cname] = dict(frames=cm['frames'], images=[[None] * cm['frames'] for _ in range(n)])
-    for k in range(n):
+    for k in (preview['orientations'] if preview else range(n)):
         # orientation k faces 360 k / n degrees clockwise from north; the model faces south at rest
         root.rotation_euler = (0.0, 0.0, math.radians(180.0 - 360.0 * k / n))
         for cname, cm in meta['clips'].items():
-            for f in range(cm['frames']):
+            for f in (preview['frames'].get(cname, []) if preview else range(cm['frames'])):
                 t0 = time.time()
                 mod.pose(parts, cname, f)
                 update()
                 stem = f'{cname}-o{k:02d}-f{f:02d}'
                 img = {}
-                for ps in ('colour', 'normal', 'aux', 'shadow'):
+                for ps in (('colour', 'normal', 'aux') if preview else ('colour', 'normal', 'aux', 'shadow')):
                     fn = f'{stem}.{ps}.png'
                     R.render_pass(scene, rig, ps, objs, os.path.join(out, fn))
                     img[ps] = fn

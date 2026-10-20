@@ -9,7 +9,9 @@ kind 'entity' (machines, chests, belts, greyboxes):
           (int, or a dict name -> mask list for connection masks), states (['working'] or
           ['working', 'idle']), layers ([{parts: [...], frames: n}]), light (emitters present), smoke
           (chimney points, m, at direction south), margin, ink ('machine', 'archive', 'ore', 'decorative'),
-          anim_shadow, full_frame (the whole sprite animates: belts), rotate_footprint (default: w != h).
+          anim_shadow, full_frame (the whole sprite animates: belts), rotate_footprint (default: w != h),
+          cut (the piece is modelled past its tile and cut by self_region(variant) with the position pass),
+          shadow_samples (default 64; greyboxes 16).
     build(P, dir, variant, state) -> {name: object}  every animated part named
     pose(parts, layer, frame)                         moves one layer's parts by transform alone
 kind 'inserter':
@@ -40,7 +42,8 @@ def dir_map(dirs, alias=None):
     """The 16-entry `map.dir` (value -> index) and the axis size. Values with no art map to one extra index
     whose table entries are empty lists (10 §15.7: "a four-way set ... holds empty entries elsewhere");
     a set drawn from one direction maps every value to 0."""
-    alias = alias or {}
+    # keys arrive as strings from a record's JSON
+    alias = {int(k): int(v) for k, v in (alias or {}).items()}
     dirs = list(dirs)
     if len(dirs) == 1:
         return [0] * DIRECTIONS, 1

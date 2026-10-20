@@ -19,7 +19,8 @@
 ## Toolchain
 - **Node 24 LTS** + npm (global prefix `~/.local`). `/usr/bin/node` is v10 — never use it.
 - **Python**: `uv` (Pythons 3.12/3.13). `gamedev-python` = 3.12 venv `~/.local/opt/gamedev-py` with numpy, scipy,
-  soundfile, pedalboard, mido, pretty_midi, music21, librosa, matplotlib, pillow, opensimplex, fonttools, brotli.
+  soundfile, pedalboard, mido, pretty_midi, music21, librosa, matplotlib, pillow, opensimplex, fonttools, brotli,
+  jsonschema.
   Add packages: `uv pip install --python ~/.local/opt/gamedev-py/bin/python <pkg>`. System `python3` is 3.8.
 - **Browser**: Playwright 1.64 (global) + Chrome for Testing 156 at `~/.local/opt/chrome-current/chrome`
   (`chrome-headless-shell-current` too). WebGL2 and WebGPU run on SwiftShader (software): simple scenes hit 60 fps,
@@ -85,6 +86,30 @@
   `ci.ts`), `schema/` (C1b), `test/`, `e2e/`. Files in `src/shared/gen/`, `crates/schema/src/` and
   `crates/sim/src/gen/` are generated: their header hash refuses hand edits. A justified exception to a check-arch
   rule is a comment on the line before: `// check-arch-ignore <rule>: <reason>`.
+
+## Assets (`npm run assets`; C6, 10 §9, the *Survey* look of `design/art/DIRECTION.md`)
+- **Sources** (committed): `game/assets/blender/` (`lib/` style, materials, parts, rig, contract; `entities/`,
+  `world/`, `movers/`, `items/` model scripts; `greybox.py` + `greybox_table.py`; the Blender entry points
+  `render.py`, `render_icons.py`), `game/assets/svg/{ui,glyphs}/`, `game/assets/fonts/` (OFL, with licences),
+  `game/assets/textures/survey/<tile>.png` (optional image-model washes). The model contract (META, `build`, `pose`,
+  kinds entity, inserter, resource, mover, icon) is the docstring of `lib/contract.py`; models never import bpy at
+  module level and never use `hash()` (randomised per process): seeds are fixed numbers or crc32.
+- **Build:** `cd game && npm run assets [-- --only id,… | --force | --no-render | --no-qc | --check]`: plan →
+  Blender (batches of sets, `taskset -c 8-15,24-31`, 16 threads; `PAPERWORK_ASSET_CPUS`, `_THREADS`, `_WORKERS`,
+  `PAPERWORK_BLENDER` override) → post (ink with canvas-coordinate fields, glow, trim on 8 px, base pieces, shadows)
+  → pack (`maxrects-packer`, 32-px cells) → assemble (our own box-filtered levels as a mipmapped DDS → `basisu`
+  XUBC7 q90 / ETC1S) → `public/atlases/sprites.json` (manifest v2), `inventory.json` (the byte gate), terrain
+  textures, `public/sheets/` (UI skin CSS, fibre, glyph sprite, DOM icon sheets), `public/fonts/` (WOFF2 subsets) →
+  checks → QC in `.cache/assets/qc/` (contact sheets, GIFs, metrics, the preview scene, calibration, budget).
+  Outputs are gitignored; the cache `.cache/assets/{render,post,ktx2}/<sha256>` makes warm rebuilds take seconds.
+- **Look at a change:** `npm run assets -- --only <id>` then `gamedev-python scripts/assets/contact.py --sets
+  entity/<id>` and Read `.cache/assets/qc/contact/entity-<id>.png`; `scripts/assets/preview.py --zoom 2` draws the
+  M0 scene from the encoded atlases as the renderer will (`emulate.py`).
+- **Fixtures:** `gamedev-python scripts/assets/fixture.py` regenerates `test/fixtures/sprites/` (the tiny `rgba8`
+  atlas and `cases.json` of 10 §15.7/§15.10); `npm run assets -- --check` runs the fixture checks without Blender.
+  `gamedev-python test/assets/projection.py` is the projection calibration (renders with Blender).
+- **Pages hold premultiplied, display-encoded values:** upload BC7 as `COMPRESSED_RGBA_BPTC_UNORM_EXT` (never the
+  sRGB variant) and blend premultiplied, as 10 §9.1's verified composite does.
 
 ## Showing the game to the user
 - Dev server on `127.0.0.1:<high port>`; the user tunnels in: `ssh -L 5173:127.0.0.1:5173 cpuserver10`.
