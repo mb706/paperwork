@@ -10,7 +10,7 @@
 
 Phase B:
 - B1 is done: 10 v2 for Rust, chapter 11, the M0 contracts in 10 §15. Codex r1's 22 findings are fixed (decision 12).
-- B2 is running: §9 assets and audio, loading and streaming.
+- B2 is done: §9 assets and audio, loading and streaming, §15.6–§15.7. Codex r1's 13 findings are fixed. Not met and stated: Era II audio at 9.3% of a core against 8%; the render target is now ≤ 3 h.
 
 Next: codex reviews of A1/A2, then Phase B (an architecture revision that folds A1–A4 into the spec), then M0.
 
@@ -47,3 +47,5 @@ The Schema package is split into sequential parts: C1a (scaffold, CI, data stage
 |---|---|---|
 | C1a | Scaffold, toolchains, CI, check-arch, data stage, capability manifest | done (3ebd435..53e1d61); `npm run ci` takes about 33 s. Codex r1's 15 findings are fixed |
 | C1b | Schema, generator, codec fixtures (gate items 1–3) | running (commits to `dev`) |
+| C6 | Asset pipeline v0 (Survey): rig, passes, layered renders, KTX2 atlases, manifest, greyboxes, M0 art | running in a worktree (independent of the gate) |
+| C7 | Audio v0: worklet engine port, mixer, SFX, working sounds | running in a worktree (independent of the gate) |
