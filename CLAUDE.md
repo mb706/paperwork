@@ -71,13 +71,21 @@
 - **Run:** `npm run dev`: Vite on `127.0.0.1:5173` (`PAPERWORK_PORT` overrides) with the schema generator and the data
   stage in watch mode and the cargo plugin (`wasmdev` modules, full reload after each build). `npm run build` /
   `npm run preview`: release WebAssembly + feature gate, `dist/` with brotli/gzip siblings and `build-manifest.json`.
-- **Check and test:** `npm run check` (Biome, `tsc -b`, check-arch, schema-gen --check, rustfmt, clippy -D warnings
-  with the determinism bans, the bans' own fixture, the data stage --check, the Python spec checks; ~12 s warm),
-  `npm test` (cargo test, dev and ntest profiles; Vitest), `npm run e2e` (Playwright, Chrome + Firefox, own server
-  on a free port), `npm run ci` (all of it, then the e2e smoke and the release path: release wasm + feature gate,
-  `vite build`, `scripts/check-release.ts`, a preview smoke; then the benchmark budget gate; about 2.5–3.5 min).
-  On a busy host: `taskset -c 0-15 npm run ci`. `npm run format` applies Biome's fixes. The testing and QA section
-  below has the harness, the slow suite, the benchmarks and the dev endpoints.
+- **Check and test:** `npm run ci:fast` is the inner loop (~35 s warm: Biome, `tsc -b`, check-arch, schema-gen
+  --check, cargo fmt and clippy, `cargo test --profile ntest`, Vitest; no e2e, release or benchmarks). `npm run check`
+  (Biome, `tsc -b`, check-arch, schema-gen --check, rustfmt, clippy -D warnings with the determinism bans, the bans'
+  own fixture, the data stage --check, the Python spec checks, `npm run assets -- --check`), `npm test` (cargo test,
+  dev and ntest profiles; Vitest), `npm run e2e` (Playwright, Chrome + Firefox, 4 workers fully parallel, own server
+  on a free port; `PW_WORKERS` overrides). **`npm run ci` is the merge gate** (~2.6 min): check and test (the cargo
+  lane also prebuilds simtool, the simcheck simtool and the dev server's modules), the data stage, then the e2e
+  `@smoke` and `@audio` suites beside the release path (release wasm + feature gate, `vite build`,
+  `scripts/check-release.ts`, a preview smoke), then a quiet stage alone on the host: the `@timing` tests (60 UPS
+  over a whole walk) and the benchmark budget gate. A green run records its inputs' key (`.cache/ci/green.json`;
+  `scripts/ci-inputs.ts`: game/, design/spec/, tools/, the tools' versions, the art's and audio's provenance): an
+  unchanged tree skips every lane in a second, and `npm run ci -- --force` runs them anyway. **Run the full `npm run
+  ci` (green) before reporting a work package done**; `ci:fast` is for iterating. On a busy host: `taskset -c 0-15 npm
+  run ci`. `npm run format` applies Biome's fixes. The testing and QA section below has the harness, the slow suite,
+  the benchmarks and the dev endpoints.
 - **Schema (C1b):** `schema/*.yaml` declares every record that crosses the Rust/TypeScript boundary, every saved field
   and every wire record; `schema/README.md` is the guide (declaration language, byte encoding, recipes, versions and
   `SCHEMA_HASH`, fixtures). `npm run gen` (≈4 s) regenerates `crates/schema/src/`, `crates/sim/src/gen/`,
@@ -217,8 +225,16 @@
   M0 scene from the encoded atlases as the renderer will (`emulate.py`); `scripts/assets/ui_demo.py` and
   `node scripts/assets/shoot.mjs qc-ui.html out.png --dpr 2` show the UI skin in Chrome.
 - **Fixtures:** `gamedev-python scripts/assets/fixture.py` regenerates `test/fixtures/sprites/` (the tiny `rgba8`
-  atlas and `cases.json` of 10 §15.7/§15.10, in the build's exact composition); `npm run assets -- --check` runs the
-  fixture checks without Blender. `gamedev-python test/assets/projection.py` is the projection calibration (renders
+  atlas and `cases.json` of 10 §15.7/§15.10, in the build's exact composition).
+- **Acceptance (C9):** the build writes `public/atlases/provenance.json` at publish (every file's SHA-256, the gates
+  passed, the prototypes, each set's cache key); `npm run assets -- --check` (7 s, no Blender; in `npm run check` and
+  `ci`) runs the fixture checks, then fails unless the published atlas is that build's files, for the current
+  prototypes, from the current sources (an edited model script is stale), and re-validates its manifest. `npm run
+  assets` ends with the audio build (`--no-audio` skips it), so one command makes a playable build.
+- **Resources (C9):** `CHUNK_RESOURCES.band` runs in Factorio's stage order (band 0 the richest, the golden model's
+  rule 24): a resource model's `pieces(band, n)` keeps the full pile at band 0. The renderer draws the deposit's ground
+  (`TERRAIN.depositTile`, dirt) under resource tiles from the tile-id texture's high bit, blended like a soft tile
+  edge, as A3's mocks put ore on dirt. `gamedev-python test/assets/projection.py` is the projection calibration (renders
   with Blender).
 - **Pages hold premultiplied, display-encoded values,** and every KTX2 says so in its DFD (transfer
   `KHR_DF_TRANSFER_LINEAR`, `KHR_DF_FLAG_ALPHA_PREMULTIPLIED` except shadow masks): upload BC7 as
@@ -233,8 +249,15 @@
   limit, events, working sounds, era bus gains): `data/engine/sounds.yaml`.
 - **Dev page:** `/src/dev/audio.html` on the dev server: start, the music program and keys, the sliders, every sound,
   a factory's SFX load, and the offline CPU load (10 §9.4's gate for the user's laptop). Tools drive it through
-  `window.__audioDev` (offline renders, live play, decode/loop checks). The app feeds audio with
-  `audio.onRenderPacket(decodePacket(bytes))` and `audio.onHud(hud)` (`src/audio/index.ts` shows the wiring).
+  `window.__audioDev` (offline renders, live play, decode/loop checks; `render({ script })` plays a recorded session's
+  sounds over a piece).
+- **In the game (C9):** `src/app/attach-audio.ts` attaches the runtime in `main.ts` (between the renderer and the UI):
+  packets (EVENTS, AUDIO_WORKING; historical and stale events silent), the HUD's records (the music feed), the camera,
+  the host's pause, footsteps on the character's run cycle and a hammer strike per mining swing, unlock on the first
+  gesture. The UI drives it through `UiAudio` (src/ui/host.ts): GUI clicks (every button), Settings → Sound (I §4.20's
+  eight volumes, a label click mutes), and the scene (the menu's charter recording, a game's program). Dev builds:
+  `__game.audio.status()`, `.played()` (sound names), `.record()`/`.stop()` (a session for an offline render).
+  Tests: `test/audio/golden.test.ts` (the golden packets through the SFX system), `e2e/game-audio.spec.ts`.
 - **Renders:** `node scripts/assets/audio/render.ts <cfgs.json> [--out dir] [--checks]` renders through the real engine
   in headless Chrome (OfflineAudioContext, WAVs in `.cache/assets/audio/renders/`); `scripts/assets/audio/analyze.py`
   compares loudness, spectra and stems with A4's demos; `master.py` makes a recording (−18 LUFS, −1 dBTP).
@@ -369,20 +392,24 @@
   (simulation, determinism, render on C4's §6.12 scenes, audio's offline gate, the GPU's formats; served
   cross-origin isolated for fine timers) POSTs to `bench/user-results/`; `node bench/calibrate.ts [--write]`
   turns the newest one into the measured host factor (§11's 2.4 until then).
-- **Dev endpoints** (`scripts/dev-endpoints-plugin.ts`, dev server only): `POST /__bench`, `POST /__report/<id>/<file>`
+- **Dev endpoints** (`scripts/dev-endpoints-plugin.ts`, dev server only; writes only from the server's own pages: a
+  loopback Host and same-origin Origin, bodies streamed within per-file, per-report and total limits, C9): `POST
+  /__bench`, `POST /__report/<id>/<file>`
   (Ctrl+Alt+F12 or `__game.report(note)` sends the bundle: the base save, the closure log with its digests, the
   console, a screenshot, client.json; after a trap, the trap's own bundle) into `bench/reports/<id>/` for
   `simtool replay bench/reports/<id>` (a trap needs a simcheck simtool: `cargo build -p simtool --features simcheck`,
   `target/debug/simtool`); `POST /__shot` (`__game.shot(name)`) into `bench/shots/`. Reports and shots are
   gitignored.
-- **Playwright** picks free ports (`scripts/free-port.ts`), so worktrees never collide; e2e helpers for the UI are in
+- **Playwright** claims free ports (`scripts/free-port.ts`: 21000–29999, below the ephemeral range, with a lock file per
+  port in ~/.cache/paperwork/ports), so worktrees never collide; tests run fully parallel in 4 workers, except
+  `@timing` ones (CI runs them alone); e2e helpers for the UI are in
   `e2e/ui-helpers.ts`, for simtool in `e2e/simtool.ts`. Every spec fails on a console error or warning.
 
 ## Showing the game to the user
 - Dev server on `127.0.0.1:<high port>`; the user tunnels in: `ssh -L 5173:127.0.0.1:5173 cpuserver10`.
 - The playable build: `cd game && npm run assets` (once), then `npm run dev` (port 5173) and
   `http://127.0.0.1:5173/` through the tunnel; `/bench.html` is the benchmark page (its audio section needs the
-  audio build, `gamedev-python -I scripts/assets/audio/build.py`; the game page has no sound yet), Ctrl+Alt+F12 sends
+  audio build, which `npm run assets` runs), Ctrl+Alt+F12 sends
   a bug report (pm/reports/C8.md has the M0 notes).
 - Builds can also be published as a private claude.ai Artifact (≤ 16 MB per file).
 
