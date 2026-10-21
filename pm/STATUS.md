@@ -42,7 +42,7 @@ Next: codex reviews of A1/A2, then Phase B (an architecture revision that folds 
 - Engine overlay content for later milestones (C1a item 5): nine mirrored entities, inserter vectors, drill areas, belt lane geometry, map colours, the event-to-sound map, and so on.
 - Expressions: Python's `pow` and `det::powi` differ by 1–2 at unreachable infinite-tech levels (≥ 66). If exact agreement is wanted, switch the validator to repeated multiplication.
 
-## Phase C: M0 (started 2026-10-20)
+## Phase C: M0 (started 2026-10-20; **completed 2026-10-21, tag `m0`**)
 The Schema package is split into sequential parts: C1a (scaffold, CI, data stage), then C1b (schema, generator, codec fixtures), then C1c (fake sim, reference model, golden set). After that, the contract gate: a codex review. Then the parallel packages start.
 | WP | Topic | Status |
 |---|---|---|
@@ -51,7 +51,7 @@ The Schema package is split into sequential parts: C1a (scaffold, CI, data stage
 | C1c | Fake sim, reference model, frozen M0 golden set (gate items 4 and 6) | done (d4bd2b0..cbfb0d6). Golden set v5. GATE-r1 failed (1 critical, 13 major), and all of it is fixed. GATE-r2 failed on 3 major and 3 minor findings: C2 and C3 are cleared, C1c fixed #1 and #3–#5 (golden v6). #2 is merged (1e86703; golden v7). GATE-r3's last two findings are fixed (99949b5, 8f31a32). **The contract gate passed on 2026-10-20** (manager's call after r3). C1c stays as the golden-set owner for future bumps |
 | C2 | Rust sim (det, worldgen, sim, simabi, genabi, simtool), phases C2a, C2b, C2c | C2a done (6051307) and its r1 fixes (9441d2f). C2b done, with its r1 fixes (e0810f4). C3 merged into dev (4c9321b). **C2c done** (11b99ec..a6bbd2b): every golden packet, projection, query and ABI trace passes natively and in WASM; the M0 benchmarks meet the reference thresholds; `npm run ci` takes 79.5 s. Codex C2c-r1's 11 findings fixed (40614b5..7e3d417); ci is green in 86 s with the benchmark gate. **The Sim package is done for M0** |
 | C8 | M0 integration, test harness, benchmarks, dev endpoints, exit QA | **done**: every M0 exit criterion passes; CI green 3×; C5 merged (76f740f). The codex M0-exit audit FAILED on evidence strength (6 major, 4 minor), and C9 is fixing it |
-| C9 | M0 closeout: audio on the game page, `ci:fast`, the ore-grid fix, the audit's fixes, the `m0` tag, a preview on :4173 | running (main tree) |
+| C9 | M0 closeout: audio on the game page, `ci:fast`, the ore-grid fix, the audit's fixes, the `m0` tag, a preview on :4173 | **done**. All 10 exit-audit findings fixed; `ci:fast` 33 s, full `ci` 160 s (green 3×). **Tag `m0`**; the preview serves the `play-m0` worktree on 127.0.0.1:4173 |
 | D1 | M1 data readiness: typed design data, the M1 engine overlay, the M1 capability manifest | done and merged (0c975e3, golden v8). Codex D1-r1 found 8 issues, all fixed against factorio-data 2.0.77 and merged (1366350); golden v9 (39b9e8e) |
 | plan | M1 work-package plan | adopted: `pm/plans/M1-plan.md` (24 packages, 15 waves at 2 agents) |
 | C3 | Sim worker shell, worldgen and IO workers | done, on a branch (8 commits). The golden 3,600-tick log replays with every digest equal (via the reference model); the tick path allocates 0 bytes. All 16 r1 findings fixed (26 regression tests). `full-abi` is the default; main.ts is a composition root through app.ts. **C2 merges it into dev** once its own tree is clean (they overlap in simabi and genabi). It edited shared `src/app/main.ts` and `src/shared/protocol.ts`, so expect merge conflicts with C4 and C5 |
@@ -79,3 +79,5 @@ The Schema package is split into sequential parts: C1a (scaffold, CI, data stage
 | WP | Topic | Status |
 |---|---|---|
 | M1-01 | M1 contracts and fixtures (schema, prototype fields, capability subsets, M1 reference cases) | running (worktree `m1-01`; the C1b agent) |
+- Ore patches: worldgen gives every ore tile the same amount, so patch edges look hard. Fix it in M1-04 (worldgen), not as a separate golden value change.
+- C9 proposed 4 volume labels; they wait for the text owner (M1-20).
