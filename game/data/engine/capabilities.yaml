@@ -89,6 +89,9 @@ manifests:
       - entities.energy.per_rotation_kj
       - entities.extra                    # pole supply and reach, underground and splitter speeds, steam, radar …
       - entities.heat.emission            # emission at the engines, none at the boiler (10 §5.9)
+      # Not entities.heat.while: the slice has no Researcher (09 §9), so the data stage emits the Seminar as not
+      # computing (computing false, t_star 0; 09 S-G9). A manifest whose build holds a Seminar and a Researcher
+      # must read it (the data stage checks; D1-r1).
       - technologies.unlocks.effects      # Learning curve, Citation index, Expert systems, Memex
       - technologies.citation             # Literature, publication (10 §5.11), References (07 §5)
       - text.milestones.kind              # milestone log lines (07 §15)

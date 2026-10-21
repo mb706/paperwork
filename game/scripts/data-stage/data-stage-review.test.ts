@@ -27,7 +27,7 @@ describe('C1a-r1 findings', () => {
     const { game, spec } = scratchRepo();
     edit(
       join(spec, 'data/items.yaml'),
-      'heat_capacity_kj_per_k: 0.2\n  tags: [fluid]\n  desc: Boils',
+      'heat_capacity_kj_per_k: 2\n  tags: [fluid]\n  desc: Boils',
       'heat_capacity_kj_per_k: 1.0e+308\n  tags: [fluid]\n  desc: Boils',
     );
     const out = messages(runDataStage(m1(game, spec))).join('\n');

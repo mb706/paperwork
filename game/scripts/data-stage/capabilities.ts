@@ -331,6 +331,30 @@ export function checkReadsCarried(cap: CapabilityManifest, src: SourceFile, diag
   });
 }
 
+/**
+ * A conditional heat class (`heat.while`: the Seminar computes only while a Researcher is installed) resolves at
+ * build time when the build lacks the staff item it waits for: the entity never computes there, and the rows say
+ * so (emit/rows.ts computingIn; M1's Seminars, 09 S-G9, D1-r1). A build that holds both leaves the decision to
+ * the engine, so its manifest must read `entities.heat.while` (and carry it once current, checkReadsCarried).
+ */
+export function checkConditionalHeat(
+  cap: CapabilityManifest,
+  build: BuildSet,
+  ix: Index,
+  src: SourceFile,
+  diags: Diagnostics,
+): void {
+  if (cap.reads.some((r) => r === 'entities.heat' || r === 'entities.heat.while')) return;
+  for (const id of [...build.entities].sort(compareCodeUnits)) {
+    const w = ix.entities.get(id)?.heat?.while;
+    if (w !== undefined && build.items.has(w))
+      diags.error(
+        `${cap.name}'s build holds ${id}, which computes only while a ${w} is installed, and the ${w} itself: ${cap.name} must read entities.heat.while`,
+        at(src, ['manifests', cap.name, 'reads']),
+      );
+  }
+}
+
 /** Items a prototype set needs, and the closure check (10 §2.4: "the build's prototypes close over it"). */
 export function capabilityBuild(
   cap: CapabilityManifest,

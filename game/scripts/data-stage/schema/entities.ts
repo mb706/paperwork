@@ -64,7 +64,9 @@ export const energy = block({
   fuel_categories: idList.optional(),
   per_movement_kj: nonNeg.optional(),
   per_rotation_kj: nonNeg.optional(),
-  priority: z.enum(['interruptible']).optional(),
+  // `interruptible`: Research halls (G §2.6); `lamp`: exactly the lamps, Factorio's usage_priority "lamp" (10 §5.7:
+  // normal demand while lit, none while dark; invariants.ts checks the pairing, D1-r1).
+  priority: z.enum(['interruptible', 'lamp']).optional(),
 });
 
 export const heat = block({

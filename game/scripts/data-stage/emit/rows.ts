@@ -61,6 +61,21 @@ const MJ = 1e6;
 const KW = 1e3;
 const KJ = 1e3;
 
+/**
+ * Whether an entity is a computing machine in a build (10 §5.9): it has a heat class, and the staff item its
+ * class waits for (`heat.while`, the Seminar's Researcher) is in the build. Without that item the condition never
+ * holds there: M1 has no Researcher, so its Seminars neither compute nor throttle (09 S-G9; D1-r1). A build that
+ * holds both leaves the condition to the engine, and its manifest must read entities.heat.while
+ * (capabilities.ts checkConditionalHeat).
+ */
+export function computingIn(
+  build: Pick<Model['build'], 'items'>,
+  e: Model['entities'][number]['data'],
+): boolean {
+  const h = e.heat;
+  return h?.class !== undefined && (h.while === undefined || build.items.has(h.while));
+}
+
 /** A value the stage cannot write, with the prototype and the YAML field it comes from (C1a-r1 finding 1). */
 export interface EmitProblem {
   kind: Kind;
@@ -345,6 +360,7 @@ export function protosInput(m: Model, schemaHash: Uint8Array): ProtosRows {
     const g = r.engine;
     const extra = e.extra as { slots?: unknown; items_per_s?: unknown } | undefined;
     const cls = e.heat?.class;
+    const computing = computingIn(m.build, e);
     const pl = e.placement;
     const touch =
       pl && 'must_touch' in pl ? (typeof pl.must_touch === 'string' ? [pl.must_touch] : pl.must_touch) : [];
@@ -374,8 +390,8 @@ export function protosInput(m: Model, schemaHash: Uint8Array): ProtosRows {
       inventory_slots: typeof extra?.slots === 'number' ? extra.slots : 0,
       belt_speed:
         e.type === 'belt' && typeof extra?.items_per_s === 'number' ? beltSpeed(e.id, extra.items_per_s) : 0,
-      computing: cls !== undefined,
-      t_star: cls !== undefined ? (m.design.meta.heat.classes[cls] ?? 0) : 0,
+      computing,
+      t_star: computing && cls !== undefined ? (m.design.meta.heat.classes[cls] ?? 0) : 0,
       placement:
         pl === undefined ? Placement.none : 'must_be_on' in pl ? Placement.must_be_on : Placement.must_touch,
       placement_resource: pl && 'must_be_on' in pl ? idOr('resource', pl.must_be_on) : NONE_U16,

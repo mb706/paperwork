@@ -8,17 +8,22 @@
 //     their footprint and a drop point outside it; the offshore pump its pumping position; lamps their light;
 //     burners their fuel slots; furnaces their inventories; fluid boxes where fluids flow, with every
 //     connection on the footprint's edge and facing out, filters that are fluids, and a box for every fluid
-//     the entity consumes or produces or one of its recipes needs;
+//     the entity consumes or produces or one of its recipes needs; a flippable entity's fluid connections have
+//     a line of symmetry, and an assembler whose connections have one is flippable (FFF-394; D1-r1);
 //   - tiles: a terrain material (terrain.yaml), crisp for town tiles; resources and world objects a map colour;
+//   - set tables (sets.yaml, D1-r1): a build with trees has tree species and decoratives in every biome, one
+//     with town tiles town buildings;
 //   - sounds: every working machine of the build has a working sound, now or in sounds.yaml's `planned`;
 //   - the belt lane geometry's lengths are ordered as 10 §5.3's.
 // checkOverlayNames runs once over the whole design data: every key the overlay names is a prototype (or a
-// mirrors id some entity uses), so a misspelt id cannot hide an entry.
+// mirrors id some entity uses), so a misspelt id cannot hide an entry. checkSets holds sets.yaml to the design
+// data's biomes and town skins.
 import type { Diagnostics } from './diagnostics.ts';
 import type { Model } from './model.ts';
-import { DIRECTION_VECTOR, type FluidBox, mirrorsId, type Overlay } from './overlay.ts';
+import { DIRECTION_VECTOR, type Direction4, type FluidBox, mirrorsId, type Overlay } from './overlay.ts';
 import type { Index } from './refs.ts';
 import type { Entity, EntityType } from './schema/entities.ts';
+import type { DesignData } from './schema/index.ts';
 import { at } from './sources.ts';
 
 /** Every overlay key names something the design data has (D1): a prototype, or a mirrors id in use. */
@@ -56,6 +61,64 @@ export function checkOverlayNames(ov: Overlay, ix: Index, diags: Diagnostics): v
   known('entity', ov.sounds.working.keys(), (k) => ix.entities.has(k), ov.sources.sounds, ['working_sounds']);
 }
 
+/**
+ * sets.yaml against the design data (D1-r1): every table's ids unique; each biome map names exactly the biomes of
+ * meta.world.biomes.order and puts every entry of its list in one biome; every town skin has the same number of
+ * pictures, and there are at most 01 §5.3's skins (one more than meta.world.towns.era_skin_w's thresholds).
+ */
+export function checkSets(ov: Overlay, d: DesignData, diags: Diagnostics): void {
+  const src = ov.sources.sets;
+  const s = ov.sets;
+  const err = (message: string, path: (string | number)[]) => diags.error(message, at(src, path));
+  const unique = (name: string, list: readonly string[]) => {
+    const seen = new Set<string>();
+    for (const x of list) {
+      if (seen.has(x)) err(`${name} lists ${x} twice`, [name]);
+      seen.add(x);
+    }
+  };
+  unique('tree_species', s.tree_species);
+  unique('decoratives', s.decoratives);
+  unique('cliffs', s.cliffs);
+  unique('town_buildings', s.town_buildings.flat());
+  const biomes = d.meta.world.biomes.order;
+  const byBiome = (
+    mapName: string,
+    listName: string,
+    map: Record<string, string[]>,
+    list: readonly string[],
+  ) => {
+    for (const b of Object.keys(map))
+      if (!biomes.includes(b))
+        err(`${mapName} names ${b}, which is no biome of meta.world.biomes.order`, [mapName, b]);
+    for (const b of biomes)
+      if (!(b in map)) err(`${mapName} lacks the biome ${b} (meta.world.biomes.order)`, [mapName]);
+    const home = new Map<string, string>();
+    for (const [b, xs] of Object.entries(map))
+      for (const x of xs) {
+        if (!list.includes(x)) err(`${mapName}.${b} names ${x}, which ${listName} lacks`, [mapName, b]);
+        const prev = home.get(x);
+        if (prev !== undefined) err(`${mapName} puts ${x} in both ${prev} and ${b}`, [mapName, b]);
+        else home.set(x, b);
+      }
+    for (const x of list)
+      if (!home.has(x)) err(`${listName} entry ${x} is in no biome of ${mapName}`, [listName]);
+  };
+  byBiome('tree_biomes', 'tree_species', s.tree_biomes, s.tree_species);
+  byBiome('decorative_biomes', 'decoratives', s.decorative_biomes, s.decoratives);
+  const first = s.town_buildings[0]?.length ?? 0;
+  s.town_buildings.forEach((skin, i) => {
+    if (skin.length !== first)
+      err(
+        `town_buildings skin ${i + 1} has ${skin.length} pictures and skin 1 ${first}: every skin draws the same blocks`,
+        ['town_buildings', i],
+      );
+  });
+  const skins = d.meta.world.towns.era_skin_w.length + 1;
+  if (s.town_buildings.length > skins)
+    err(`town_buildings has ${s.town_buildings.length} skins; 01 §5.3 has ${skins}`, ['town_buildings']);
+}
+
 /** The engine's own sounds.yaml, as the data stage names its source (repository-relative). */
 const OWN_SOUNDS = 'game/data/engine/sounds.yaml';
 
@@ -91,6 +154,65 @@ const EPS = 1e-9;
 /** Whether a point lies strictly inside an entity's footprint, centred on the origin. */
 function inside(e: Entity, x: number, y: number): boolean {
   return Math.abs(x) < e.size[0] / 2 - EPS && Math.abs(y) < e.size[1] / 2 - EPS;
+}
+
+/**
+ * The lines an entity may flip over (FFF-394): the vertical and horizontal axes, and on a square footprint the
+ * two diagonals. Each maps a position (x east, y south) and a side.
+ */
+const MIRRORS: readonly {
+  name: string;
+  square: boolean;
+  p: (x: number, y: number) => [number, number];
+  d: Record<Direction4, Direction4>;
+}[] = [
+  {
+    name: 'vertical',
+    square: false,
+    p: (x, y) => [-x, y],
+    d: { north: 'north', east: 'west', south: 'south', west: 'east' },
+  },
+  {
+    name: 'horizontal',
+    square: false,
+    p: (x, y) => [x, -y],
+    d: { north: 'south', east: 'east', south: 'north', west: 'west' },
+  },
+  {
+    name: 'diagonal',
+    square: true,
+    p: (x, y) => [y, x],
+    d: { north: 'west', east: 'south', south: 'east', west: 'north' },
+  },
+  {
+    name: 'antidiagonal',
+    square: true,
+    p: (x, y) => [-y, -x],
+    d: { north: 'east', east: 'north', south: 'west', west: 'south' },
+  },
+];
+
+/**
+ * The lines of symmetry of an entity's fluid connections (FFF-394: "only allowing buildings to flip over their
+ * line of symmetry, so all inputs and outputs would still match once flipped"): the mirrors that map every
+ * connection onto one of the same kind (box production and filter, flow, type).
+ */
+export function fluidSymmetries(e: Entity, boxes: readonly FluidBox[]): string[] {
+  const key = (b: FluidBox, c: FluidBox['connections'][number], x: number, y: number, d: Direction4) =>
+    `${b.production}|${b.filter ?? ''}|${c.flow}|${c.type ?? 'normal'}|${x},${y}|${d}`;
+  const own = boxes.flatMap((b) =>
+    b.connections.map((c) => key(b, c, c.position[0], c.position[1], c.direction)),
+  );
+  own.sort();
+  return MIRRORS.filter((m) => !m.square || e.size[0] === e.size[1])
+    .filter((m) => {
+      const img = boxes.flatMap((b) =>
+        b.connections.map((c) => key(b, c, ...m.p(c.position[0], c.position[1]), m.d[c.direction])),
+      );
+      img.sort();
+      return img.every((k, i) => k === own[i]);
+    })
+    .map((m) => m.name);
 }
 
 export function checkEngine(m: Model, diags: Diagnostics, strict: boolean): void {
@@ -189,7 +311,39 @@ export function checkEngine(m: Model, diags: Diagnostics, strict: boolean): void
     if (g.furnace && (!g.furnace.source_slots || !g.furnace.result_slots))
       report(`furnace ${e.id} lacks its source or result slots (defaults.yaml \`furnace\`)`, where);
     checkFluidBoxes(r, fluids, fluidCategories, report, where);
+    // Flipping (FFF-394; I §3.3): a building flips only over a line of symmetry of its fluid connections, and in
+    // 2.0 every assembler whose ports have one flips (D1-r1: assembling machine 2).
+    if (g.fluid_boxes.length > 0) {
+      const lines = fluidSymmetries(e, g.fluid_boxes);
+      if (g.flippable && lines.length === 0)
+        report(
+          `entity ${e.id} is flippable, but its fluid connections have no line of symmetry: flipped, its pipes would not meet (FFF-394)`,
+          where,
+        );
+      if (!g.flippable && e.type === 'assembler' && lines.length > 0)
+        report(
+          `assembler ${e.id}'s fluid connections are symmetric (${lines.join(', ')}), so it flips in Factorio 2.0 (FFF-394; I §3.3): set flippable (mirrors.yaml)`,
+          where,
+        );
+    }
   }
+
+  // Scenery (sets.yaml, D1-r1): a build with trees has species and decoratives in every biome, one with town
+  // tiles town buildings (10 §9.9, §15.7).
+  const sets = ov.sets;
+  const setsAt = (k: string) => at(ov.sources.sets, [k]);
+  if (m.world.some((w) => w.data.kind === 'tree'))
+    for (const b of m.design.meta.world.biomes.order) {
+      if (!sets.tree_biomes[b]?.length)
+        report(`biome ${b} has no tree species (sets.yaml tree_biomes)`, setsAt('tree_biomes'));
+      if (!sets.decorative_biomes[b]?.length)
+        report(`biome ${b} has no decoratives (sets.yaml decorative_biomes)`, setsAt('decorative_biomes'));
+    }
+  if (m.tiles.some((t) => t.data.town) && !sets.town_buildings.some((skin) => skin.length > 0))
+    report(
+      'the build has town tiles but no town buildings (sets.yaml town_buildings)',
+      setsAt('town_buildings'),
+    );
 
   // Tiles: a terrain material each (terrain.yaml), crisp for town tiles; a fallback base names a material.
   const tsrc = ov.sources.terrain;

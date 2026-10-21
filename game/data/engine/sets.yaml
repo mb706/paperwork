@@ -1,8 +1,82 @@
 # Set-name tables (10 §2.4 step 2, §15.7 "Lookup contracts"): the art sets for things a packet names by a
 # small id instead of a prototype. Each list's index is that id; the set's name is `<namespace>/<entry>`.
-# prototypes.json carries them, and the asset build makes the sets. Empty until worldgen and the asset
-# pipeline need them.
-tree_species: [tree-oak]   # ObjectView kind 0: the species id → object/<species> (C6's fixture draws tree-oak)
-decoratives: []       # ObjectView kind 4: the decorative id → decor/<name>
-cliffs: []            # ObjectView kind 2 (M2): the cliff shape id → cliff/<shape>
-town_buildings: []    # town features (10 §15.9): the building id → town/<name>
+# prototypes.json carries a table only when its build can show what the table names (D1-r1): the tree species
+# and the decoratives when the build has the `tree` world object (worldgen places both by biome, 10 §5.18
+# stages 6 and 8), the town buildings when it has town tiles. M0's build has neither, so its tables are empty.
+#
+# The names below are proposals (D1-r1 finding 6): each mirrors a Factorio 2.0 prototype (factorio-data 2.0.77)
+# and the counts are the spec's. The art package may rename an entry before its set exists; an id's position is
+# what packets and saves hold, so entries are only ever appended once worldgen v1 ships.
+
+# Trees (10 §6.5, §9.1, §9.9): 10 species × 4 shapes × 5 leaf states; "the species comes from the biome".
+# The asset budget model gives the start biome 3 of them and the other biomes 7
+# (design/asset-study/render/budget_model.py: `tree` and `tree-other`). ObjectView kind 0 and TreeState.species
+# index this list (object/<species>).
+tree_species:
+  - tree-larch       # tundra; Factorio tree-06 (autoplace order a[tree]-b[forest]-d[dry]-c[cold])
+  - tree-juniper     # tundra; tree-06-brown (e[verydry]-c[cold])
+  - tree-spruce      # boreal; tree-01 (a[wet]-c[cold])
+  - tree-pine        # boreal; tree-02 (b[moist]-b[cold])
+  - tree-willow      # temperate; tree-04 (a[wet]-b[medium])
+  - tree-beech       # temperate; tree-07 (b[moist]-a[medium])
+  - tree-oak         # temperate; tree-08 (c[medium]-a[medium]); C6's fixture draws it
+  - tree-acacia      # steppe; tree-09-brown (d[dry]-a[hot])
+  - tree-baobab      # steppe; tree-09-red (e[verydry]-a[hot])
+  - tree-mesquite    # desert; dry-tree (a[tree]-d[dead]-e[dry-tree])
+
+# Biome → species (01 §2: conifers in the tundra and the boreal forest, Nauvis's trees in the temperate band,
+# savanna trees in the steppe, a few in the desert; world.yaml `tree`). Every biome of meta.world.biomes.order,
+# each species in one biome. Factorio places a tree type by temperature and moisture (trees.lua: its autoplace
+# order names both); here the biome is the temperature, and within it the list runs from wet to dry.
+# Proposal: worldgen picks the species by the tile's moisture, the list splitting [0, 1] into equal bands with
+# the first for the wettest (two species split at 0.5, 01 §2's boreal threshold).
+tree_biomes:
+  tundra: [tree-larch, tree-juniper]
+  boreal: [tree-spruce, tree-pine]
+  temperate: [tree-willow, tree-beech, tree-oak]
+  steppe: [tree-acacia, tree-baobab]
+  desert: [tree-mesquite]
+
+# Decoratives (A3 §11: grass tufts, pebbles, bushes and weeds at 45% ink; 10 §9.9: 4 variants each): 15, the
+# budget model's count, three per biome. Each is a Factorio 2.0 Nauvis decorative of the same name
+# (base/prototypes/decorative/decoratives.lua, factorio-data 2.0.77). ObjectView kind 4 indexes this list
+# (decor/<name>).
+decoratives:
+  - tiny-rock
+  - medium-rock
+  - brown-fluff-dry
+  - small-rock
+  - muddy-stump
+  - brown-fluff
+  - green-hairy-grass
+  - green-bush-mini
+  - green-asterisk
+  - brown-hairy-grass
+  - red-desert-bush
+  - brown-asterisk
+  - small-sand-rock
+  - medium-sand-rock
+  - white-desert-bush
+
+# Biome → decoratives (10 §9.7: atlas groups "one per biome's trees and decoratives"): each decorative in one
+# biome. Proposal: worldgen draws a chunk's decoratives from its biome's list with the chunk's decorative seed
+# (10 §5.18 stage 8).
+decorative_biomes:
+  tundra: [tiny-rock, medium-rock, brown-fluff-dry]
+  boreal: [small-rock, muddy-stump, brown-fluff]
+  temperate: [green-hairy-grass, green-bush-mini, green-asterisk]
+  steppe: [brown-hairy-grass, red-desert-bush, brown-asterisk]
+  desert: [small-sand-rock, medium-sand-rock, white-desert-bush]
+
+cliffs: []           # ObjectView kind 2 (M2): the cliff shape id → cliff/<shape>
+
+# Town buildings (01 §5.3, 10 §5.18 stage 9, §15.7 `town/`): the block pictures of each era skin, skin by skin.
+# The slice draws skins 1 and 2 (09 §9: W < 15 and 15–35, meta.world.towns.era_skin_w), 8 pictures each
+# (10 §9.1; the budget model's `town-block` and `town-block-2`, 8 variants each). prototypes.json lists them
+# flat, skin by skin. Proposal for package 06 and the renderer to settle (TownFeature carries no skin):
+# TownFeature.building is a block's picture within a skin (0–7, the cell generator's pick), and the block draws
+# entry (skin − 1) × 8 + building, so the global skin switch needs no regeneration. The art package names what
+# each picture shows (A3 §10: skin 1's brick college halls, a classical library, clapboard houses, shops).
+town_buildings:
+  - [skin-1-block-1, skin-1-block-2, skin-1-block-3, skin-1-block-4, skin-1-block-5, skin-1-block-6, skin-1-block-7, skin-1-block-8]
+  - [skin-2-block-1, skin-2-block-2, skin-2-block-3, skin-2-block-4, skin-2-block-5, skin-2-block-6, skin-2-block-7, skin-2-block-8]

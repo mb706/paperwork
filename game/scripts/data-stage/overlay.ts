@@ -134,11 +134,19 @@ const itemLayer = z.strictObject({
   icon: z.string().optional(),
 });
 const spriteLayer = z.strictObject({ sprite: z.string().optional(), map_color: color.optional() });
+/**
+ * game/data/engine/sets.yaml (10 §15.7's set-name tables; D1-r1): the tree species and decoratives with their
+ * biome maps (biome → entries, every biome of meta.world.biomes.order, each entry in one biome), the cliff
+ * shapes, and the town buildings skin by skin (every skin the same number of pictures). checkSets holds them to
+ * the design data; prototypes.json carries the flat lists its build can show.
+ */
 const setsFile = z.strictObject({
   tree_species: z.array(id),
+  tree_biomes: z.record(id, z.array(id)),
   decoratives: z.array(id),
+  decorative_biomes: z.record(id, z.array(id)),
   cliffs: z.array(id),
-  town_buildings: z.array(id),
+  town_buildings: z.array(z.array(id)),
 });
 
 /**

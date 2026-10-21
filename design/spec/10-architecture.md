@@ -1306,7 +1306,7 @@ papers consumed   = units            before Interpretability
 - **Per-tick algorithm** (memory-bound by nature, FFF-421):
   - **Grouping.** Consumers are grouped by prototype inside each network (FFF-209), so flow limits are read once per group.
   - **Demand classes:**
-    1. **normal** (Factorio's secondary input, drains included);
+    1. **normal** (Factorio's secondary input, drains included). Lamps (`energy.priority: lamp`, Factorio's `lamp` usage priority) are normal demand while lit and demand nothing while dark. Each lights at its own darkness threshold, staggered between the overlay's `darkness_off` and `darkness_on`, as Factorio's network counts its lit lamps (FFF-229; D1-r1);
     2. **accumulator charging** (Factorio's tertiary input);
     3. **interruptible** (G's BEND, G §2.6; 04 §3.3): Research halls and the Researcher's 500 kW. Data: `energy.priority: interruptible`.
   - **Generation:**
@@ -1318,7 +1318,7 @@ papers consumed   = units            before Interpretability
     - **If G < D_n:** accumulators discharge d = min(A, D_n − G + D_i), serving normal first and interruptible second. No accumulator charges this tick.
     - So accumulators never charge and discharge in one tick. The normal satisfaction is min(1, (G + d) ÷ D_n). The **compute satisfaction** is u_p = (interruptible energy served) ÷ D_i, which is 04 §3.1's formula with P_available = G + d.
     - A shortfall slows compute before it slows the factory, and a solar base that runs Research halls still charges its accumulators by day.
-  - **Fill.** Each consumer's buffer gains `deficit × satisfaction(class)`. Generators consume steam or plasma in proportion to the energy they deliver. Steam's energy per unit is (T − 15 °C) × `heat_capacity_kj_per_k` (0.2 kJ/K for water and steam; J3). 30 steam/s at 165 °C therefore give 900 kW, and 60/s at 500 °C give 5,820 kW.
+  - **Fill.** Each consumer's buffer gains `deficit × satisfaction(class)`. Generators consume steam or plasma in proportion to the energy they deliver. Steam's energy per unit is (T − 15 °C) × its `heat_capacity_kj_per_k` (0.2 kJ/K; water's is 2 kJ/K, so one water carries the energy of its ten steam; factorio-data 2.0.77 fluid.lua; J3, D1-r1). 30 steam/s at 165 °C therefore give 900 kW, and 60/s at 500 °C give 5,820 kW.
   - **Emission.** Every consumer's drawn energy, and **twice every generator's delivered electrical energy**, go into the chunk emission accumulators (§5.9; DECISIONS §24).
   - **Statistics** per network and per entity prototype feed the electric network GUI (I §4.16). The compute satisfaction u_p goes on the power tooltip (G).
 - **Energy effects on computing machines** (U17, U18; 03 §1.4, 04 §5, §10):
@@ -1370,7 +1370,7 @@ This is our reading of FFF-430: the input rate is proportional to the source's f
 
 **Rules (ISO).**
 - **Pipeline extents.** A segment whose bounding box exceeds 250×250 tiles carries no flow and raises the alert *pipeline overextended*.
-- **Steam** (J3). A boiler turns its `extra.water_per_s` (6/s) of water into ten times as much steam at 165 °C (60/s; 2.0's 1 : 10). A heat exchanger turns 10.309/s into 103.09/s at 500 °C. Steam's energy per unit comes from the fluids' `heat_capacity_kj_per_k` (§5.7).
+- **Steam** (J3). A boiler turns its `extra.water_per_s` (6/s) of water into ten times as much steam at 165 °C (60/s; 2.0's 1 : 10). A heat exchanger turns 10.309/s into 103.09/s at 500 °C. Steam's energy per unit comes from its `heat_capacity_kj_per_k` (§5.7).
 - **Offshore pump:** 1,200/s.
 - **Underground pipe:** maximum gap 9.
 

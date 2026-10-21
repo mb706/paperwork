@@ -67,7 +67,8 @@
   tier: memo
   mirrors: water
   sprite: 'ISO: mid-blue fluid swatch'
-  heat_capacity_kj_per_k: 0.2
+  max_temperature: 100
+  heat_capacity_kj_per_k: 2
   tags: [fluid]
   desc: Boils into steam. In data recipes it is the cooling.
 - id: steam
@@ -76,6 +77,7 @@
   tier: memo
   mirrors: steam
   sprite: 'ISO: white fluid swatch with a faint shimmer'
+  max_temperature: 5000
   heat_capacity_kj_per_k: 0.2
   tags: [fluid]
 - id: sulfuric-acid
@@ -84,6 +86,7 @@
   tier: article
   mirrors: sulfuric-acid
   sprite: 'ISO: yellow-green fluid swatch'
+  default_temperature: 25
   tags: [fluid]
 - id: lubricant
   name: Lubricant
@@ -91,6 +94,7 @@
   tier: article
   mirrors: lubricant
   sprite: 'ISO: deep green fluid swatch'
+  default_temperature: 25
   tags: [fluid]
 - id: crawl
   name: Crawl
@@ -98,6 +102,7 @@
   tier: article
   mirrors: crude-oil
   sprite: near-black with white static speckle
+  default_temperature: 25
   tags: [fluid]
   desc: Raw. Mostly copies.
 - id: junk
@@ -106,6 +111,7 @@
   tier: article
   mirrors: heavy-oil
   sprite: muddy brown-grey
+  default_temperature: 25
   tags: [fluid]
   desc: Not nothing. Can be denoised.
 - id: text
@@ -114,6 +120,7 @@
   tier: article
   mirrors: light-oil
   sprite: warm amber
+  default_temperature: 25
   tags: [fluid]
 - id: prose
   name: Prose
@@ -121,6 +128,7 @@
   tier: article
   mirrors: petroleum-gas
   sprite: pale ice-cyan
+  default_temperature: 25
   tags: [fluid]
 - id: iron-plate
   name: Iron plate

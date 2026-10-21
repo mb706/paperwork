@@ -39,6 +39,28 @@ export const LOCALE_KEYS = {
 
 const stack = (s: StackRef | null) => (s ? { kind: s.kind === 0 ? 'item' : 'fluid', id: s.id } : null);
 
+/**
+ * The set-name tables a build can show (sets.yaml, D1-r1): tree species and decoratives with the `tree` world
+ * object (worldgen places both by biome, 10 §5.18 stages 6 and 8), town buildings (flat, skin by skin) with
+ * town tiles, cliffs as listed (M2). A build without them, such as M0's, carries empty tables.
+ */
+export function setTables(m: Model): {
+  treeSpecies: string[];
+  decoratives: string[];
+  cliffs: string[];
+  townBuildings: string[];
+} {
+  const sets = m.overlay.sets;
+  const scenery = m.world.some((w) => w.data.kind === 'tree');
+  const towns = m.tiles.some((t) => t.data.town === true);
+  return {
+    treeSpecies: scenery ? sets.tree_species.map((x) => `object/${x}`) : [],
+    decoratives: scenery ? sets.decoratives.map((x) => `decor/${x}`) : [],
+    cliffs: sets.cliffs.map((x) => `cliff/${x}`),
+    townBuildings: towns ? sets.town_buildings.flat().map((x) => `town/${x}`) : [],
+  };
+}
+
 export function prototypesJson(m: Model, schemaHashHex: string, prototypesHashHex: string): string {
   const ov = m.overlay;
   const strings: Record<string, string> = {};
@@ -184,10 +206,7 @@ export function prototypesJson(m: Model, schemaHashHex: string, prototypesHashHe
     localeKeys: LOCALE_KEYS,
     sounds: ov.sounds.names,
     milestones: m.design.text.milestones.map((x) => x.id).sort(compareCodeUnits),
-    treeSpecies: ov.sets.tree_species.map((x) => `object/${x}`),
-    decoratives: ov.sets.decoratives.map((x) => `decor/${x}`),
-    cliffs: ov.sets.cliffs.map((x) => `cliff/${x}`),
-    townBuildings: ov.sets.town_buildings.map((x) => `town/${x}`),
+    ...setTables(m),
   };
   const json = { ...out, strings };
   validatePrototypesJson(JSON.parse(canonicalJson(json)));
