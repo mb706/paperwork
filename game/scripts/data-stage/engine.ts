@@ -12,11 +12,52 @@
 //   - tiles: a terrain material (terrain.yaml), crisp for town tiles; resources and world objects a map colour;
 //   - sounds: every working machine of the build has a working sound, now or in sounds.yaml's `planned`;
 //   - the belt lane geometry's lengths are ordered as 10 §5.3's.
+// checkOverlayNames runs once over the whole design data: every key the overlay names is a prototype (or a
+// mirrors id some entity uses), so a misspelt id cannot hide an entry.
 import type { Diagnostics } from './diagnostics.ts';
 import type { Model } from './model.ts';
-import { DIRECTION_VECTOR, type FluidBox } from './overlay.ts';
+import { DIRECTION_VECTOR, type FluidBox, mirrorsId, type Overlay } from './overlay.ts';
+import type { Index } from './refs.ts';
 import type { Entity, EntityType } from './schema/entities.ts';
 import { at } from './sources.ts';
+
+/** Every overlay key names something the design data has (D1): a prototype, or a mirrors id in use. */
+export function checkOverlayNames(ov: Overlay, ix: Index, diags: Diagnostics): void {
+  const known = (
+    kind: string,
+    keys: Iterable<string>,
+    has: (k: string) => boolean,
+    src: Parameters<typeof at>[0] | null,
+    path: string[],
+  ) => {
+    for (const k of keys)
+      if (!has(k))
+        diags.error(
+          kind === 'mirrors' ? `no entity mirrors ${k}` : `no ${kind} named ${k}`,
+          src ? at(src, [...path, k]) : { file: 'game/data/engine' },
+        );
+  };
+  const p = ov.prototypes;
+  const ps = ov.sources.prototypes;
+  known('entity', Object.keys(p.entities), (k) => ix.entities.has(k), ps, ['entities']);
+  known('item', Object.keys(p.items), (k) => ix.items.has(k), ps, ['items']);
+  known('recipe', Object.keys(p.recipes), (k) => ix.recipes.has(k), ps, ['recipes']);
+  known('resource', Object.keys(p.resources), (k) => ix.resources.has(k), ps, ['resources']);
+  known('world object', Object.keys(p.world), (k) => ix.world.has(k), ps, ['world']);
+  const used = new Set([...ix.entities.values()].map((e) => mirrorsId(e.mirrors)));
+  known('mirrors', Object.keys(ov.mirrors.entities), (k) => used.has(k), ov.sources.mirrors, ['entities']);
+  known('tile', Object.keys(ov.terrain), (k) => ix.tiles.has(k), ov.sources.terrain, ['tiles']);
+  const snd = ov.sounds.planned;
+  known('entity', snd.working.keys(), (k) => ix.entities.has(k), ov.sources.sounds, [
+    'planned',
+    'working_sounds',
+  ]);
+  known('tile', snd.footsteps.keys(), (k) => ix.tiles.has(k), ov.sources.sounds, ['planned', 'footsteps']);
+  known('entity', ov.sounds.working.keys(), (k) => ix.entities.has(k), ov.sources.sounds, ['working_sounds']);
+}
+
+/** The engine's own sounds.yaml, as the data stage names its source (repository-relative). */
+const OWN_SOUNDS = 'game/data/engine/sounds.yaml';
 
 /** Machines that sound while they work (A4 §7.4; sounds.yaml `planned`). */
 const WORKING_TYPES: ReadonlySet<EntityType> = new Set([
@@ -175,15 +216,17 @@ export function checkEngine(m: Model, diags: Diagnostics, strict: boolean): void
     if (!ov.prototypes.world[w.id]?.map_color)
       report(`world object ${w.id} has no map colour (prototypes.yaml world)`, at(psrc, ['world']));
 
-  // Sounds: every working machine has a working sound, now or planned.
+  // Sounds: every working machine has a working sound, now or planned. Only the engine's own sounds.yaml is held
+  // to it: a fixture build's override (DataStageOptions.engineFiles, the fake sim's) maps what its scenes need.
   const snd = ov.sounds;
   const ssrc = ov.sources.sounds;
-  for (const r of m.entities)
-    if (WORKING_TYPES.has(r.data.type) && !snd.working.has(r.id) && !snd.planned.working.has(r.id))
-      report(
-        `working machine ${r.id} has no working sound, now or planned (sounds.yaml working_sounds, planned.working_sounds)`,
-        ssrc ? at(ssrc, ['working_sounds']) : { file: 'game/data/engine/sounds.yaml' },
-      );
+  if (ssrc?.file === OWN_SOUNDS)
+    for (const r of m.entities)
+      if (WORKING_TYPES.has(r.data.type) && !snd.working.has(r.id) && !snd.planned.working.has(r.id))
+        report(
+          `working machine ${r.id} has no working sound, now or planned (sounds.yaml working_sounds, planned.working_sounds)`,
+          at(ssrc, ['working_sounds']),
+        );
 
   // Belt lane geometry (10 §5.3): the inner curve is shorter than a straight lane, the outer longer; items fit.
   const b = ov.defaults.belt_lanes;

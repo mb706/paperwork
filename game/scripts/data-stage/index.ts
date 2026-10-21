@@ -28,7 +28,7 @@ import { exprFixture, loadEdgeCases } from './emit/expr-fixture.ts';
 import { protoIdsTs } from './emit/proto-ids.ts';
 import { type EmitProblem, type TableSummary, writePrototypesBin } from './emit/protos-bin.ts';
 import { prototypesJson } from './emit/protos-json.ts';
-import { checkEngine } from './engine.ts';
+import { checkEngine, checkOverlayNames } from './engine.ts';
 import { checkFormulaRefs } from './formula-refs.ts';
 import { compileFormulas } from './formulas.ts';
 import {
@@ -206,6 +206,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
   const manifests = loadManifests(manifestsSrc, diags);
   if (!overlay || !manifests) return result;
   checkAgainstSpec(manifests, o.specDir, diags);
+  checkOverlayNames(overlay, ix, diags);
   const filters: BuildFilter[] = [];
   for (const [name, m] of Object.entries(manifests.manifests)) {
     if ('from' in m) {

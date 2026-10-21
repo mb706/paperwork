@@ -207,6 +207,15 @@ describe('the engine checks refuse gaps and disagreements', () => {
       /planned working_sounds radar names radar-hum, which is neither a sound nor a planned one/,
     );
   });
+
+  it('an overlay key that names no prototype or mirrors id', () => {
+    const { game, spec } = scratchRepo();
+    edit(join(game, 'data/engine/prototypes.yaml'), '  tokenizer: {', '  tokeniser: {');
+    edit(join(game, 'data/engine/mirrors.yaml'), '  radar: {collision_box', '  radr: {collision_box');
+    const out = messages(runDataStage(options(game, spec))).join('\n');
+    expect(out).toMatch(/prototypes\.yaml:\d+:\d+: entities\.tokeniser: no entity named tokeniser/);
+    expect(out).toMatch(/mirrors\.yaml:\d+:\d+: entities\.radr: no entity mirrors radr/);
+  });
 });
 
 describe('trimmed collision', () => {
