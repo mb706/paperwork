@@ -1,4 +1,4 @@
-// The UI on the App (10 §7; C3's composition root, main.ts: `await mountUi(app, world)`). It loads what the UI
+// The UI on the App (10 §7; C3's composition root, main.ts: `await mountUi(app, world, audio)`). It loads what the UI
 // draws with (the prototypes the page's build serves, the sprite manifest's DOM part and the Survey skin), takes the
 // input over from the world view's stand-ins (`devInput.detach()`, C4-r1 12), and mounts the UI over the world
 // canvas on the App's host and world view: the menu starts worlds through `app.host` (new game, load, exit, saves),
@@ -7,7 +7,13 @@
 import '../ui/styles/ui.css';
 import { ABI_VERSION } from '../shared/gen/abi.ts';
 import type { PrototypesJson } from '../shared/gen/protos.ts';
-import { characterFacts, type DomManifest, mountUi as mount, type UiHandle } from '../ui/index.ts';
+import {
+  characterFacts,
+  type DomManifest,
+  mountUi as mount,
+  type UiAudio,
+  type UiHandle,
+} from '../ui/index.ts';
 import { type App, show } from './app.ts';
 import type { WorldView } from './world-view.ts';
 
@@ -68,7 +74,7 @@ function debugKeys(world: WorldView) {
 /** The diagnostics line's counts (developer text, not the canon's). */
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-export async function mountUi(app: App, world: WorldView): Promise<UiHandle> {
+export async function mountUi(app: App, world: WorldView, audio?: UiAudio): Promise<UiHandle> {
   const { build, host } = app;
   show('build-status', `${build.build}${build.dev ? ' (dev)' : ''} · ${build.buildHash.slice(0, 12)}`);
   const [protos, bin, dom] = await Promise.all([
@@ -107,6 +113,7 @@ export async function mountUi(app: App, world: WorldView): Promise<UiHandle> {
     character: characterFacts(protos, bin),
     dom,
     debugKey: debugKeys(world),
+    ...(audio ? { audio } : {}),
   });
   app.hooks?.register({ ui: ui.test });
   return ui;

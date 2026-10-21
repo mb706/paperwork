@@ -21,6 +21,7 @@ import { hexOf, sha256 } from '../shared/sha256.ts';
 import {
   type BenchManifest,
   type BenchScenario,
+  planProblem,
   type ScenarioResult,
   type Verdict,
   verdicts,
@@ -46,6 +47,9 @@ interface SimRow {
   verdicts: Verdict[];
   seconds: number;
   memory_bytes: number;
+  /** The ticks simulated, and why they are not the plan's (null: the plan ran whole; the M0 exit audit #8). */
+  ticks: number;
+  planProblem: string | null;
 }
 interface TraceRowOut {
   log: string;
@@ -215,12 +219,16 @@ async function runSim(): Promise<void> {
     const files = await scenarioFiles(sc);
     const r = await job<SimReply>({ kind: 'sim', module: mod.module, files, scenario: sc, quick });
     results.timerResolutionMs = r.timerResolutionMs;
+    const problem = planProblem(sc, r.result, quick);
+    if (problem) results.errors.push(problem);
     rows.push({
       scenario: sc.name,
       metrics: r.result.metrics,
       verdicts: verdicts(quick ? sc.budgets : sc.thresholds, r.result, 1),
       seconds: r.seconds,
       memory_bytes: r.result.memory_bytes,
+      ticks: r.result.ticks,
+      planProblem: problem,
     });
     results.sim = { quick, rows };
     renderSim();

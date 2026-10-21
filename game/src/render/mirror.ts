@@ -396,6 +396,12 @@ export class Mirror implements ViewModel {
           c.terrainRev++;
           this.terrainRev++;
         } else {
+          // the deposit's ground follows which tiles hold a resource (not their bands): the terrain rebuilds only
+          // when that set changes (C9)
+          if (!sameTiles(c.resourceView, c.resourceCount, view, n)) {
+            c.terrainRev++;
+            this.terrainRev++;
+          }
           c.resources = copy;
           c.resourceView = view;
           c.resourceCount = n;
@@ -518,3 +524,12 @@ export const DY = DynCodec.OFFSET;
 export const HA = InserterHandCodec.OFFSET;
 export const MO = MoverCodec.OFFSET;
 export const RV = ResourceViewCodec.OFFSET;
+
+/** Whether two resource lists name the same tiles in the same order (their bands aside). */
+function sameTiles(a: DataView, na: number, b: DataView, nb: number): boolean {
+  if (na !== nb) return false;
+  for (let i = 0; i < na; i++)
+    if (a.getUint16(i * RESOURCE_SIZE + RV.tile, true) !== b.getUint16(i * RESOURCE_SIZE + RV.tile, true))
+      return false;
+  return true;
+}

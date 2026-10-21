@@ -11,6 +11,7 @@
 import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BenchResults } from '../src/dev/bench.ts';
+import { engineOf } from './engine.ts';
 
 const GAME = join(import.meta.dirname, '..');
 const ESTIMATE = 2.4;
@@ -49,13 +50,23 @@ if (!user.sim || user.sim.rows.length === 0) {
   console.error(`${file}: no simulation results`);
   process.exit(2);
 }
-const family = /Firefox\//.test(user.userAgent) ? 'firefox' : 'chrome';
+const family = engineOf(user.userAgent);
+if (family === null) {
+  console.error(
+    `${file}: the user's browser (${user.userAgent}) is neither Chromium's engine nor Firefox's; this host runs only those, so it has nothing to compare with`,
+  );
+  process.exit(2);
+}
 const sha = user.module?.sha256;
+if (!sha) {
+  console.error(`${file}: the results name no module (its SHA-256): a host run of the same module is needed`);
+  process.exit(2);
+}
 const lines = readFileSync(join(GAME, 'bench', 'history.jsonl'), 'utf8')
   .split('\n')
   .filter((l) => l.startsWith('{'))
   .map((l) => JSON.parse(l) as HistoryLine)
-  .filter((h) => h.runner === `${family} wasm` && !h.quick && (!sha || h.module_sha256 === sha));
+  .filter((h) => h.runner === `${family} wasm` && !h.quick && h.module_sha256 === sha);
 if (lines.length === 0) {
   console.error(
     `no full ${family} runs of module ${sha?.slice(0, 12)} in bench/history.jsonl: run\n` +

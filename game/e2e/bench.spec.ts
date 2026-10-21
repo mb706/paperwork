@@ -14,11 +14,14 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { NATIVE_ONLY } from '../src/dev/bench/sim-core.ts';
 import type { BenchResults } from '../src/dev/bench.ts';
 import { watchConsole } from './console.ts';
 
 const GAME = join(import.meta.dirname, '..');
 const HOST_FACTOR = 2.4;
+/** §9.4's audio gate (offline load on the reference machine, %), × the host factor here. */
+const AUDIO_GATE = { mean: 3.5, worst: 6.5 };
 const quick = process.env.BENCH_QUICK === '1';
 const history = process.env.BENCH_NO_HISTORY === '1' ? null : join(GAME, 'bench', 'history.jsonl');
 const ab = process.env.BENCH_AB?.split(',') ?? null;
@@ -127,16 +130,31 @@ test('the browser runner: bench.html on this host @bench', async ({ page, browse
     return;
   }
   expect(r.errors, 'bench.html sections').toEqual([]);
+  // every requested section answered (the M0 exit audit #3: a section that did not run must not pass)
+  const asked = new Set(sections.split(','));
+  const answered: Record<string, unknown[] | undefined> = {
+    sim: r.sim?.rows,
+    det: r.determinism,
+    render: r.render,
+    audio: r.audio,
+    gpu: r.gpu ? [r.gpu] : undefined,
+  };
+  for (const k of asked) expect(answered[k]?.length ?? 0, `the ${k} section's results`).toBeGreaterThan(0);
   const lines: string[] = [
     `bench.html in ${runner} (module ${r.module?.url} ${r.module?.sha256.slice(0, 12)}; ${clock})`,
   ];
   let pass = true;
   for (const row of r.sim?.rows ?? []) {
-    lines.push(`${row.scenario}${quick ? ' (budget gate: tails)' : ''}`);
-    let rowPass = true;
+    lines.push(`${row.scenario}${quick ? ' (budget gate: tails)' : ''}: ${row.ticks} ticks`);
+    let rowPass = row.planProblem === null;
+    if (row.planProblem) lines.push(`  FAIL: ${row.planProblem}`);
     for (const v of row.verdicts) {
       if (v.value === null) {
-        lines.push(`  ${v.metric.padEnd(28)} ${'n/a'.padStart(14)} (native only)`);
+        const native = NATIVE_ONLY.has(v.metric);
+        rowPass &&= native;
+        lines.push(
+          `  ${v.metric.padEnd(28)} ${'n/a'.padStart(14)} ${native ? '(native only)' : 'MISSING: FAIL'}`,
+        );
         continue;
       }
       // bench.html judged the reference machine (factor 1); the host gate is × 2.4 where the metric scales
@@ -184,10 +202,26 @@ test('the browser runner: bench.html on this host @bench', async ({ page, browse
     lines.push(
       `determinism ${d.log}: ${d.ticks} ticks, ${d.identical ? 'identical to native' : `DIFFERS at ${d.firstDifferingTick}`}`,
     );
-  for (const x of r.render ?? [])
+  // render: the main thread's frame cost against §6.12 × the host factor; the GPU's time and the frame rate are
+  // SwiftShader's here, not a GPU's, so they are reported and judged only on the user's machine
+  for (const x of r.render ?? []) {
+    const limit = x.budget.mainMs * HOST_FACTOR;
+    const met = x.mainMs.median <= limit;
+    pass &&= met;
     lines.push(
-      `render ${x.scene}: main ${x.mainMs.median.toFixed(2)} ms, GPU ${x.gpuMs.median.toFixed(2)} ms (${x.gpuMs.method}), ${x.raf.fps.toFixed(1)} FPS (SwiftShader: not a GPU number)`,
+      `render ${x.scene}: main ${x.mainMs.median.toFixed(2)} ms (host gate ≤ ${limit.toFixed(2)}: ${met ? 'pass' : 'FAIL'}), GPU ${x.gpuMs.median.toFixed(2)} ms (${x.gpuMs.method}), ${x.raf.fps.toFixed(1)} FPS (SwiftShader: not a GPU number)`,
     );
+  }
+  // audio: §9.4's offline load against the gate × the host factor
+  for (const a of r.audio ?? []) {
+    const mean = AUDIO_GATE.mean * HOST_FACTOR;
+    const worst = AUDIO_GATE.worst * HOST_FACTOR;
+    const met = a.meanPercent <= mean && a.worstSecondPercent <= worst;
+    pass &&= met;
+    lines.push(
+      `audio ${a.piece}: mean ${a.meanPercent.toFixed(2)} %, worst second ${a.worstSecondPercent.toFixed(2)} % (host gate ≤ ${mean.toFixed(1)} %, ≤ ${worst.toFixed(1)} %: ${met ? 'pass' : 'FAIL'})`,
+    );
+  }
   console.log(`\n${lines.join('\n')}\n`);
   for (const d of r.determinism ?? []) expect(d.identical, `determinism ${d.log}`).toBe(true);
   expect(pass, 'the host gates').toBe(true);

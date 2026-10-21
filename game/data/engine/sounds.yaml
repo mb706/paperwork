@@ -33,9 +33,11 @@ sounds:
   belt-loop: {source: belt_loop, bus: environment, voices: 1, priority: 1}
 
 # Event type (10 §15.6) → sound: a name, or a rule by entity size (the larger side of the footprint in
-# tiles) or by what was mined. Unlisted events (entity_rotated, item_crafted) are silent until M1c's sounds.
+# tiles) or by what was mined. Unlisted events (entity_rotated) are silent until M1c's sounds. A hand-craft's
+# completion (Factorio's crafting_finished) takes the GUI click until M1c's craft-finished replaces it (C9).
 events:
   action_failed: error
+  item_crafted: ui-click
   entity_built: {bySize: {small: build-small, medium: build-medium, large: build-large}, smallMax: 1, mediumMax: 3}
   entity_mined: {byKind: {resource: mine-ore, entity: deconstruct}}
   research_completed: research-complete

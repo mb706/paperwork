@@ -1,5 +1,7 @@
-// Client-only settings (10 §7.6: never sent to the sim): the keybindings (bindings.ts's shape) and the Interface
-// options the UI owns, kept per browser. M1 moves them into the Run history store (07 §19.2) with export.
+// Client-only settings (10 §7.6: never sent to the sim): the keybindings (bindings.ts's shape), the Interface
+// options the UI owns, and the Sound tab's volumes (I §4.20; C9), kept per browser. M1 moves them into the Run
+// history store (07 §19.2) with export.
+import { SOUND_CATEGORIES, type SoundSettings } from './host.ts';
 import { defaultKeybindings, type KeybindingSettings, sanitizeKeybindings } from './input/bindings.ts';
 
 export interface ClientSettings {
@@ -9,14 +11,36 @@ export interface ClientSettings {
     /** UI scale in percent, or 0 for automatic (I §4.0). */
     uiScale: number;
   };
+  sound: SoundSettings;
 }
 
 const KEY = 'paperwork.settings';
+
+/** Every category at 100 %, music at 70 % (A4 §8, 10 §9.4), nothing muted. */
+export const defaultSound = (): SoundSettings => ({
+  volume: Object.fromEntries(
+    SOUND_CATEGORIES.map((c) => [c, c === 'music' ? 0.7 : 1]),
+  ) as SoundSettings['volume'],
+  muted: Object.fromEntries(SOUND_CATEGORIES.map((c) => [c, false])) as SoundSettings['muted'],
+});
+
+/** Stored sound settings, every value checked; anything missing or out of range takes its default. */
+export function sanitizeSound(raw: unknown): SoundSettings {
+  const out = defaultSound();
+  const r = (raw ?? {}) as { volume?: Record<string, unknown>; muted?: Record<string, unknown> };
+  for (const c of SOUND_CATEGORIES) {
+    const v = Number(r.volume?.[c]);
+    if (Number.isFinite(v) && v >= 0 && v <= 1) out.volume[c] = v;
+    if (typeof r.muted?.[c] === 'boolean') out.muted[c] = r.muted[c] as boolean;
+  }
+  return out;
+}
 
 export const defaultSettings = (): ClientSettings => ({
   version: 1,
   keybindings: defaultKeybindings(),
   interface: { uiScale: 0 },
+  sound: defaultSound(),
 });
 
 export function loadSettings(): ClientSettings {
@@ -28,6 +52,7 @@ export function loadSettings(): ClientSettings {
       version: 1,
       keybindings: sanitizeKeybindings(raw.keybindings),
       interface: { uiScale: Number.isFinite(scale) && scale >= 0 && scale <= 300 ? scale : 0 },
+      sound: sanitizeSound(raw.sound),
     };
   } catch {
     return defaultSettings();

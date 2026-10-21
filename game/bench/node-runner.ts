@@ -10,13 +10,16 @@
 //
 // Defaults: target/bench/scenarios and target/bench/wasm32-unknown-unknown/wasmdev/simabi.wasm (the module
 // without simcheck, built into its own target directory so the dev module stays as the dev server built it).
-// Metrics the ABI cannot show (`max_regenerations_per_tick`, the codec's encoding) are native only.
+// The gate metrics the ABI cannot show are native only (sim-core's NATIVE_ONLY, listed as such); any other missing
+// metric fails, and so does a run that did not simulate its plan's ticks (the M0 exit audit #3 and #8, C9).
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isMainThread, parentPort, Worker, workerData } from 'node:worker_threads';
 import {
   type BenchManifest as Manifest,
+  NATIVE_ONLY,
+  planProblem,
   type ScenarioResult as Result,
   runScenario,
   type BenchScenario as Scenario,
@@ -95,10 +98,19 @@ if (!isMainThread) {
     const gates = quick ? sc.budgets : sc.thresholds;
     const lines: string[] = [`${sc.name} (node wasm${quick ? ', budget gate: tails' : ''})`];
     let pass = true;
+    const short = planProblem(sc, result, quick);
+    if (short !== null) {
+      pass = false;
+      lines.push(`  FAIL: ${short}`);
+    }
     for (const g of gates) {
       const v = result.metrics[g.metric];
       if (v === undefined) {
-        lines.push(`  ${g.metric.padEnd(28)} ${'n/a'.padStart(14)} (native only)`);
+        const native = NATIVE_ONLY.has(g.metric);
+        pass &&= native;
+        lines.push(
+          `  ${g.metric.padEnd(28)} ${'n/a'.padStart(14)} ${native ? '(native only)' : 'MISSING: FAIL'}`,
+        );
         continue;
       }
       const host = g.scales ? (g.floor ? g.limit / hf : g.limit * hf) : g.limit;

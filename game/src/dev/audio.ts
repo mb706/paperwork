@@ -295,6 +295,7 @@ const dev = {
       }
     return {
       lufs: loudness(r.buffer),
+      script: r.script,
       seconds: r.buffer.duration,
       sampleRate: r.buffer.sampleRate,
       ms: r.ms,

@@ -1,5 +1,6 @@
 // @audio (C7; 10 §9.4): the audio runtime in Chrome and Firefox on its dev page (src/dev/audio.html).
-// Needs the audio asset build (scripts/assets/audio/build.py); without public/audio the tests skip.
+// Needs the audio asset build (`npm run assets` runs scripts/assets/audio/build.py); without public/audio the tests
+// fail, never skip (the M0 exit audit #4, C9). Firefox's realtime tests skip: it has no audio device here.
 //   npx playwright test e2e/audio.spec.ts [--project chrome]
 import { expect, type Page, test } from '@playwright/test';
 import { watchConsole } from './console.ts';
@@ -40,7 +41,7 @@ interface Dev {
 }
 async function open(page: Page, query = ''): Promise<void> {
   const r = await page.request.get('/audio/music.json');
-  test.skip(!r.ok(), 'public/audio is missing: run the audio asset build (scripts/assets/audio/build.py)');
+  expect(r.ok(), 'public/audio is missing: run `npm run assets` (its audio step)').toBe(true);
   // the dev server's cargo plugin reloads every page when a build finishes: wait for sim.wasm first
   await page.goto('/?test=1&render=none');
   await expect(page.getByTestId('sim-status')).toHaveText(/^sim\.wasm ABI/, { timeout: 180_000 });
@@ -133,7 +134,7 @@ test.describe('@audio', () => {
     expect(
       problems.filter(
         (p) =>
-          !/voice bank (processor failed|was told to fail)|processorerror|has no decoded files yet/i.test(p),
+          !/voice bank (processor failed|was told to fail)|processorerror|has no decoded files/i.test(p),
       ),
     ).toEqual([]);
   });
@@ -164,7 +165,7 @@ test.describe('@audio', () => {
 
   test('the build publishes a recording for every era (C7-r1 8)', async ({ page }) => {
     const r = await page.request.get('/audio/music.json');
-    test.skip(!r.ok(), 'public/audio is missing: run the audio asset build (scripts/assets/audio/build.py)');
+    expect(r.ok(), 'public/audio is missing: run `npm run assets` (its audio step)').toBe(true);
     const music = (await r.json()) as {
       eras: Record<string, string[]>;
       recordings: Record<string, { file: string }>;

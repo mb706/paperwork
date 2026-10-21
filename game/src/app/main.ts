@@ -6,10 +6,12 @@
 //   - the UI (C5): `mountUi(app, world)` (attach-ui.ts): the menu starts worlds (`app.host.newGame`, `loadSave`,
 //     `exit`), pauses under menus (`app.host.setMenuPause`), offers *Take over* (`app.host.takeOver`,
 //     `on('storage')`), and owns input (the world view's stand-ins detach);
-//   - audio (C7): `attachAudio(app)`: `app.host.on('packet' | 'generation')`.
+//   - audio (C7, attached by C9): `attachAudio(app, world)` (attach-audio.ts): `app.host.on('packet' | 'generation' |
+//     'clock')`, the world view's camera and movers; it returns the UiAudio the UI drives (GUI sounds, volumes, scenes).
 // Packets go to every `packet` listener in turn, and back to the worker once all have returned (§15.4).
 // `?sim=fake` (dev builds) runs the fake sim's page instead (10 §15.10).
 import { createApp, show } from './app.ts';
+import { attachAudio } from './attach-audio.ts';
 import { attachRenderer } from './attach-renderer.ts';
 import { mountUi } from './attach-ui.ts';
 
@@ -17,8 +19,8 @@ async function main(): Promise<void> {
   const app = await createApp(new URLSearchParams(location.search));
   // ── Extension points: attach here, in this order ────────────────────────────────────────────────────────
   const world = await attachRenderer(app); // C4
-  // attachAudio(app);    // C7
-  await mountUi(app, world); // C5
+  const audio = await attachAudio(app, world); // C7
+  await mountUi(app, world, audio); // C5
 }
 
 const fake = import.meta.env.DEV && new URLSearchParams(location.search).get('sim') === 'fake';

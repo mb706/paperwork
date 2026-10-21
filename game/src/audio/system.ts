@@ -64,6 +64,8 @@ export interface AudioOptions {
   /** The music program's seed (a new game's). */
   seed?: number;
   settings?: unknown;
+  /** Every one-shot that sounds, by name (dev builds and tests). */
+  onPlayed?: (name: string) => void;
 }
 
 /**
@@ -91,6 +93,10 @@ export interface AudioStatus {
   scheduler: { ticks: number; ms: number; maxMs: number };
   bank: BankStats | null;
   sfx: { played: number; limited: number; historical: number; unmapped: number; loops: number; lost: number };
+  /** The recording that plays now (the main menu's charter piece), or null. */
+  recording: string | null;
+  /** Whether the SFX files are decoded (their load has finished). */
+  sfxReady: boolean;
   /** Reduced audio's native SFX voices sounding now. */
   nativeVoices: number;
   /** The world gate: open unless paused or in map view. */
@@ -158,6 +164,12 @@ export class Recordings implements RecordedMusic {
   }
   get playing(): boolean {
     return this.current?.playing ?? false;
+  }
+  /** The recording that plays now (the menu loop, a reduced-audio piece), or null. */
+  get playingName(): string | null {
+    if (!this.current?.playing) return null;
+    for (const [name, p] of this.players) if (p === this.current) return name;
+    return null;
   }
   async play(name: string, loop = false): Promise<boolean> {
     const p = this.player(name);
@@ -412,6 +424,7 @@ export class AudioSystem {
         this.o.proto ?? DEFAULT_PROTO,
         makeRng((this.o.seed ?? 1) ^ 0xa0d10),
       );
+      this.sfx.onPlayed = this.o.onPlayed ?? null;
       void this.table.load(this.files, 'high');
     }
     this.engine = new MusicEngine(this.bank, now, this.packs);
@@ -715,6 +728,8 @@ export class AudioSystem {
         ...(this.sfx?.stats ?? { played: 0, limited: 0, historical: 0, unmapped: 0, loops: 0, lost: 0 }),
       },
       nativeVoices: this.voices?.voices ?? 0,
+      recording: this.recordings?.playingName ?? null,
+      sfxReady: this.table?.loaded ?? false,
       world: this.gate.open,
       errors: [...this.errors, ...(this.files?.errors ?? [])],
     };

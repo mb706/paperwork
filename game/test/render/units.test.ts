@@ -13,8 +13,10 @@ import { CYANOTYPE_DEEP, CYANOTYPE_PALE, INK_COLOUR, PAPER_TONE } from '../../sr
 import {
   buildIds,
   buildShore,
+  DEPOSIT_BIT,
   ID_BORDER,
   ID_SIZE,
+  markDeposits,
   SHORE_BORDER,
   SHORE_SIZE,
   SHORE_TEXELS,
@@ -104,6 +106,43 @@ describe('terrain data (10 §6.5, §9.9)', () => {
     expect(at(34, 5)).toBe(2);
     expect(at(-1, 5)).toBe(1); // missing west: the chunk's own edge
     expect(at(5, -3)).toBe(1);
+  });
+
+  it("marks the deposits' tiles in the id texture's high bit, the neighbours' within the border too (C9)", () => {
+    const ids = new Uint8Array(ID_SIZE * ID_SIZE);
+    buildIds((cx, cy) => (Math.abs(cx) <= 1 && Math.abs(cy) <= 1 ? chunk(3) : null), 0, 0, ids);
+    // resource records of 8 bytes, the tile index (y · 32 + x) at offset 0
+    const res = (...tiles: number[]) => {
+      const v = new DataView(new ArrayBuffer(tiles.length * 8));
+      for (const [i, t] of tiles.entries()) v.setUint16(i * 8, t, true);
+      return { resourceView: v, resourceCount: tiles.length };
+    };
+    const own = res(0, 5 * 32 + 7, 31 * 32 + 31);
+    const east = res(2 * 32 + 0, 2 * 32 + 3); // x 0 and 3 of the east chunk: x 32 is inside the border, 35 not
+    const north = res(31 * 32 + 4); // the north chunk's last row: y −1 here
+    markDeposits(
+      (cx, cy) =>
+        cx === 0 && cy === 0 ? own : cx === 1 && cy === 0 ? east : cx === 0 && cy === -1 ? north : null,
+      0,
+      0,
+      ids,
+      8,
+      0,
+    );
+    const at = (x: number, y: number) => ids[(y + ID_BORDER) * ID_SIZE + (x + ID_BORDER)] as number;
+    for (const [x, y] of [
+      [0, 0],
+      [7, 5],
+      [31, 31],
+      [32, 2],
+      [4, -1],
+    ] as const) {
+      expect(at(x, y) & DEPOSIT_BIT, `${x}, ${y}`).toBe(DEPOSIT_BIT);
+      expect(at(x, y) & 0x7f, `${x}, ${y}: the tile id is kept`).toBe(3);
+    }
+    let marked = 0;
+    for (const v of ids) if (v & DEPOSIT_BIT) marked++;
+    expect(marked).toBe(5);
   });
 
   it('measures the shore distance in tiles, negative in water, smooth along a straight shore', () => {

@@ -224,14 +224,14 @@ export function surveyScene(
   };
   const [cx0, cy0, cx1, cy1] = [-1, -1, 0, 0];
   const sections: Section[] = [tilesSection(cx0, cy0, cx1, cy1, tileAt)];
-  // the iron-ore patch: bands fall off from its centre
+  // the iron-ore patch: richest at its centre (band 0, Factorio's stage order: rule 24), thinner toward its edge
   const ore = protos.resource.findIndex((r) => r.name === 'iron-ore-patch');
   const res: { tx: number; ty: number; resource: number; band: number }[] = [];
   for (let ty = 1; ty < 7; ty++)
     for (let tx = -13; tx < -5; tx++) {
       const d = Math.hypot((tx + 9.5) / 3.6, (ty - 3.5) / 2.2);
       if (d < 1)
-        res.push({ tx, ty, resource: ore, band: Math.max(0, Math.min(7, Math.round(7 * (1.15 - d)))) });
+        res.push({ tx, ty, resource: ore, band: Math.max(0, Math.min(7, Math.round(7 * (d - 0.15)))) });
     }
   let serial = 10;
   const ents: EntityView[] = [];

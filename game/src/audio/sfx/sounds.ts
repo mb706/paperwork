@@ -65,6 +65,9 @@ export class SoundTable {
     console.warn(msg);
   }
 
+  /** Whether `load` has finished: before that, a sound without decoded files is still on its way (C9). */
+  loaded = false;
+
   /** Loads every sound's files into the bank (the SFX load with the first frame of a game, 10 §9.7). */
   async load(files: FileLoader, priority: Priority = 'high'): Promise<void> {
     const jobs: Promise<void>[] = [];
@@ -79,6 +82,7 @@ export class SoundTable {
         );
     }
     await Promise.all(jobs);
+    this.loaded = true;
   }
 
   get(name: string): Sound | undefined {

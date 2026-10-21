@@ -4,6 +4,9 @@ export type {
   DomManifest,
   SaveEntry,
   SessionApi,
+  SoundCategory,
+  SoundSettings,
+  UiAudio,
   UiHandle,
   UiHost,
   UiHostEvents,
@@ -11,4 +14,4 @@ export type {
   UiTestHooks,
   WorldViewApi,
 } from './mount.tsx';
-export { characterFacts, mountUi } from './mount.tsx';
+export { characterFacts, mountUi, SOUND_CATEGORIES } from './mount.tsx';
