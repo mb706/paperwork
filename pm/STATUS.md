@@ -52,7 +52,7 @@ The Schema package is split into sequential parts: C1a (scaffold, CI, data stage
 | C2 | Rust sim (det, worldgen, sim, simabi, genabi, simtool), phases C2a, C2b, C2c | C2a done (6051307) and its r1 fixes (9441d2f). C2b done, with its r1 fixes (e0810f4). C3 merged into dev (4c9321b). **C2c done** (11b99ec..a6bbd2b): every golden packet, projection, query and ABI trace passes natively and in WASM; the M0 benchmarks meet the reference thresholds; `npm run ci` takes 79.5 s. Codex C2c-r1's 11 findings fixed (40614b5..7e3d417); ci is green in 86 s with the benchmark gate. **The Sim package is done for M0** |
 | C8 | M0 integration, test harness, benchmarks, dev endpoints, exit QA | **done**: every M0 exit criterion passes; CI green 3×; C5 merged (76f740f). The codex M0-exit audit FAILED on evidence strength (6 major, 4 minor), and C9 is fixing it |
 | C9 | M0 closeout: audio on the game page, `ci:fast`, the ore-grid fix, the audit's fixes, the `m0` tag, a preview on :4173 | running (main tree) |
-| D1 | M1 data readiness: typed design data, the M1 engine overlay, the M1 capability manifest | done and merged (0c975e3, golden v8). Codex D1-r1 found 8 issues, all fixed against factorio-data 2.0.77 and merged (1366350); the golden v9 bump is running |
+| D1 | M1 data readiness: typed design data, the M1 engine overlay, the M1 capability manifest | done and merged (0c975e3, golden v8). Codex D1-r1 found 8 issues, all fixed against factorio-data 2.0.77 and merged (1366350); golden v9 (39b9e8e) |
 | plan | M1 work-package plan | adopted: `pm/plans/M1-plan.md` (24 packages, 15 waves at 2 agents) |
 | C3 | Sim worker shell, worldgen and IO workers | done, on a branch (8 commits). The golden 3,600-tick log replays with every digest equal (via the reference model); the tick path allocates 0 bytes. All 16 r1 findings fixed (26 regression tests). `full-abi` is the default; main.ts is a composition root through app.ts. **C2 merges it into dev** once its own tree is clean (they overlap in simabi and genabi). It edited shared `src/app/main.ts` and `src/shared/protocol.ts`, so expect merge conflicts with C4 and C5 |
 | C5 | UI and input v0 (Factorio UI and keybindings, Survey skin) | done, on a branch (4 commits; 62 Vitest and 13 Playwright tests). Codex r1: 19 of 20 fixed (#9 chained craft counts deferred to M1). The full flow works on the real sim, and the hash after load matches. **C8 merges it into dev.** 22 proposed strings await the text owner. Earlier open items: Load cannot load a fake save; the e2e port 5191 collides between worktrees |
@@ -74,3 +74,8 @@ The Schema package is split into sequential parts: C1a (scaffold, CI, data stage
 - C3's `real.test.ts` can stop skipping C2c's exports.
 - The tick does not pre-regenerate around characters (extraction fills 8 chunks per packet); revisit for M1 movement speed.
 - Worktree hygiene: merged worktrees were removed on 2026-10-21 (19 GB freed). Remove each one after its review cycle completes.
+
+## Phase D: M1 (started 2026-10-21; plan in `pm/plans/M1-plan.md`)
+| WP | Topic | Status |
+|---|---|---|
+| M1-01 | M1 contracts and fixtures (schema, prototype fields, capability subsets, M1 reference cases) | running (worktree `m1-01`; the C1b agent) |
