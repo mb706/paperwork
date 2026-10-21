@@ -114,7 +114,7 @@ describe('terrain data (10 §6.5, §9.9)', () => {
     // resource records of 8 bytes, the tile index (y · 32 + x) at offset 0
     const res = (...tiles: number[]) => {
       const v = new DataView(new ArrayBuffer(tiles.length * 8));
-      tiles.forEach((t, i) => v.setUint16(i * 8, t, true));
+      for (const [i, t] of tiles.entries()) v.setUint16(i * 8, t, true);
       return { resourceView: v, resourceCount: tiles.length };
     };
     const own = res(0, 5 * 32 + 7, 31 * 32 + 31);
