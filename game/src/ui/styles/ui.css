@@ -412,6 +412,7 @@ button {
 
 .character-columns {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: stretch;
 }
@@ -1032,6 +1033,8 @@ button {
 
 .settings .settings-panel {
   width: 800px;
+  max-width: 100%;
+  box-sizing: border-box;
   height: min(460px, calc(100vh - 170px));
   overflow: hidden;
   display: flex;
@@ -1059,7 +1062,7 @@ button {
 }
 
 .controls-list {
-  overflow-y: auto;
+  overflow: auto;
   flex: 1;
   min-height: 0;
   padding-right: 4px;
@@ -1067,7 +1070,7 @@ button {
 
 .control-row {
   display: grid;
-  grid-template-columns: 1fr 236px 236px 24px;
+  grid-template-columns: minmax(160px, 1fr) minmax(120px, 236px) minmax(120px, 236px) 24px;
   gap: 6px;
   align-items: center;
   min-height: 28px;

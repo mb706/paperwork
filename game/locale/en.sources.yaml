@@ -1,0 +1,456 @@
+# The source of every string in en.yaml (C5-r1 16; 08 §5.1, §12): the text canon a string comes from, or that it is
+# a proposal awaiting the text owner. test/ui/locale.test.ts checks every citation against its document. Values:
+#   08 §n, 07 §n, I §n, text.yaml  the string is that document's, verbatim (letter case and a final period aside;
+#                                  __n__ stands for the document's placeholder or example);
+#   factorio n                     Factorio 2.0's own label, for the 08 §5.1 surfaces n that take Factorio's wording: 4 stat
+#                                  labels, 5 statuses ("Factorio's vocabulary"), 7 Factorio's own alerts, 23 menus and
+#                                  settings, 24 control names and keys ("renamed per §10"), 28 item groups (the data
+#                                  carries no group names yet); still to be checked against 2.0's locale by the text owner;
+#   format                         placeholders and punctuation only, no words;
+#   proposal                       C5's wording, awaiting the text owner (pm/reports/C5.md lists them).
+# Format: as en.yaml (src/ui/i18n/yaml.ts reads it).
+
+game:
+  title: 08 §3.1
+  tagline: 08 §3.1
+
+menu:
+  continue: 07 §18
+  new-game: 07 §18
+  load-game: 07 §18
+  settings: 07 §18
+  tips-and-tricks: 07 §18
+  achievements: 07 §18
+  credits: 07 §18
+  changelog: 07 §18
+  footer: 07 §18
+  footer-no-storage: 07 §18
+  game-menu: factorio 23
+  save-game: I §4.20
+  exit-to-main-menu: I §4.20
+  unsaved-progress: proposal
+  exit: factorio 23
+
+save:
+  save: factorio 23
+  failed: proposal
+
+storage:
+  other-tab: 07 §19.2
+  take-over: 07 §19.2
+
+notice:
+  trap: proposal
+
+new-game:
+  title: 07 §18
+  seed: 07 §17
+  random-seed: proposal
+  play: 07 §17
+
+load:
+  title: I §4.20
+  name: factorio 23
+  game-time: factorio 23
+  date: I §4.20
+  load: factorio 23
+  empty: proposal
+
+loading:
+  title: factorio 23
+  failed: proposal
+
+button:
+  back: factorio 23
+  confirm: factorio 23
+  cancel: factorio 23
+  close: factorio 23
+  search: factorio 23
+  reset: factorio 23
+  reset-all: factorio 23
+
+window:
+  character: factorio 23
+  crafting: factorio 23
+  production-statistics: 08 §10.1
+  settings: 07 §18
+
+settings:
+  interface: I §4.20
+  graphics: I §4.20
+  sound: I §4.20
+  controls: I §4.20
+  other: I §4.20
+  control: factorio 23
+  primary: I §1.1
+  alternative: I §1.1
+  ui-scale: I §4.20
+  ui-scale-auto: I §4.0
+  press-a-key: proposal
+  conflicts: proposal
+  reserved: I §1.5
+
+stats:
+  items: I §4.12
+  fluids: I §4.12
+  buildings: I §4.12
+  heat: 08 §10.1
+  production: I §4.12
+  consumption: I §4.12
+  per-minute: factorio 4
+  precision-0: I §4.12
+  precision-1: I §4.12
+  precision-2: I §4.12
+  precision-3: I §4.12
+  precision-4: I §4.12
+  precision-5: I §4.12
+  precision-6: I §4.12
+  precision-7: I §4.12
+  precision-8: I §4.12
+
+tooltip:
+  recipe: I §4.8
+  ingredients: I §4.8
+  products: I §4.8
+  crafting-time: I §4.8
+  craftable-now: I §4.8
+  stack-size: factorio 4
+  contents: factorio 4
+  queue-remaining: proposal
+  not-handcraftable: proposal
+
+hint:
+  craft: proposal
+  cancel-craft: proposal
+
+flying:
+  item-delta-total: format
+  item-delta: format
+
+item-group-name:
+  logistics: factorio 28
+  production: factorio 28
+  intermediate-products: factorio 28
+  combat: factorio 28
+  fluids: factorio 28
+  signals: factorio 28
+  other: factorio 28
+
+fail-reason:
+  target-gone: proposal
+  out-of-reach: I §3.1
+  inventory-full: proposal
+  not-enough-ingredients: I §3.9
+  entity-in-the-way: I §3.3
+  cannot-build-on-tile: I §3.3
+  out-of-map: proposal
+  no-item-in-hand: proposal
+  not-minable: proposal
+  nothing-to-mine: proposal
+  cannot-insert: proposal
+  nothing-to-transfer: proposal
+  recipe-locked: proposal
+  cannot-handcraft: proposal
+  compromised: 08 §8.3
+  needs-weight-transplant: 08 §8.3
+
+flying-text:
+  item-delta: format
+  rolled-back: 08 §8.3
+  swapped: 08 §8.3
+  inventory-full: I §3.7
+  cannot-put-away: I §3.2
+
+entity-status:
+  none: format
+  working: factorio 5
+  normal: factorio 5
+  no-power: factorio 5
+  low-power: factorio 5
+  no-fuel: factorio 5
+  not-plugged-in: factorio 5
+  no-recipe: factorio 5
+  item-ingredient-shortage: factorio 5
+  fluid-ingredient-shortage: factorio 5
+  full-output: factorio 5
+  waiting-for-source-items: factorio 5
+  waiting-for-space-in-destination: factorio 5
+  no-minable-resources: factorio 5
+  missing-science-packs: factorio 5
+  no-research-in-progress: factorio 5
+  marked-for-deconstruction: factorio 5
+  disabled-by-control-behavior: factorio 5
+  low-input-fluid: factorio 5
+  charging: factorio 5
+  pipeline-overextended: factorio 5
+  working-researcher: 08 §8.2
+  working-linked: 08 §8.2
+  watching: 08 §8.2
+  cleaning: 08 §8.2
+  understaffed: 08 §8.2
+  throttled-by-heat: 08 §8.2
+  no-hot-coolant: 08 §8.2
+  not-linked: 08 §8.2
+  no-staff: 08 §8.2
+  closed-to-crawlers: 08 §8.2
+  compromised: 08 §8.2
+  missing-accelerators: 08 §8.2
+  no-weights: 08 §8.2
+  no-evaluation-sets: 08 §8.2
+  no-university-in-range: 08 §8.2
+
+alert:
+  entity-destroyed: factorio 7
+  entity-under-attack: factorio 7
+  not-enough-construction-agents: factorio 7
+  no-material-for-construction: factorio 7
+  no-storage: factorio 7
+  train-out-of-fuel: factorio 7
+  fluid-mixing: factorio 7
+  thermal-throttling: 08 §8.1
+  compromised: 08 §8.1
+  no-evaluation-sets: 08 §8.1
+  closed-to-crawlers: 08 §8.1
+  escaped: 08 §8.1
+  entity-dismantled: 08 §8.1
+  being-dismantled: 08 §8.1
+  field-run: 08 §8.1
+
+keys:
+  ctrl: factorio 24
+  cmd: factorio 24
+  shift: factorio 24
+  alt: factorio 24
+  mouse-0: factorio 24
+  mouse-1: factorio 24
+  mouse-2: factorio 24
+  mouse-3: factorio 24
+  mouse-4: factorio 24
+  wheel-up: factorio 24
+  wheel-down: factorio 24
+  Escape: factorio 24
+  Tab: factorio 24
+  Space: factorio 24
+  Enter: factorio 24
+  NumpadEnter: factorio 24
+  Backspace: factorio 24
+  Pause: factorio 24
+  Backquote: factorio 24
+  Minus: factorio 24
+  Equal: factorio 24
+  BracketLeft: factorio 24
+  BracketRight: factorio 24
+  Backslash: factorio 24
+  Semicolon: factorio 24
+  Quote: factorio 24
+  Comma: factorio 24
+  Period: factorio 24
+  Slash: factorio 24
+  ArrowUp: factorio 24
+  ArrowDown: factorio 24
+  ArrowLeft: factorio 24
+  ArrowRight: factorio 24
+  PageUp: factorio 24
+  PageDown: factorio 24
+  Home: factorio 24
+  End: factorio 24
+  Insert: factorio 24
+  Delete: factorio 24
+  NumpadAdd: factorio 24
+  NumpadSubtract: factorio 24
+  NumpadMultiply: factorio 24
+  NumpadDivide: factorio 24
+  NumpadDecimal: factorio 24
+  Numpad0: factorio 24
+  Numpad1: factorio 24
+  Numpad2: factorio 24
+  Numpad3: factorio 24
+  Numpad4: factorio 24
+  Numpad5: factorio 24
+  Numpad6: factorio 24
+  Numpad7: factorio 24
+  Numpad8: factorio 24
+  Numpad9: factorio 24
+
+control-group:
+  movement: factorio 24
+  basic: factorio 24
+  advanced: factorio 24
+  crafting: factorio 24
+  inventory: factorio 24
+  quickbar: factorio 24
+  tools: factorio 24
+  panels: factorio 24
+  misc: factorio 24
+  debug: factorio 24
+  editor: factorio 24
+  ours: 08 §3.1
+
+controls:
+  move-up: factorio 24
+  move-down: factorio 24
+  move-left: factorio 24
+  move-right: factorio 24
+  open-character-gui: factorio 24
+  confirm-gui: factorio 24
+  open-gui: factorio 24
+  mine: factorio 24
+  build: factorio 24
+  build-ghost: factorio 24
+  super-forced-build: factorio 24
+  clear-cursor: factorio 24
+  pipette: factorio 24
+  rotate: factorio 24
+  reverse-rotate: factorio 24
+  flip-horizontal: factorio 24
+  flip-vertical: factorio 24
+  pick-items: factorio 24
+  drop-cursor: factorio 24
+  show-info: factorio 24
+  hide-tall-entities: factorio 24
+  shoot-enemy: factorio 24
+  shoot-selected: factorio 24
+  next-weapon: factorio 24
+  toggle-driving: factorio 24
+  zoom-in: factorio 24
+  zoom-out: factorio 24
+  use-item: factorio 24
+  alternative-use-item: factorio 24
+  toggle-console: factorio 24
+  copy-entity-settings: factorio 24
+  paste-entity-settings: factorio 24
+  controller-gui-logistics-tab: factorio 24
+  controller-gui-character-tab: factorio 24
+  controller-gui-crafting-tab: factorio 24
+  toggle-rail-layer: factorio 24
+  select-for-blueprint: factorio 24
+  select-for-cancel-deconstruct: factorio 24
+  select-for-super-forced-deconstruct: factorio 24
+  reverse-select: factorio 24
+  alt-reverse-select: factorio 24
+  deselect: factorio 24
+  cycle-blueprint-forwards: factorio 24
+  cycle-blueprint-backwards: factorio 24
+  focus-search: factorio 24
+  larger-terrain-building-area: factorio 24
+  smaller-terrain-building-area: factorio 24
+  remove-pole-cables: factorio 24
+  build-with-obstacle-avoidance: factorio 24
+  add-station: factorio 24
+  add-temporary-station: factorio 24
+  rename-all: factorio 24
+  fast-wait-condition: factorio 24
+  drag-map: factorio 24
+  move-tag: factorio 24
+  place-in-chat: factorio 24
+  place-ping: factorio 24
+  pin: factorio 24
+  activate-tooltip: factorio 24
+  next-surface: factorio 24
+  previous-surface: factorio 24
+  cycle-quality-up: factorio 24
+  cycle-quality-down: factorio 24
+  scroll-tooltip-up: factorio 24
+  scroll-tooltip-down: factorio 24
+  visualize-entity-fluid-segments: factorio 24
+  craft: factorio 24
+  craft-5: factorio 24
+  craft-all: factorio 24
+  cancel-craft: factorio 24
+  cancel-craft-5: factorio 24
+  cancel-craft-all: factorio 24
+  pick-item: factorio 24
+  stack-transfer: factorio 24
+  inventory-transfer: factorio 24
+  fast-entity-transfer: factorio 24
+  cursor-split: factorio 24
+  stack-split: factorio 24
+  inventory-split: factorio 24
+  fast-entity-split: factorio 24
+  toggle-filter: factorio 24
+  open-item: factorio 24
+  copy-inventory-filter: factorio 24
+  paste-inventory-filter: factorio 24
+  quick-bar-button: factorio 24
+  quick-bar-button-secondary: factorio 24
+  action-bar-select-page: factorio 24
+  rotate-active-quick-bars: factorio 24
+  next-active-quick-bar: factorio 24
+  previous-active-quick-bar: factorio 24
+  copy: factorio 24
+  cut: factorio 24
+  paste: factorio 24
+  cycle-clipboard-forwards: factorio 24
+  cycle-clipboard-backwards: factorio 24
+  undo: factorio 24
+  redo: factorio 24
+  give-blueprint: factorio 24
+  give-blueprint-book: factorio 24
+  give-deconstruction-planner: factorio 24
+  give-upgrade-planner: factorio 24
+  give-copper-wire: factorio 24
+  give-red-wire: factorio 24
+  give-green-wire: factorio 24
+  give-spidertron-remote: factorio 24
+  give-artillery-targeting-remote: factorio 24
+  give-discharge-defense-remote: factorio 24
+  toggle-personal-roboport: factorio 24
+  toggle-personal-logistic-requests: factorio 24
+  toggle-equipment-movement-bonus: factorio 24
+  toggle-menu: factorio 24
+  toggle-map: factorio 24
+  open-technology-gui: factorio 24
+  production-statistics: factorio 24
+  logistic-networks: factorio 24
+  toggle-blueprint-library: factorio 24
+  open-trains-gui: factorio 24
+  open-factoriopedia: factorio 24
+  back: factorio 24
+  forward: factorio 24
+  pause-game: factorio 24
+  confirm-message: factorio 24
+  previous-mod: factorio 24
+  connect-train: factorio 24
+  disconnect-train: factorio 24
+  submit-feedback: factorio 24
+  next-player-in-replay: factorio 24
+  move-blueprint-absolute-grid-up: factorio 24
+  move-blueprint-absolute-grid-down: factorio 24
+  move-blueprint-absolute-grid-left: factorio 24
+  move-blueprint-absolute-grid-right: factorio 24
+  move-blueprint-entities-up: factorio 24
+  move-blueprint-entities-down: factorio 24
+  move-blueprint-entities-left: factorio 24
+  move-blueprint-entities-right: factorio 24
+  toggle-blueprint-snap-to-grid: factorio 24
+  play-next-track: factorio 24
+  play-previous-track: factorio 24
+  pause-resume-music: factorio 24
+  debug-toggle-gui-visibility: factorio 24
+  debug-toggle-debug-settings: factorio 24
+  debug-toggle-basic: factorio 24
+  debug-reset-zoom: factorio 24
+  debug-reset-zoom-2x: factorio 24
+  debug-toggle-atlas-gui: factorio 24
+  toggle-gui-debug: factorio 24
+  toggle-gui-style-view: factorio 24
+  toggle-gui-shadows: factorio 24
+  toggle-gui-glows: factorio 24
+  open-prototypes-gui: factorio 24
+  open-prototype-explorer-gui: factorio 24
+  increase-ui-scale: factorio 24
+  decrease-ui-scale: factorio 24
+  reset-ui-scale: factorio 24
+  slash-editor: factorio 24
+  toggle-entity: factorio 24
+  editor-speed-up: factorio 24
+  editor-speed-down: factorio 24
+  editor-reset-speed: factorio 24
+  editor-tick-once: factorio 24
+  editor-toggle-pause: factorio 24
+  give-rate-calculator: factorio 24
+  toggle-status-lights: factorio 24
+  open-world: factorio 24
+  toggle-world-strip: factorio 24
+  open-milestones: factorio 24
+  open-university: factorio 24

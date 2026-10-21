@@ -12,7 +12,7 @@ import { EN, fill, formatCount, formatDuration } from '../../src/ui/i18n/locale.
 import { flattenLocale, LocaleSyntaxError, parseLocaleYaml } from '../../src/ui/i18n/yaml.ts';
 import { CONTROLS, GROUPS } from '../../src/ui/input/controls.ts';
 import { controlNameKey } from '../../src/ui/input/names.ts';
-import { GAME, SPEC } from '../helpers/paths.ts';
+import { GAME, REPO, SPEC } from '../helpers/paths.ts';
 
 const TEXT = readFileSync(join(GAME, 'locale', 'en.yaml'), 'utf8');
 
@@ -82,6 +82,76 @@ describe('locale/en.yaml', () => {
     for (const [k, v] of EN) {
       expect(v, k).not.toMatch(/!|…|\.\.\./);
       expect(v, k).not.toMatch(/\byou(r)?\b/i);
+    }
+  });
+});
+
+// C5-r1 16: where each string comes from (locale/en.sources.yaml). A citation of a document is checked against the
+// cited section of it; Factorio's own labels only for the surfaces 08 §5.1 gives Factorio's wording; everything
+// else is a proposal for the text owner, marked as such.
+describe('locale/en.sources.yaml: every string has its source (08 §5.1, §12; C5-r1 16)', () => {
+  const SOURCES = flattenLocale(
+    parseLocaleYaml(readFileSync(join(GAME, 'locale', 'en.sources.yaml'), 'utf8')),
+  );
+  const DOCS: Record<string, string> = {
+    '08': readFileSync(join(SPEC, '08-text.md'), 'utf8'),
+    '07': readFileSync(join(SPEC, '07-ui.md'), 'utf8'),
+    I: readFileSync(join(REPO, 'design', 'round1', 'I-ui-controls.md'), 'utf8'),
+  };
+  const TEXT_YAML = readFileSync(join(SPEC, 'data', 'text.yaml'), 'utf8');
+  /** A document's section: from its heading (## n. / ### n …) to the next heading of its level or above. */
+  const section = (doc: string, n: string): string | null => {
+    const lines = doc.split('\n');
+    const head = new RegExp(`^(#{2,4}) ${n.replace(/\./g, '\\.')}[. ]`);
+    const at = lines.findIndex((l) => head.test(l));
+    if (at < 0) return null;
+    const level = (head.exec(lines[at] as string)?.[1] ?? '').length;
+    const end = lines.findIndex(
+      (l, i) => i > at && /^#{1,6} /.test(l) && (/^#+/.exec(l)?.[0].length ?? 9) <= level,
+    );
+    return lines.slice(at + 1, end < 0 ? undefined : end).join('\n');
+  };
+  /** The string as a pattern: case aside, a final period optional, __n__ any short text. */
+  const pattern = (s: string): RegExp =>
+    new RegExp(
+      s
+        .replace(/\.$/, '')
+        .split(/__\d+__/)
+        .map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('.{1,40}?'),
+      'i',
+    );
+  const FACTORIO = new Set(['4', '5', '7', '23', '24', '28']);
+
+  it('names a source for every string, and no other', () => {
+    expect([...SOURCES.keys()].sort()).toEqual([...EN.keys()].sort());
+  });
+
+  it('cites each document within the section it names', () => {
+    const wrong: string[] = [];
+    for (const [key, src] of SOURCES) {
+      const s = EN.get(key) ?? '';
+      const doc = /^(08|07|I) §([\d.]+)$/.exec(src);
+      if (doc) {
+        const body = section(DOCS[doc[1] as string] as string, doc[2] as string);
+        if (body === null || !pattern(s).test(body)) wrong.push(`${key}: "${s}" not in ${src}`);
+      } else if (src === 'text.yaml') {
+        if (!pattern(s).test(TEXT_YAML)) wrong.push(`${key}: "${s}" not in text.yaml`);
+      } else if (src === 'format') {
+        if (/\p{L}/u.test(s)) wrong.push(`${key}: "${s}" has words`);
+      } else if (/^factorio \d+$/.test(src)) {
+        if (!FACTORIO.has(src.slice(9)))
+          wrong.push(`${key}: 08 §5.1 #${src.slice(9)} takes no Factorio label`);
+      } else if (src !== 'proposal') wrong.push(`${key}: unknown source "${src}"`);
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  it('gives the surfaces 08 owns no wording of C5 or Factorio (flying text, statuses, alerts of ours)', () => {
+    for (const [key, src] of SOURCES) {
+      if (key.startsWith('flying-text.') && !['format', 'proposal'].includes(src))
+        expect(src, key).toMatch(/^(08|I) §/);
+      if (key.startsWith('fail-reason.')) expect(src, key).toMatch(/^(08 §|I §|proposal$)/);
     }
   });
 });

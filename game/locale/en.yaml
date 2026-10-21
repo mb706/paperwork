@@ -54,7 +54,7 @@ load:
   title: Load game
   name: Name
   game-time: Game time
-  date: Date
+  date: Last modified
   load: Load
   empty: No saves.
 
@@ -91,7 +91,6 @@ settings:
   press-a-key: Press a key or button
   conflicts: "Conflicts with: __1__"
   reserved: Reserved by the browser unless the game runs fullscreen with Keyboard Lock.
-  not-in-m0: Arrives with a later milestone.
 
 stats:
   items: Items
@@ -145,8 +144,8 @@ fail-reason:
   out-of-reach: Cannot reach
   inventory-full: Inventory full
   not-enough-ingredients: Not enough ingredients.
-  entity-in-the-way: __1__ in the way
-  cannot-build-on-tile: Cannot build on __1__
+  entity-in-the-way: "Can't build here: __1__ in the way"
+  cannot-build-on-tile: Can't build on __1__
   out-of-map: Cannot build outside the map
   no-item-in-hand: No item in hand
   not-minable: Cannot mine this
