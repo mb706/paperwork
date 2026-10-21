@@ -206,7 +206,10 @@ void main() {
  * position hash); crisp types skip the warp and get an inked kerb. Where the chunk has a shore texture, its signed
  * distance decides water against land, so the shoreline and the lining (lines at fixed distances, one device pixel
  * wide, fading with distance and below 0.5×) follow the same edge as the materials. The woodland tint washes under
- * tree clusters. Tile types without a material draw a wash of a near material, or a flat colour.
+ * tree clusters. Tile types without a material draw a wash of a near material, or a flat colour. Resource tiles carry
+ * the tile-id texel's high bit: their deposit lies on its own ground (uDeposit, a tile type), which wins wherever the
+ * same 0.55-tile blend of the deposit mask passes one half, so a patch's ground has the soft warped edge of any tile
+ * boundary (A3's mocks put ore on dirt; C9).
  */
 export const TERRAIN_FS = `${HEADER}
 precision highp usampler2DArray;
@@ -231,6 +234,7 @@ uniform float uShoreAlpha;
 uniform float uShorePx;
 uniform vec3 uWoodland;
 uniform float uWoodlandAlpha;
+uniform int uDeposit;
 in vec2 vLocal;
 flat in ivec2 vChunk;
 flat in ivec2 vLayers;
@@ -240,10 +244,12 @@ const int B = 3;           // the tile-id texture's border, tiles
 const float G0 = 0.72329;  // the 0.55-tile Gaussian over the tile lattice: centre, neighbours
 const float G1 = 0.13835;
 
-uint idAt(ivec2 t) {
+uint rawAt(ivec2 t) {
   ivec2 c = clamp(t + B, ivec2(0), ivec2(31 + 2 * B));
   return texelFetch(uIds, ivec3(c, vLayers.x), 0).r;
 }
+uint idAt(ivec2 t) { return rawAt(t) & 0x7fu; }
+float depositAt(ivec2 t) { return float(rawAt(t) >> 7u); }
 vec4 info(uint id) {
   return texelFetch(uTiles, ivec2(int(id), 0), 0);
 }
@@ -295,10 +301,14 @@ void main() {
     vec2 q = p - 0.5;
     ivec2 i0 = ivec2(floor(q));
     vec2 f = q - floor(q);
-    uint c0 = idAt(i0);
-    uint c1 = idAt(i0 + ivec2(1, 0));
-    uint c2 = idAt(i0 + ivec2(0, 1));
-    uint c3 = idAt(i0 + ivec2(1, 1));
+    uint r0 = rawAt(i0);
+    uint r1 = rawAt(i0 + ivec2(1, 0));
+    uint r2 = rawAt(i0 + ivec2(0, 1));
+    uint r3 = rawAt(i0 + ivec2(1, 1));
+    uint c0 = r0 & 0x7fu;
+    uint c1 = r1 & 0x7fu;
+    uint c2 = r2 & 0x7fu;
+    uint c3 = r3 & 0x7fu;
     if (vLayers.y >= 0) {
       vec2 st = (p + float(B)) * 4.0 / float(4 * (32 + 2 * B));
       vec2 s = texture(uSdf, vec3(st, float(vLayers.y))).rg;
@@ -328,6 +338,20 @@ void main() {
         if ((vLayers.y < 0 || water(c) == wantWater) && m > best) { best = m; pick = c; }
       }
       type = best >= 0.0 ? pick : (bestAny >= 0.0 ? pickAny : here);
+    }
+    // the deposit's ground: none of the four nearest tiles a deposit, the blend stays under one half (the outer
+    // ring weighs at most 0.26); all four, it passes it (they weigh at least 0.74); else the whole 4 × 4 decides
+    uint inner = (r0 >> 7u) + (r1 >> 7u) + (r2 >> 7u) + (r3 >> 7u);
+    if (uDeposit >= 0 && inner > 0u && !water(type) && !crisp(type)) {
+      float m = 1.0;
+      if (inner < 4u) {
+        m = 0.0;
+        for (int b = -1; b <= 2; b++) {
+          float wy = w4(b, f.y);
+          for (int a = -1; a <= 2; a++) m += depositAt(i0 + ivec2(a, b)) * w4(a, f.x) * wy;
+        }
+      }
+      if (m > 0.5) type = uint(uDeposit);
     }
   }
   vec4 ti = info(type);

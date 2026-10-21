@@ -27,7 +27,8 @@ kind 'inserter':
 kind 'resource':
     META: shapes, bands (8), margin, ink, height
     build(P, shape) -> list of pieces in removal order (the last removed first is the list's end);
-    pieces(band, n) -> how many of the n pieces band 0-7 keeps (band 7 is the full pile)
+    pieces(band, n) -> how many of the n pieces band 0-7 keeps: band 0 is the full pile (CHUNK_RESOURCES.band in
+    Factorio's stage order, the golden model's rule 24: band 0 the richest tile, band 7 the poorest)
 kind 'object' (trees, rocks, decoratives, town buildings; 10 §15.7's `object` program):
     META: size (w, h tiles of its footprint, default 1 x 1), height (m), shapes (pictures the position hash picks
           from, default 1), stages (default 1; trees 5: the leaf stages left, 0 bare to 4 full), shadow_stage

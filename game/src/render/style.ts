@@ -86,6 +86,11 @@ export const TERRAIN = {
   woodlandAlpha: 0.3,
   woodlandRadiusTiles: 1.6,
   woodlandBlurTiles: 0.6,
+  /**
+   * The ground a resource deposit lies on (A3's mocks put every resource tile on dirt, `design/art/proto/layouts.py`):
+   * resource tiles draw this tile type's material, blended into their neighbours like any soft boundary (C9).
+   */
+  depositTile: 'dirt',
 } as const;
 
 /** Tile types with crisp edges (10 §6.5): town streets and blocks, the concretes, the map's edge. */

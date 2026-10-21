@@ -51,13 +51,13 @@ def build_scene(man):
     """Draw calls: (layer, sort y, x, kind, args)."""
     calls = []
     sets = man['sets']
-    # the iron-ore patch: bands fall off from its centre
+    # the iron-ore patch: richest at its centre (band 0, Factorio's stage order: rule 24), thinner toward its edge
     if 'resource/iron-ore-patch' in sets:
         for ty in range(1, 7):
             for tx in range(-13, -5):
                 d = math.hypot((tx + 9.5) / 3.6, (ty - 3.5) / 2.2)
                 if d < 1.0:
-                    band = int(max(0, min(7, round(7 * (1.15 - d)))))
+                    band = int(max(0, min(7, round(7 * (d - 0.15)))))
                     calls.append(('ground', ty, tx, 'resource', dict(tx=tx, ty=ty, band=band)))
     # a belt loop: east along y = 0, up and back west along y = -2, fed and ending with caps
     belt = 'entity/transport-belt'

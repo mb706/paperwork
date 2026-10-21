@@ -8,6 +8,8 @@
 //     water mask the shader's material choice uses, located to a fraction of a texel and propagated by nearest-seed
 //     transforms (a two-pass chamfer that carries the nearest boundary point, so distances are Euclidean). Chunks
 //     with neither water nor trees within reach skip it.
+// The tile-id texture's high bit marks a resource tile (`markDeposits`): the shader draws the deposit's ground under a
+// patch (TERRAIN.depositTile, A3's mocks; C9). Tile ids are dense and fewer than 128, so the bit is free.
 
 import { CHUNK_TILES } from './projection.ts';
 import { TERRAIN } from './style.ts';
@@ -55,6 +57,45 @@ export function buildIds(src: TileSource, cx: number, cy: number, out: Uint8Arra
     }
   }
   return complete;
+}
+
+/** The bit of a tile-id texel that marks a resource tile (the deposit's ground, `markDeposits`). */
+export const DEPOSIT_BIT = 0x80;
+
+/** A chunk's resource tiles: `count` records of `size` bytes, each with its tile index (u16, y · 32 + x) at `tileAt`. */
+export interface ResourceTiles {
+  readonly resourceView: DataView;
+  readonly resourceCount: number;
+}
+/** A held chunk's resources by chunk coordinates (null: not held). */
+export type ResourceSource = (cx: number, cy: number) => ResourceTiles | null;
+
+/**
+ * Sets DEPOSIT_BIT on every texel of `ids` (38 × 38, from `buildIds`) whose tile holds a resource, the chunk's own
+ * and its neighbours' within the border. `size` and `tileAt` are the resource record's size and its tile field's
+ * offset (§15.4 CHUNK_RESOURCES).
+ */
+export function markDeposits(
+  src: ResourceSource,
+  cx: number,
+  cy: number,
+  ids: Uint8Array,
+  size: number,
+  tileAt: number,
+): void {
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++) {
+      const c = src(cx + dx, cy + dy);
+      if (c === null || c.resourceCount === 0) continue;
+      const v = c.resourceView;
+      for (let i = 0; i < c.resourceCount; i++) {
+        const tile = v.getUint16(i * size + tileAt, true);
+        const x = dx * CHUNK_TILES + (tile & 31) + ID_BORDER;
+        const y = dy * CHUNK_TILES + (tile >> 5) + ID_BORDER;
+        if (x < 0 || y < 0 || x >= ID_SIZE || y >= ID_SIZE) continue;
+        ids[y * ID_SIZE + x] = (ids[y * ID_SIZE + x] as number) | DEPOSIT_BIT;
+      }
+    }
 }
 
 /** Scratch for `buildShore` (one per renderer; nothing allocates per chunk). */

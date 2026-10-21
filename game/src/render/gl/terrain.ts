@@ -8,16 +8,21 @@
 // it reuses); they grow when the held chunks need more layers (the old layers copied on the GPU), up to the GPU's
 // layer limit, and past it visible chunks take the layers of chunks out of view, least recently drawn first. A chunk
 // that could not get a shore layer stays pending and is tried again.
+//
+// C9: a resource deposit lies on its own ground (TERRAIN.depositTile, A3's mocks): the tile-id texels of resource
+// tiles carry DEPOSIT_BIT, and the shader blends that ground into its neighbours as it blends tile types.
 
+import { ResourceViewCodec } from '../../shared/gen/packet.ts';
 import type { JsonTile } from '../../shared/gen/protos.ts';
 import type { ChunkView, Mirror } from '../mirror.ts';
-import { chunkId, OV } from '../mirror.ts';
+import { chunkId, OV, RV } from '../mirror.ts';
 import { type Camera, CHUNK_TILES, scaleOf } from '../projection.ts';
 import { CRISP_TILES, hex, PAPER_TONE, TERRAIN, TILE_FALLBACK, WATER_TILES } from '../style.ts';
 import {
   buildIds,
   buildShore,
   ID_SIZE,
+  markDeposits,
   needsShore,
   SHORE_BORDER,
   SHORE_SIZE,
@@ -94,6 +99,8 @@ export class TerrainPass {
 
   /** Per tree species: 1 when the atlas can draw it (an undrawable tree tints no woodland). */
   private readonly treeDrawable: Uint8Array;
+  /** The tile id drawn under resource deposits (TERRAIN.depositTile), or −1 (no such tile, or ids ≥ 128). */
+  readonly depositType: number;
 
   constructor(
     gl: WebGL2RenderingContext,
@@ -110,6 +117,9 @@ export class TerrainPass {
     this.idCapacity = Math.min(idCapacity, this.maxLayers);
     this.shoreCapacity = Math.min(shoreCapacity, this.maxLayers);
     this.prog = createProgram(gl, TERRAIN_VS, TERRAIN_FS, 'terrain');
+    // the deposit bit needs every tile id below 128 (the texel's high bit)
+    this.depositType =
+      tileProtos.length <= 128 ? tileProtos.findIndex((t) => t.name === TERRAIN.depositTile) : -1;
     // the uniforms that never change, once (they live in the program object; per frame they would box doubles)
     const p = this.prog.u;
     gl.useProgram(this.prog.program);
@@ -130,6 +140,7 @@ export class TerrainPass {
     if (p.uSdf) gl.uniform1i(p.uSdf, 1);
     if (p.uMats) gl.uniform1i(p.uMats, 2);
     if (p.uTiles) gl.uniform1i(p.uTiles, 3);
+    if (p.uDeposit) gl.uniform1i(p.uDeposit, this.depositType);
     gl.useProgram(null);
     const tiles = gl.createTexture();
     const vao = gl.createVertexArray();
@@ -234,6 +245,9 @@ export class TerrainPass {
   private mirrorNow: Mirror | null = null;
   private readonly tilesOf = (x: number, y: number): Uint8Array | null =>
     this.mirrorNow?.chunks.get(chunkId(x, y))?.tiles ?? null;
+  /** Resources of chunk (x, y) from the mirror (the deposit's ground). */
+  private readonly resourcesOf = (x: number, y: number): ChunkView | null =>
+    this.mirrorNow?.chunks.get(chunkId(x, y)) ?? null;
 
   /** Held chunks whose shore texture is missing or stale (tests wait for 0 before a screenshot). */
   pending = 0;
@@ -252,6 +266,8 @@ export class TerrainPass {
     const sig = this.signature(mirror, c);
     if (sig !== slot.sig || slot.sig === 0) {
       buildIds(this.tilesOf, c.cx, c.cy, this.idBuf);
+      if (this.depositType >= 0)
+        markDeposits(this.resourcesOf, c.cx, c.cy, this.idBuf, ResourceViewCodec.SIZE, RV.tile);
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.ids);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       gl.texSubImage3D(
