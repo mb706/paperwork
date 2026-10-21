@@ -1,9 +1,11 @@
 // The release smoke (C1a-r1 finding 12): the production bundle in dist/ (npm run build), served by
-// `vite preview` with its compressed siblings, in Chrome for Testing. Run: playwright test -c this file.
+// `vite preview` with its compressed siblings, in Chrome for Testing. Run: playwright test -c this file. The server
+// takes PW_RELEASE_PORT, or a free port (scripts/free-port.ts, C8).
 import { homedir } from 'node:os';
 import { defineConfig } from '@playwright/test';
+import { portFromEnv } from './scripts/free-port.ts';
 
-const port = Number(process.env.PW_RELEASE_PORT ?? 5193);
+const port = portFromEnv('PW_RELEASE_PORT');
 
 export default defineConfig({
   testDir: 'e2e',

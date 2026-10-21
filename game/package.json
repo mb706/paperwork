@@ -16,8 +16,10 @@
     "gen": "node scripts/schema-gen.ts",
     "check": "node scripts/ci.ts check",
     "test": "node scripts/ci.ts test",
+    "test:slow": "node scripts/ci.ts slow",
     "e2e": "playwright test",
     "ci": "node scripts/ci.ts ci",
+    "bench:ab": "node bench/ab.ts",
     "check-arch": "node scripts/check-arch.ts",
     "format": "biome check --write ."
   },

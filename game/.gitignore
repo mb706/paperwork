@@ -10,3 +10,7 @@ playwright-report/
 public/atlases/
 public/sheets/
 public/fonts/
+# The dev server's endpoints (10 §3.5): bug reports and screenshots from the user's session (bench/user-results/
+# is kept: bench.html's results are small and the host factor's evidence)
+bench/reports/
+bench/shots/

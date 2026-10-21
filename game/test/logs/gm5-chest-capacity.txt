@@ -1,0 +1,1 @@
+gm5-chest-capacity ticks 0..4 state 7241d9dfce568c59 r 41d219a68a6c6787

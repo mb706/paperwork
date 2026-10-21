@@ -1,0 +1,5 @@
+# The chest-capacity golden (C8; 10 §10.3): a full chest of plates (32 stacks of 100) and an empty one.
+# legend: F=iron-chest:items=iron-plate*3200  E=iron-chest
+@ F
+. .
+. E

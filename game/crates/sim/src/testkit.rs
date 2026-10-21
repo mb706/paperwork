@@ -14,10 +14,12 @@
 //! over it (sequencer.rs, scenario.rs).
 
 pub mod bench;
+pub mod layout;
+pub mod multi;
 mod scenario;
 mod sequencer;
 
-pub use scenario::{Recorded, Scenario};
+pub use scenario::{ItemStats, LayoutOpts, Recorded, Scenario};
 pub use sequencer::TestSequencer;
 
 use crate::context::SimContext;

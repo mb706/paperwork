@@ -1,0 +1,3 @@
+# The chest-mining golden (C8; 10 §10.3): one empty iron chest two tiles east of the spawn point.
+# legend: C=iron-chest
+@ . C

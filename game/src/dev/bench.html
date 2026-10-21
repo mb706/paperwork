@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Paperwork · bench</title>
+    <link rel="icon" href="data:," />
+    <style>
+      /* The benchmark page (10 §10.6; C8): Survey's paper and ink (A3 §3.1), as the other dev pages. */
+      :root {
+        --paper: #ece3cb;
+        --ink: #2b2723;
+        --rule: #b9ab88;
+        --warm: #8a3b12;
+        --ok: #2f5d3a;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+        font-size: 14px;
+      }
+      main {
+        max-width: 72rem;
+        margin: 2rem auto;
+        padding: 0 1rem 4rem;
+      }
+      h1 {
+        font-size: 1.6rem;
+        font-weight: 600;
+        margin: 0 0 0.25rem;
+      }
+      p {
+        max-width: 48rem;
+        line-height: 1.45;
+      }
+      h2 {
+        font-size: 0.85rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin: 1.5rem 0 0.5rem;
+        border-top: 1px solid var(--rule);
+        padding-top: 0.5rem;
+      }
+      button {
+        font: inherit;
+        background: transparent;
+        border: 1px solid var(--ink);
+        padding: 0.25rem 0.7rem;
+        margin: 0 0.3rem 0.3rem 0;
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--ink);
+        color: var(--paper);
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      table {
+        border-collapse: collapse;
+        margin: 0.25rem 0 0.75rem;
+        font-variant-numeric: tabular-nums;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 0.15rem 0.8rem 0.15rem 0;
+        border-bottom: 1px solid var(--rule);
+        vertical-align: top;
+      }
+      th {
+        font-weight: 600;
+      }
+      td.num {
+        text-align: right;
+      }
+      .met {
+        color: var(--ok);
+      }
+      .missed {
+        color: var(--warm);
+        font-weight: 600;
+      }
+      #status {
+        font-family: "IBM Plex Mono", Menlo, monospace;
+        white-space: pre-wrap;
+      }
+      pre {
+        font-family: "IBM Plex Mono", Menlo, monospace;
+        font-size: 12px;
+        max-height: 20rem;
+        overflow: auto;
+        border: 1px solid var(--rule);
+        padding: 0.5rem;
+      }
+      #stage {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 1920px;
+        height: 1080px;
+        border: 0;
+        z-index: 10;
+        background: var(--paper);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Paperwork benchmark</h1>
+      <p>
+        This page measures the game on this machine: the simulation's M0 scenarios in a worker (WebAssembly, as in
+        the game), whether this browser computes the simulation bit for bit as the native build does, the renderer's
+        frame cost on the frame-budget scenes, the audio engine's offline render load, and the GPU's texture
+        formats. It takes about two minutes; keep the tab in front, and leave the machine idle meanwhile. The
+        results go to the dev server (<code>bench/user-results/</code>), where they calibrate the host's numbers.
+      </p>
+      <div>
+        <button type="button" id="all" class="primary">Run everything</button>
+        <button type="button" id="sim">Simulation</button>
+        <button type="button" id="det">Determinism</button>
+        <button type="button" id="render">Render</button>
+        <button type="button" id="audio">Audio</button>
+        <button type="button" id="gpu">GPU</button>
+        <button type="button" id="send">Send results</button>
+      </div>
+      <div id="status" data-testid="bench-status">idle</div>
+      <h2>Machine</h2>
+      <div id="machine"></div>
+      <h2>Simulation (10 §10.6; reference-machine thresholds)</h2>
+      <div id="out-sim"></div>
+      <h2>Determinism (D18 d: every d_t against the native recording)</h2>
+      <div id="out-det"></div>
+      <h2>Render (10 §6.12, 1920 × 1080)</h2>
+      <div id="out-render"></div>
+      <h2>Audio (10 §9.4: offline render load at 32 kHz)</h2>
+      <div id="out-audio"></div>
+      <h2>GPU (10 §9.2's format probe)</h2>
+      <div id="out-gpu"></div>
+      <h2>Results</h2>
+      <pre id="json" data-testid="bench-json"></pre>
+    </main>
+    <script type="module" src="./bench.ts"></script>
+  </body>
+</html>

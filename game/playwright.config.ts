@@ -1,10 +1,12 @@
 // Playwright (10 §10.5): Chrome for Testing 156 from the host install (SwiftShader WebGL2), Firefox 157 from
 // Playwright's own cache with `?render=none` (no WebGL2 in headless Firefox here). The suite starts its own
-// dev server on a test port, so it never collides with a server the user tunnels into on 5173.
+// dev server on a free port (PW_PORT if set, else the OS's choice; scripts/free-port.ts), so it never collides with a
+// server the user tunnels into on 5173, nor with another worktree's run (C8).
 import { homedir } from 'node:os';
 import { defineConfig } from '@playwright/test';
+import { portFromEnv } from './scripts/free-port.ts';
 
-const port = Number(process.env.PW_PORT ?? 5191);
+const port = portFromEnv('PW_PORT');
 
 export default defineConfig({
   testDir: 'e2e',

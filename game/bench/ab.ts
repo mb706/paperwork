@@ -3,10 +3,13 @@
 // so turbo windows and load drift hit both alike; the result is the paired ratio (this tree ÷ base) per metric,
 // its median and its spread, with each run's clock flags. Run it pinned:
 //
-//   taskset -c 0-15 node bench/ab.ts --base <rev> [--scenario NAME|all] [--pairs N] [--quick]
+//   taskset -c 0-15 node bench/ab.ts --base <rev> [--scenario NAME|all] [--pairs N] [--quick] [--runner native|chrome|firefox]
 //
 // The base is checked out as a git worktree under target/ab/<rev>, and both simtools are built in the
 // `wasmdev` profile (release semantics, incremental); the base must be a revision whose simtool has `--json`.
+// `--runner chrome|firefox` (C8) compares the two trees' sim.wasm instead (the `wasmdev` profile without simcheck,
+// as the Node runner's), in one browser session: bench.html's A/B mode (e2e/bench.spec.ts with BENCH_AB), every
+// scenario of both modules within each pair, in alternating order, with this host's clocks sampled meanwhile.
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -18,10 +21,13 @@ const opt = (k: string, d: string): string => {
 };
 const base = opt('--base', '');
 if (!base) {
-  console.error('usage: node bench/ab.ts --base <rev> [--scenario NAME|all] [--pairs N] [--quick]');
+  console.error(
+    'usage: node bench/ab.ts --base <rev> [--scenario NAME|all] [--pairs N] [--quick] [--runner native|chrome|firefox]',
+  );
   process.exit(2);
 }
 const scenario = opt('--scenario', 'all');
+const runner = opt('--runner', 'native');
 const pairs = Number(opt('--pairs', '5'));
 const quick = args.includes('--quick');
 const game = resolve(import.meta.dirname, '..');
@@ -44,6 +50,46 @@ const build = (dir: string, target: string): string => {
   });
   return join(target, 'wasmdev', 'simtool');
 };
+if (runner === 'chrome' || runner === 'firefox') {
+  // Both trees' sim.wasm (wasmdev, no simcheck), then bench.html's A/B mode in one browser session.
+  const wasm = (dir: string, target: string): string => {
+    sh(
+      'cargo',
+      [
+        'build',
+        '--locked',
+        '--quiet',
+        '--profile',
+        'wasmdev',
+        '--target',
+        'wasm32-unknown-unknown',
+        '-p',
+        'simabi',
+      ],
+      dir,
+      { ...process.env, CARGO_TARGET_DIR: target },
+    );
+    return join(target, 'wasm32-unknown-unknown', 'wasmdev', 'simabi.wasm');
+  };
+  console.error(`building sim.wasm at ${rev} and in this tree…`);
+  const a = wasm(join(tree, 'game'), join(game, 'target', 'ab', `${rev}-target`));
+  const b = wasm(game, join(game, 'target', 'bench'));
+  execFileSync(
+    'npx',
+    ['playwright', 'test', 'e2e/bench.spec.ts', '--project', runner, '--reporter', 'list'],
+    {
+      cwd: game,
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        BENCH_AB: `${a},${b}`,
+        BENCH_PAIRS: String(pairs),
+        BENCH_QUICK: quick ? '1' : '0',
+      },
+    },
+  );
+  process.exit(0);
+}
 console.error(`building simtool at ${rev} and in this tree…`);
 const bins = {
   A: build(join(tree, 'game'), join(game, 'target', 'ab', `${rev}-target`)),

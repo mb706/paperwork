@@ -12,7 +12,11 @@
 #[allow(dead_code)]
 #[path = "../core/common.rs"]
 mod common;
+mod cross_engine;
+mod d18f_multi_client;
 mod fuzz;
+mod golden_ratios;
+mod goldens;
 mod helpers;
 mod m0;
 mod r23_r27;

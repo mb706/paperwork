@@ -16,6 +16,9 @@
       "!**/test-results",
       "!**/playwright-report",
       "!test/golden/m0",
+      "!bench/reports",
+      "!bench/shots",
+      "!bench/user-results",
       "!src/assets/worker/basis",
       "!package-lock.json"
     ]

@@ -4,6 +4,7 @@
 // gates as `simtool bench` (scenarios.json carries both): a full run checks §10.6's thresholds, `--quick` (`ci`'s
 // budget gate) the tails, on the reference machine × the host factor. The main thread samples the pinned cores'
 // clocks while a scenario runs and flags turbo. Results go to bench/history.jsonl ("runner": "node wasm").
+// The runner core is shared with the browser runner (bench.html's worker): src/dev/bench/sim-core.ts (C8).
 //
 //   node bench/node-runner.ts [--scenarios DIR] [--module sim.wasm] [--quick] [--json] [--no-history]
 //
@@ -14,266 +15,24 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isMainThread, parentPort, Worker, workerData } from 'node:worker_threads';
-import { closureActions } from '../src/shared/gen/actions.ts';
-import { parseClosureLog } from '../src/shared/gen/container.ts';
+import {
+  type BenchManifest as Manifest,
+  type ScenarioResult as Result,
+  runScenario,
+  type BenchScenario as Scenario,
+} from '../src/dev/bench/sim-core.ts';
 
-interface Gate {
-  metric: string;
-  limit: number;
-  unit: string;
-  floor: boolean;
-  scales: boolean;
-}
-interface Plan {
-  warmup: number;
-  timed: number;
-  reps: number;
-}
-interface Scenario {
-  name: string;
-  state: string | null;
-  log: string | null;
-  subs: string | null;
-  view: string | null;
-  full: Plan;
-  quick: Plan;
-  thresholds: Gate[];
-  budgets: Gate[];
-}
-interface Manifest {
-  host_factor: number;
-  protos: string;
-  scenarios: Scenario[];
-}
 interface Job {
   dir: string;
   module: string;
   scenario: Scenario;
   quick: boolean;
 }
-interface Result {
-  metrics: Record<string, number>;
-  allocs: number | null;
-  memory_bytes: number;
-}
-
-const STATUS_OK = 0;
-
-/** One instance of sim.wasm over §15.8's calling convention. */
-class Sim {
-  readonly e: Record<string, (...a: number[]) => number>;
-  readonly memory: WebAssembly.Memory;
-
-  constructor(module: WebAssembly.Module) {
-    const instance = new WebAssembly.Instance(module, {
-      env: { host_log: () => {}, host_panic: () => {}, host_now: () => performance.now() },
-    });
-    this.e = instance.exports as unknown as Record<string, (...a: number[]) => number>;
-    this.memory = instance.exports.memory as WebAssembly.Memory;
-  }
-
-  private put(bytes: Uint8Array): number {
-    const at = (this.e.sim_input?.(bytes.length) ?? 0) >>> 0;
-    new Uint8Array(this.memory.buffer, at, bytes.length).set(bytes);
-    return bytes.length;
-  }
-
-  status(name: string, bytes: Uint8Array): number {
-    const f = this.e[name];
-    if (!f) throw new Error(`no export ${name}`);
-    return f(this.put(bytes)) >>> 0;
-  }
-
-  must(name: string, bytes: Uint8Array): void {
-    const s = this.status(name, bytes);
-    if (s !== STATUS_OK) throw new Error(`${name}: status ${s}`);
-  }
-
-  /** An envelope export's payload (copied), or null when it failed. */
-  envelope(name: string, bytes?: Uint8Array, ...args: number[]): Uint8Array | null {
-    const f = this.e[name];
-    if (!f) throw new Error(`no export ${name}`);
-    const ptr = (bytes === undefined ? f(...args) : f(this.put(bytes))) >>> 0;
-    if (ptr === 0) return null;
-    const len = new DataView(this.memory.buffer).getUint32(ptr, true);
-    return new Uint8Array(this.memory.buffer.slice(ptr + 4, ptr + 4 + len));
-  }
-
-  allocations(): number | null {
-    const out = this.envelope('sim_allocs');
-    return out ? Number(new DataView(out.buffer).getBigUint64(0, true)) : null;
-  }
-}
-
-/** `InitInput` around prototypes.bin. */
-function initInput(protos: Uint8Array): Uint8Array {
-  const out = new Uint8Array(protos.length + 12);
-  new DataView(out.buffer).setUint32(0, protos.length, true);
-  out.set(protos, 4);
-  return out;
-}
-
-/** `LoadInput` from `sim_save`'s output: the frames as they are, no remap tables, the lineage. */
-function stateInput(state: Uint8Array): Uint8Array {
-  const out = new Uint8Array(state.length + 2);
-  out.set(state.subarray(0, state.length - 8), 0);
-  out.set(state.subarray(state.length - 8), state.length - 6);
-  return out;
-}
-
-function stats(xs: number[]): [number, number, number, number, number] {
-  const s = [...xs].sort((a, b) => a - b);
-  const n = Math.max(1, s.length);
-  const at = (q: number) => s[Math.min(n - 1, Math.floor(n * q))] ?? 0;
-  return [s.reduce((a, b) => a + b, 0) / n, at(0.5), at(0.9), at(0.99), s[s.length - 1] ?? 0];
-}
-
-function putTicks(m: Record<string, number>, prefix: string, xs: number[]): void {
-  const [mean, p50, p90, p99, max] = stats(xs);
-  Object.assign(m, {
-    [`${prefix}_mean_ms`]: mean,
-    [`${prefix}_p50_ms`]: p50,
-    [`${prefix}_p90_ms`]: p90,
-    [`${prefix}_p99_ms`]: p99,
-    [`${prefix}_max_ms`]: max,
-  });
-}
 
 /** Runs one scenario in this worker thread. */
 function run(job: Job): Result {
-  const file = (f: string) => new Uint8Array(readFileSync(join(job.dir, f)));
-  const sc = job.scenario;
-  const plan = job.quick ? sc.quick : sc.full;
   const module = new WebAssembly.Module(readFileSync(job.module));
-  const protos = file('prototypes.bin');
-  const fresh = (): Sim => {
-    const s = new Sim(module);
-    s.must('sim_init', initInput(protos));
-    return s;
-  };
-  const state = file(sc.state as string);
-  const sim = fresh();
-  sim.must('sim_load', stateInput(state));
-  const m: Record<string, number> = {};
-  const empty = new Uint8Array(0);
-  /** One tick with the shell's calls; returns its milliseconds. */
-  const tick = (closure: Uint8Array): number => {
-    const t = performance.now();
-    sim.must('sim_tick', closure);
-    const ms = performance.now() - t;
-    sim.envelope('sim_digest');
-    sim.envelope('sim_pending_chunks');
-    return ms;
-  };
-  let allocs: number | null = null;
-  const counted = (f: () => void): void => {
-    const a = sim.allocations();
-    f();
-    const b = sim.allocations();
-    if (a !== null && b !== null) allocs = (allocs ?? 0) + (b - a);
-  };
-  if (sc.name === 'm0-walk') {
-    for (let i = 0; i < plan.warmup; i++) tick(empty);
-    const times: number[] = [];
-    counted(() => {
-      for (let r = 0; r < plan.reps; r++) for (let i = 0; i < plan.timed; i++) times.push(tick(empty));
-    });
-    putTicks(m, 'tick', times);
-  } else if (sc.name === 'm0-chests-10k') {
-    const view = file(sc.view as string);
-    sim.must('sim_subscribe', file(sc.subs as string));
-    sim.envelope('sim_extract', view);
-    sim.envelope('sim_extract', view);
-    const extract = (): number => {
-      const t = performance.now();
-      if (!sim.envelope('sim_extract', view)) throw new Error('sim_extract failed');
-      return performance.now() - t;
-    };
-    for (let i = 0; i < plan.warmup; i++) {
-      tick(empty);
-      extract();
-    }
-    const times: number[] = [];
-    const extracts: number[] = [];
-    counted(() => {
-      for (let r = 0; r < plan.reps; r++)
-        for (let i = 0; i < plan.timed; i++) {
-          times.push(tick(empty));
-          extracts.push(extract());
-        }
-    });
-    putTicks(m, 'tick', times);
-    putTicks(m, 'extract', extracts);
-    const save: number[] = [];
-    const hash: number[] = [];
-    const load: number[] = [];
-    let saved: Uint8Array | null = null;
-    for (let i = 0; i < plan.reps * 5; i++) {
-      let t = performance.now();
-      saved = sim.envelope('sim_save', new Uint8Array(4));
-      save.push(performance.now() - t);
-      t = performance.now();
-      sim.envelope('sim_state_hash');
-      hash.push(performance.now() - t);
-      const other = fresh();
-      const input = stateInput(saved as Uint8Array);
-      t = performance.now();
-      other.must('sim_load', input);
-      load.push(performance.now() - t);
-    }
-    for (const [k, xs] of [
-      ['save', save],
-      ['hash', hash],
-      ['load', load],
-    ] as const) {
-      const [mean, , , , max] = stats(xs);
-      m[`${k}_ms`] = mean;
-      m[`${k}_max_ms`] = max;
-    }
-  } else if (sc.name === 'm0-codec') {
-    const log = parseClosureLog(file(sc.log as string));
-    const records = log.records.map((r) => ({
-      closure: r.closure,
-      actions: closureActions(r.closure).length,
-    }));
-    const warm = Math.min(job.quick ? 100 : 100, records.length);
-    for (const r of records.slice(0, warm)) tick(r.closure);
-    const timed = records.slice(warm, warm + plan.reps * 1000);
-    let ms = 0;
-    let actions = 0;
-    counted(() => {
-      for (const r of timed) {
-        ms += tick(r.closure);
-        actions += r.actions;
-      }
-    });
-    m.actions = actions;
-    m.apply_ms = ms;
-    m.apply_actions_per_s = actions / (ms / 1000);
-  } else if (sc.name === 'm0-load-30k') {
-    const loads: number[] = [];
-    const input = stateInput(state);
-    for (let i = 0; i < Math.max(1, plan.reps) * 2; i++) {
-      const other = fresh();
-      const t = performance.now();
-      other.must('sim_load', input);
-      loads.push(performance.now() - t);
-    }
-    const [mean, , , , max] = stats(loads);
-    m.load_ms = mean;
-    m.load_max_ms = max;
-    const log = parseClosureLog(file(sc.log as string));
-    const first = log.records[0];
-    const times: number[] = [];
-    counted(() => {
-      times.push(tick(first ? first.closure : empty));
-      for (let i = 1; i < 600; i++) times.push(tick(empty));
-    });
-    putTicks(m, 'tick', times);
-  } else {
-    throw new Error(`unknown scenario ${sc.name}`);
-  }
-  return { metrics: m, allocs, memory_bytes: sim.memory.buffer.byteLength };
+  return runScenario(module, (f) => new Uint8Array(readFileSync(join(job.dir, f))), job.scenario, job.quick);
 }
 
 if (!isMainThread) {

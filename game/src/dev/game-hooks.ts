@@ -2,7 +2,9 @@
 // the game through it whatever the frame rate: in test mode (`?test=1`) the clock stops and `step(n)` closes n
 // ticks, runs them synchronously and resolves with the tick after them, once their packet went out (§3.3); each
 // step is answered by its own reply, and steps run one after another (C3-r1 12). The simulation hooks are here;
-// the renderer and the UI register theirs (`ui`, `render`, `camera`, `loadScenario`) with `register`.
+// the renderer and the UI register theirs (`ui`, `render`, `camera`, `loadScenario`) with `register`. The dev
+// server's report and screenshot endpoints (§3.5) come with them: `report()`, `shot()` and Ctrl+Alt+F12
+// (src/dev/report.ts, C8).
 
 import type { BoundInfo, BugBundle, SimHost } from '../app/sim-host.ts';
 import { AllocStatsCodec } from '../shared/gen/abi.ts';
@@ -16,6 +18,7 @@ import {
   QueryKind,
   StateHashCodec,
 } from '../shared/gen/projections.ts';
+import { captureConsole, installReportKey, type ReportResult, sendReport, sendShot } from './report.ts';
 
 const hex16 = (v: bigint): string => v.toString(16).padStart(16, '0');
 
@@ -58,6 +61,10 @@ export interface GameHooks {
   tick(): number;
   /** *Take over* the saves from another tab (§8.2). */
   takeOver(): void;
+  /** A bug report to the dev server (`POST /__report`, §3.5): the bundle, console, screenshot; also Ctrl+Alt+F12. */
+  report(note?: string): Promise<ReportResult>;
+  /** A screenshot of the world to the dev server (`POST /__shot`, §3.5). */
+  shot(name?: string): Promise<string>;
   /** Other layers' hooks (`ui.open`, `render.frame`, `camera`, `loadScenario` …). */
   register(more: Record<string, unknown>): void;
   [key: string]: unknown;
@@ -124,6 +131,8 @@ export function gameHooks(host: SimHost): GameHooks {
     },
     tick: () => host.lastTick,
     takeOver: () => host.takeOver(),
+    report: (note) => sendReport(host, note),
+    shot: (name) => sendShot(name),
     register(more) {
       Object.assign(hooks, more);
     },
@@ -133,6 +142,8 @@ export function gameHooks(host: SimHost): GameHooks {
 
 /** Installs `window.__game` (dev builds, or `?dev=1`). */
 export function installGameHooks(host: SimHost): GameHooks {
+  captureConsole();
+  installReportKey(host);
   const hooks = gameHooks(host);
   window.__game = hooks;
   return hooks;

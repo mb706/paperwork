@@ -1,0 +1,1 @@
+gm2-hand-mining ticks 0..3652 state 84e0207e5f897cc5 r dc5526bd5fe72129

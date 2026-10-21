@@ -1,0 +1,1 @@
+gm4-mine-chest ticks 0..42 state 59cdd8e4891a4f1d r 78fbe71f09a8a6d5

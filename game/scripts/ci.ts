@@ -4,11 +4,15 @@
 //          without simcheck), the clippy bans, the data stage --check (run twice, D14), and the Python
 //          spec checks (validate_spec, render_spec --check, render_slice --check)
 //   test   cargo test (dev and ntest profiles, simcheck) and Vitest
-//   ci     check and test, then the data stage, then in parallel the e2e smoke (Chrome and Firefox) and the
-//          release path: the release WebAssembly (its build skipped when no input changed since the last
-//          green run, its feature gate always run), vite build, the bundle check and the preview smoke; then,
-//          alone so that nothing else loads the host, the benchmark budget gate (10 §10.6): `simtool bench
-//          --quick` natively and the same scenarios through sim.wasm in Node (bench/node-runner.ts)
+//   ci     check and test, then the data stage, then in parallel the e2e smoke (Chrome and Firefox, the
+//          cross-engine trace of D18 d among it: e2e/trace.spec.ts compares simtool, Node and both browsers on
+//          the golden log and a 10,000-tick session) and the release path: the release WebAssembly (its build
+//          skipped when no input changed since the last green run, its feature gate always run), vite build,
+//          the bundle check and the preview smoke; then, alone so that nothing else loads the host, the benchmark
+//          budget gate (10 §10.6): `simtool bench --quick` natively and the same scenarios through sim.wasm in
+//          Node (bench/node-runner.ts)
+//   slow   `npm run test:slow` (10 §2.3, §10.4; C8): the ignored native probes, then the cross-engine trace on every
+//          recorded session in test/logs/ in Node, Chrome and Firefox, on the dev module and on the release one
 //
 // Steps in one lane run in order (the cargo steps share target/); lanes run concurrently. In M0, "green"
 // means M0's checks and tests (the capability manifest, 10 §2.4); the cross-engine smoke trace joins with
@@ -32,6 +36,8 @@ const NODE = process.execPath;
 interface Step {
   name: string;
   cmd: string[];
+  /** Extra environment variables. */
+  env?: Record<string, string>;
   /** Skip with a note when this returns a reason. */
   skip?: () => string | null;
   /** What to run instead when skipped. */
@@ -88,6 +94,12 @@ const CARGO_TEST: Step[] = [
     cmd: ['cargo', 'test', '--workspace', '--locked', '--profile', 'ntest', '--features', 'simcheck'],
   },
 ];
+// The native side of the cross-engine trace (e2e/trace.spec.ts, D18 d) and of the budget gate: built here, in the
+// cargo lane, so the e2e lane finds it fresh (C8).
+const SIMTOOL: Step = {
+  name: 'simtool (wasmdev)',
+  cmd: ['cargo', 'build', '--locked', '--profile', 'wasmdev', '-p', 'simtool'],
+};
 const VITEST: Step = { name: 'vitest', cmd: [BIN('vitest'), 'run'] };
 
 const STAMP = join(ROOT, '.cache', 'ci', 'wasm-release.stamp.json');
@@ -161,6 +173,38 @@ const BENCH: Step[] = [
   { name: 'bench --quick (Node, wasm)', cmd: [NODE, 'bench/node-runner.ts', '--quick', '--no-history'] },
 ];
 
+// `npm run test:slow` (C8): the native probes (ignored by `cargo test`), then the cross-engine trace on every
+// session, dev and release modules (the release module built and gated first).
+const SLOW: Step[] = [
+  {
+    name: 'cargo test --ignored (ntest)',
+    cmd: [
+      'cargo',
+      'test',
+      '--workspace',
+      '--locked',
+      '--profile',
+      'ntest',
+      '--features',
+      'simcheck',
+      '--',
+      '--ignored',
+    ],
+  },
+  SIMTOOL,
+  { name: 'release wasm + feature gate', cmd: ['sh', 'scripts/wasm-release.sh'] },
+  {
+    name: 'trace: every session (dev)',
+    cmd: [BIN('playwright'), 'test', 'e2e/trace.spec.ts'],
+    env: { TRACE_SET: 'all' },
+  },
+  {
+    name: 'trace: every session (release)',
+    cmd: [BIN('playwright'), 'test', 'e2e/trace.spec.ts'],
+    env: { TRACE_SET: 'all', TRACE_MODULE: 'release' },
+  },
+];
+
 interface Result {
   name: string;
   ok: boolean;
@@ -178,7 +222,7 @@ function runStep(s: Step): Promise<Result> {
     const child = spawn(cmd, args, {
       cwd: ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, FORCE_COLOR: '0' },
+      env: { ...process.env, FORCE_COLOR: '0', ...s.env },
     });
     let out = '';
     child.stdout.on('data', (d) => {
@@ -221,15 +265,17 @@ async function main(): Promise<number> {
   if (mode === 'check') results = await runLanes([...CHECK, CARGO_CHECK]);
   else if (mode === 'test') results = await runLanes([CARGO_TEST, [VITEST]]);
   else if (mode === 'ci') {
-    results = await runLanes([...CHECK, [...CARGO_CHECK, ...CARGO_TEST], [VITEST]]);
+    results = await runLanes([...CHECK, [...CARGO_CHECK, ...CARGO_TEST, SIMTOOL], [VITEST]]);
     // The data stage first, alone: afterwards every run of it (the dev server's, vite build's) writes
     // nothing, so the two browser suites never read a file being written.
     if (results.every((r) => r.ok)) results.push(...(await runLanes([[DATA]])));
     if (results.every((r) => r.ok))
       results.push(...(await runLanes([[E2E], [RELEASE, BUILD, CHECK_RELEASE, E2E_RELEASE]])));
     if (results.every((r) => r.ok)) results.push(...(await runLanes([BENCH])));
+  } else if (mode === 'slow') {
+    results = await runLanes([[...SLOW]]);
   } else {
-    console.error('usage: node scripts/ci.ts check|test|ci');
+    console.error('usage: node scripts/ci.ts check|test|ci|slow');
     return 2;
   }
   const wall = (performance.now() - t0) / 1000;

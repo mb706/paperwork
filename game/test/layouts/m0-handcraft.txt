@@ -1,0 +1,3 @@
+# The hand-crafting golden (C8; 10 §10.3): a chest of 1,600 iron plates beside the spawn point, enough for 200 chests.
+# legend: C=iron-chest:items=iron-plate*1600
+@ C

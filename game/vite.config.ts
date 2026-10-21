@@ -6,6 +6,7 @@ import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
 import { cargoPlugin } from './scripts/cargo-plugin.ts';
 import { dataStagePlugin, schemaGenPlugin } from './scripts/data-stage-plugin.ts';
+import { devEndpointsPlugin } from './scripts/dev-endpoints-plugin.ts';
 import { fakeDataPlugin } from './scripts/fake-data-plugin.ts';
 import { releasePlugin } from './scripts/release-plugin.ts';
 
@@ -21,6 +22,7 @@ export default defineConfig({
     cargoPlugin({ root }),
     solid(),
     releasePlugin({ root }),
+    devEndpointsPlugin({ root }),
   ],
   server: {
     host: '127.0.0.1',
