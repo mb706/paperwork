@@ -108,7 +108,20 @@ test('the browser runner: bench.html on this host @bench', async ({ page, browse
   const runner = `${info.project.name} wasm`;
   const clock = `clock ${run.min.toFixed(0)}–${run.max.toFixed(0)} MHz${run.turbo ? ' (turbo: flagged, not an absolute number)' : ''}`;
   if (ab) {
-    console.log(`\nA/B in ${runner}, ${clock}\n${JSON.stringify(r.ab, null, 1)}\n`);
+    const ratios = (r.ab?.ratios ?? {}) as Record<
+      string,
+      Record<string, { a: number; b: number; ratio: number; min: number; max: number }>
+    >;
+    const rows = Object.entries(ratios).flatMap(([sc, per]) =>
+      Object.entries(per).map(
+        ([m, v]) =>
+          `  ${`${sc} ${m}`.padEnd(36)} A ${v.a.toPrecision(4).padStart(10)}  B ${v.b.toPrecision(4).padStart(10)}  ratio ${v.ratio.toFixed(3)} [${v.min.toFixed(3)}, ${v.max.toFixed(3)}]`,
+      ),
+    );
+    console.log(
+      `\npaired A/B in ${runner} over ${r.ab?.pairs} pairs (B ÷ A; < 1 is faster), ${clock}\n${rows.join('\n')}\n`,
+    );
+    writeFileSync(info.outputPath('ab.json'), `${JSON.stringify(r.ab, null, 1)}\n`);
     expect(r.errors).toEqual([]);
     expect(problems).toEqual([]);
     return;

@@ -74,9 +74,10 @@
 - **Check and test:** `npm run check` (Biome, `tsc -b`, check-arch, schema-gen --check, rustfmt, clippy -D warnings
   with the determinism bans, the bans' own fixture, the data stage --check, the Python spec checks; ~12 s warm),
   `npm test` (cargo test, dev and ntest profiles; Vitest), `npm run e2e` (Playwright, Chrome + Firefox, own server
-  on port 5191), `npm run ci` (all of it, then the e2e smoke and the release path: release wasm + feature gate,
-  `vite build`, `scripts/check-release.ts`, a preview smoke on port 5193; ~30 s warm, ~35 s from a clean clone).
-  On a busy host: `taskset -c 0-15 npm run ci`. `npm run format` applies Biome's fixes.
+  on a free port), `npm run ci` (all of it, then the e2e smoke and the release path: release wasm + feature gate,
+  `vite build`, `scripts/check-release.ts`, a preview smoke; then the benchmark budget gate; about 2.5–3.5 min).
+  On a busy host: `taskset -c 0-15 npm run ci`. `npm run format` applies Biome's fixes. The testing and QA section
+  below has the harness, the slow suite, the benchmarks and the dev endpoints.
 - **Schema (C1b):** `schema/*.yaml` declares every record that crosses the Rust/TypeScript boundary, every saved field
   and every wire record; `schema/README.md` is the guide (declaration language, byte encoding, recipes, versions and
   `SCHEMA_HASH`, fixtures). `npm run gen` (≈4 s) regenerates `crates/schema/src/`, `crates/sim/src/gen/`,
@@ -174,8 +175,8 @@
   on demand into `target/stubs/`, with the M0 scaffold as a stale cache serves it; `debug_dump` ids from
   0xFFFF0000 are its test commands), on the golden reference model behind the ABI (`test/helpers/model-module.ts`),
   and on the real sim.wasm and gen.wasm (`real.test.ts`); `review-r1.test.ts` holds one test per codex C3-r1
-  finding. The browser bench is `/src/dev/shell.html` (`e2e/shell.spec.ts`, @smoke). Several worktrees share this
-  host: give Playwright free ports with `PW_PORT` and `PW_RELEASE_PORT` (defaults 5191, 5193).
+  finding. The browser bench is `/src/dev/shell.html` (`e2e/shell.spec.ts`, @smoke). Playwright's servers take free
+  ports by themselves (`scripts/free-port.ts`); `PW_PORT` / `PW_RELEASE_PORT` still pin them.
 
 ## Assets (`npm run assets`; C6, 10 §9, the *Survey* look of `design/art/DIRECTION.md`)
 - **Sources** (committed): `game/assets/blender/` (`lib/` style, materials, parts, rig, contract; `entities/`,
@@ -285,8 +286,8 @@
   packets at 1×/0.3×, dpr 1/2, pixel-exact placement at even and odd sizes, the Survey smoke screenshots; @render:
   night, fallbacks, context loss, the fake factory, F4/F5, odd heights, picking, readiness);
   `taskset -c 0-7 npx playwright test e2e/render-bench.spec.ts --project chrome` (@bench: main-thread ms per frame
-  plus a tick's packet against §6.12 × 2.4, and bytes allocated per frame). Give Playwright free ports
-  (`PW_PORT`, `PW_RELEASE_PORT`). Screenshots land in `test-results/dev/`: Read them.
+  plus a tick's packet against §6.12 × 2.4, and bytes allocated per frame). Screenshots land in
+  `test-results/dev/`: Read them.
 - **Rules:** the frame path allocates nothing in steady state. Beyond the obvious (no closures, arrays, iterators or
   strings per frame), V8 boxes every non-integer double passed to a call it does not inline, every number outside
   ±2³⁰ returned or used as a Map key, and every double object field passed on: so doubles travel in typed blocks (the
@@ -336,8 +337,53 @@
   findings; both browsers, Firefox with `?render=none`); `npx playwright test e2e/perf.spec.ts --project=chrome` (UI ms
   per frame, window opening, input latency).
 
+## Testing and QA (`game/test/`, `game/e2e/`, `game/bench/`, `game/src/dev/`; C8, 10 §10, §3.5)
+- **The scenario DSL** (10 §10.2, `sim::testkit`): `Scenario::new_world`, `from_state` and `from_layout` (an ASCII
+  layout, `test/layouts/*.txt`: `# legend: C=iron-chest:items=iron-plate*800` lines, cells separated by one space,
+  `@` the spawn tile (0, 0); `layout.rs`, twin `test/helpers/layout.ts`), then `act`, `act_at`, `system`, `run`,
+  `events`, `place` and `insert` (through player actions), `entity_at`, `stats().produced(name)`, `hash`,
+  `digest`, `reload`; `finish(&s)` in `crates/sim/tests/rules/` runs D18 a–c and records the session in
+  `test/logs/`. Rule scenarios live in `crates/sim/tests/rules/` (R23–R29 for M0, then by milestone, 10 §10.8).
+- **Frozen goldens** (10 §10.3): `Goldens::open("file").check(name, value, factorio, tolerance)` (Rust,
+  `crates/sim/tests/rules/goldens.rs`) and `new Goldens(file)` (Vitest, `test/helpers/goldens.ts`) compare with
+  Factorio's value, then with `test/goldens/<file>.json`; `UPDATE_GOLDENS=1` rewrites them (say why in the commit).
+  M0's golden ratios GM1–GM5 (hand crafting, hand mining, running, mining a chest, a chest's capacity):
+  `golden_ratios.rs`.
+- **D18:** (a–c, e) every scenario through `finish`; (d) the cross-engine trace, `e2e/trace.spec.ts` (@smoke: the
+  golden log and the 10,000-tick session `m0-cross-engine-10k`, natively by `simtool replay --trace --full`, in Node
+  and in Chrome and Firefox through `/test/trace.html`, the same code: `src/dev/trace/core.ts`; `TRACE_SET=all`,
+  `TRACE_MODULE=release`); (f) the multi-client harness `sim::testkit::multi::Room` (joins by checkpoint, crashes
+  with catch-up, re-syncs, NO_SLEEP, read schedules; `d18f_multi_client.rs`); (g) `test/harness/closure-fuzz.test.ts`
+  (fast-check mutations of real closures: never a trap, a refusal changes nothing).
+- **`npm run test:slow`:** the ignored native probes, then the trace on every session in `test/logs/`, dev and
+  release modules. A new session in `test/logs/` joins it, and the native and WebAssembly replays, by itself.
+- **M0's exit e2e** (`e2e/m0-exit.spec.ts`, @smoke): 60 UPS on the worker's clock; a chest crafted, placed,
+  filled and mined through the real input layer with INVENTORY and STATS read from the UI; a browser save and closure
+  log hashed and replayed by simtool; the dev panic's recovery and its `/__report` bundle reproduced natively.
+  `e2e/screenshots.spec.ts` (@shots, Chrome, 1920 × 1080) writes the smoke screenshot set to `pm/reports/C8/`.
+- **Benchmarks** (10 §10.6): `simtool bench` (native), `node bench/node-runner.ts` and the browser runner
+  `BENCH=1 taskset -c 0-7 npx playwright test e2e/bench.spec.ts` (bench.html's simulation and determinism sections in
+  Chrome and Firefox; `BENCH_QUICK=1`, `BENCH_SECTIONS=…`, `BENCH_NO_HISTORY=1`) all share the scenario core
+  `src/dev/bench/sim-core.ts` and append to `bench/history.jsonl`. A/B in one session: `npm run bench:ab -- --base
+  <rev> [--runner chrome|firefox]`. The user's page: `http://127.0.0.1:5173/bench.html` through the tunnel
+  (simulation, determinism, render on C4's §6.12 scenes, audio's offline gate, the GPU's formats; served
+  cross-origin isolated for fine timers) POSTs to `bench/user-results/`; `node bench/calibrate.ts [--write]`
+  turns the newest one into the measured host factor (§11's 2.4 until then).
+- **Dev endpoints** (`scripts/dev-endpoints-plugin.ts`, dev server only): `POST /__bench`, `POST /__report/<id>/<file>`
+  (Ctrl+Alt+F12 or `__game.report(note)` sends the bundle: the base save, the closure log with its digests, the
+  console, a screenshot, client.json; after a trap, the trap's own bundle) into `bench/reports/<id>/` for
+  `simtool replay bench/reports/<id>` (a trap needs a simcheck simtool: `cargo build -p simtool --features simcheck`,
+  `target/debug/simtool`); `POST /__shot` (`__game.shot(name)`) into `bench/shots/`. Reports and shots are
+  gitignored.
+- **Playwright** picks free ports (`scripts/free-port.ts`), so worktrees never collide; e2e helpers for the UI are in
+  `e2e/ui-helpers.ts`, for simtool in `e2e/simtool.ts`. Every spec fails on a console error or warning.
+
 ## Showing the game to the user
 - Dev server on `127.0.0.1:<high port>`; the user tunnels in: `ssh -L 5173:127.0.0.1:5173 cpuserver10`.
+- The playable build: `cd game && npm run assets` (once), then `npm run dev` (port 5173) and
+  `http://127.0.0.1:5173/` through the tunnel; `/bench.html` is the benchmark page (its audio section needs the
+  audio build, `gamedev-python -I scripts/assets/audio/build.py`; the game page has no sound yet), Ctrl+Alt+F12 sends
+  a bug report (pm/reports/C8.md has the M0 notes).
 - Builds can also be published as a private claude.ai Artifact (≤ 16 MB per file).
 
 ## The game design (read before coding)

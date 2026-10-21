@@ -22,7 +22,6 @@ import {
   type BenchManifest,
   type BenchScenario,
   type ScenarioResult,
-  stats,
   type Verdict,
   verdicts,
 } from './bench/sim-core.ts';
@@ -143,7 +142,10 @@ async function bytes(url: string): Promise<Uint8Array<ArrayBuffer>> {
   return new Uint8Array(await r.arrayBuffer());
 }
 
-/** The module the benchmarks run: the release build (what players get), else the dev server's. */
+/**
+ * The module the benchmarks run: the release build (what players get), else the dev server's (simcheck, slower);
+ * the results name the one that ran, so `bench/calibrate.ts` compares like with like.
+ */
 async function benchModule(
   url?: string,
 ): Promise<{ module: WebAssembly.Module; url: string; sha: string; n: number }> {
@@ -151,7 +153,7 @@ async function benchModule(
     ? [url]
     : params.get('module') === 'dev'
       ? ['/__wasm/sim.wasm']
-      : ['/__dev/release/sim.wasm'];
+      : ['/__dev/release/sim.wasm', '/__wasm/sim.wasm'];
   let lastErr: unknown = null;
   for (const u of tryUrls) {
     try {
@@ -335,7 +337,13 @@ interface GalleryWindow {
   };
 }
 
-const med = (xs: number[]) => stats(xs)[1];
+/** The median (the mean of the middle two of an even count). */
+const med = (xs: number[]): number => {
+  const s = [...xs].sort((a, b) => a - b);
+  const n = s.length;
+  if (n === 0) return 0;
+  return n % 2 ? (s[(n - 1) / 2] as number) : ((s[n / 2 - 1] as number) + (s[n / 2] as number)) / 2;
+};
 const p95 = (xs: number[]) => {
   const s = [...xs].sort((a, b) => a - b);
   return s[Math.min(s.length - 1, Math.floor(s.length * 0.95))] ?? 0;
