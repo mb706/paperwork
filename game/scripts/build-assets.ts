@@ -2,7 +2,7 @@
 // manifest (10 §15.7, version 2), check it (§9.5) and publish it. Incremental by content hash, cached in
 // .cache/assets/.
 //
-//   npm run assets [-- --only id[,id…]] [--force] [--no-render] [--no-qc] [--check]
+//   npm run assets [-- --only id[,id…]] [--force] [--no-render] [--no-qc] [--no-audio] [--check]
 //
 //   --only      render (or with --force re-render) only these sets; every other set must already be in the cache
 //               for its current key, and the manifest is still built, checked and published whole
@@ -11,7 +11,14 @@
 //               read from Blender or, when it cannot run, from the last one recorded in .cache/assets/)
 //   --no-qc     skip the QC gates that need Blender or Chrome (calibration, contract examples, UI screenshots) and
 //               the review material
-//   --check     only the fixture checks, without Blender (fast; for CI)
+//   --no-audio  skip the audio build (C7's scripts/assets/audio/build.py, which `npm run assets` runs last since C9:
+//               public/audio/, the packs, the SFX and the recordings; seconds warm)
+//   --check     the acceptance of what is published, without Blender (fast; for CI): the fixture checks, and the
+//               published atlas against its provenance (public/atlases/provenance.json, written at publish: every
+//               file's SHA-256, the gates it passed, the prototypes and each set's cache key): the files are the
+//               ones built, for the current prototypes, from the current sources (the keys recomputed), and its
+//               manifest re-validated (schema, tables, coverage, KTX2 headers). A missing or stale atlas fails
+//               (the M0 exit audit #4, C9).
 //
 // Steps (each Python step runs under gamedev-python; renders and encodes are pinned to socket 1, one heavy job
 // at a time, because the host is shared — CLAUDE.md):
@@ -37,7 +44,9 @@
 //   8. Publish: inventory.json, then sprites.json, each by an atomic rename; only then are the files no
 //      manifest names removed from public/, and stale render and post cache entries dropped.
 //   9. QC review material in .cache/assets/qc/: contact sheets, GIFs, the preview scene and the budgets.
+//  10. The audio build (public/audio/; C7, run from here since C9 so one command makes a playable build).
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   closeSync,
   existsSync,
@@ -221,17 +230,19 @@ interface Args {
   force: boolean;
   render: boolean;
   qc: boolean;
+  audio: boolean;
   checkOnly: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { only: undefined, force: false, render: true, qc: true, checkOnly: false };
+  const a: Args = { only: undefined, force: false, render: true, qc: true, audio: true, checkOnly: false };
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i];
     if (x === '--only') a.only = new Set((argv[++i] ?? '').split(',').filter((s) => s));
     else if (x === '--force') a.force = true;
     else if (x === '--no-render') a.render = false;
     else if (x === '--no-qc') a.qc = false;
+    else if (x === '--no-audio') a.audio = false;
     else if (x === '--check') a.checkOnly = true;
     else throw new Error(`build-assets: unknown argument ${x}`);
   }
@@ -681,7 +692,7 @@ function referencedFiles(manifest: {
   terrain?: { tiles: Record<string, { file: string }> };
   dom?: Record<string, unknown>;
 }): Set<string> {
-  const keep = new Set<string>(['atlases/sprites.json', 'atlases/inventory.json']);
+  const keep = new Set<string>(['atlases/sprites.json', 'atlases/inventory.json', 'atlases/provenance.json']);
   for (const arr of manifest.pages) for (const p of arr) for (const f of p.files) keep.add(f);
   for (const t of Object.values(manifest.terrain?.tiles ?? {})) keep.add(t.file);
   const dom = (manifest.dom ?? {}) as {
@@ -705,7 +716,7 @@ function referencedFiles(manifest: {
 /** Make the staged generation the published one: the inventory, then the manifest, each by one rename. */
 function publish(): void {
   mkdirSync(ATLASES, { recursive: true });
-  for (const f of ['inventory.json', 'sprites.json']) {
+  for (const f of ['inventory.json', 'provenance.json', 'sprites.json']) {
     const tmp = join(ATLASES, `${f}.${process.pid}.tmp`);
     writeFileSync(tmp, readFileSync(join(STAGE, f)));
     renameSync(tmp, join(ATLASES, f));
@@ -758,12 +769,86 @@ function gcUnpack(keep: Set<string>): void {
   if (n > 0) log(`cache: dropped ${n} stale decoded pages`);
 }
 
+/** What a published generation was built from and passed (written at publish, read by `--check`; C9). */
+interface Provenance {
+  version: 1;
+  built: string;
+  git: { commit: string; dirty: boolean };
+  prototypesHash: string;
+  /** Each set's post key: its model sources, Blender, lib/, the entry points, the post step's code. */
+  keys: Record<string, string>;
+  /** The gates the generation passed before it was published. */
+  gates: string[];
+  /** Every published file's SHA-256, the manifests included. */
+  files: Record<string, string>;
+}
+const PROVENANCE = 'atlases/provenance.json';
+
+const fileSha = (path: string): string => createHash('sha256').update(readFileSync(path)).digest('hex');
+
+function gitState(): { commit: string; dirty: boolean } {
+  const g = (a: string[]) => spawnSync('git', a, { cwd: GAME, encoding: 'utf8' }).stdout?.trim() ?? '';
+  return {
+    commit: g(['rev-parse', 'HEAD']),
+    dirty: g(['status', '--porcelain', '--', 'assets', 'scripts/assets']) !== '',
+  };
+}
+
+/** The current sources' set keys, as a build would compute them (the planner, Blender's recorded version). */
+function currentKeys(): Map<string, string> {
+  const planPath = join(CACHE, 'plan-check.json');
+  py('plan.py', ['--out', planPath], { quiet: true });
+  const plan = readJson<{ sets: PlanSet[]; toolchain: unknown }>(planPath);
+  const blender = blenderVersion(false);
+  const libHash = dirPyHash(join(BLENDER_SRC, 'lib'));
+  return new Map(plan.sets.map((x) => [x.set, setKeys(x, blender, libHash, plan.toolchain).post]));
+}
+
+/** Why the published atlas is not this build's acceptance: missing, altered, for other prototypes, or stale. */
+function publishedProblems(): string[] {
+  const sprites = join(ATLASES, 'sprites.json');
+  if (!existsSync(sprites)) return ['no published atlas (public/atlases/sprites.json): run `npm run assets`'];
+  const pv = join(PUBLIC, PROVENANCE);
+  if (!existsSync(pv)) return [`public/${PROVENANCE} is missing: the atlas was not published by this build`];
+  const p = readJson<Provenance>(pv);
+  const out: string[] = [];
+  for (const [f, h] of Object.entries(p.files)) {
+    const at = join(PUBLIC, f);
+    if (!existsSync(at)) out.push(`public/${f} is missing`);
+    else if (fileSha(at) !== h) out.push(`public/${f} is not the file the build published`);
+  }
+  if (p.files['atlases/sprites.json'] === undefined) out.push('the provenance does not name sprites.json');
+  const { prototypesHash } = ensureData();
+  if (p.prototypesHash !== prototypesHash)
+    out.push(
+      `the atlas was built for prototypes ${p.prototypesHash.slice(0, 12)}, the data is ${prototypesHash.slice(0, 12)}`,
+    );
+  const now = currentKeys();
+  const stale = [...now].filter(([set, k]) => p.keys[set] !== k).map(([set]) => set);
+  const gone = Object.keys(p.keys).filter((set) => !now.has(set));
+  if (stale.length > 0)
+    out.push(
+      `stale: ${stale.length} set(s) changed since the atlas was built (${stale.slice(0, 6).join(', ')}${stale.length > 6 ? ' …' : ''})`,
+    );
+  if (gone.length > 0)
+    out.push(`stale: ${gone.length} set(s) no longer planned (${gone.slice(0, 6).join(', ')})`);
+  for (const g of ['inventory', 'checks', 'metrics'])
+    if (!p.gates.includes(g)) out.push(`the published generation did not pass the ${g} gate`);
+  if (out.length > 0) out.push('run `npm run assets`');
+  return out;
+}
+
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
   const t0 = performance.now();
   mkdirSync(CACHE, { recursive: true });
   if (args.checkOnly) {
     py('checks.py', ['--fixtures-only']);
+    const problems = publishedProblems();
+    for (const x of problems) log(`check FAIL ${x}`);
+    if (problems.length > 0) return 1;
+    py('checks.py', ['--manifest', join(ATLASES, 'sprites.json'), '--published']);
+    log("the published atlas is the current sources' build, for the current prototypes, gates passed");
     return 0;
   }
   const { prototypesHash } = ensureData();
@@ -845,9 +930,26 @@ async function main(): Promise<number> {
   }
   // every file the staged manifest names must exist before it is published
   const keep = referencedFiles(manifest);
-  const published = new Set(['atlases/sprites.json', 'atlases/inventory.json']);
+  const published = new Set(['atlases/sprites.json', 'atlases/inventory.json', PROVENANCE]);
   const absent = [...keep].filter((f) => !published.has(f) && !existsSync(join(PUBLIC, f)));
   if (absent.length > 0) throw new Error(`publish: the manifest names missing files: ${absent.join(', ')}`);
+  // the provenance of this generation: its files, the gates it passed, what it was built from (C9)
+  const files: Record<string, string> = {};
+  for (const f of [...keep].sort()) {
+    if (f === PROVENANCE) continue;
+    const staged = f === 'atlases/sprites.json' || f === 'atlases/inventory.json';
+    files[f] = fileSha(staged ? join(STAGE, f.slice('atlases/'.length)) : join(PUBLIC, f));
+  }
+  const provenance: Provenance = {
+    version: 1,
+    built: new Date().toISOString(),
+    git: gitState(),
+    prototypesHash,
+    keys: Object.fromEntries(plan.sets.map((x) => [x.set, (keys.get(x.set) as Keys).post])),
+    gates: ['inventory', 'checks', 'metrics', ...(args.qc ? ['qc'] : [])],
+    files,
+  };
+  writeText(join(STAGE, 'provenance.json'), canonicalJson(provenance, 1));
   publish();
   collectPublic(keep);
   gcCache(keys);
@@ -865,6 +967,7 @@ async function main(): Promise<number> {
       py('preview.py', ['--zoom', zoom, '--dpr', dpr, '--night', night], { cpus: RENDER_CPUS });
     py('budget.py', [], { quiet: true });
   }
+  if (args.audio) run(PYTHON, ['-I', join(ASSETS, 'audio', 'build.py')], { cpus: RENDER_CPUS });
   log(`done in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
   return 0;
 }

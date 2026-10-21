@@ -1,7 +1,8 @@
 // The renderer in Chrome (SwiftShader WebGL2), on the gallery (src/dev/gallery.html) and the fake sim (C4, 10 §10.5).
 //   @smoke   the golden packets with the tiny atlas at 1× and 0.3×, dpr 1 and 2, and pixel-exact placement
-//   @render  the Survey atlas (needs `npm run assets`; skipped without it): the preview scene by day and at night,
-//            the fake sim's factory, format fallbacks, context loss, the debug overlays
+//   @render  the Survey atlas (needs `npm run assets`; without it these fail, never skip: the M0 exit audit #4, C9):
+//            the preview scene by day and at night, the fake sim's factory, format fallbacks, context loss, the
+//            debug overlays; the preview scene at 1× is @smoke at both device pixel ratios (and at night at 1)
 //   @bench   the main thread's frame cost on SwiftShader against 10 §6.12 × the host factor 2.4
 // Firefox here has no WebGL2 (playwright.config.ts): the renderer's tests run in Chrome; the fake spec covers the
 // render=none path in both. Screenshots go to test-results/dev/ and are reviewed by eye (pm/reports/C4.md).
@@ -140,7 +141,10 @@ test.describe('the golden packets with the tiny atlas @smoke', () => {
 });
 
 test.describe('the Survey atlas @render', () => {
-  test.skip(!REAL, 'public/atlases is missing: run `npm run assets`');
+  test.beforeEach(() => {
+    if (!REAL)
+      throw new Error('public/atlases is missing: run `npm run assets` (the art is part of the acceptance)');
+  });
 
   // the 1× day and night pictures are the M0 smoke screenshots (10 §12 exit): Survey's look, reviewed by eye
   for (const [zoom, dpr, night] of [
@@ -150,7 +154,7 @@ test.describe('the Survey atlas @render', () => {
     [1, 1, true],
     [0.3, 1, true],
   ] as const)
-    test(`the preview scene at ${zoom}×, dpr ${dpr}${night ? ', at night' : ''}${zoom === 1 && dpr === 1 ? ' @smoke' : ''}`, async ({
+    test(`the preview scene at ${zoom}×, dpr ${dpr}${night ? ', at night' : ''}${zoom === 1 && (dpr === 1 || !night) ? ' @smoke' : ''}`, async ({
       browser,
     }, info) => {
       const ctx = await browser.newContext({

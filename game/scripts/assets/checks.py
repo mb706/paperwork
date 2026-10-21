@@ -663,9 +663,18 @@ def main():
     ap.add_argument('--layout', default=None)
     ap.add_argument('--fixtures-only', action='store_true')
     ap.add_argument('--no-pages', action='store_true')
+    ap.add_argument('--published', action='store_true',
+                    help='the published manifest: schema, tables, coverage and KTX2 headers only (build-assets --check)')
     a = ap.parse_args()
     os.makedirs(QC, exist_ok=True)
     results = dict(pages={}, errors=[])
+    if a.published:
+        man = K.load_json(a.manifest)
+        errs = schema_errors(man) + MF.validate(man) + coverage_errors(man) + ktx2_errors(man, K.PUBLIC)
+        for e in errs:
+            print(f'[check] FAIL {e}', flush=True)
+        print(f'[check] the published manifest: {len(errs)} failure(s)', flush=True)
+        sys.exit(1 if errs else 0)
     errs = fixture_errors()
     if not a.fixtures_only:
         man = K.load_json(a.manifest)
