@@ -3,10 +3,14 @@
 //!
 //! - [`record`] runs a [`SimContext`] for a number of ticks and keeps, per tick, d_t and r_t, and the
 //!   canonical state bytes (the hashed sections, `sim_save`'s output without its lineage) at the ticks a
-//!   [`Schedule`] names: every tick for the first 2,000, then every 600 and the last (B1-r1 20).
+//!   [`Schedule`] names: every tick for the first 2,000, then every 600 and the last (B1-r1 20). A load restarts
+//!   the dense window: every tick of the 2,000 after a reload is kept too (§10.4 #3, "the first 2,000 ticks after
+//!   the load"; the M0 exit audit, C9), in the reference and in every variant ([`record_windows`],
+//!   [`check_equivalence`] keeps the union of the variants' windows).
 //! - [`Variant`] says how the run differs from the reference: NO_SLEEP (D18 b), a save and a load into a fresh
 //!   module at a tick (join equivalence, D18 a; §10.4 #2–#3), or heavy mode (D18 c: every k ticks a save and a
-//!   load into a fresh module that carries on).
+//!   load into a fresh module that carries on). Every replacement is checked at once: the fresh module's canonical
+//!   state must equal the one it was saved from, and the state kept for that tick is the fresh module's.
 //! - [`compare`] finds the first tick where two traces differ and names the first differing section and field,
 //!   decoded by the generated readers ([`diff_states`]).
 //!
@@ -48,9 +52,22 @@ impl Default for Schedule {
 }
 
 impl Schedule {
-    fn keeps(&self, t: u32, last: u32) -> bool {
-        t <= self.every_tick_until || t == last || (self.then_every > 0 && t.is_multiple_of(self.then_every))
+    /// Whether tick `t` (absolute; the run started at `t0` and ends at `last`) keeps its state: dense for the first
+    /// `every_tick_until` ticks of the run and of each window (a window from w covers w … w + `every_tick_until`,
+    /// the reload's own tick included), then every `then_every`, and the last.
+    fn keeps(&self, t: u32, t0: u32, last: u32, windows: &[u32]) -> bool {
+        let rel = t - t0;
+        rel <= self.every_tick_until
+            || t == last
+            || (self.then_every > 0 && rel.is_multiple_of(self.then_every))
+            || windows.iter().any(|&w| t >= w && t - w <= self.every_tick_until)
     }
+}
+
+/// The ticks after which a variant loads its world into a fresh module and a dense window restarts (D18 a's
+/// reload; heavy mode's reloads are checked at once instead, see [`record_windows`]).
+pub fn windows_of(variants: &[Variant]) -> Vec<u32> {
+    variants.iter().filter_map(|v| if let Variant::Reload { at } = *v { Some(at) } else { None }).collect()
 }
 
 /// One tick of a run.
@@ -121,7 +138,8 @@ pub enum Variant {
 }
 
 /// Runs `ticks` ticks from the start state and records them. `hook` runs after every tick (tests use it to
-/// break a run on purpose).
+/// break a run on purpose). The dense windows are the variant's own ([`windows_of`]); to compare it with another
+/// run, record both with the union through [`record_windows`] (as [`check_equivalence`] does).
 pub fn record_with(
     protos_bin: &[u8],
     start: &[u8],
@@ -129,6 +147,24 @@ pub fn record_with(
     ticks: u32,
     variant: Variant,
     schedule: Schedule,
+    hook: &mut dyn FnMut(u32, &mut SimContext),
+) -> SimResult<Trace> {
+    record_windows(protos_bin, start, closures, ticks, variant, schedule, &windows_of(&[variant]), hook)
+}
+
+/// [`record_with`] with the dense windows given: every tick w … w + `schedule.every_tick_until` keeps its state for
+/// each w in `windows` (the reloads of the runs this one is compared with). A reload (D18 a, or heavy mode's) is
+/// checked at once: the fresh module's canonical state must equal the state it was saved from (else an error that
+/// names the first differing field), and the state kept for that tick is the fresh module's.
+#[allow(clippy::too_many_arguments)]
+pub fn record_windows(
+    protos_bin: &[u8],
+    start: &[u8],
+    closures: &dyn Closures,
+    ticks: u32,
+    variant: Variant,
+    schedule: Schedule,
+    windows: &[u32],
     hook: &mut dyn FnMut(u32, &mut SimContext),
 ) -> SimResult<Trace> {
     let flags = if variant == Variant::NoSleep { SimFlags::NO_SLEEP } else { SimFlags::EMPTY };
@@ -145,16 +181,29 @@ pub fn record_with(
         }
         ctx.tick(&closures.closure(t))?;
         hook(t, &mut ctx);
-        let state = if schedule.keeps(t - t0, ticks) { Some(canonical_state(&ctx)?) } else { None };
-        trace.push(TickRecord { tick: t, d: ctx.last_digest(), r: ctx.lineage(), state });
+        // the tick's digest and lineage are the module's that ran it (a fresh one has run no tick)
+        let (d, r) = (ctx.last_digest(), ctx.lineage());
         let reload_now = match variant {
             Variant::Reload { at } => t == at,
             Variant::Heavy { every } => every > 0 && (t - t0) % every == 0,
             Variant::Plain | Variant::NoSleep => false,
         };
         if reload_now {
+            let before = canonical_state(&ctx)?;
             ctx = reload(protos_bin, &ctx)?;
+            let after = canonical_state(&ctx)?;
+            if after != before {
+                return Err(SimError::new(
+                    schema::SimStatus::ErrInput,
+                    format!(
+                        "{variant:?}: the reload after tick {t} changed the state: {}",
+                        diff_states(&before, &after).unwrap_or_else(|| "the states differ".into())
+                    ),
+                ));
+            }
         }
+        let state = if schedule.keeps(t, t0, last, windows) { Some(canonical_state(&ctx)?) } else { None };
+        trace.push(TickRecord { tick: t, d, r, state });
     }
     Ok(trace)
 }
@@ -184,13 +233,21 @@ impl core::fmt::Display for Divergence {
     }
 }
 
-/// Compares two traces tick by tick: d_t, r_t, and the canonical state wherever both kept it.
+/// Compares two traces tick by tick: d_t, r_t, and the canonical state at every tick either kept. A tick that
+/// one trace kept and the other did not is an error, not a skipped comparison: record both with the same
+/// schedule and windows ([`record_windows`]).
 pub fn compare(a: &Trace, b: &Trace) -> Result<(), Divergence> {
     if a.len() != b.len() {
         return Err(Divergence { tick: 0, what: format!("{} ticks against {}", a.len(), b.len()) });
     }
     for (x, y) in a.iter().zip(b) {
         let tick = x.tick;
+        if x.state.is_some() != y.state.is_some() {
+            return Err(Divergence {
+                tick,
+                what: "only one run kept its state here: record both with the same windows".into(),
+            });
+        }
         if let (Some(sa), Some(sb)) = (&x.state, &y.state)
             && sa != sb
         {
@@ -218,11 +275,16 @@ pub fn check_equivalence(
     variants: &[Variant],
 ) -> Result<(), String> {
     let schedule = Schedule::default();
+    // every run keeps the union of the reloads' dense windows, so each reload is compared tick by tick for the
+    // 2,000 ticks after it however late it comes (§10.4 #3)
+    let windows = windows_of(variants);
+    let none = &mut |_: u32, _: &mut SimContext| {};
     let reference =
-        record(protos_bin, start, closures, ticks, Variant::Plain, schedule).map_err(|e| e.to_string())?;
+        record_windows(protos_bin, start, closures, ticks, Variant::Plain, schedule, &windows, none)
+            .map_err(|e| e.to_string())?;
     for &v in variants {
-        let run =
-            record(protos_bin, start, closures, ticks, v, schedule).map_err(|e| format!("{v:?}: {e}"))?;
+        let run = record_windows(protos_bin, start, closures, ticks, v, schedule, &windows, none)
+            .map_err(|e| format!("{v:?}: {e}"))?;
         compare(&reference, &run).map_err(|d| format!("{v:?}: {d}"))?;
     }
     Ok(())

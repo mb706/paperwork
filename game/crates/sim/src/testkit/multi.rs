@@ -6,7 +6,10 @@
 //!   that writes it ([`TestSequencer`]), and the clients.
 //! - Every client applies every closure; after each tick their d_t and r_t must agree (the cheap check a room
 //!   makes), and after every injected fault [`Room::agree`] compares their **full canonical state**
-//!   (A2-r1 #15), naming the first differing section and field.
+//!   (A2-r1 #15), naming the first differing section and field. A fault that replaces a world (a join, a crash
+//!   and catch-up, a re-sync) is compared at once, and restarts the dense window: the full canonical states are
+//!   compared after every tick of the [`DENSE_TICKS`] after it (10 §10.4 #3's "first 2,000 ticks after the load";
+//!   the M0 exit audit, C9).
 //! - Each client reads its world its own way ([`Reads`]): extraction every tick with its own view and
 //!   subscriptions, never, or at random with queries; D9 and D10 say no read schedule changes the state.
 //! - The faults: a join by checkpoint mid-run ([`Room::join`], the snapshot from a donor client), a client that
@@ -51,6 +54,9 @@ pub struct Client {
     saved: Option<(u32, Vec<u8>)>,
 }
 
+/// How many ticks after a world is replaced the room compares full canonical states after every tick (§10.4 #3).
+pub const DENSE_TICKS: u32 = 2000;
+
 /// A room: one closure stream and the clients it feeds.
 pub struct Room {
     protos: Vec<u8>,
@@ -58,6 +64,8 @@ pub struct Room {
     pub clients: Vec<Client>,
     stream: BTreeMap<u32, Vec<u8>>,
     tick: u32,
+    /// Full canonical states are compared after every tick up to this one (the last replacement + DENSE_TICKS).
+    dense_until: u32,
     /// What happened, for failure messages and reports.
     pub log: Vec<String>,
 }
@@ -184,6 +192,7 @@ impl Room {
             clients: vec![Client::new(name, ctx, reads)],
             stream: BTreeMap::new(),
             tick,
+            dense_until: 0,
             log: Vec::new(),
         })
     }
@@ -227,7 +236,16 @@ impl Room {
             self.stream.insert(t, closure);
         }
         self.tick = t;
+        if t <= self.dense_until {
+            self.agree()?;
+        }
         Ok(())
+    }
+
+    /// After a world was replaced: its state is compared at once, and after every tick of the next DENSE_TICKS.
+    fn replaced(&mut self) -> SimResult<()> {
+        self.dense_until = self.tick + DENSE_TICKS;
+        self.agree().map_err(err)
     }
 
     /// Closes `n` ticks.
@@ -249,7 +267,7 @@ impl Room {
         let ctx = start_from(&self.protos, &snapshot, SimFlags::EMPTY)?;
         self.clients.push(Client::new(name, ctx, reads));
         self.log.push(format!("tick {}: {name} joined from {donor}'s snapshot", self.tick));
-        Ok(())
+        self.replaced()
     }
 
     /// Client `name` keeps a checkpoint now (its autosave).
@@ -280,7 +298,7 @@ impl Room {
         self.clients[i] = c;
         self.log
             .push(format!("tick {}: {name} crashed, came back from tick {from} and caught up", self.tick));
-        Ok(())
+        self.replaced()
     }
 
     /// Client `name` is re-synced from `donor`'s snapshot (11 §5.2's repair): a fresh world in its place.
@@ -292,7 +310,7 @@ impl Room {
         let reads = self.clients[i].reads;
         self.clients[i] = Client::new(name, ctx, reads);
         self.log.push(format!("tick {}: {name} re-synced from {donor}", self.tick));
-        Ok(())
+        self.replaced()
     }
 
     /// NO_SLEEP on client `name` (D18 b inside a room: sleeping is an optimisation, never a rule).

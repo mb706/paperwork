@@ -7,7 +7,9 @@
 use crate::common::*;
 use schema::container::ClosureLog;
 use schema::{Direction, EntityFlags, EntityId, Tick};
-use sim::testkit::{Closures, Schedule, Variant, check_equivalence, compare, record, record_with};
+use sim::testkit::{
+    Closures, Schedule, Variant, check_equivalence, compare, record, record_windows, record_with, windows_of,
+};
 use sim::world::NewEntity;
 
 /// The golden closure log's closures and blobs.
@@ -157,6 +159,46 @@ fn a_changed_global_is_named_at_its_tick() {
     let d = compare(&reference, &lossy).expect_err("a divergence");
     assert_eq!(d.tick, 30);
     assert!(d.what.contains("GLOBALS") && d.what.contains("next_serial"), "{}", d.what);
+}
+
+/// §10.4 #3 after a late load (the M0 exit audit, C9): a reload restarts the dense window, in the reference and the
+/// variant alike, so a divergence right after a late reload is found at its tick by the canonical states; and a
+/// reference recorded without the reload's window cannot be compared with it silently.
+#[test]
+fn a_late_reload_restarts_the_dense_window() {
+    let p = protos();
+    // a dense window of 10 ticks, so that a reload 60 ticks in is "late"
+    let s = Schedule { every_tick_until: 10, then_every: 600 };
+    let t0 = record(&p, &start(), &Log::golden(), 1, Variant::Plain, s).expect("runs")[0].tick;
+    let reload = Variant::Reload { at: t0 + 60 };
+    let windows = windows_of(&[reload]);
+    assert_eq!(windows, [t0 + 60]);
+    let none = &mut |_: u32, _: &mut sim::SimContext| {};
+    let reference =
+        record_windows(&p, &start(), &Log::golden(), 120, Variant::Plain, s, &windows, none).expect("runs");
+    let reloaded =
+        record_windows(&p, &start(), &Log::golden(), 120, reload, s, &windows, none).expect("runs");
+    compare(&reference, &reloaded).expect("a clean late reload is equivalent");
+    for r in &reference {
+        let rel = r.tick - t0;
+        let dense = rel <= 10 || (60..=70).contains(&rel) || rel == 120;
+        assert_eq!(r.state.is_some(), dense, "tick {rel}");
+    }
+    // a lost global right after the late reload: found at its own tick, by the states
+    let broken = record_windows(&p, &start(), &Log::golden(), 120, reload, s, &windows, &mut |t, c| {
+        if t == t0 + 64 {
+            c.world_mut().expect("a world").globals.next_serial = schema::Serial(100);
+        }
+    })
+    .expect("runs");
+    let d = compare(&reference, &broken).expect_err("a divergence");
+    assert_eq!(d.tick, t0 + 64);
+    assert!(d.what.contains("GLOBALS") && d.what.contains("next_serial"), "{}", d.what);
+    // a reference without the window: the comparison refuses rather than skip the reload's ticks
+    let sparse = record(&p, &start(), &Log::golden(), 120, Variant::Plain, s).expect("runs");
+    let d = compare(&sparse, &reloaded).expect_err("the windows differ");
+    assert_eq!(d.tick, t0 + 60);
+    assert!(d.what.contains("only one run kept its state"), "{}", d.what);
 }
 
 #[test]

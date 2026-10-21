@@ -7,7 +7,7 @@
 use crate::helpers::*;
 use schema::{Action, Direction, PlayerIndex};
 use sim::rng::Xoshiro128;
-use sim::testkit::multi::{Reads, Room};
+use sim::testkit::multi::{self, Reads, Room};
 
 const DIRS: [Direction; 8] = [
     Direction::East,
@@ -130,6 +130,8 @@ fn a_planted_divergence_is_found_and_named() {
     room.run(5).expect("ticks");
     room.join("b", "a", Reads::None).expect("a join");
     room.agree().expect("equal after the join");
+    // Past the join's dense window (every tick's full state compared), only d_t and r_t are checked per tick.
+    room.run(multi::DENSE_TICKS).expect("ticks");
     // Plant a divergence in b's world: player 0 a hair to the east.
     let w = room.clients[1].ctx.world_mut().expect("a world");
     w.players.get_mut(PlayerIndex(0)).expect("player 0").x += 1.0 / 1024.0;
@@ -144,4 +146,20 @@ fn a_planted_divergence_is_found_and_named() {
         }
     }
     assert!(caught, "d_t never differed in a whole digest cycle");
+}
+
+/// A world replaced late is compared after every tick of the DENSE_TICKS after it (§10.4 #3; the M0 exit audit, C9):
+/// a divergence planted 1,500 ticks after a join that came 1,000 ticks into the room is found on the next tick by
+/// the full canonical states, not only when d_t happens to slice it.
+#[test]
+fn a_late_join_is_compared_after_every_tick_of_its_window() {
+    let protos = protos();
+    let mut room = Room::new(&protos, &start(7), "a", Reads::None).expect("the room starts");
+    room.system(joined(0));
+    room.run(1000).expect("ticks");
+    room.join("b", "a", Reads::None).expect("a join, compared at once");
+    room.run(1500).expect("ticks inside the window");
+    room.clients[1].ctx.world_mut().expect("a world").globals.next_serial = schema::Serial(9999);
+    let e = room.run(1).expect_err("the next tick compares the full states");
+    assert!(e.contains("GLOBALS") && e.contains("next_serial"), "{e}");
 }
