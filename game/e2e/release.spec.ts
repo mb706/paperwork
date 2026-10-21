@@ -18,7 +18,7 @@ test('the release bundle loads, compressed, without errors @release', async ({ p
   await page.getByTestId('menu-new-game').click();
   await page.getByTestId('new-game-play').click();
   await expect(page.getByTestId('sim-status')).toHaveText(SIM_STATUS);
-  await expect(page.getByTestId('hud')).toBeVisible();
+  await expect(page.getByTestId('quickbar')).toBeVisible();
   const manifest = await (await page.request.get('/data/build-manifest.json')).json();
   expect(manifest.dev).toBe(false);
   expect(Object.keys(manifest.modules).sort()).toEqual(['gen', 'sim']);

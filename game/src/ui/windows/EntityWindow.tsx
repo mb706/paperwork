@@ -36,7 +36,7 @@ export function EntityWindow(props: { serial: number; proto: number }): JSX.Elem
         </div>
       }
     >
-      <div class="character-columns">
+      <div class="character-columns" classList={{ narrow: s.narrow() }}>
         <div class="panel pw-panel col-inventory">
           <MainInventory other={serialRef(props.serial)} />
         </div>

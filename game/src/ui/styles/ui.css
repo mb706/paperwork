@@ -412,9 +412,14 @@ button {
 
 .character-columns {
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
   align-items: stretch;
+}
+
+/* Too narrow for two columns side by side (an entity window below 920 GUI px): the entity's panel goes below the
+   player's, and the window's body scrolls (C5-r1 19). */
+.character-columns.narrow {
+  flex-wrap: wrap;
 }
 
 .character-columns .col-inventory {

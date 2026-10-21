@@ -321,13 +321,16 @@
   layer (`store/ui.ts`); green buttons register into their layer. No layout reads in the frame loop or on content
   updates (tooltips are sized by a ResizeObserver). Pure UI state never enters the sim.
 - **Test hooks** (dev builds): `window.__game.ui.state()`, `.sent()` (the encoded actions with seqs), `.toScreen(x, y)`,
-  `.entities()`, `.character()`, `.perf()`; `window.__game.step(n)`. Client settings live in localStorage
-  (`paperwork.settings`).
+  `.entities()`, `.resources()`, `.character()`, `.perf()`; `window.__game.step(n)` (resolves after the tick's
+  packet); in test mode the world renders on demand, so e2e helpers draw a frame after each step
+  (`__game.render.frame()`) for the camera to follow. Client settings live in localStorage (`paperwork.settings`).
 - **Tests:** `npx vitest run src/ui test/ui` (bindings, resolution through the real core, the session and generations
-  on a fake host, golden projections and traces, the locale and its sources; `test/ui/review-r1.test.ts` holds one
-  test per codex C5-r1 finding); `npx playwright test e2e/ui.spec.ts e2e/game.spec.ts` (the input layer and the M0
-  flow on the real sim, both browsers); `npx playwright test e2e/perf.spec.ts --project=chrome` (UI ms per frame,
-  window opening, input latency).
+  on a fake host (`test/ui/rig.ts`), golden projections and traces, the locale and its sources;
+  `test/ui/review-r1.test.ts` holds one test per codex C5-r1 finding); Vitest resolves `solid-js` to its browser
+  build, so stores and memos react as in the page. `npx playwright test e2e/ui.spec.ts e2e/game.spec.ts
+  e2e/review-r1.spec.ts` (the input layer, the M0 flow with save and load on the real sim, the browser-level review
+  findings; both browsers, Firefox with `?render=none`); `npx playwright test e2e/perf.spec.ts --project=chrome` (UI ms
+  per frame, window opening, input latency).
 
 ## Showing the game to the user
 - Dev server on `127.0.0.1:<high port>`; the user tunnels in: `ssh -L 5173:127.0.0.1:5173 cpuserver10`.
