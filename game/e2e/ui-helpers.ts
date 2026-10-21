@@ -58,26 +58,32 @@ export async function openPage(page: Page, query = 'test=1'): Promise<void> {
   // (`?render=none`, as C4's specs run it there), rather than log the failed context.
   const firefox = test.info().project.name === 'firefox';
   const q = firefox && !query.includes('render=') ? `${query}${query ? '&' : ''}render=none` : query;
-  // A fresh server's generators can reload the page a few times as their first runs end: the page is loaded again
-  // until it has stayed a second without a reload (as e2e/shell.spec.ts's bench does).
+  // Readiness, not a delay (the M0 exit audit #10): a request under /data/ is held until no generator is scheduled or
+  // running, and the generators run again only when their inputs change, so the page loaded after it is final once
+  // its main menu shows. A reload that still lands meanwhile (an input changed) is seen and the page opened again.
   let loads = 0;
   const counted = (f: { parentFrame(): unknown }) => {
     if (f.parentFrame() === null) loads += 1;
   };
   page.on('framenavigated', counted);
   try {
-    for (let attempt = 0; attempt < 20; attempt++) {
+    for (let attempt = 0; ; attempt++) {
       await page.request.get('/data/build-manifest.json');
       await page.request.get('/data/fake/build-manifest.json');
+      const before = loads;
       await page.goto(`/?${q}`);
-      const seen = loads;
-      await page.waitForTimeout(1000);
-      if (loads === seen) break;
+      try {
+        await expect(page.getByTestId('main-menu')).toBeVisible();
+      } catch (e) {
+        if (loads === before + 1 || attempt >= 5) throw e;
+        continue;
+      }
+      if (loads === before + 1) return;
+      if (attempt >= 5) throw new Error('the page kept reloading: a generator keeps running');
     }
   } finally {
     page.off('framenavigated', counted);
   }
-  await expect(page.getByTestId('main-menu')).toBeVisible();
 }
 
 /**

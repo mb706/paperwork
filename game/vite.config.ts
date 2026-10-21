@@ -29,12 +29,15 @@ export default defineConfig({
     port,
     strictPort: true,
     watch: {
+      // outputs, never inputs: bench/ takes the dev endpoints' reports, shots and results while pages are open in
+      // parallel e2e workers (C9), and a watched write there must not reach them
       ignored: [
         '**/target/**',
         '**/.cache/**',
         '**/public/data/**',
         '**/test-results/**',
         '**/playwright-report/**',
+        '**/bench/**',
       ],
     },
   },

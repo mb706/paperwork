@@ -19,6 +19,7 @@
     "test:slow": "node scripts/ci.ts slow",
     "e2e": "playwright test",
     "ci": "node scripts/ci.ts ci",
+    "ci:fast": "node scripts/ci.ts fast",
     "bench:ab": "node bench/ab.ts",
     "check-arch": "node scripts/check-arch.ts",
     "format": "biome check --write ."

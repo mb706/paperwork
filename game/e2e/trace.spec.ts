@@ -9,7 +9,15 @@
 // every session in test/logs/ (TRACE_SET=all), on the dev module and on the release module (TRACE_MODULE=release).
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
 import {
@@ -51,6 +59,50 @@ const SET =
       ]
     : ['golden', 'm0-cross-engine-10k'];
 
+/**
+ * The native and Node references, computed once per input (the M0 exit audit #10): on disk under .cache/trace/, keyed
+ * by the SHA-256 of what decides them (the log, its start, the prototypes, and simtool's binary or the module and the
+ * TypeScript that replays it), so the second browser project, and a later run with the same inputs, read them.
+ */
+const CACHE = join(GAME, '.cache', 'trace');
+const sha = (...parts: (string | Uint8Array)[]): string => {
+  const h = createHash('sha256');
+  for (const p of parts) h.update(typeof p === 'string' ? p : Buffer.from(p));
+  return h.digest('hex');
+};
+function treeHash(dir: string): string {
+  const h = createHash('sha256');
+  const walk = (d: string): void => {
+    for (const e of readdirSync(d, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (/\.ts$/.test(e.name) && !e.name.endsWith('.test.ts')) h.update(p).update(readFileSync(p));
+    }
+  };
+  walk(dir);
+  return h.digest('hex');
+}
+function cached<T>(key: string, make: () => T): T {
+  const file = join(CACHE, `${key}.json`);
+  if (existsSync(file) && statSync(file).size > 0) return JSON.parse(readFileSync(file, 'utf8')) as T;
+  const v = make();
+  mkdirSync(CACHE, { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify(v));
+  renameSync(tmp, file);
+  return v;
+}
+async function cachedAsync<T>(key: string, make: () => Promise<T>): Promise<T> {
+  const file = join(CACHE, `${key}.json`);
+  if (existsSync(file) && statSync(file).size > 0) return JSON.parse(readFileSync(file, 'utf8')) as T;
+  const v = await make();
+  return cached(key, () => v);
+}
+const inputs = (name: string): Uint8Array[] => {
+  const f = files(name);
+  return [readFileSync(f.start), readFileSync(f.log), readFileSync(PROTOS)];
+};
+
 interface Native {
   rows: TraceRow[];
   startTick: number;
@@ -59,8 +111,16 @@ const natives = new Map<string, Native>();
 function native(name: string): Native {
   const hit = natives.get(name);
   if (hit) return hit;
+  const tool = simtool();
+  const out = cached(`native-${sha(name, readFileSync(tool), ...inputs(name))}`, () =>
+    nativeTrace(name, tool),
+  );
+  natives.set(name, out);
+  return out;
+}
+function nativeTrace(name: string, tool: string): Native {
   const f = files(name);
-  const text = execFileSync(simtool(), ['replay', f.start, f.log, '--protos', PROTOS, '--trace', '--full'], {
+  const text = execFileSync(tool, ['replay', f.start, f.log, '--protos', PROTOS, '--trace', '--full'], {
     cwd: GAME,
     encoding: 'utf8',
     maxBuffer: 1 << 28,
@@ -68,15 +128,20 @@ function native(name: string): Native {
   });
   const first = Number(/^(\d+) /m.exec(text)?.[1] ?? 1);
   const lines = text.split('\n').filter((l) => /^\d+ /.test(l)).length;
-  const out = { rows: nativeRows(text, first - 1, scheduleFor(lines)), startTick: first - 1 };
-  natives.set(name, out);
-  return out;
+  return { rows: nativeRows(text, first - 1, scheduleFor(lines)), startTick: first - 1 };
 }
 
 const nodes = new Map<string, { module: ModuleTrace; shell: ShellReplay }>();
 async function node(name: string): Promise<{ module: ModuleTrace; shell: ShellReplay }> {
   const hit = nodes.get(name);
   if (hit) return hit;
+  const code = ['src/dev/trace', 'src/simworker', 'src/shared'].map((d) => treeHash(join(GAME, d)));
+  const key = `node-${sha(name, readFileSync(MODULE), ...code, ...inputs(name))}`;
+  const out = await cachedAsync(key, () => nodeTrace(name));
+  nodes.set(name, out);
+  return out;
+}
+async function nodeTrace(name: string): Promise<{ module: ModuleTrace; shell: ShellReplay }> {
   const f = files(name);
   const input = {
     // Read after the page loaded: the dev server builds this very file at its start (the cargo plugin).
@@ -85,12 +150,10 @@ async function node(name: string): Promise<{ module: ModuleTrace; shell: ShellRe
     start: new Uint8Array(readFileSync(f.start)),
     log: new Uint8Array(readFileSync(f.log)),
   };
-  const out = {
+  return {
     module: await moduleTrace(input),
     shell: await shellReplay(input, async (b) => new Uint8Array(createHash('sha256').update(b).digest())),
   };
-  nodes.set(name, out);
-  return out;
 }
 
 /** Opens the trace page once the dev server's generators are idle (each run reloads open pages). */

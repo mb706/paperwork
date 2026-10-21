@@ -2,6 +2,9 @@
 // Playwright's own cache with `?render=none` (no WebGL2 in headless Firefox here). The suite starts its own
 // dev server on a free port (PW_PORT if set, else the OS's choice; scripts/free-port.ts), so it never collides with a
 // server the user tunnels into on 5173, nor with another worktree's run (C8).
+// Tests run in PW_WORKERS workers (default 4; the M0 exit audit #10, C9), fully parallel: each test has its own browser
+// context, and a spec whose tests depend on each other says `mode: 'serial'`. Tests that measure time (@timing: the
+// real-time UPS) run alone, in CI's quiet stage with one worker.
 import { homedir } from 'node:os';
 import { defineConfig } from '@playwright/test';
 import { portFromEnv } from './scripts/free-port.ts';
@@ -15,8 +18,8 @@ export default defineConfig({
   outputDir: 'test-results/dev',
   timeout: 60_000,
   expect: { timeout: 30_000 },
-  fullyParallel: false,
-  workers: 1,
+  fullyParallel: true,
+  workers: Number(process.env.PW_WORKERS ?? 4),
   reporter: [['list']],
   use: {
     baseURL: `http://127.0.0.1:${port}`,
