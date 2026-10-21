@@ -15,7 +15,7 @@
   name: Big rock
   kind: rock
   size: [2, 2]
-  mining_time: 1.5
+  mining_time: 2
   yields: {quartz: 20}
   collides: true
   mirrors: big-rock (stone → quartz)
@@ -24,7 +24,7 @@
   name: Huge rock
   kind: rock
   size: [3, 3]
-  mining_time: 2
+  mining_time: 3
   yields: {quartz: [24, 50], coal: [24, 50]}
   collides: true
   mirrors: huge-rock (stone → quartz)
@@ -33,7 +33,7 @@
   name: Big sand rock
   kind: rock
   size: [2, 2]
-  mining_time: 1
+  mining_time: 2
   yields: {quartz: [19, 25]}
   collides: true
   mirrors: big-sand-rock (stone → quartz)

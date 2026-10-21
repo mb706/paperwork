@@ -68,9 +68,9 @@ Worldgen places these. The player may mine or click them and never builds them.
 | Object (data id) | Size | Mining | Yields | Notes |
 |---|---|---|---|---|
 | Tree (`tree`) | 1 × 1 | 0.5 s | 4 `wood` | ISO forest noise × the biome factor (§2). No regrowth (ISO). 4 leaf stages, lost to heat (03 §1.2) |
-| Big rock (`big-rock`) | 2 × 2 | 1.5 s | 20 `quartz` | ISO rock noise; Factorio's stone becomes quartz |
-| Huge rock (`huge-rock`) | 3 × 3 | 2 s | 24–50 `quartz` and 24–50 `coal` | as above |
-| Big sand rock (`big-sand-rock`) | 2 × 2 | 1 s | 19–25 `quartz` | deserts and steppe |
+| Big rock (`big-rock`) | 2 × 2 | 2 s | 20 `quartz` | ISO rock noise; Factorio's stone becomes quartz |
+| Huge rock (`huge-rock`) | 3 × 3 | 3 s | 24–50 `quartz` and 24–50 `coal` | as above |
+| Big sand rock (`big-sand-rock`) | 2 × 2 | 2 s | 19–25 `quartz` | deserts and steppe |
 | University (`campus`) | 8 × 8 | — | — | One per university, part of a town footprint (§5.4). Selectable; opens the University window (§8.7) |
 | Exchange (`exchange-office`) | 4 × 4 | — | — | Cosmetic, inside the footprint edge nearest its taps (§5.4) |
 | Mine entrance (`mine-entrance`) | 4 × 4 | — | — | Cosmetic, beside a records store (§6.2) |

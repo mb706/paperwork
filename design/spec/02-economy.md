@@ -971,9 +971,9 @@ Energy is the active draw, with the ISO drain where there is one (burner draws a
 | Object | Kind | Size | Mining time (s) | Yields | Notes |
 |---|---|---|---|---|---|
 | **Tree** `tree` | tree | 1×1 | 0.5 | 4 Wood | no regrowth (ISO); heat strips one leaf stage per 600 s above meta.heat.tree_damage_c; κ per tree in meta.heat.loss |
-| **Big rock** `big-rock` | rock | 2×2 | 1.5 | 20 Quartz |  |
-| **Huge rock** `huge-rock` | rock | 3×3 | 2 | 24–50 Quartz, 24–50 Coal |  |
-| **Big sand rock** `big-sand-rock` | rock | 2×2 | 1 | 19–25 Quartz |  |
+| **Big rock** `big-rock` | rock | 2×2 | 2 | 20 Quartz |  |
+| **Huge rock** `huge-rock` | rock | 3×3 | 3 | 24–50 Quartz, 24–50 Coal |  |
+| **Big sand rock** `big-sand-rock` | rock | 2×2 | 2 | 19–25 Quartz |  |
 | **University** `campus` | campus | 8×8 | – | – | one per university (01 §5.4), on the footprint edge facing the most buildable land; supplies staff (meta.staffing); name from 08 §10.4 |
 | **Exchange** `exchange-office` | landmark | 4×4 | – | – | inside the footprint edge nearest its taps; telegraph office, telephone exchange or internet exchange by the field (01 §5.3) |
 | **Mine entrance** `mine-entrance` | landmark | 4×4 | – | – | marks a records store in an old mine (01 §6.2) |
