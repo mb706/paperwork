@@ -133,8 +133,7 @@ test.describe('@audio', () => {
     // be asked for before it is back (logged once)
     expect(
       problems.filter(
-        (p) =>
-          !/voice bank (processor failed|was told to fail)|processorerror|has no decoded files/i.test(p),
+        (p) => !/voice bank (processor failed|was told to fail)|processorerror|has no decoded files/i.test(p),
       ),
     ).toEqual([]);
   });
