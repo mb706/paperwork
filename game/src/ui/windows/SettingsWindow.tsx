@@ -3,11 +3,14 @@
 // I §2, with the primary and alternative columns: click a cell and press a key, button or wheel to bind it (Esc
 // cancels the capture), right-click clears it; conflicts with other controls are listed under the control
 // (allowed, I §1.1), as are inputs the browser keeps for itself; per-control reset and Reset all; search.
-// Interface holds the UI scale; the other tabs fill in with their systems.
+// Interface holds the UI scale. Sound (C9) holds I §4.20's eight volumes, heard at once while a slider moves (Back
+// restores them); clicking a category's label mutes it, as in Factorio 2.0.36+. The other tabs fill in with their
+// systems.
 import { createMemo, createSignal, For, type JSX, onCleanup, Show } from 'solid-js';
 import { useServices } from '../core/context.ts';
 import { labelTip, useTip } from '../core/tip.ts';
 import { Button, Panel, Window } from '../core/Window.tsx';
+import { SOUND_CATEGORIES, type SoundSettings } from '../host.ts';
 import { t } from '../i18n/locale.ts';
 import type { BindingTable } from '../input/bindings.ts';
 import {
@@ -34,16 +37,23 @@ export function SettingsWindow(props: { onClose: () => void; layer: number }): J
   const [tab, setTab] = createSignal<Tab>('controls');
   const [table, setTable] = createSignal<BindingTable>(s.bindings());
   const [scale, setScale] = createSignal(s.uiScaleSetting());
+  const [sound, setSound] = createSignal<SoundSettings>(structuredClone(s.soundSettings()));
   const apply = () => {
     s.setBindings(table());
     s.setUiScaleSetting(scale());
+    s.setSoundSettings(sound(), true);
+    props.onClose();
+  };
+  // Back (and Esc) discards: the volumes heard while a slider moved go back to the stored ones
+  const back = () => {
+    s.setSoundSettings(s.soundSettings(), false);
     props.onClose();
   };
   return (
     <Window
       id="settings"
       title={t('window.settings')}
-      onClose={props.onClose}
+      onClose={back}
       layer={props.layer}
       testid="window-settings"
       class="settings"
@@ -55,7 +65,7 @@ export function SettingsWindow(props: { onClose: () => void; layer: number }): J
               type="button"
               class={`tab ${tab() === x ? 'pw-tab-selected' : 'pw-tab'}`}
               data-testid={`settings-tab-${x}`}
-              disabled={x !== 'controls' && x !== 'interface'}
+              disabled={x !== 'controls' && x !== 'interface' && x !== 'sound'}
               onClick={() => setTab(x)}
             >
               {t(`settings.${x}`)}
@@ -66,6 +76,15 @@ export function SettingsWindow(props: { onClose: () => void; layer: number }): J
       <Panel class="settings-panel">
         <Show when={tab() === 'controls'}>
           <ControlsTab table={table()} setTable={setTable} />
+        </Show>
+        <Show when={tab() === 'sound'}>
+          <SoundTab
+            value={sound()}
+            set={(v) => {
+              setSound(v);
+              s.setSoundSettings(v, false);
+            }}
+          />
         </Show>
         <Show when={tab() === 'interface'}>
           <div class="field-row">
@@ -84,7 +103,7 @@ export function SettingsWindow(props: { onClose: () => void; layer: number }): J
         </Show>
       </Panel>
       <div class="dialog-buttons">
-        <Button onClick={props.onClose} testid="settings-back">
+        <Button onClick={back} testid="settings-back">
           {t('button.back')}
         </Button>
         <Button variant="confirm" onClick={apply} testid="settings-confirm">
@@ -92,6 +111,48 @@ export function SettingsWindow(props: { onClose: () => void; layer: number }): J
         </Button>
       </div>
     </Window>
+  );
+}
+
+/** I §4.20's Sound tab: a slider per category (0–100 %), and its label, clicked, mutes it (Factorio 2.0.36+). */
+function SoundTab(props: { value: SoundSettings; set: (v: SoundSettings) => void }): JSX.Element {
+  const change = (f: (v: SoundSettings) => void) => {
+    const v = structuredClone(props.value);
+    f(v);
+    props.set(v);
+  };
+  return (
+    <div class="sound-tab" data-testid="sound-tab">
+      <For each={SOUND_CATEGORIES}>
+        {(c) => (
+          <div class="field-row sound-row" classList={{ muted: props.value.muted[c] }}>
+            <button
+              type="button"
+              class="sound-label"
+              aria-pressed={props.value.muted[c]}
+              data-testid={`sound-mute-${c}`}
+              onClick={() => change((v) => (v.muted[c] = !v.muted[c]))}
+            >
+              {t(`settings.volume-${c}`)}
+            </button>
+            <input
+              type="range"
+              class="sound-slider"
+              min="0"
+              max="100"
+              step="1"
+              data-testid={`sound-volume-${c}`}
+              value={String(Math.round(props.value.volume[c] * 100))}
+              onInput={(e) => {
+                const n = Number(e.currentTarget.value) / 100;
+                change((v) => (v.volume[c] = n));
+              }}
+            />
+            <span class="sound-value typed">{`${Math.round(props.value.volume[c] * 100)}%`}</span>
+          </div>
+        )}
+      </For>
+    </div>
   );
 }
 

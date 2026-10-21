@@ -130,6 +130,18 @@ export class GameSession implements SessionApi {
     return this.loadedName ?? String(this.seed);
   }
 
+  /**
+   * The music program's seed for the game shown (the audio module's `startGame`, A4 §5.1): a new game's map seed, a
+   * loaded save's name hashed (FNV-1a), so a game keeps its music across loads.
+   */
+  musicSeed(): number {
+    if (this.loadedName === null) return this.seed >>> 0;
+    let h = 0x811c9dc5;
+    for (let i = 0; i < this.loadedName.length; i++)
+      h = Math.imul(h ^ this.loadedName.charCodeAt(i), 0x01000193);
+    return h >>> 0;
+  }
+
   async saveGame(name: string): Promise<{ ok: true } | { ok: false; message: string }> {
     try {
       const m = await this.o.host.save('manual', name);

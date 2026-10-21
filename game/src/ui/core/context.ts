@@ -1,6 +1,7 @@
 // The UI's shared services, handed to every component through one Solid context: the prototype view, the
 // stores, the binding table (hotkey hints), the resolver's hooks and the session's commands.
 import { createContext, useContext } from 'solid-js';
+import type { SoundSettings } from '../host.ts';
 import type { BindingTable } from '../input/bindings.ts';
 import type { ActionEncoder } from '../input/encoder.ts';
 import type { GameStore } from '../store/game.ts';
@@ -70,6 +71,10 @@ export interface UiServices {
   setInputEnabled: (on: boolean) => void;
   /** A UI sound by its sounds.yaml name (ui-click, error …); the app wires it to the audio module. */
   sound: (name: string) => void;
+  /** The Sound tab's settings as stored (I §4.20). */
+  soundSettings: () => SoundSettings;
+  /** Applies volumes at once (the Sound tab previews while a slider moves); `keep` also stores them. */
+  setSoundSettings: (s: SoundSettings, keep: boolean) => void;
 }
 
 export const Services = createContext<UiServices>();

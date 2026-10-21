@@ -59,6 +59,8 @@ export class SfxSystem {
   /** The local player's index (UI sounds play only for one's own events). */
   localPlayer = 0;
   readonly stats: SfxStats = { played: 0, limited: 0, historical: 0, unmapped: 0, loops: 0, lost: 0 };
+  /** Every one-shot that sounded, by name (dev builds and tests: which event or gesture played what). */
+  onPlayed: ((name: string) => void) | null = null;
   private generation = -1;
   private lastPacket = Number.NEGATIVE_INFINITY;
   private readonly loops = new Map<number, Loop>();
@@ -123,7 +125,9 @@ export class SfxSystem {
   private trigger(s: Sound, x: number, y: number): boolean {
     const n = s.variants.length;
     if (n === 0) {
-      this.table.warnOnce(`nofiles:${s.name}`, `audio: ${s.name} has no decoded files yet`);
+      // still decoding (the first gesture's clicks): dropped quietly; after the load, a sound without files is a fault
+      if (this.table.loaded)
+        this.table.warnOnce(`nofiles:${s.name}`, `audio: ${s.name} has no decoded files`);
       return false;
     }
     const now = this.now();
@@ -167,6 +171,7 @@ export class SfxSystem {
       PRIO: s.def.priority,
     });
     this.stats.played++;
+    this.onPlayed?.(s.name);
     return true;
   }
 

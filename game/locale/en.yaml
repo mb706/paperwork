@@ -91,6 +91,14 @@ settings:
   press-a-key: Press a key or button
   conflicts: "Conflicts with: __1__"
   reserved: Reserved by the browser unless the game runs fullscreen with Keyboard Lock.
+  volume-master: Master volume
+  volume-music: Music volume
+  volume-effects: Game effects volume
+  volume-gui: GUI effects volume
+  volume-alerts: Alerts volume
+  volume-environment: Environment sounds volume
+  volume-walking: Walking sound volume
+  volume-ambient: Ambient sounds volume
 
 stats:
   items: Items

@@ -6,13 +6,13 @@
 //
 //   const ui = mountUi({ root, host: app.host, world, protos, dom, build });
 //   // the main menu starts worlds through the host; ui.test is `__game.ui` in dev builds
-import { createEffect, createSignal, Match, on, onCleanup, Show, Switch } from 'solid-js';
+import { createEffect, createRoot, createSignal, Match, on, onCleanup, Show, Switch } from 'solid-js';
 import { render } from 'solid-js/web';
 import type { EventHeader, EventPayload } from '../shared/gen/events.ts';
 import type { PrototypesJson } from '../shared/gen/protos.ts';
 import { Services, type UiServices } from './core/context.ts';
 import { Tooltip } from './core/Tooltip.tsx';
-import type { UiHost, WorldViewApi } from './host.ts';
+import type { SoundSettings, UiAudio, UiHost, WorldViewApi } from './host.ts';
 import { CursorStack } from './hud/CursorStack.tsx';
 import { FlyingTexts } from './hud/flying.ts';
 import { Hud } from './hud/Hud.tsx';
@@ -48,7 +48,8 @@ import {
 } from './world/select.ts';
 
 export type { SaveEntry, SessionApi } from './core/context.ts';
-export type { UiHost, UiHostEvents, WorldViewApi } from './host.ts';
+export type { SoundCategory, SoundSettings, UiAudio, UiHost, UiHostEvents, WorldViewApi } from './host.ts';
+export { SOUND_CATEGORIES } from './host.ts';
 export type { CharacterFacts, DomManifest } from './store/protos.ts';
 export { characterFacts } from './store/protos.ts';
 
@@ -67,6 +68,8 @@ export interface UiOptions {
   dom: DomManifest | null;
   /** The UI sound hook (the audio module's `ui(name)`). */
   sound?: (name: string) => void;
+  /** The game's audio (src/app/attach-audio.ts; C9): GUI sounds, the volume settings, and what shows. */
+  audio?: UiAudio;
   /** F4 and F5 (I §4.21, dev builds): the world view's debug overlays and timings. */
   debugKey?: Commands['debugKey'];
 }
@@ -125,6 +128,13 @@ export function mountUi(o: UiOptions): UiHandle {
   const [bindings, setBindingsSignal] = createSignal(new BindingTable(settings.keybindings));
   const [selection, setSelection] = createSignal<Selection | null>(null, { equals: sameSelection });
   const [scaleSetting, setScaleSetting] = createSignal(settings.interface.uiScale);
+  const [soundSetting, setSoundSetting] = createSignal<SoundSettings>(settings.sound);
+  o.audio?.setSettings(settings.sound);
+  /** A GUI sound, through the audio module (and the hook tests pass). */
+  const sfx = (name: string) => {
+    o.sound?.(name);
+    o.audio?.ui(name);
+  };
   const [viewport, setViewport] = createSignal({ w: window.innerWidth, h: window.innerHeight });
   const scale = () => (scaleSetting() > 0 ? scaleSetting() / 100 : autoScale(viewport().h));
   let paused = false;
@@ -135,9 +145,18 @@ export function mountUi(o: UiOptions): UiHandle {
       version: 1,
       keybindings: bindings().settings,
       interface: { uiScale: scaleSetting() },
+      sound: soundSetting(),
     });
 
   const hasGui = (proto: number) => protos.entity(proto)?.type === 'chest';
+
+  // Every GUI button clicked sounds (Factorio's gui_click; I §3.12): menu buttons, tabs, slots (M1c gives inventory
+  // moves their own sounds by material), the windows' buttons. E on a green button sounds from its layer entry.
+  const clicked = (e: MouseEvent) => {
+    const b = (e.target as Element | null)?.closest?.('button');
+    if (b && !(b as HTMLButtonElement).disabled) sfx('ui-click');
+  };
+  o.root.addEventListener('click', clicked, true);
 
   // The layers under the UI's root: the world overlay (selection brackets, the build preview), then the shell.
   const overlay = new WorldOverlay(o.root);
@@ -180,7 +199,7 @@ export function mountUi(o: UiOptions): UiHandle {
       refuse: (key, x, y) => {
         const w = world.camera.toWorld(x, y);
         flying.add(t(key), w.x, w.y, { error: true });
-        o.sound?.('error');
+        sfx('error');
       },
       togglePause: () => {
         paused = !paused;
@@ -286,8 +305,29 @@ export function mountUi(o: UiOptions): UiHandle {
       persist();
     },
     setInputEnabled: (on) => core.setEnabled(on),
-    sound: (name) => o.sound?.(name),
+    sound: sfx,
+    soundSettings: soundSetting,
+    setSoundSettings: (v, keep) => {
+      o.audio?.setSettings(v);
+      if (keep) {
+        setSoundSetting(v);
+        persist();
+      }
+    },
   };
+  // What shows decides the music (C9): the main menu's recording, or a game's program (07 §18, A4 §5.4)
+  const disposeScene = createRoot((dispose) => {
+    createEffect(
+      on(
+        () => ui.screen[0](),
+        (screen) => {
+          if (screen === 'menu') o.audio?.scene({ menu: true });
+          else if (screen === 'game') o.audio?.scene({ game: session.musicSeed() });
+        },
+      ),
+    );
+    return dispose;
+  });
 
   // ---------------------------------------------------------------------------------------- the frame loop
 
@@ -417,7 +457,6 @@ export function mountUi(o: UiOptions): UiHandle {
         arg = tile === null ? '' : protos.tileName(tile);
       }
       flying.add(t(key, arg), e.pos.x / 256, e.pos.y / 256, { error: true });
-      o.sound?.('error');
     } else if (e.type === 'entity_mined') ui.forgetEntity(e.serial);
   };
 
@@ -542,6 +581,8 @@ export function mountUi(o: UiOptions): UiHandle {
     },
     dispose() {
       cancelAnimationFrame(raf);
+      o.root.removeEventListener('click', clicked, true);
+      disposeScene();
       window.removeEventListener('resize', resize);
       offPacket();
       core.detach();

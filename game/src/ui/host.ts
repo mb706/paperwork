@@ -62,3 +62,35 @@ export interface UiHost {
   /** *Take over* the saves from another tab (§8.2). */
   takeOver(): void;
 }
+
+/** I §4.20's sound categories, each with its volume and mute (src/audio's CATEGORIES, the same names). */
+export const SOUND_CATEGORIES = [
+  'master',
+  'music',
+  'effects',
+  'gui',
+  'alerts',
+  'environment',
+  'walking',
+  'ambient',
+] as const;
+export type SoundCategory = (typeof SOUND_CATEGORIES)[number];
+
+/** The volume settings: 0 … 1 per category (music 70 % by default, a squared slider, 10 §9.4), and the mutes. */
+export interface SoundSettings {
+  volume: Record<SoundCategory, number>;
+  muted: Record<SoundCategory, boolean>;
+}
+
+/**
+ * The audio the UI drives (src/audio's AudioSystem, attached by src/app/attach-audio.ts; C9). The UI says what shows
+ * and what the player set; the audio follows the world by itself (packets, the camera, pauses, generations).
+ */
+export interface UiAudio {
+  /** A GUI sound by its sounds.yaml name (ui-click, error …). */
+  ui(name: string): void;
+  /** The volume settings, applied at once. */
+  setSettings(s: SoundSettings): void;
+  /** What shows: the main menu (the charter piece's recording), or a game with its music program's seed. */
+  scene(s: { menu: true } | { game: number }): void;
+}

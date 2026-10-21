@@ -53,7 +53,28 @@ export interface SfxLoad {
   stepsPerSec?: number;
 }
 
+/**
+ * One input of a recorded session (C9): a render packet the game page received (its EVENTS and AUDIO_WORKING go
+ * through the SFX system as in the game), a sound the page played itself (GUI sounds, footsteps, mining strikes), or
+ * the camera; `t` in seconds from the session's start (its ticks ÷ 60, so a stepped test session keeps game time).
+ */
+export interface ScriptEvent {
+  t: number;
+  packet?: number[];
+  sound?: { name: string; x?: number; y?: number };
+  view?: { cx: number; cy: number; halfWidth: number; zoom: number };
+}
+
+/** A recorded session to play over the piece, with the prototype facts its event map needs (C9). */
+export interface SessionScript {
+  events: ScriptEvent[];
+  /** Each entity prototype's footprint, its larger side in tiles (prototypes.json). */
+  entitySizes: number[];
+}
+
 export interface RenderConfig {
+  /** A recorded session's sounds, through the SFX system as the game plays them (C9). */
+  script?: SessionScript;
   piece?: string;
   params?: PieceParams;
   /** The piece's duration (s). */
@@ -80,6 +101,8 @@ export interface RenderConfig {
 
 export interface RenderResult {
   buffer: AudioBuffer;
+  /** A recorded session's SFX: what sounded, was rate-limited, or was historical (C9). */
+  script: { played: number; limited: number; historical: number; unmapped: number } | null;
   notes: LoggedNote[];
   /** Names of the output pairs after the mix (stems renders). */
   stems: string[];
@@ -100,6 +123,8 @@ const LOAD_PROTO: ProtoInfo = {
 };
 
 interface Assembly {
+  /** The recorded session's SFX system (its statistics), when the config has one. */
+  script: SfxSystem | null;
   clock: { sim: number | null };
   bank: BankClient;
   bankNode: AudioWorkletNode;
@@ -155,6 +180,9 @@ async function assemble(
   if (cfg.sfx && deps.sounds) {
     table = new SoundTable(withLoopAliases(deps.sounds, cfg.sfx.loops));
     await table.load(files);
+  } else if (cfg.script && deps.sounds) {
+    table = new SoundTable(deps.sounds);
+    await table.load(files);
   }
   await bank.sync();
   const decodeMs = performance.now() - t0;
@@ -197,7 +225,38 @@ async function assemble(
   }
   if (cfg.sfx && table)
     scheduler.listeners.add(sfxLoad(cfg.sfx, new SfxSystem(bank, table, now, LOAD_PROTO, makeRng(7)), table));
-  return { clock, bank, bankNode, mixer, engine, scheduler, files, stems, decodeMs };
+  let script: SfxSystem | null = null;
+  if (cfg.script && table) {
+    const sizes = cfg.script.entitySizes;
+    script = new SfxSystem(
+      bank,
+      table,
+      now,
+      {
+        entitySize: (p) => sizes[p] ?? 1,
+        minedKind: () => 'entity',
+        isDeveloperReason: FailReasonCodec.isDeveloper,
+      },
+      makeRng(7),
+    );
+    scheduler.listeners.add(sessionScript(cfg.script, script, start));
+  }
+  return { clock, bank, bankNode, mixer, engine, scheduler, files, stems, decodeMs, script };
+}
+
+/** Feeds a recorded session to the SFX system as the scheduler's clock passes each input's time. */
+export function sessionScript(s: SessionScript, sfx: SfxSystem, start: number): (t: number) => void {
+  const view = new GenPacketView();
+  const queue = [...s.events].sort((a, b) => a.t - b.t);
+  let i = 0;
+  return (t) => {
+    while (i < queue.length && start + (queue[i] as ScriptEvent).t <= t) {
+      const e = queue[i++] as ScriptEvent;
+      if (e.view) sfx.view = { ...e.view, mapView: false };
+      if (e.packet) sfx.onPacket(view.set(decodePacket(new Uint8Array(e.packet))));
+      if (e.sound) sfx.play(e.sound.name, e.sound.x ?? Number.NaN, e.sound.y ?? Number.NaN);
+    }
+  };
 }
 
 export async function renderOffline(deps: OfflineDeps, cfg: RenderConfig): Promise<RenderResult> {
@@ -246,6 +305,14 @@ export async function renderOffline(deps: OfflineDeps, cfg: RenderConfig): Promi
   const ms = performance.now() - r0;
   return {
     buffer,
+    script: a.script
+      ? {
+          played: a.script.stats.played,
+          limited: a.script.stats.limited,
+          historical: a.script.stats.historical,
+          unmapped: a.script.stats.unmapped,
+        }
+      : null,
     notes: a.engine.log ?? [],
     stems: a.stems,
     ms,

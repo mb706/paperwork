@@ -959,6 +959,47 @@ button {
   color: var(--ink);
 }
 
+/* Settings → Sound (I §4.20; C9): a label that mutes when clicked, a slider, the value */
+.sound-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 520px;
+  padding: 6px 10px;
+}
+
+.sound-row .sound-label {
+  flex: 0 0 220px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sound-row.muted .sound-label {
+  color: var(--disabled);
+  text-decoration: line-through;
+}
+
+.sound-row .sound-slider {
+  flex: 1 1 auto;
+  min-width: 200px;
+  height: 20px;
+  accent-color: var(--ink);
+}
+
+.sound-row.muted .sound-slider {
+  opacity: 0.45;
+}
+
+.sound-row .sound-value {
+  flex: 0 0 48px;
+  text-align: right;
+}
+
 .new-game-panel,
 .load-panel {
   min-width: 360px;

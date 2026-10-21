@@ -89,6 +89,14 @@ settings:
   press-a-key: proposal
   conflicts: proposal
   reserved: I §1.5
+  volume-master: factorio 23
+  volume-music: factorio 23
+  volume-effects: factorio 23
+  volume-gui: factorio 23
+  volume-alerts: proposal
+  volume-environment: proposal
+  volume-walking: proposal
+  volume-ambient: proposal
 
 stats:
   items: I §4.12
