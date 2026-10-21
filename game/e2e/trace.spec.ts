@@ -9,7 +9,7 @@
 // every session in test/logs/ (TRACE_SET=all), on the dev module and on the release module (TRACE_MODULE=release).
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
 import {
@@ -25,6 +25,7 @@ import {
 } from '../src/dev/trace/core.ts';
 import type { TraceResult } from '../test/trace/page.ts';
 import { watchConsole } from './console.ts';
+import { simtool } from './simtool.ts';
 
 const GAME = join(import.meta.dirname, '..');
 const PROTOS = join(GAME, 'test', 'golden', 'm0', 'protos', 'prototypes.bin');
@@ -32,7 +33,6 @@ const RELEASE = process.env.TRACE_MODULE === 'release';
 const MODULE = RELEASE
   ? join(GAME, 'target', 'wasm-release', 'sim.wasm')
   : join(GAME, 'target', 'wasm32-unknown-unknown', 'wasmdev', 'simabi.wasm');
-const SIMTOOL = join(GAME, 'target', 'wasmdev', 'simtool');
 
 /** The logs: the golden set, then the recorded sessions. */
 function files(name: string): { start: string; log: string } {
@@ -50,31 +50,6 @@ const SET =
           .sort(),
       ]
     : ['golden', 'm0-cross-engine-10k'];
-
-/** The newest modification time under the crates `simtool` is built from. */
-function newestSource(): number {
-  let newest = 0;
-  const walk = (dir: string): void => {
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      const p = join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith('.rs') || e.name === 'Cargo.toml')
-        newest = Math.max(newest, statSync(p).mtimeMs);
-    }
-  };
-  for (const c of ['det', 'schema', 'worldgen', 'sim', 'simtool']) walk(join(GAME, 'crates', c));
-  return newest;
-}
-
-/** `simtool` (wasmdev profile, as `ci` builds it); built here when missing or older than its sources. */
-function simtool(): string {
-  if (!existsSync(SIMTOOL) || statSync(SIMTOOL).mtimeMs < newestSource())
-    execFileSync('cargo', ['build', '--locked', '--quiet', '--profile', 'wasmdev', '-p', 'simtool'], {
-      cwd: GAME,
-      stdio: 'inherit',
-    });
-  return SIMTOOL;
-}
 
 interface Native {
   rows: TraceRow[];

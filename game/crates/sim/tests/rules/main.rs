@@ -9,6 +9,7 @@
 //!   its log fails.
 #![allow(clippy::disallowed_methods, clippy::disallowed_macros)] // fixtures are files; failures print
 
+mod capabilities;
 #[allow(dead_code)]
 #[path = "../core/common.rs"]
 mod common;

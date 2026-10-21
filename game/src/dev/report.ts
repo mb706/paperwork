@@ -69,10 +69,10 @@ export async function worldScreenshot(): Promise<Uint8Array | null> {
   return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
 }
 
+/** The GPU the world is drawn with (the renderer's own context; none with `?render=none`, so no probe warns). */
 function gpu(): { vendor: string; renderer: string } | null {
   try {
-    const c = document.createElement('canvas');
-    const gl = c.getContext('webgl2') ?? c.getContext('webgl');
+    const gl = (window as unknown as { __render?: RenderHooks }).__render?.renderer?.gl;
     if (!gl) return null;
     const ext = gl.getExtension('WEBGL_debug_renderer_info');
     return ext
