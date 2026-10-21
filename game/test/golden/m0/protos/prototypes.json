@@ -172,7 +172,7 @@
       "localeHandbook": null,
       "localeName": "item-name.iron-chest",
       "name": "iron-chest",
-      "order": "0127",
+      "order": "a[items]-b[iron-chest]",
       "places": 0,
       "placesTile": null,
       "stack": 50,
@@ -186,7 +186,7 @@
       "localeHandbook": null,
       "localeName": "item-name.iron-ore",
       "name": "iron-ore",
-      "order": "0002",
+      "order": "e[iron-ore]",
       "places": null,
       "placesTile": null,
       "stack": 50,
@@ -200,11 +200,11 @@
       "localeHandbook": null,
       "localeName": "item-name.iron-plate",
       "name": "iron-plate",
-      "order": "0015",
+      "order": "a[smelting]-a[iron-plate]",
       "places": null,
       "placesTile": null,
       "stack": 100,
-      "subgroup": 17
+      "subgroup": 16
     }
   ],
   "localeKeys": {
@@ -657,7 +657,7 @@
       "localeHandbook": null,
       "localeName": "recipe-name.iron-chest",
       "name": "iron-chest",
-      "order": "0127",
+      "order": "a[items]-b[iron-chest]",
       "products": [
         {
           "amount": 1,

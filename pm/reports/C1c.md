@@ -769,3 +769,16 @@ reference model's `applySystem` (§15.3; README rules 8–9):
 
 No golden file or contract input changed, so no bump. `test/golden`: 47 of 47 tests pass. The model reproduces all
 466 files.
+
+## Integration: D1's data readiness
+
+D1 (merge 0c975e3) gave M0's items Factorio 2.0's orders, and iron-plate its subgroup. **Golden version 8 is a
+mechanical bump**: only `protos/prototypes.json` changed (iron-chest, iron-ore and iron-plate's `order`, and
+iron-plate's `subgroup`). `prototypes.bin`, the schema hash, the atlas's `external` hashes, the contract and every
+other `m0/` file are unchanged. `test/golden` passes 47 of 47 tests. `npm run ci` is green in 177 s, with Playwright
+ports auto-selected.
+
+A hazard for every agent in the shared tree: vitest's global setup (`test/helpers/global-setup.ts`) deletes
+`.cache/test-tmp/`. Any vitest run started while another is running therefore removes the first run's scratch
+directories. My first CI run lost two data-stage tests that way (ENOENT under `.cache/test-tmp/data-stage-*`),
+because I had started a separate `vitest run test/golden` alongside it.
