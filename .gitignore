@@ -37,3 +37,4 @@ pm/reviews/*.log
 
 # Agent worktrees (Claude Code)
 .claude/worktrees/
+pm/plans/*.log
