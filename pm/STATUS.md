@@ -1,5 +1,11 @@
 # Project status (maintained by the manager)
 
+> **PAUSED by the user on 2026-10-21.** Running agents may finish. Start no new agents and do no merges until the user writes to continue. When resuming, do in order:
+> 1. Check the M1-01 gate fixes (branch `m1-01`).
+> 2. Run codex's second gate pass, `pm/reviews/M1-01-r2`.
+> 3. Merge `m1-01`, then run `npm run assets -- --no-render --no-qc`, because the prototypes hash changed.
+> 4. Start M1 waves 2+ (M1-02 and M1-03) per `pm/plans/M1-plan.md`.
+
 ## Phase A: pre-implementation studies (started 2026-10-20)
 | WP | Topic | Agent | Status |
 |---|---|---|---|
@@ -78,6 +84,6 @@ The Schema package is split into sequential parts: C1a (scaffold, CI, data stage
 ## Phase D: M1 (started 2026-10-21; plan in `pm/plans/M1-plan.md`)
 | WP | Topic | Status |
 |---|---|---|
-| M1-01 | M1 contracts and fixtures (schema, prototype fields, capability subsets, M1 reference cases) | running (worktree `m1-01`; the C1b agent) |
+| M1-01 | M1 contracts and fixtures (schema, prototype fields, capability subsets, M1 reference cases) | done on branch `m1-01` (d9b87c0). The gate review M1-01-r1 FAILED (9 major, 3 minor); the fix round is running |
 - Ore patches: worldgen gives every ore tile the same amount, so patch edges look hard. Fix it in M1-04 (worldgen), not as a separate golden value change.
 - C9 proposed 4 volume labels; they wait for the text owner (M1-20).
