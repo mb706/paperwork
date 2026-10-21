@@ -95,18 +95,25 @@ function reportId(d = new Date()): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}-${rand}`;
 }
 
+/** One upload; the dev server answers 503 while its uploads are busy, so that is retried a few times. */
 async function post(
   url: string,
   body: Uint8Array | string,
 ): Promise<{ ok: boolean; file?: string; error?: string }> {
-  const r = await fetch(url, { method: 'POST', body: typeof body === 'string' ? body : body.slice() });
-  const j = (await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }))) as {
-    ok: boolean;
-    file?: string;
-    error?: string;
-  };
-  if (!r.ok || !j.ok) throw new Error(`${url}: ${j.error ?? `HTTP ${r.status}`}`);
-  return j;
+  for (let attempt = 0; ; attempt++) {
+    const r = await fetch(url, { method: 'POST', body: typeof body === 'string' ? body : body.slice() });
+    const j = (await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }))) as {
+      ok: boolean;
+      file?: string;
+      error?: string;
+    };
+    if (r.status === 503 && attempt < 5) {
+      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+      continue;
+    }
+    if (!r.ok || !j.ok) throw new Error(`${url}: ${j.error ?? `HTTP ${r.status}`}`);
+    return j;
+  }
 }
 
 /** A trap's bundle as the IO worker kept it in OPFS (`reports/<name>/`), or null. */
@@ -134,18 +141,37 @@ export interface ReportResult {
   trap: boolean;
 }
 
+/** What `sendReport` uses of the page (tests replace them). */
+export interface ReportDeps {
+  stored(name: string): Promise<{ name: string; bytes: Uint8Array }[] | null>;
+  post(url: string, body: Uint8Array | string): Promise<unknown>;
+  screenshot(): Promise<Uint8Array | null>;
+}
+
+const PAGE: ReportDeps = { stored: storedReport, post, screenshot: worldScreenshot };
+
+/**
+ * The traps whose kept bundle was sent and acknowledged file by file, and each trap's report id: a trap's report keeps
+ * its id until every file is acknowledged, so a failed upload is sent again, whole, to the same directory (the M0 exit
+ * audit #7, C9), and only then does the next report export the session instead.
+ */
 const sentTrapReports = new Set<string>();
+const trapReportIds = new Map<string, string>();
 
 /** Sends a bug report (see the header) and returns where it went. */
-export async function sendReport(host: SimHost, note = ''): Promise<ReportResult> {
-  const id = reportId();
+export async function sendReport(
+  host: Pick<SimHost, 'lastReport' | 'lastTick' | 'exportBugBundle'>,
+  note = '',
+  deps: ReportDeps = PAGE,
+): Promise<ReportResult> {
   const files: { name: string; bytes: Uint8Array | string }[] = [];
   let trap = false;
-  const stored =
-    host.lastReport && !sentTrapReports.has(host.lastReport) ? await storedReport(host.lastReport) : null;
+  const trapName = host.lastReport && !sentTrapReports.has(host.lastReport) ? host.lastReport : null;
+  const stored = trapName ? await deps.stored(trapName) : null;
+  const id = (stored && trapName ? trapReportIds.get(trapName) : undefined) ?? reportId();
   let workerConsole: string[] = [];
-  if (stored && host.lastReport) {
-    sentTrapReports.add(host.lastReport);
+  if (stored && trapName) {
+    trapReportIds.set(trapName, id);
     trap = true;
     for (const f of stored) files.push(f);
   } else {
@@ -158,7 +184,7 @@ export async function sendReport(host: SimHost, note = ''): Promise<ReportResult
     });
     workerConsole = b.console;
   }
-  const shot = await worldScreenshot().catch(() => null);
+  const shot = await deps.screenshot().catch(() => null);
   if (shot) files.push({ name: 'screenshot.png', bytes: shot });
   files.push({
     name: 'console.txt',
@@ -168,16 +194,21 @@ export async function sendReport(host: SimHost, note = ''): Promise<ReportResult
     id,
     note,
     time: new Date().toISOString(),
-    url: location.href,
-    userAgent: navigator.userAgent,
+    url: globalThis.location?.href ?? null,
+    userAgent: globalThis.navigator?.userAgent ?? null,
     gpu: gpu(),
-    screen: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio },
+    screen:
+      typeof innerWidth === 'number'
+        ? { width: innerWidth, height: innerHeight, dpr: devicePixelRatio }
+        : null,
     tick: host.lastTick,
-    trapReport: trap ? host.lastReport : null,
+    trapReport: trap ? trapName : null,
     files: files.map((f) => f.name),
   };
   files.push({ name: 'client.json', bytes: `${JSON.stringify(client, null, 1)}\n` });
-  for (const f of files) await post(`/__report/${id}/${f.name}`, f.bytes);
+  // a failure throws before the trap's report counts as sent: the next attempt sends it again, under the same id
+  for (const f of files) await deps.post(`/__report/${id}/${f.name}`, f.bytes);
+  if (trap && trapName) sentTrapReports.add(trapName);
   const result = { id, dir: `bench/reports/${id}`, files: files.map((f) => f.name), trap };
   console.info(`report ${id}: ${files.length} files sent to ${result.dir} (simtool replay ${result.dir})`);
   return result;
