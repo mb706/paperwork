@@ -3,6 +3,9 @@
 import { z } from 'zod';
 import { block, bool, doc, expr, id, idList, int, key, nonNeg, num, pair, posInt, posNum } from './common.ts';
 
+/** A share or probability in [0, 1]. */
+const fraction = z.number().min(0).max(1);
+
 const setting = block({
   options: z.array(z.union([z.string(), num])),
   default: z.union([z.string(), num]),
@@ -29,7 +32,21 @@ export const meta = block({
       per_piece: z.record(id, posInt),
       crate: z.record(id, posInt),
     }),
-    guarantees: block({ inside_starting_coverage: idList, starting_archive_records: posInt }),
+    // 01 §9's starting-area guarantees (DECISIONS §32), typed by D1 for worldgen v1.
+    guarantees: block({
+      inside_starting_coverage: idList,
+      starting_archive_records: posInt,
+      college: block({ spawn_distance_tiles: pair, max_lateral_tiles: nonNeg, layout_attempts: posInt }),
+      starting_patches: block({
+        min_footprint_distance_tiles: nonNeg,
+        min_patch_distance_tiles: nonNeg,
+        min_spawn_distance_tiles: nonNeg,
+      }),
+      buildable: block({ min_tiles: posInt, square_tiles: posInt }),
+      lake: block({ min_tiles: posInt, within_tiles: posNum }),
+      forest: block({ min_trees: posInt, within_tiles: posNum }),
+      no_cliffs_within_tiles: nonNeg,
+    }),
   }),
   quality: block({
     tiers: z.array(block({ id, name: doc, level: z.int().nonnegative(), unlocked_by: id.optional() })),
@@ -62,6 +79,15 @@ export const meta = block({
       spawn_c: pair,
     }),
     sunlight: block({ divisor_tiles: posNum, clamp: pair, evaluated_at: doc }),
+    // The day cycle (Factorio 2.0, ISO; 01 §3, 10 §5.7): fractions of the day from noon.
+    daylight: block({
+      ticks_per_day: posInt,
+      dusk: fraction,
+      evening: fraction,
+      morning: fraction,
+      dawn: fraction,
+      min_brightness: fraction,
+    }),
     diffusion: block({ share_per_neighbour: nonNeg, every_ticks: posInt, min_mj: nonNeg }),
     loss: block({ base_kw: nonNeg, kappa: doc, per_tree_per_s: nonNeg, leaf_stage_s: posNum }),
     emission: block({
@@ -91,10 +117,11 @@ export const meta = block({
   }),
   staffing: block({
     radius: posNum,
+    every_ticks: posInt,
     supply: block({ per_field_year: nonNeg, max_multiplier: posNum }),
     t0: z.record(id, nonNeg),
     university_share: z.record(id, nonNeg),
-    demand: block({ base: nonNeg, min: nonNeg, working_share: doc, researcher: doc }),
+    demand: block({ base: nonNeg, min: nonNeg, window_ticks: posInt, working_share: doc, researcher: doc }),
     coverage: doc,
     network: doc,
     terminal: doc,
@@ -167,6 +194,7 @@ export const meta = block({
     display: doc,
   }),
   world: block({
+    every_ticks: posInt,
     w0: num,
     v0: num,
     v0_race: num,
@@ -207,8 +235,78 @@ export const meta = block({
       starting_archive: posInt,
       library_totals: z.record(id, z.tuple([nonNeg, nonNeg, nonNeg])),
       library_totals_note: doc,
-      records_stores: block({ total: pair, beyond_tiles: nonNeg }),
+      records_stores: block({
+        total: pair,
+        beyond_tiles: nonNeg,
+        cell_tiles: posInt,
+        probability: fraction,
+        min_town_distance_tiles: nonNeg,
+      }),
       distance_factor: block({ scale_tiles: posNum }),
+    }),
+    // Map generation (worldgen v1): 01 §2's biomes, §4's patches and §5's towns, typed by D1.
+    biomes: block({
+      order: idList,
+      upper_c: z.array(num),
+      blend_k: nonNeg,
+      trees: z.record(id, nonNeg),
+      boreal_moist: block({ above: fraction, trees: nonNeg }),
+      boreal_snow_below_c: num,
+      tundra_rock_share: fraction,
+      lake_moisture_base: nonNeg,
+    }),
+    patches: block({
+      edge_noise: fraction,
+      cell_centre_share: fraction,
+      radius_distance_tiles: posNum,
+      richness_distance_tiles: posNum,
+      start_amount_spread: fraction,
+      coast_bias: block({
+        resources: idList,
+        within_tiles: nonNeg,
+        on_tiles: idList,
+        factor: posNum,
+        cap: fraction,
+      }),
+      resources: z.record(
+        id,
+        block({
+          start: block({ amount: posNum, per_tile: posNum, tiles: posInt }).optional(),
+          cell_tiles: posNum,
+          probability: fraction,
+          radius_tiles: posNum,
+          per_tile: posNum,
+          not_within_tiles: nonNeg.optional(),
+        }),
+      ),
+    }),
+    towns: block({
+      cell_tiles: posInt,
+      band_upper_tiles: z.array(posNum),
+      probability: z.array(fraction),
+      site: block({
+        centre_square_tiles: posInt,
+        min_land: fraction,
+        max_patch_overlap: fraction,
+        min_footprint_distance_tiles: nonNeg,
+        candidates: posInt,
+      }),
+      layout: block({ street_period_tiles: posInt, street_width_tiles: posInt }),
+      classes: z.record(
+        id,
+        block({
+          footprint_tiles: posInt,
+          probability: z.array(fraction).optional(),
+          exchange: block({ chance: fraction, taps: pair, initial_yield: pair.optional() }),
+        }),
+      ),
+      exchange_taps: block({
+        min_distance_tiles: nonNeg,
+        max_distance_tiles: posNum,
+        min_spacing_tiles: nonNeg,
+      }),
+      era_skin_w: z.array(num),
+      exchange_skin_w: z.array(num),
     }),
   }),
   world_settings: z.record(key, setting),

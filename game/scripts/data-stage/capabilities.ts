@@ -3,10 +3,21 @@
 // prototypes and checks that they close: every item the build holds is obtainable from its resources, the
 // start inventory and its recipes, every recipe can be crafted by hand or by an included machine, and every
 // placeable thing it holds can be placed.
+//
+// D1: every manifest is resolved and checked, not only the current one, so the M1 packages can build against
+// m1 before it is current: its names against the generated schema, its registry entries, its `systems` against
+// 10 §5, its `data` and `reads` against the design data's parts (`reads` must not be omitted once current), and
+// (index.ts, engine.ts) its prototypes' engine overlay. `prototypes: {filter: m1}` takes a build filter's
+// prototypes (manifests.yaml) instead of lists.
 import { z } from 'zod';
+import { ACTION_IDS, type ActionName, SYSTEM_ACTIONS } from '../../src/shared/gen/actions.ts';
+import { PACKET_SECTIONS } from '../../src/shared/gen/packet.ts';
+import { PROJECTION_KINDS, QUERY_KINDS } from '../../src/shared/gen/projections.ts';
+import { ACHIEVEMENT_CONDITIONS, EFFECTS, FORMULA_REFS, TRIGGERS } from '../../src/shared/gen/registries.ts';
 import { compareCodeUnits } from '../lib/canonical.ts';
 import type { Diagnostics } from './diagnostics.ts';
-import { EMITTED_META } from './emit/contents.ts';
+import { EMITTED_META, FIELD_STATUS, omittedParts, PARTIAL } from './emit/contents.ts';
+import { leadingRef } from './formula-refs.ts';
 import { playthrough } from './playthrough.ts';
 import type { Index } from './refs.ts';
 import type { DesignData } from './schema/index.ts';
@@ -15,19 +26,25 @@ import { triggerTarget } from './triggers.ts';
 
 const id = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 const name = z.string().regex(/^[A-Za-z0-9_-]+$/);
+const explicitPrototypes = z.strictObject({
+  character: z.boolean(),
+  entities: z.array(id),
+  recipes: z.array(id),
+  resources: z.array(id),
+  tiles: z.array(id),
+  world_objects: z.array(id),
+  technologies: z.array(id),
+});
 const manifest = z.strictObject({
   extends: z.string().optional(),
-  prototypes: z.strictObject({
-    character: z.boolean(),
-    entities: z.array(id),
-    recipes: z.array(id),
-    resources: z.array(id),
-    tiles: z.array(id),
-    world_objects: z.array(id),
-    technologies: z.array(id),
-  }),
+  /** Lists, or a build filter of manifests.yaml (`{filter: m1}`) whose prototypes the milestone supports. */
+  prototypes: z.union([explicitPrototypes, z.strictObject({ filter: z.string() })]),
   /** The META blocks the milestone's engine reads (C1a-r1 finding 5); each must be in prototypes.bin. */
   data: z.array(z.string()),
+  /** The other parts of the design data its engine reads (D1); none may be omitted once it is current. */
+  reads: z.array(z.string()).optional(),
+  /** The systems of 10 §5 it implements, each with its scope (D1). */
+  systems: z.record(z.string(), z.string()).optional(),
   actions: z.array(name),
   system_actions: z.array(name),
   registries: z.strictObject({
@@ -44,7 +61,38 @@ const manifest = z.strictObject({
 });
 const file = z.strictObject({ current: z.string(), manifests: z.record(z.string(), manifest) });
 
-export type CapabilityManifest = z.infer<typeof manifest> & { name: string };
+export type Prototypes = z.infer<typeof explicitPrototypes>;
+
+/** A resolved manifest: its own fields united with those of the manifests it extends. */
+export interface CapabilityManifest {
+  name: string;
+  /** The listed prototypes, united down the `extends` chain (a filter manifest's are its base's). */
+  prototypes: Prototypes;
+  /** The build filter whose prototypes the manifest takes (m1), or null for lists. */
+  filter: string | null;
+  data: string[];
+  reads: string[];
+  systems: Record<string, string>;
+  actions: string[];
+  system_actions: string[];
+  registries: {
+    effects: string[];
+    triggers: string[];
+    achievement_conditions: string[];
+    formula_refs: string[];
+  };
+  projections: string[];
+  queries: string[];
+  packet_sections: string[];
+  rule_scenarios: string[];
+  benchmarks: string[];
+}
+
+/** Every manifest, resolved, and the current one. */
+export interface Capabilities {
+  current: CapabilityManifest;
+  manifests: CapabilityManifest[];
+}
 
 /** The prototypes a build holds, by kind, in no particular order (ids assign the order). */
 export interface BuildSet {
@@ -64,7 +112,42 @@ export interface BuildSet {
   startRecipes: Set<string>;
 }
 
-export function loadCapabilities(src: SourceFile, diags: Diagnostics): CapabilityManifest | null {
+/** The systems of 10 §5, by the name a manifest's `systems` gives them, with their section. */
+export const SYSTEMS: Readonly<Record<string, string>> = {
+  character: '10 §5.1',
+  construction: '10 §5.2',
+  belts: '10 §5.3',
+  inserters: '10 §5.4',
+  crafting: '10 §5.5',
+  mining: '10 §5.6',
+  energy: '10 §5.7',
+  fluids: '10 §5.8',
+  heat: '10 §5.9',
+  staffing: '10 §5.10',
+  'world-text': '10 §5.11',
+  research: '10 §5.12',
+  trains: '10 §5.13',
+  agents: '10 §5.14',
+  circuits: '10 §5.15',
+  quality: '10 §5.16',
+  runaways: '10 §5.17',
+  worldgen: '10 §5.18',
+  charting: '10 §5.19',
+  statistics: '10 §5.20',
+};
+
+/** The prototype set of the empty manifest. */
+const NO_PROTOTYPES: Prototypes = {
+  character: false,
+  entities: [],
+  recipes: [],
+  resources: [],
+  tiles: [],
+  world_objects: [],
+  technologies: [],
+};
+
+export function loadCapabilities(src: SourceFile, diags: Diagnostics): Capabilities | null {
   const r = file.safeParse(src.value);
   if (!r.success) {
     for (const issue of r.error.issues)
@@ -72,6 +155,7 @@ export function loadCapabilities(src: SourceFile, diags: Diagnostics): Capabilit
     return null;
   }
   const all = r.data.manifests;
+  const u = (a: readonly string[], b: readonly string[] = []): string[] => [...new Set([...a, ...b])];
   const resolve = (n: string, seen: string[]): CapabilityManifest | null => {
     const m = all[n];
     if (!m) {
@@ -88,22 +172,44 @@ export function loadCapabilities(src: SourceFile, diags: Diagnostics): Capabilit
       );
       return null;
     }
-    if (!m.extends) return { ...m, name: n };
-    const base = resolve(m.extends, [...seen, n]);
+    const base: CapabilityManifest | null = m.extends
+      ? resolve(m.extends, [...seen, n])
+      : {
+          name: n,
+          prototypes: NO_PROTOTYPES,
+          filter: null,
+          data: [],
+          reads: [],
+          systems: {},
+          actions: [],
+          system_actions: [],
+          registries: { effects: [], triggers: [], achievement_conditions: [], formula_refs: [] },
+          projections: [],
+          queries: [],
+          packet_sections: [],
+          rule_scenarios: [],
+          benchmarks: [],
+        };
     if (!base) return null;
-    const u = (a: string[], b: string[]): string[] => [...new Set([...a, ...b])];
+    const own = 'filter' in m.prototypes ? null : m.prototypes;
+    const bp = base.prototypes;
     return {
       name: n,
-      prototypes: {
-        character: base.prototypes.character || m.prototypes.character,
-        entities: u(base.prototypes.entities, m.prototypes.entities),
-        recipes: u(base.prototypes.recipes, m.prototypes.recipes),
-        resources: u(base.prototypes.resources, m.prototypes.resources),
-        tiles: u(base.prototypes.tiles, m.prototypes.tiles),
-        world_objects: u(base.prototypes.world_objects, m.prototypes.world_objects),
-        technologies: u(base.prototypes.technologies, m.prototypes.technologies),
-      },
+      prototypes: own
+        ? {
+            character: bp.character || own.character,
+            entities: u(bp.entities, own.entities),
+            recipes: u(bp.recipes, own.recipes),
+            resources: u(bp.resources, own.resources),
+            tiles: u(bp.tiles, own.tiles),
+            world_objects: u(bp.world_objects, own.world_objects),
+            technologies: u(bp.technologies, own.technologies),
+          }
+        : bp,
+      filter: 'filter' in m.prototypes ? m.prototypes.filter : base.filter,
       data: u(base.data, m.data),
+      reads: u(base.reads, m.reads),
+      systems: { ...base.systems, ...(m.systems ?? {}) },
       actions: u(base.actions, m.actions),
       system_actions: u(base.system_actions, m.system_actions),
       registries: {
@@ -122,7 +228,107 @@ export function loadCapabilities(src: SourceFile, diags: Diagnostics): Capabilit
       benchmarks: u(base.benchmarks, m.benchmarks),
     };
   };
-  return resolve(r.data.current, []);
+  const current = resolve(r.data.current, []);
+  const manifests: CapabilityManifest[] = [];
+  for (const n of Object.keys(all).sort(compareCodeUnits)) {
+    const m = n === r.data.current ? current : resolve(n, []);
+    if (m) manifests.push(m);
+  }
+  if (!current || manifests.length !== Object.keys(all).length) return null;
+  return { current, manifests };
+}
+
+/**
+ * A part of the design data named the way the outputs' contents record names it (`entities.categories`,
+ * `technologies.unlocks.effects`, `text.milestones.kind`): a classified field, or a subfield of a partial one.
+ */
+export function isDesignPart(path: string): boolean {
+  const [kind, field, ...rest] = path.split('.');
+  const status = FIELD_STATUS[kind ?? '']?.[field ?? ''];
+  if (status === undefined) return false;
+  if (rest.length === 0) return true;
+  return status === 'partial' && (PARTIAL[`${kind}.${field}`] ?? []).includes(rest.join('.'));
+}
+
+/** The omitted parts of the design data a `reads` path names (itself, or parts under it). */
+export function omittedUnder(path: string): string[] {
+  return omittedParts().filter((p) => p === path || p.startsWith(`${path}.`));
+}
+
+/**
+ * The manifest's names against the generated schema and registries, its `systems` against 10 §5, its `data`
+ * against meta.yaml's blocks and its `reads` against the design data's parts (any manifest, current or not).
+ */
+export function checkManifestNames(cap: CapabilityManifest, src: SourceFile, diags: Diagnostics): void {
+  const where = (key: string) => at(src, ['manifests', cap.name, key]);
+  const has = (what: string, key: string, names: readonly string[], known: Iterable<string>) => {
+    const set = new Set(known);
+    for (const n of names)
+      if (!set.has(n)) diags.error(`${cap.name}: ${what} ${n} is not in the schema`, where(key));
+  };
+  const actions = Object.keys(ACTION_IDS);
+  has(
+    'action',
+    'actions',
+    cap.actions,
+    actions.filter((a) => !SYSTEM_ACTIONS.has(a as ActionName)),
+  );
+  has('system action', 'system_actions', cap.system_actions, SYSTEM_ACTIONS as ReadonlySet<string>);
+  has(
+    'projection',
+    'projections',
+    cap.projections,
+    [...PROJECTION_KINDS.values()].map((k) => k.name),
+  );
+  has(
+    'query',
+    'queries',
+    cap.queries,
+    [...QUERY_KINDS.values()].map((k) => k.name),
+  );
+  has(
+    'packet section',
+    'packet_sections',
+    cap.packet_sections,
+    [...PACKET_SECTIONS.values()].map((k) => k.name),
+  );
+  const reg = (what: string, names: readonly string[], known: readonly string[], norm = (x: string) => x) => {
+    for (const n of names)
+      if (!known.includes(norm(n)))
+        diags.error(`${cap.name}: ${what} ${n} is not in its registry`, where('registries'));
+  };
+  reg('effect', cap.registries.effects, EFFECTS);
+  reg('trigger', cap.registries.triggers, TRIGGERS, (x) => x.replace(/-/g, '_'));
+  reg('achievement condition', cap.registries.achievement_conditions, ACHIEVEMENT_CONDITIONS);
+  reg('formula reference', cap.registries.formula_refs, FORMULA_REFS, (x) => leadingRef(x) ?? x);
+  for (const s of Object.keys(cap.systems))
+    if (!(s in SYSTEMS))
+      diags.error(
+        `${cap.name}: system ${s} is none of 10 §5's (${Object.keys(SYSTEMS).join(', ')})`,
+        where('systems'),
+      );
+  for (const d of cap.data)
+    if (
+      !(EMITTED_META as readonly string[]).includes(d) &&
+      !isDesignPart(`meta.${d}`) &&
+      !isDesignPart(`meta.${d.split('.')[0]}`)
+    )
+      diags.error(`${cap.name}: data ${d} names no block of meta.yaml`, where('data'));
+  for (const p of cap.reads)
+    if (!isDesignPart(p))
+      diags.error(`${cap.name}: reads ${p}, which is no part of the design data`, where('reads'));
+}
+
+/** A current manifest's `reads`: the build must carry every part its engine reads (D1). */
+export function checkReadsCarried(cap: CapabilityManifest, src: SourceFile, diags: Diagnostics): void {
+  cap.reads.forEach((p, k) => {
+    const missing = omittedUnder(p);
+    if (missing.length > 0)
+      diags.error(
+        `${cap.name} reads ${p}, which the build omits (${missing.join('; ')}): emit it (a column, a list or META) before ${cap.name} is current`,
+        at(src, ['manifests', cap.name, 'reads', k]),
+      );
+  });
 }
 
 /** Items a prototype set needs, and the closure check (10 §2.4: "the build's prototypes close over it"). */
@@ -313,4 +519,55 @@ export function filterBuild(
     startInventory: new Map(Object.entries(d.meta.start.inventory).filter(([k]) => items.has(k))),
     startRecipes,
   };
+}
+
+/**
+ * A manifest that takes a build filter's prototypes (`{filter: m1}`): the filter's build, with what
+ * capabilityBuild checks of lists that a filter does not already guarantee (its closure is R17's, manifests.ts):
+ * the prototypes of the manifests it extends lie inside it, every effect and trigger its technologies use is
+ * implemented, and, when it is current, the META blocks it reads are carried.
+ */
+export function filterCapabilityBuild(
+  cap: CapabilityManifest,
+  f: Parameters<typeof filterBuild>[0],
+  d: DesignData,
+  ix: Index,
+  diags: Diagnostics,
+  src: SourceFile,
+  current: boolean,
+): BuildSet {
+  const build = filterBuild(f, d, ix);
+  const err = (key: string, msg: string): void => diags.error(msg, at(src, ['manifests', cap.name, key]));
+  const p = cap.prototypes;
+  for (const [key, list, set] of [
+    ['entities', p.entities, build.entities],
+    ['recipes', p.recipes, build.recipes],
+    ['resources', p.resources, build.resources],
+    ['tiles', p.tiles, build.tiles],
+    ['world_objects', p.world_objects, build.worldObjects],
+    ['technologies', p.technologies, build.technologies],
+  ] as const)
+    for (const x of list)
+      if (!set.has(x))
+        err(
+          'prototypes',
+          `${cap.name} extends a manifest that supports ${key} ${x}, which filter ${f.name} lacks`,
+        );
+  if (current)
+    for (const part of cap.data)
+      if (!(EMITTED_META as readonly string[]).includes(part))
+        err(
+          'data',
+          `${cap.name} reads meta ${part}, which prototypes.bin does not carry yet (it carries ${EMITTED_META.join(', ')}; the schema package emits the rest)`,
+        );
+  for (const t of [...build.technologies].sort(compareCodeUnits)) {
+    const tech = ix.technologies.get(t);
+    for (const ef of tech?.unlocks.effects ?? [])
+      if (!cap.registries.effects.includes(ef.type))
+        err('registries', `${t} uses the effect ${ef.type}, which ${cap.name} does not implement`);
+    const tr = tech?.trigger?.type;
+    if (tr && !cap.registries.triggers.includes(tr))
+      err('registries', `${t} uses the trigger ${tr}, which ${cap.name} does not implement`);
+  }
+  return build;
 }

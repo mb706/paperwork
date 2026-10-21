@@ -49,6 +49,72 @@ working_sounds:
   fast-transport-belt: belt-loop
   express-transport-belt: belt-loop
 
+# M1c's map for the slice (A4 §7.4; D1), in this file's format: the slice's other machines, the events that are
+# silent today, footsteps by tile. Its sounds do not exist yet: build.py refuses a sound whose sfx.py generator is
+# missing, so a planned sound moves up into `sounds` (and its uses into `events`, `working_sounds`) when M1c adds
+# its generator; until then the build, the data stage's sound ids and prototypes.json are unchanged. The names
+# and the groupings are proposals (D1). The data stage checks that every working machine of the slice (drills,
+# furnaces and the Keypunch, assemblers, the Seminar, the boiler, steam engines, belts, undergrounds, splitters,
+# the radar, the offshore pump) has a working sound here or above, and that every name resolves.
+# Not mapped, by design: inserters (the renderer plays their swings, A4 §7.3), and the silent pipes, poles,
+# chests, lamps and solar panels (Factorio's are silent too).
+planned:
+  sounds:
+    drill-burner-loop: {source: drill_burner_loop, bus: environment, voices: 1, priority: 1}
+    drill-electric-loop: {source: drill_electric_loop, bus: environment, voices: 1, priority: 1}
+    furnace-loop: {source: furnace_loop, bus: environment, voices: 1, priority: 1}
+    assembler-loop: {source: assembler_loop, bus: environment, voices: 1, priority: 1}
+    seminar-loop: {source: seminar_loop, bus: environment, voices: 1, priority: 1}
+    boiler-loop: {source: boiler_loop, bus: environment, voices: 1, priority: 1}
+    steam-engine-loop: {source: steam_engine_loop, bus: environment, voices: 1, priority: 1}
+    fast-belt-loop: {source: fast_belt_loop, bus: environment, voices: 1, priority: 1}
+    radar-loop: {source: radar_loop, bus: environment, voices: 1, priority: 1}
+    offshore-pump-loop: {source: offshore_pump_loop, bus: environment, voices: 1, priority: 1}
+    rotate: {source: rotate, bus: effects, rate: [2, 100], priority: 1}
+    craft-finished: {source: craft_finished, bus: gui, rate: [2, 100], priority: 1, positional: false}
+    mine-stone: {source: mine_stone, bus: effects, rate: [2, 100], priority: 1}
+    mine-wood: {source: mine_wood, bus: effects, rate: [2, 100], priority: 1}
+    footstep-dirt: {source: footstep_dirt, bus: walking, priority: 0}
+    footstep-sand: {source: footstep_sand, bus: walking, priority: 0}
+  working_sounds:
+    burner-mining-drill: drill-burner-loop
+    electric-mining-drill: drill-electric-loop
+    stone-furnace: furnace-loop
+    steel-furnace: furnace-loop
+    assembling-machine-1: assembler-loop
+    assembling-machine-2: assembler-loop
+    seminar: seminar-loop
+    boiler: boiler-loop
+    steam-engine: steam-engine-loop
+    fast-transport-belt: fast-belt-loop       # belts by tier (A4 §7.4): replaces belt-loop above
+    underground-belt: belt-loop
+    fast-underground-belt: fast-belt-loop
+    splitter: belt-loop
+    fast-splitter: fast-belt-loop
+    radar: radar-loop
+    offshore-pump: offshore-pump-loop
+  events:
+    entity_rotated: rotate
+    item_crafted: craft-finished
+    # mining by material (A4 §7.4: ore, stone, wood, entity): the event must then say whether a world object was
+    # a tree or a rock (C7's ProtoInfo.minedKind knows resource and entity only; the archive mines as ore)
+    entity_mined: {byKind: {resource: mine-ore, entity: deconstruct, tree: mine-wood, rock: mine-stone}}
+  # footsteps by the tile underfoot (A4 §7.4: grass, dirt, sand, concrete; the renderer plays them on the walk
+  # cycle). Snow and ice have none in A4's list: M1c decides.
+  footsteps:
+    grass: footstep-grass
+    dirt: footstep-dirt
+    dry-dirt: footstep-dirt
+    red-desert: footstep-dirt
+    rock-ground: footstep-dirt
+    landfill: footstep-dirt
+    sand: footstep-sand
+    concrete: footstep-concrete
+    hazard-concrete: footstep-concrete
+    refined-concrete: footstep-concrete
+    refined-hazard-concrete: footstep-concrete
+    town-street: footstep-concrete
+
 # The music feed (10 §15.6; A4 §4–§5): eras by Literature year (null = from the start), each era's
 # typical electric consumption (W) for activity, and its bus gain (dB) so that a piece measures −18 LUFS
 # integrated at 100 % music volume (A4 §8). Playtests tune the table.

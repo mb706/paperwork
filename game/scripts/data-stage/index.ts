@@ -13,13 +13,22 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { devManifest, manifestText } from '../build-manifest.ts';
 import { fromHex, sha256Bytes, toHex } from '../lib/hash.ts';
-import { type BuildSet, capabilityBuild, filterBuild, loadCapabilities } from './capabilities.ts';
+import {
+  type BuildSet,
+  capabilityBuild,
+  checkManifestNames,
+  checkReadsCarried,
+  filterBuild,
+  filterCapabilityBuild,
+  loadCapabilities,
+} from './capabilities.ts';
 import { Diagnostics } from './diagnostics.ts';
 import { contentsRecord } from './emit/contents.ts';
 import { exprFixture, loadEdgeCases } from './emit/expr-fixture.ts';
 import { protoIdsTs } from './emit/proto-ids.ts';
 import { type EmitProblem, type TableSummary, writePrototypesBin } from './emit/protos-bin.ts';
 import { prototypesJson } from './emit/protos-json.ts';
+import { checkEngine, checkOverlayNames } from './engine.ts';
 import { checkFormulaRefs } from './formula-refs.ts';
 import { compileFormulas } from './formulas.ts';
 import {
@@ -32,7 +41,7 @@ import {
   sliceFilter,
   summary,
 } from './manifests.ts';
-import { buildModel, CHARACTER } from './model.ts';
+import { buildModel, CHARACTER, type Model } from './model.ts';
 import { OUTPUT_PATHS } from './outputs.ts';
 import { loadOverlay, type OverlaySources } from './overlay.ts';
 import { checkReferences, indexDesign } from './refs.ts';
@@ -75,6 +84,8 @@ export interface DataStageResult {
   tables: TableSummary[];
   filters: BuildFilter[];
   prototypesHash: string | null;
+  /** The build's prototypes with their resolved engine fields (D1: tests and tools read them). */
+  model: Model | null;
   /** The extra builds' prototypes.bin sizes and hashes. */
   extra: { name: string; bytes: number; hash: string; jsonBytes: number }[];
 }
@@ -134,6 +145,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
     tables: [],
     filters: [],
     prototypesHash: null,
+    model: null,
     extra: [],
   };
   const repo = join(o.gameDir, '..');
@@ -174,6 +186,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
     mirrors: engine('mirrors.yaml'),
     prototypes: engine('prototypes.yaml'),
     sets: engine('sets.yaml'),
+    terrain: engine('terrain.yaml'),
     sounds: optionalEngine('sounds.yaml'),
   };
   const manifestsSrc = engine('manifests.yaml');
@@ -184,6 +197,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
     !ovSrc.mirrors ||
     !ovSrc.prototypes ||
     !ovSrc.sets ||
+    !ovSrc.terrain ||
     !manifestsSrc ||
     !capsSrc
   )
@@ -192,6 +206,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
   const manifests = loadManifests(manifestsSrc, diags);
   if (!overlay || !manifests) return result;
   checkAgainstSpec(manifests, o.specDir, diags);
+  checkOverlayNames(overlay, ix, diags);
   const filters: BuildFilter[] = [];
   for (const [name, m] of Object.entries(manifests.manifests)) {
     if ('from' in m) {
@@ -206,26 +221,49 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
   }
   result.filters = filters;
 
-  // 4. The build's prototypes.
-  const cap = loadCapabilities(capsSrc, diags);
-  if (!cap) return result;
+  // 4. The build's prototypes. Every capability manifest's names are checked, the current one's build made.
+  const caps = loadCapabilities(capsSrc, diags);
+  if (!caps) return result;
+  for (const m of caps.manifests) checkManifestNames(m, capsSrc, diags);
+  const cap = caps.current;
+  const filterNamed = (n: string, where: string): BuildFilter | null => {
+    const f = filters.find((x) => x.name === n);
+    if (!f)
+      diags.error(`no build filter named ${n} (have: ${filters.map((x) => x.name).join(', ')})`, {
+        file: where,
+      });
+    return f ?? null;
+  };
   let build: BuildSet;
   if (o.manifest) {
-    const f = filters.find((x) => x.name === o.manifest);
-    if (!f) {
-      diags.error(`no build filter named ${o.manifest} (have: ${filters.map((x) => x.name).join(', ')})`);
-      return result;
-    }
+    const f = filterNamed(o.manifest, 'game/data/engine/manifests.yaml');
+    if (!f) return result;
     build = filterBuild(f, design, ix);
   } else {
-    build = capabilityBuild(cap, design, ix, diags, capsSrc);
+    if (cap.filter) {
+      const f = filterNamed(cap.filter, 'game/data/engine/capabilities.yaml');
+      if (!f) return result;
+      build = filterCapabilityBuild(cap, f, design, ix, diags, capsSrc, true);
+    } else build = capabilityBuild(cap, design, ix, diags, capsSrc);
+    checkReadsCarried(cap, capsSrc, diags);
     checkFormulaRefs(cap, design.meta, join(o.gameDir, 'crates'), diags, capsSrc);
+    // The other manifests (D1): the prototypes they will support must have a complete engine overlay now, so a
+    // milestone's packages can build against them (strict: a gap is an error). Nothing is emitted for them.
+    for (const m of caps.manifests) {
+      if (m === cap || !m.filter) continue;
+      const f = filterNamed(m.filter, 'game/data/engine/capabilities.yaml');
+      if (!f) continue;
+      const set = filterCapabilityBuild(m, f, design, ix, diags, capsSrc, false);
+      checkEngine(buildModel(set, design, ix, overlay, formulas, diags, true), diags, true);
+    }
   }
   result.build = build;
   if (diags.errors.length > 0) return result;
 
   // 5. Ids and outputs.
   const model = buildModel(build, design, ix, overlay, formulas, diags, !o.allowIncomplete);
+  checkEngine(model, diags, !o.allowIncomplete);
+  result.model = model;
   if (diags.errors.length > 0) return result;
   const schemaHash = fromHex(o.schemaHash);
   const bin = writePrototypesBin(model, schemaHash);

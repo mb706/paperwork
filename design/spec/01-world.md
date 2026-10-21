@@ -68,9 +68,9 @@ Worldgen places these. The player may mine or click them and never builds them.
 | Object (data id) | Size | Mining | Yields | Notes |
 |---|---|---|---|---|
 | Tree (`tree`) | 1 × 1 | 0.5 s | 4 `wood` | ISO forest noise × the biome factor (§2). No regrowth (ISO). 4 leaf stages, lost to heat (03 §1.2) |
-| Big rock (`big-rock`) | 2 × 2 | 1.5 s | 20 `quartz` | ISO rock noise; Factorio's stone becomes quartz |
-| Huge rock (`huge-rock`) | 3 × 3 | 2 s | 24–50 `quartz` and 24–50 `coal` | as above |
-| Big sand rock (`big-sand-rock`) | 2 × 2 | 1 s | 19–25 `quartz` | deserts and steppe |
+| Big rock (`big-rock`) | 2 × 2 | 2 s | 20 `quartz` | ISO rock noise; Factorio's stone becomes quartz |
+| Huge rock (`huge-rock`) | 3 × 3 | 3 s | 24–50 `quartz` and 24–50 `coal` | as above |
+| Big sand rock (`big-sand-rock`) | 2 × 2 | 2 s | 19–25 `quartz` | deserts and steppe |
 | University (`campus`) | 8 × 8 | — | — | One per university, part of a town footprint (§5.4). Selectable; opens the University window (§8.7) |
 | Exchange (`exchange-office`) | 4 × 4 | — | — | Cosmetic, inside the footprint edge nearest its taps (§5.4) |
 | Mine entrance (`mine-entrance`) | 4 × 4 | — | — | Cosmetic, beside a records store (§6.2) |
@@ -93,7 +93,7 @@ Ambient temperature falls toward the north; sunlight rises toward the south. Sit
 
 > s(y) = clamp( 1 + y / 5,700, 0.6, 1.3 ) at the chunk centre,   solar panel output = 60 kW × s × daylight(t)
 
-- daylight(t) is Factorio's day–night curve (ISO): 25,000 ticks per day; full light from dawn (0.75 of the day) to dusk (0.25), none from evening (0.45) to morning (0.55), linear between.
+- daylight(t) is Factorio's day–night curve (ISO): 25,200 ticks (7 minutes) per day, Factorio 2.0's Nauvis (1.1 had 25,000); the numbers are `meta.heat.daylight`; full light from dawn (0.75 of the day) to dusk (0.25), none from evening (0.45) to morning (0.55), linear between.
 - s = 0.73 at y = −1,520 (−5 °C), 1.2 at y = +1,120 (28 °C).
 
 **Readouts.**

@@ -2,12 +2,13 @@
 # not carry, where the type and `mirrors` defaults are not enough. An entity whose `mirrors` is `new` needs
 # an entry here. Items and recipes take group, subgroup and order here (they order the crafting grid,
 # I §7.2); `sprite` and `icon` name an art set where it differs from the default `<namespace>/<id>`
-# (10 §15.7).
+# (10 §15.7). Resources and world objects take their map colour here (tiles' are design data, tiles.yaml).
 # The engine's character (10 §5.1, §15.2): not a data prototype, so its numbers live here. It is the last
 # row of PROTO_ENTITY (type `character`) in builds whose capability manifest includes it, and MOVERS'
 # `proto` names that row. Factorio 2.0's character (ISO): 0.15 tiles per tick (I §2.1), reach 10, build 10,
 # resource reach 2.7, pickup 1 (I §3.1), 80 inventory slots, hand mining at speed 0.5 (10 §5.1), hand
-# crafting at speed 1, 0.4 tiles wide (±0.2, 10 §4.4).
+# crafting at speed 1, 0.4 tiles wide (±0.2, 10 §4.4); its collision mask is 2.0's {player, train, is_object}
+# (core/lualib/collision-mask-defaults.lua) on the engine's layers (defaults.yaml).
 character:
   running_speed: 0.15
   reach_distance: 10
@@ -19,9 +20,95 @@ character:
   crafting_speed: 1
   collision_box: [-0.2, -0.2, 0.2, 0.2]
   selection_box: [-0.4, -1.4, 0.4, 0.2]
+  collision_mask: [player, train]
   sprite: mover/character
-entities: {}
-items: {}
+# The data smelters mirror furnaces for their numbers, not their upgrade line: a Keypunch is no stone furnace
+# to fast-replace or upgrade into a steel one (proposal, D1: their own fast-replace group).
+entities:
+  keypunch: {fast_replaceable_group: data-smelter, next_upgrade: null}
+  tokenizer: {fast_replaceable_group: data-smelter, next_upgrade: null}
+# Item ordering (D1): Factorio 2.0's subgroup and order string for every mirrored item of the slice
+# (base/prototypes/item.lua, factorio-data 2.0.77), with this game's id inside the brackets. Items Factorio
+# lacks take the letter after their neighbours' (proposals, D1): records after the ores, silicon after the
+# plates, the token as transcription's product after smelting's, the Keypunch after the furnaces. Building
+# items, tiles' items and fluids not listed keep the defaults' subgroup (defaults.yaml) in file order.
+items:
+  wood: {subgroup: raw-resource, order: 'a[wood]'}
+  coal: {subgroup: raw-resource, order: 'b[coal]'}
+  quartz: {subgroup: raw-resource, order: 'd[quartz]'}
+  iron-ore: {subgroup: raw-resource, order: 'e[iron-ore]'}
+  copper-ore: {subgroup: raw-resource, order: 'f[copper-ore]'}
+  uranium-ore: {subgroup: raw-resource, order: 'g[uranium-ore]'}
+  records: {subgroup: raw-resource, order: 'h[records]'}
+  iron-plate: {subgroup: raw-material, order: 'a[smelting]-a[iron-plate]'}
+  copper-plate: {subgroup: raw-material, order: 'a[smelting]-b[copper-plate]'}
+  steel-plate: {subgroup: raw-material, order: 'a[smelting]-c[steel-plate]'}
+  silicon: {subgroup: raw-material, order: 'a[smelting]-d[silicon]'}
+  token: {subgroup: raw-material, order: 'b[transcription]-a[token]'}
+  iron-gear-wheel: {subgroup: intermediate-product, order: 'a[basic-intermediates]-a[iron-gear-wheel]'}
+  iron-stick: {subgroup: intermediate-product, order: 'a[basic-intermediates]-b[iron-stick]'}
+  copper-cable: {subgroup: intermediate-product, order: 'a[basic-intermediates]-c[copper-cable]'}
+  logic-board: {subgroup: intermediate-product, order: 'b[circuits]-a[logic-board]'}
+  memo: {subgroup: science-pack, order: 'a[memo]'}
+  report: {subgroup: science-pack, order: 'b[report]'}
+  concrete: {subgroup: terrain, order: 'b[concrete]-a[plain]'}
+  hazard-concrete: {subgroup: terrain, order: 'b[concrete]-b[hazard]'}
+  refined-concrete: {subgroup: terrain, order: 'b[concrete]-c[refined]'}
+  refined-hazard-concrete: {subgroup: terrain, order: 'b[concrete]-d[refined-hazard]'}
+  landfill: {subgroup: terrain, order: 'c[landfill]-a[dirt]'}
+  wooden-chest: {subgroup: storage, order: 'a[items]-a[wooden-chest]'}
+  iron-chest: {subgroup: storage, order: 'a[items]-b[iron-chest]'}
+  steel-chest: {subgroup: storage, order: 'a[items]-c[steel-chest]'}
+  transport-belt: {subgroup: belt, order: 'a[transport-belt]-a[transport-belt]'}
+  fast-transport-belt: {subgroup: belt, order: 'a[transport-belt]-b[fast-transport-belt]'}
+  underground-belt: {subgroup: belt, order: 'b[underground-belt]-a[underground-belt]'}
+  fast-underground-belt: {subgroup: belt, order: 'b[underground-belt]-b[fast-underground-belt]'}
+  splitter: {subgroup: belt, order: 'c[splitter]-a[splitter]'}
+  fast-splitter: {subgroup: belt, order: 'c[splitter]-b[fast-splitter]'}
+  burner-inserter: {subgroup: inserter, order: 'a[burner-inserter]'}
+  inserter: {subgroup: inserter, order: 'b[inserter]'}
+  long-handed-inserter: {subgroup: inserter, order: 'c[long-handed-inserter]'}
+  fast-inserter: {subgroup: inserter, order: 'd[fast-inserter]'}
+  small-electric-pole: {subgroup: energy-pipe-distribution, order: 'a[energy]-a[small-electric-pole]'}
+  medium-electric-pole: {subgroup: energy-pipe-distribution, order: 'a[energy]-b[medium-electric-pole]'}
+  big-electric-pole: {subgroup: energy-pipe-distribution, order: 'a[energy]-c[big-electric-pole]'}
+  pipe: {subgroup: energy-pipe-distribution, order: 'a[pipe]-a[pipe]'}
+  pipe-to-ground: {subgroup: energy-pipe-distribution, order: 'a[pipe]-b[pipe-to-ground]'}
+  small-lamp: {subgroup: circuit-network, order: 'a[light]-a[small-lamp]'}
+  boiler: {subgroup: energy, order: 'b[steam-power]-a[boiler]'}
+  steam-engine: {subgroup: energy, order: 'b[steam-power]-b[steam-engine]'}
+  solar-panel: {subgroup: energy, order: 'd[solar-panel]-a[solar-panel]'}
+  burner-mining-drill: {subgroup: extraction-machine, order: 'a[items]-a[burner-mining-drill]'}
+  electric-mining-drill: {subgroup: extraction-machine, order: 'a[items]-b[electric-mining-drill]'}
+  offshore-pump: {subgroup: extraction-machine, order: 'b[fluids]-a[offshore-pump]'}
+  stone-furnace: {subgroup: smelting-machine, order: 'a[stone-furnace]'}
+  steel-furnace: {subgroup: smelting-machine, order: 'b[steel-furnace]'}
+  keypunch: {subgroup: smelting-machine, order: 'd[keypunch]'}
+  assembling-machine-1: {subgroup: production-machine, order: 'a[assembling-machine-1]'}
+  assembling-machine-2: {subgroup: production-machine, order: 'b[assembling-machine-2]'}
+  seminar: {subgroup: production-machine, order: 'z[seminar]'}
+  radar: {subgroup: defensive-structure, order: 'd[radar]-a[radar]'}
 recipes: {}
-resources: {}
-world: {}
+# Map colours (D1). Mirrored resources take Factorio 2.0's map_color (base/prototypes/entity/resources.lua,
+# 2.0.77; #rrggbb of round-half-up(255 × channel)); the quartz patch is stone's. New ones are proposals (D1): the
+# archive in the Records manila of design/art/DIRECTION.md §3.2 (information reads light, matter dark). Water is
+# its tiles. World objects: trees take the chart's tree colour (utility-constants default_color_by_type, 40%
+# alpha), rocks the rocks' map_color {129, 105, 78} (decoratives.lua); the campus and the exchange office the
+# town-block tile's colour (towns read as one block; their labels name them), the mine entrance the rocks'
+# (proposals, D1).
+resources:
+  iron-ore-patch: {map_color: '#6a8694'}
+  copper-ore-patch: {map_color: '#cd6337'}
+  coal-patch: {map_color: '#000000'}
+  quartz-patch: {map_color: '#b09c6d'}
+  uranium-ore-patch: {map_color: '#00b300'}
+  archive: {map_color: '#e8cf98'}
+  exchange: {map_color: '#c733c4'}
+world:
+  tree: {map_color: '#30633066'}
+  big-rock: {map_color: '#81694e'}
+  huge-rock: {map_color: '#81694e'}
+  big-sand-rock: {map_color: '#81694e'}
+  campus: {map_color: '#7d6a58'}
+  exchange-office: {map_color: '#7d6a58'}
+  mine-entrance: {map_color: '#81694e'}

@@ -210,7 +210,7 @@
   energy: {source: electric, kw: 480}
   module_slots: 2
   heat: {class: network, liquid_cooling: true}
-  extra: {distribution_efficiency: 1.5, supply_area: 9x9, profile: 1/sqrt(n), throttle: 'transmitted effects × m, before the 1/√n profile; draw unchanged'}
+  extra: {distribution_efficiency: 1.5, supply_area_distance: 3, profile: inverse-sqrt, throttle: 'transmitted effects × m, before the 1/√n profile; draw unchanged'}
   mirrors: beacon
   desc: Lends its modules to every machine in range. Each additional switch counts for less.
 - id: frontier-cluster
@@ -223,7 +223,7 @@
   categories: [frontier-run, launch]
   module_slots: 4
   heat: {class: accelerator, liquid_cooling: true}
-  extra: {parts_required: 100, idle_kw: 250, payload: 'post-training-payload, final-report, or none (empty launch)', returns: 1000 system-card + 1 frontier-checkpoint}
+  extra: {parts_required: 100, idle_kw: 250, payloads: [post-training-payload, final-report], empty_launch: true}
   mirrors: rocket-silo
   desc: Takes {extra.parts_required} run shards and a payload. Progress is shown as loss.
 - id: boiler
@@ -248,7 +248,7 @@
   energy: {source: none, kw: 0}
   consumes: [steam]
   heat: {emission: twice-output}
-  extra: {max_kw: 900}
+  extra: {max_kw: 900, steam_per_s: 30, min_temperature_c: 100, max_temperature_c: 165}
   mirrors: steam-engine
 - id: solar-panel
   name: Solar panel
@@ -306,7 +306,7 @@
   energy: {source: none, kw: 0}
   consumes: [steam]
   heat: {emission: twice-output}
-  extra: {max_kw: 5820}
+  extra: {max_kw: 5820, steam_per_s: 60, min_temperature_c: 100, max_temperature_c: 500}
   mirrors: steam-turbine
 - id: small-electric-pole
   name: Small electric pole
@@ -314,7 +314,7 @@
   size: [1, 1]
   item: small-electric-pole
   energy: {source: none, kw: 0}
-  extra: {wire_reach: 7.5, supply: 5x5}
+  extra: {wire_reach: 7.5, supply_area_distance: 2.5}
   mirrors: small-electric-pole
 - id: medium-electric-pole
   name: Medium electric pole
@@ -322,7 +322,7 @@
   size: [1, 1]
   item: medium-electric-pole
   energy: {source: none, kw: 0}
-  extra: {wire_reach: 9, supply: 7x7}
+  extra: {wire_reach: 9, supply_area_distance: 3.5}
   mirrors: medium-electric-pole
 - id: big-electric-pole
   name: Big electric pole
@@ -330,7 +330,7 @@
   size: [2, 2]
   item: big-electric-pole
   energy: {source: none, kw: 0}
-  extra: {wire_reach: 32, supply: 4x4}
+  extra: {wire_reach: 32, supply_area_distance: 2}
   mirrors: big-electric-pole
 - id: substation
   name: Substation
@@ -338,7 +338,7 @@
   size: [2, 2]
   item: substation
   energy: {source: none, kw: 0}
-  extra: {wire_reach: 18, supply: 18x18}
+  extra: {wire_reach: 18, supply_area_distance: 9}
   mirrors: substation
 - id: transport-belt
   name: Transport belt
@@ -370,7 +370,7 @@
   size: [1, 1]
   item: underground-belt
   energy: {source: none, kw: 0}
-  extra: {max_gap: 4}
+  extra: {max_gap: 4, items_per_s: 15}
   mirrors: underground-belt
 - id: fast-underground-belt
   name: Fast underground belt
@@ -378,7 +378,7 @@
   size: [1, 1]
   item: fast-underground-belt
   energy: {source: none, kw: 0}
-  extra: {max_gap: 6}
+  extra: {max_gap: 6, items_per_s: 30}
   mirrors: fast-underground-belt
 - id: express-underground-belt
   name: Express underground belt
@@ -386,7 +386,7 @@
   size: [1, 1]
   item: express-underground-belt
   energy: {source: none, kw: 0}
-  extra: {max_gap: 8}
+  extra: {max_gap: 8, items_per_s: 45}
   mirrors: express-underground-belt
 - id: splitter
   name: Splitter
@@ -394,6 +394,7 @@
   size: [2, 1]
   item: splitter
   energy: {source: none, kw: 0}
+  extra: {items_per_s: 15}
   mirrors: splitter
 - id: fast-splitter
   name: Fast splitter
@@ -401,6 +402,7 @@
   size: [2, 1]
   item: fast-splitter
   energy: {source: none, kw: 0}
+  extra: {items_per_s: 30}
   mirrors: fast-splitter
 - id: express-splitter
   name: Express splitter
@@ -408,6 +410,7 @@
   size: [2, 1]
   item: express-splitter
   energy: {source: none, kw: 0}
+  extra: {items_per_s: 45}
   mirrors: express-splitter
 - id: burner-inserter
   name: Burner inserter
@@ -425,28 +428,28 @@
   type: inserter
   size: [1, 1]
   item: inserter
-  energy: {source: electric, kw: 13.2, drain_kw: 0.4, per_movement_kj: 5, per_rotation_kj: 5}
+  energy: {source: electric, kw: 14.7, drain_kw: 0.4, per_movement_kj: 5, per_rotation_kj: 5}
   mirrors: inserter
 - id: long-handed-inserter
   name: Long-handed inserter
   type: inserter
   size: [1, 1]
   item: long-handed-inserter
-  energy: {source: electric, kw: 20, drain_kw: 0.4, per_movement_kj: 5, per_rotation_kj: 5}
+  energy: {source: electric, kw: 21, drain_kw: 0.4, per_movement_kj: 5, per_rotation_kj: 5}
   mirrors: long-handed-inserter
 - id: fast-inserter
   name: Fast inserter
   type: inserter
   size: [1, 1]
   item: fast-inserter
-  energy: {source: electric, kw: 46, drain_kw: 0.5, per_movement_kj: 7, per_rotation_kj: 7}
+  energy: {source: electric, kw: 58.8, drain_kw: 0.5, per_movement_kj: 7, per_rotation_kj: 7}
   mirrors: fast-inserter
 - id: bulk-inserter
   name: Bulk inserter
   type: inserter
   size: [1, 1]
   item: bulk-inserter
-  energy: {source: electric, kw: 132, drain_kw: 1, per_movement_kj: 20, per_rotation_kj: 20}
+  energy: {source: electric, kw: 168, drain_kw: 1, per_movement_kj: 20, per_rotation_kj: 20}
   mirrors: bulk-inserter
 - id: wooden-chest
   name: File drawer
@@ -652,6 +655,7 @@
   size: [3, 3]
   item: radar
   energy: {source: electric, kw: 300}
+  extra: {sector_range_chunks: 14, nearby_range_chunks: 3, energy_per_sector_mj: 10, energy_per_nearby_scan_kj: 250}
   mirrors: radar
 - id: car
   name: Car

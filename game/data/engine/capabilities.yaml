@@ -4,10 +4,23 @@
 # and the developer reason `unsupported` (10 §15.3); a subscription or query gets status 2, reason 1
 # (10 §15.5).
 #
-# The data stage filters prototypes.bin and prototypes.json to `prototypes` and checks that they close:
-# items follow from the listed entities (their items), resources (their yields) and recipes (ingredients
-# and products), and the start inventory is meta.start.inventory filtered to those items. Action,
-# projection, query and packet-section names are checked against game/schema/ once it exists (C1b).
+# The data stage filters prototypes.bin and prototypes.json to the current manifest's `prototypes` and checks
+# that they close: items follow from the listed entities (their items), resources (their yields) and recipes
+# (ingredients and products), and the start inventory is meta.start.inventory filtered to those items.
+# `prototypes: {filter: <name>}` takes a build filter of manifests.yaml instead (m1: 09 §2.7's slice).
+#
+# Every manifest, current or not, is checked: its action, system action, projection, query and packet-section
+# names against the schema (src/shared/gen), its registry entries against the registries, its `systems`
+# against 10 §5's systems, its `data` and `reads` against the design data's fields, and its prototypes' engine
+# overlay for completeness (game/data/engine; strictly, so a gap is an error). schema-gen generates code from
+# the current one only (scripts/schema-gen/capabilities.ts).
+#
+#   - `data`: the META blocks of prototypes.bin the milestone's engine reads; each must be carried when the
+#     manifest is current;
+#   - `reads` (D1): the other parts of the design data its engine reads (a kind's field, or a subfield of a
+#     partial one), each named as the outputs' contents record names it; none may be omitted when the
+#     manifest is current. A milestone's packages move them from omitted to a column, a list or META;
+#   - `systems` (D1): the systems of 10 §5 it implements, each with its scope.
 current: m0
 manifests:
   m0:
@@ -20,6 +33,10 @@ manifests:
       world_objects: []
       technologies: []
     data: [start.inventory]              # the META blocks M0's engine reads; prototypes.bin must carry each
+    systems:
+      character: walking, hand mining and hand crafting, inventories and the hand (10 §5.1)
+      construction: building and mining the chest, the transfers of I §8.2 (10 §5.2)
+      worldgen: v0, terrain, water and ore spots, no towns (10 §5.18; IMPL-7)
     actions:                             # walking, hand mining, building and mining the chest, I §8.2's transfers, hand crafting, settings
       - start_walking
       - stop_walking
@@ -52,3 +69,78 @@ manifests:
     packet_sections: [CHUNK_TILES, CHUNK_ENTITIES, CHUNK_OBJECTS, CHUNK_RESOURCES, DYN, MOVERS, EVENTS, UI, AUDIO_WORKING]   # AUDIO_WORKING stays empty while nothing works
     rule_scenarios: [R23, R24, R25, R26, R27, R28, R29]   # 10 §10.8: R28's heat and agent cases and R29's smart-belt case come later
     benchmarks: [m0-walk, m0-chests-10k, m0-codec, m0-load-30k]   # 10 §10.6
+  # M1, the vertical slice (09; 10 §12 M1; D1). The M1 packages build against it; `current` becomes m1 when they
+  # implement all of it (the data stage then emits its prototypes and refuses a build that omits what it reads).
+  m1:
+    extends: m0
+    prototypes: {filter: m1}             # 09 §2.7's slice: 23 technologies, 48 recipes, 32 entities, 18 tiles, 7 world objects
+    # META blocks (09 §3–§5): the salvage and the starting area (worldgen v1), the heat field and the climate
+    # compass with the day cycle, staffing, the world's text (W, Literature; worldgen's archives, exchanges as
+    # scenery, biomes, patches, towns), the map settings (heat, staffing, the climate compass)
+    data: [start.inventory, start.salvage, start.guarantees, heat, staffing, world, world_settings]
+    reads:
+      - entities.categories               # crafting machines and furnaces (10 §5.5)
+      - entities.consumes                 # boiler, steam engine (10 §5.7–§5.8)
+      - entities.produces                 # boiler, offshore pump
+      - entities.staff_slots              # the Seminar's dimmed staff slot (09 §2.4)
+      - entities.staff_demand             # staffing demand (10 §5.10)
+      - entities.energy.fuel_categories   # burners (10 §5.7)
+      - entities.energy.per_movement_kj   # inserters (10 §5.4)
+      - entities.energy.per_rotation_kj
+      - entities.extra                    # pole supply and reach, underground and splitter speeds, steam, radar …
+      - entities.heat.emission            # emission at the engines, none at the boiler (10 §5.9)
+      - technologies.unlocks.effects      # Learning curve, Citation index, Expert systems, Memex
+      - technologies.citation             # Literature, publication (10 §5.11), References (07 §5)
+      - text.milestones.kind              # milestone log lines (07 §15)
+      - text.milestones.target
+      - text.tips                         # loading tips (09 §6)
+      - text.tips_and_tricks              # the four tips and tricks (09 §9)
+      - text.town_names                   # town names (01 §5.3; 10 §5.18)
+      - text.world_text                   # town, university, library, exchange tooltips (07 §7.1)
+      - world.gui                         # the campus opens the University window (01 §5.4)
+    systems:
+      character: the walk, reach and the hand, hand crafting with chain crafting, ground items (I §3; 10 §5.1)
+      construction: build, mine, rotate, flip, pipette, fast-replace, smart belt dragging, copy and paste of settings, undo and redo with their ghosts; no blueprints (DECISIONS §17; 10 §5.2)
+      belts: transport lines, undergrounds, splitters, side-loading, yellow and red (10 §5.3)
+      inserters: burner, inserter, long-handed and fast, stack 1 (10 §5.4)
+      crafting: assemblers 1 and 2, furnaces and the Keypunch, Seminars; no modules or Switches (10 §5.5)
+      mining: burner and electric drills, ore and archives (10 §5.6)
+      energy: burners, electric networks and poles, steam, solar with the day cycle, lamps; no accumulators (10 §5.7)
+      fluids: water and steam segments, the offshore pump, pipes and pipes to ground, Assembling machine 2's water (10 §5.8)
+      heat: the field, emission, diffusion, cooling, leaf loss, the overlay; the throttle on a dev entity only (09 §3; 10 §5.9)
+      staffing: coverage, networks, satisfaction, statuses; no Terminals or Researchers (10 §5.10)
+      world-text: W only, j constant 0.30, σ 0, no leak (09 §3; 10 §5.11)
+      research: triggers, the queue of 7, Literature and Field (10 §5.12)
+      worldgen: v1, terrain and biomes, patches, towns with archives and exchanges as scenery, records stores, the starting area (09 §4; 10 §5.18)
+      charting: charting, radar, the read-only map view, the minimap (10 §5.19)
+      statistics: production statistics with the Heat tab, the rate calculator; no achievements (10 §5.20)
+    actions:                             # M1's input actions (I's M0 and M1, the veteran tools; 09 §6)
+      - change_picking_state             # picking items up from the ground (F)
+      - rotate_entity
+      - flip_entity                      # I §3.3: assemblers' fluid ports (2.0)
+      - stop_drag_build                  # drag building: belts, poles, undergrounds (I §3.4)
+      - remove_cables                    # Shift+LMB on a pole (2.0)
+      - pipette
+      - quick_bar_pick_slot
+      - quick_bar_set_slot
+      - drop_item                        # Z (I: drop-cursor, P0)
+      - setup_assembling_machine
+      - reset_assembling_machine
+      - copy_entity_settings
+      - paste_entity_settings
+      - start_research
+      - cancel_research
+      - move_research
+      - undo
+      - redo
+    system_actions: []
+    registries:                          # what the slice's prototypes use
+      effects: [character-crafting-speed, character-inventory-slots, character-mining-speed, laboratory-speed]
+      triggers: [craft-item, start]
+      achievement_conditions: []         # achievements are not tracked in the slice (09 §9)
+      formula_refs: ['01 §3', '01 §6', '01 §8', '01 §9', '01 §12.1', '03 §1.1', '03 §1.2', '03 §1.3']
+    projections: [RESEARCH, ELECTRIC, WORLD]
+    queries: [rates, total_raw, patch_info]   # the rate calculator (Alt+X), recipe tooltips' total raw (I M1.5), patch totals (07 §12)
+    packet_sections: [HANDS, BELT_GEOM, BELT_ITEMS, BELT_RETIRE, OVERLAY_CHUNK, OVERLAY_STAFFING, CHART, CHART_PRISTINE]
+    rule_scenarios: [R1, R5, R11, R14, R15, R17, R21, R22]   # 10 §12 M1's exit: R1's boiler case, R5 without Terminals or modules, R14 on a test prototype; R28's heat case and R29's smart-belt case join m0's
+    benchmarks: [slice-3h, worldgen-frontier]   # 10 §10.6

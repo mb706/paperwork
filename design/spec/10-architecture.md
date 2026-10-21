@@ -1326,7 +1326,7 @@ papers consumed   = units            before Interpretability
   - `hall-energy` (*Sparse inference*, ×0.75) multiplies the draw of Research halls only.
   - `compute-energy-floor` (*Energy per operation*) multiplies the draw of Research halls and Researchers by f + (1 − f) × 0.9^L, with f = θ_K ÷ `floor_temperature_k` (4,800 K) at the entity's own chunk (04 §10). 0.9^L is repeated multiplication (§4.1). It is the only effect on the Researcher's 500 kW.
 - **The day cycle** (ISO; P7).
-  - 25,000 ticks per day. Daylight is piecewise linear in the day fraction t, where t = 0 is noon: 1 until dusk (0.25), falling to 0 at evening (0.45), 0 until morning (0.55), rising to 1 at dawn (0.75). That gives the 70% solar average.
+  - 25,200 ticks (7 minutes) per day, Factorio 2.0's Nauvis (`meta.heat.daylight`; 1.1 had 25,000). Daylight is piecewise linear in the day fraction t, where t = 0 is noon: 1 until dusk (0.25), falling to 0 at evening (0.45), 0 until morning (0.55), rising to 1 at dawn (0.75). That gives the 70% solar average.
   - The renderer's ambient light reads the same table with a floor of 0.15 (Factorio's minimum brightness).
   - Sunlight s(y) is evaluated at the chunk centre, like θ (P8).
 - **Nuclear (heat-pipe networks).**

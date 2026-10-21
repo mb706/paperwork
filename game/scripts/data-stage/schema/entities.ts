@@ -1,7 +1,9 @@
 // entities.yaml (SCHEMA.md "entities.yaml"): placeable buildings and vehicles. `extra` is validated per
-// entity type against EXTRA (an unknown type-specific field is an error). Several engine-read values are
-// still prose in the data (an electric pole's supply area, a Switch's supply area and profile); they are
-// typed `doc` here and listed in the C1a report for the package that implements those systems (J1).
+// entity type against EXTRA (an unknown type-specific field is an error). Every value an engine system reads
+// is typed (J1; D1 typed the M1 ones and the cheap later ones: pole and Switch supply areas, the Switch's
+// profile, underground and splitter throughput, steam generators, radar scans, the Frontier cluster's
+// payloads). What is still `doc` documents a rule for people, or waits for its milestone (the Constructor's
+// and the Area scanner's signal tables, M3; the Terminal's fluid box, M2): pm/reports/D1.md lists them.
 import { z } from 'zod';
 import { block, bool, doc, id, idList, nonNeg, num, posInt, posNum, size } from './common.ts';
 import { MODULE_EFFECTS } from './items.ts';
@@ -86,6 +88,15 @@ export const placement = z.union([
 
 const hallTier = block({ item: id, speed: posNum, kw: nonNeg, drain_kw: nonNeg });
 
+/** Half the side of a square area around an entity's centre, in tiles (Factorio's supply_area_distance; ≤ 64). */
+const areaDistance = z.number().positive().max(64);
+/** A belt tier's throughput, both lanes (items per second): the belt speed derives from it (10 §2.4 step 3). */
+const itemsPerS = posNum;
+/** The Switch's 2.0 profile (FFF-409): the effect of n Switches is scaled by 1/√n. */
+export const BEACON_PROFILES = ['inverse-sqrt'] as const;
+/** What a turret targets by itself (10 §5.17; the artillery turret, M5). */
+export const AUTO_TARGETS = ['replicators'] as const;
+
 /** Type-specific fields (`extra`), per entity type. A type absent here takes no `extra`. */
 export const EXTRA: Partial<Record<EntityType, z.ZodType>> = {
   accumulator: block({ capacity_mj: nonNeg, flow_kw: nonNeg }),
@@ -104,20 +115,28 @@ export const EXTRA: Partial<Record<EntityType, z.ZodType>> = {
   }),
   beacon: block({
     distribution_efficiency: nonNeg,
-    supply_area: doc,
-    profile: doc,
+    supply_area_distance: areaDistance,
+    profile: z.enum(BEACON_PROFILES),
     throttle: doc.optional(),
   }),
-  belt: block({ items_per_s: posNum }),
+  belt: block({ items_per_s: itemsPerS }),
   boiler: block({ steam_per_s: posNum, temp_c: num, water_per_s: posNum }),
   'cargo-wagon': block({ slots: posInt }),
   chest: block({ slots: posInt }),
   combinator: block({ reads: doc.optional(), signals: doc.optional(), rescan: doc.optional() }),
-  'electric-pole': block({ wire_reach: posNum, supply: doc }),
+  'electric-pole': block({ wire_reach: z.number().positive().max(64), supply_area_distance: areaDistance }),
   'fluid-wagon': block({ capacity: posNum }),
   furnace: block({ returns: nonNeg.optional() }),
   gate: block({ health: posNum }),
-  generator: block({ max_kw: nonNeg, plasma_per_s: nonNeg.optional() }),
+  // Steam generators carry their steam flow and temperature window (Factorio's fluid_usage_per_tick × 60,
+  // fluid box minimum_temperature and maximum_temperature); the fusion generator its plasma flow.
+  generator: block({
+    max_kw: nonNeg,
+    plasma_per_s: nonNeg.optional(),
+    steam_per_s: posNum.optional(),
+    min_temperature_c: num.optional(),
+    max_temperature_c: num.optional(),
+  }),
   'heat-exchanger': block({ steam_per_s: posNum, temp_c: num, water_per_s: posNum }),
   'offshore-pump': block({ pumping_per_s: posNum }),
   other: block({
@@ -144,13 +163,24 @@ export const EXTRA: Partial<Record<EntityType, z.ZodType>> = {
     plasma_mw: nonNeg.optional(),
     feeds_generators: posInt.optional(),
   }),
+  // A radar's two scans (Factorio 2.0): sectors up to sector_range_chunks away, one per energy_per_sector_mj;
+  // the chunks within nearby_range_chunks, rescanned per energy_per_nearby_scan_kj (10 §5.19).
+  radar: block({
+    sector_range_chunks: posInt,
+    nearby_range_chunks: posInt,
+    energy_per_sector_mj: posNum,
+    energy_per_nearby_scan_kj: posNum,
+  }),
+  // The payload slot takes `payloads`; `empty_launch` allows a launch without one (04 §2.1). What a launch
+  // returns is its pseudo recipe's products (launch, launch-empty, launch-final; 10 §5.5).
   'rocket-silo': block({
     parts_required: posInt.optional(),
     idle_kw: nonNeg.optional(),
-    payload: doc.optional(),
-    returns: doc.optional(),
+    payloads: idList.optional(),
+    empty_launch: bool.optional(),
   }),
   'solar-panel': block({ peak_kw: posNum }),
+  splitter: block({ items_per_s: itemsPerS }),
   'storage-tank': block({ capacity: posNum }),
   turret: block({
     range: nonNeg.optional(),
@@ -163,11 +193,11 @@ export const EXTRA: Partial<Record<EntityType, z.ZodType>> = {
     kj_per_shot: nonNeg.optional(),
     damage_type: id.optional(),
     chains: bool.optional(),
-    auto_targets: doc.optional(),
+    auto_targets: z.enum(AUTO_TARGETS).optional(),
     capacity: posInt.optional(),
     dispatch_radius: nonNeg.optional(),
   }),
-  'underground-belt': block({ max_gap: posInt }),
+  'underground-belt': block({ max_gap: posInt, items_per_s: itemsPerS }),
   wall: block({ health: posNum, resist: z.record(id, num).optional() }),
 };
 
