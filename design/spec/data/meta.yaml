@@ -22,6 +22,13 @@ start:
   guarantees:
     inside_starting_coverage: [iron-ore-patch, copper-ore-patch, coal-patch, quartz-patch, archive]
     starting_archive_records: 80000
+    college: {spawn_distance_tiles: [16, 32], max_lateral_tiles: 16, layout_attempts: 8}
+    starting_patches: {min_footprint_distance_tiles: 2, min_patch_distance_tiles: 6, min_spawn_distance_tiles: 3}
+    buildable: {min_tiles: 7500, square_tiles: 40}
+    lake: {min_tiles: 400, within_tiles: 128}
+    forest: {min_trees: 200, within_tiles: 64}
+    no_cliffs_within_tiles: 32
+    rule: 'college: spawn lies spawn_distance_tiles from the campus edge, at most max_lateral_tiles to the side, the campus facing spawn in a seeded cardinal direction (layout_attempts layouts per direction); starting_patches: each whole blob inside the coverage square, at least min_footprint_distance_tiles from the footprint, min_patch_distance_tiles from any other starting patch and min_spawn_distance_tiles from spawn; buildable: at least min_tiles buildable tiles and an axis-aligned square_tiles square of them inside the coverage square (resources allowed; water, cliffs and town tiles not); lake: min_tiles of water within within_tiles of spawn; forest: min_trees trees within within_tiles; θ at spawn: heat.ambient.spawn_c; no uranium near spawn: world.patches'
     formula_ref: 01 §9 (DECISIONS §32)
 quality:
   tiers:
@@ -57,6 +64,16 @@ heat:
     clamp: [0.6, 1.3]
     evaluated_at: chunk centre
     formula: s = clamp(1 + y / divisor_tiles, clamp)
+    formula_ref: 01 §3
+  daylight:
+    ticks_per_day: 25200
+    dusk: 0.25
+    evening: 0.45
+    morning: 0.55
+    dawn: 0.75
+    min_brightness: 0.15
+    formula: 'day fraction t = (tick mod ticks_per_day) / ticks_per_day, t = 0 at noon; daylight 1 until dusk, falling linearly to 0 at evening, 0 until morning, rising linearly to 1 at dawn; the renderer''s ambient light never falls below min_brightness'
+    note: 'Factorio 2.0 (ISO): Nauvis day-night-cycle = 7 minutes = 25,200 ticks (base/prototypes/planet/planet.lua, 2.0.77); the four fractions and LuaSurface.min_brightness 0.15 are the engine defaults. Factorio 1.1 had 25,000 ticks'
     formula_ref: 01 §3
   diffusion: {share_per_neighbour: 0.02, every_ticks: 64, min_mj: 15, formula_ref: 03 §1.2}
   loss:
@@ -99,6 +116,7 @@ heat:
   notes: tube is defined for completeness; no base building uses it (assembling machines are mechanical, DECISIONS §9).
 staffing:
   radius: 48
+  every_ticks: 60
   supply:
     per_field_year: 0.08
     max_multiplier: 2.0
@@ -109,10 +127,11 @@ staffing:
     base: 1
     min: 0.2
     formula: demand = w × max(min, base + Σ speed of its own modules + Σ speed from Switches); Seminar speed from technologies adds none
-    working_share: w = share of the last 60 ticks with a job, the papers for the current unit (or a unit in progress), electric satisfaction > 0 and no compromise
+    window_ticks: 60
+    working_share: w = share of the last window_ticks (60) ticks with a job, the papers for the current unit (or a unit in progress), electric satisfaction > 0 and no compromise
     researcher: a Seminar holding a Researcher demands 0 and has staff 1
   coverage: the 8 × 8 campus expanded by R tiles on every side (Chebyshev); a Seminar or Terminal is covered when its centre lies inside
-  network: 'graph nodes: universities, Seminars, Terminals. Edges: university–Seminar and university–Terminal by coverage; Terminal–Terminal on one data-line network, both powered. Satisfaction s = min(1, ΣT / Σ demand) per connected component; rebuilt and recomputed every 60 ticks'
+  network: 'graph nodes: universities, Seminars, Terminals. Edges: university–Seminar and university–Terminal by coverage; Terminal–Terminal on one data-line network, both powered. Satisfaction s = min(1, ΣT / Σ demand) per connected component; rebuilt and recomputed every every_ticks (60) ticks'
   terminal: a Terminal joins the universities whose coverage holds it to every network holding another powered Terminal on the same data-line network. Not susceptible; it creates no runaway link of its own
   uncovered: a Seminar outside every coverage and without a Researcher has staff 0 (status No staff)
   radius_upgrades: derived from the staffing-radius effects (Packet switching, Web search)
@@ -179,6 +198,7 @@ hollow_work:
   display: Yield (1 − h), e.g. "Yield 80%"
   formula_ref: 03 §4
 world:
+  every_ticks: 60
   w0: 0
   v0: 2.0
   v0_race: 2.9
@@ -228,9 +248,56 @@ world:
     starting_archive: 80000
     library_totals: {village: [20000, 40000, 0.3], college-town: [40000, 80000, 0.7], town: [80000, 160000, 0.85], city: [200000, 400000, 1.0], metropolis: [500000, 1000000, 1.0]}
     library_totals_note: '[min, max, chance that a town of the class has one]'
-    records_stores: {total: [150000, 300000], beyond_tiles: 512}
-    distance_factor: {scale_tiles: 2000, rule: '× (1 + d / scale_tiles), d the distance from spawn in tiles'}
+    records_stores: {total: [150000, 300000], beyond_tiles: 512, cell_tiles: 512, probability: 0.25, min_town_distance_tiles: 128, rule: 'one grid of cell_tiles cells; a cell holds a store with probability, only beyond beyond_tiles from spawn, at least min_town_distance_tiles from every town footprint, its whole blob inside the map (01 §6.2)'}
+    distance_factor: {scale_tiles: 2000, rule: '× (1 + d / scale_tiles), d the distance from spawn in tiles; it scales archive totals and the initial yields of exchange taps (01 §5.2)'}
     formula_ref: 01 §6
+  # Map generation (worldgen v1, 09 §4). The rules are 01's; these are their numbers. The chapter sections are
+  # cited in `note`, because the formula_refs registry (game/schema/registries.yaml) lists none of 01 §2, §4 and
+  # §5 yet: the worldgen package adds them with its META records and its `// @formula` tags.
+  biomes:
+    order: [tundra, boreal, temperate, steppe, desert]
+    upper_c: [-5, 5, 22, 28]
+    blend_k: 2
+    trees: {tundra: 0.2, boreal: 0.6, temperate: 1.0, steppe: 0.3, desert: 0.05}
+    boreal_moist: {above: 0.5, trees: 1.2}
+    boreal_snow_below_c: 0
+    tundra_rock_share: 0.3
+    lake_moisture_base: 0.5
+    rule: 'a chunk''s biome is the first of order whose upper_c exceeds its ambient θ (desert has none), with boundaries blended over ±blend_k of θ by tile noise; its ground tiles are the tiles.yaml tiles that name the biome (tundra: snow and ice, rock_share of rock; boreal: snow patches where θ < boreal_snow_below_c); trees are Factorio''s forest density × the biome''s factor (boreal_moist.trees where moisture > boreal_moist.above); the lake noise threshold scales by (lake_moisture_base + moisture)'
+    note: 01 §2
+  patches:
+    edge_noise: 0.3
+    cell_centre_share: 0.6
+    radius_distance_tiles: 1500
+    richness_distance_tiles: 800
+    start_amount_spread: 0.2
+    coast_bias: {resources: [quartz-patch], within_tiles: 64, on_tiles: [sand], factor: 1.5, cap: 0.95}
+    resources:
+      iron-ore-patch: {start: {amount: 600000, per_tile: 1000, tiles: 600}, cell_tiles: 224, probability: 0.9, radius_tiles: 14, per_tile: 1000}
+      copper-ore-patch: {start: {amount: 500000, per_tile: 1000, tiles: 500}, cell_tiles: 240, probability: 0.85, radius_tiles: 13, per_tile: 1000}
+      coal-patch: {start: {amount: 400000, per_tile: 800, tiles: 500}, cell_tiles: 256, probability: 0.8, radius_tiles: 12, per_tile: 800}
+      quartz-patch: {start: {amount: 300000, per_tile: 600, tiles: 500}, cell_tiles: 288, probability: 0.7, radius_tiles: 10, per_tile: 600}
+      uranium-ore-patch: {cell_tiles: 640, probability: 0.35, radius_tiles: 8, per_tile: 400, not_within_tiles: 512}
+    rule: 'start: one patch per resource with a start entry, amount ± start_amount_spread, per_tile each tile, a blob of tiles at radius √(tiles/π) with ±edge_noise edge noise, placed by meta.start.guarantees; regular: a jittered grid of cell_tiles cells, each holding a patch with probability, centred uniformly in the cell''s middle cell_centre_share, radius radius_tiles × √(1 + d / radius_distance_tiles) with ±edge_noise edge noise, per_tile × (1 + d / richness_distance_tiles) per tile, none centred within not_within_tiles of spawn; coast_bias: a cell of the listed resources whose centre is within within_tiles of water or on on_tiles has probability × factor, capped at cap. Map sliders: frequency scales probability and divides cell_tiles by √frequency, size scales radius_tiles, richness scales per_tile'
+    note: 01 §4 (a parametric model of Factorio 2.0's defaults; archives and exchanges come with towns, water with lakes)
+  towns:
+    cell_tiles: 256
+    band_upper_tiles: [768, 2048]
+    probability: [0.3, 0.45, 0.55]
+    site: {centre_square_tiles: 160, min_land: 0.85, max_patch_overlap: 0.05, min_footprint_distance_tiles: 64, candidates: 8}
+    layout: {street_period_tiles: 8, street_width_tiles: 2}
+    classes:
+      starting-college: {footprint_tiles: 24, exchange: {chance: 1, taps: [1, 1]}}
+      village: {footprint_tiles: 16, probability: [0.4, 0.25, 0.15], exchange: {chance: 0.5, taps: [1, 1], initial_yield: [1.0, 2.0]}}
+      college-town: {footprint_tiles: 24, probability: [0.35, 0.25, 0.15], exchange: {chance: 0.6, taps: [1, 2], initial_yield: [1.5, 3.0]}}
+      town: {footprint_tiles: 32, probability: [0.25, 0.35, 0.35], exchange: {chance: 1, taps: [2, 3], initial_yield: [3.0, 6.0]}}
+      city: {footprint_tiles: 48, probability: [0, 0.15, 0.25], exchange: {chance: 1, taps: [3, 4], initial_yield: [6.0, 12.0]}}
+      metropolis: {footprint_tiles: 64, probability: [0, 0, 0.1], exchange: {chance: 1, taps: [4, 4], initial_yield: [12.0, 25.0]}}
+    exchange_taps: {min_distance_tiles: 6, max_distance_tiles: 16, min_spacing_tiles: 4}
+    era_skin_w: [15, 35, 55, 75]
+    exchange_skin_w: [20, 45]
+    rule: 'a grid of cell_tiles cells with spawn at the centre of cell (0, 0), which holds only the starting college; another cell holds a town with probability[band], the band chosen by the distance from spawn to the cell centre against band_upper_tiles (≤ the first, ≤ the second, beyond); its class by classes[class].probability[band]; a site: up to site.candidates centres uniform in the central centre_square_tiles square, the footprint (footprint_tiles square) at least min_land land, no cliff, overlapping resource patches by at most max_patch_overlap, min_footprint_distance_tiles from every other footprint and inside the map; streets street_width_tiles wide every street_period_tiles from the footprint''s north-west corner, building blocks between; the university (staffing.university_share, staffing.t0), the library (archives.library_totals) and the exchange (classes[class].exchange: with chance, taps taps on [min, max], each tap''s initial yield uniform on initial_yield × archives.distance_factor (the starting college''s one tap: exchange.starting_tap_initial_yield, 01 §9); exchange_taps: min_distance_tiles to max_distance_tiles outside the footprint, min_spacing_tiles apart); five era skins switched globally at the W of era_skin_w, and the exchange''s three skins at exchange_skin_w (01 §5.3)'
+    note: 01 §5
 world_settings:
   heat: {options: ['on', 'off'], default: 'on'}
   staffing: {options: ['on', 'off'], default: 'on', rule: 'off: every Seminar has staff 1 (01 §8.6, 07 §17 Advanced; Sandbox)'}

@@ -1234,6 +1234,159 @@ def check_copies(data, ix, rep):
              fr["plasma_mw"] / fr["plasma_per_s"], fg["max_kw"] / 1000 / fg["plasma_per_s"])
 
 
+# ------------------------------------------------------------------ engine values (D1: no prose where the engine reads)
+def check_engine_values(data, ix, rep):
+    """The typed values M1's systems read (D1; 10 §2.4 J1), checked where the data can check them: pole and Switch
+    areas, belt-tier throughput, the steam generators' flow against their power, boilers' 1 : 10, radar scans, the
+    Frontier cluster's payloads against the launch recipes, the day cycle, and the worldgen tables of meta.world and
+    meta.start.guarantees (01 §2, §4, §5, §9)."""
+    meta, ents, items, recs = data["meta"], ix["entities"], ix["items"], ix["recipes"]
+
+    def num(x):
+        return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+    def g(d, *keys):
+        for k in keys:
+            d = d.get(k) if isinstance(d, dict) else None
+        return d
+
+    belt_speeds = set()
+    for e in ents.values():
+        x, t, eid = e.get("extra") or {}, e.get("type"), e.get("id")
+        if t == "electric-pole":
+            for k in ("wire_reach", "supply_area_distance"):
+                if not (num(x.get(k)) and 0 < x[k] <= 64):
+                    rep.err(f"entity {eid}: extra.{k} must be a number in (0, 64] (Factorio's limit)")
+        if t == "beacon":
+            if not (num(x.get("supply_area_distance")) and 0 < x["supply_area_distance"] <= 64):
+                rep.err(f"entity {eid}: extra.supply_area_distance must be a number in (0, 64]")
+            if x.get("profile") not in ("inverse-sqrt",):
+                rep.err(f"entity {eid}: extra.profile must be inverse-sqrt (FFF-409)")
+        if t in ("belt", "underground-belt", "splitter"):
+            v = x.get("items_per_s")
+            if not (num(v) and v > 0):
+                rep.err(f"entity {eid}: a {t} needs extra.items_per_s (its tier's throughput)")
+            elif (v * 8 / 15) != int(v * 8 / 15):
+                rep.err(f"entity {eid}: {v} items/s is not a whole number of positions per tick (10 §5.3)")
+            elif t == "belt":
+                belt_speeds.add(v)
+        if t == "underground-belt" and not (isinstance(x.get("max_gap"), int) and x["max_gap"] > 0):
+            rep.err(f"entity {eid}: an underground belt needs a positive integer extra.max_gap")
+        if t in ("boiler", "heat-exchanger") and num(x.get("steam_per_s")) and num(x.get("water_per_s")):
+            if abs(x["steam_per_s"] - 10 * x["water_per_s"]) > 1e-9 * x["steam_per_s"]:
+                rep.err(f"entity {eid}: steam_per_s must be 10 × water_per_s (2.0's 1 : 10; 10 §5.8)")
+        if t == "generator" and "steam" in (e.get("consumes") or []):
+            if not all(num(x.get(k)) for k in ("steam_per_s", "min_temperature_c", "max_temperature_c")):
+                rep.err(f"entity {eid}: a steam generator needs extra.steam_per_s, min_temperature_c and max_temperature_c")
+            else:
+                steam = items.get("steam") or {}
+                per_unit_kj = (x["max_temperature_c"] - steam.get("default_temperature", 15)) * steam.get("heat_capacity_kj_per_k", 1)
+                if num(x.get("max_kw")) and abs(x["max_kw"] - x["steam_per_s"] * per_unit_kj) > 1e-6:
+                    rep.err(f"entity {eid}: max_kw {x['max_kw']} is not steam_per_s × (max_temperature_c − 15 °C) × "
+                            f"steam's heat capacity = {x['steam_per_s'] * per_unit_kj:g} (10 §5.7)")
+        if t == "radar":
+            for k in ("sector_range_chunks", "nearby_range_chunks", "energy_per_sector_mj", "energy_per_nearby_scan_kj"):
+                if not (num(x.get(k)) and x[k] > 0):
+                    rep.err(f"entity {eid}: a radar needs a positive extra.{k} (10 §5.19)")
+        if t == "rocket-silo" and ("payloads" in x or "empty_launch" in x):
+            launches = [r for r in recs.values() if r.get("category") == "launch" and r.get("pseudo")]
+            payloads = sorted({i["id"] for r in launches for i in r.get("ingredients") or []
+                               if i["id"] != "run-shard"})
+            if sorted(x.get("payloads") or []) != payloads:
+                rep.err(f"entity {eid}: extra.payloads {x.get('payloads')} is not the launch recipes' payloads {payloads}")
+            empty = any(all(i["id"] == "run-shard" for i in r.get("ingredients") or []) for r in launches)
+            if bool(x.get("empty_launch")) != empty:
+                rep.err(f"entity {eid}: extra.empty_launch must say whether a launch recipe takes no payload ({empty})")
+    for e in ents.values():
+        v = (e.get("extra") or {}).get("items_per_s")
+        if e.get("type") in ("underground-belt", "splitter") and num(v) and belt_speeds and v not in belt_speeds:
+            rep.err(f"entity {e.get('id')}: extra.items_per_s {v} is no belt tier's ({sorted(belt_speeds)})")
+
+    day = g(meta, "heat", "daylight")
+    if day is not None:
+        fr = [day.get(k) for k in ("dusk", "evening", "morning", "dawn")]
+        if not (all(num(f) for f in fr) and 0 <= fr[0] < fr[1] < fr[2] < fr[3] <= 1):
+            rep.err("meta.heat.daylight: need 0 ≤ dusk < evening < morning < dawn ≤ 1 (fractions of the day from noon)")
+        if not (isinstance(day.get("ticks_per_day"), int) and day["ticks_per_day"] > 0):
+            rep.err("meta.heat.daylight.ticks_per_day must be a positive integer")
+
+    tiles = ix["tiles"]
+    bio = g(meta, "world", "biomes")
+    if bio is not None:
+        order, upper = bio.get("order") or [], bio.get("upper_c") or []
+        if len(upper) != len(order) - 1 or upper != sorted(upper):
+            rep.err("meta.world.biomes: upper_c needs one ascending bound per biome but the last")
+        if sorted(bio.get("trees") or {}) != sorted(order):
+            rep.err("meta.world.biomes.trees: one factor per biome of order")
+        named = {b for tl in tiles.values() for b in tl.get("biome") or []}
+        for b in order:
+            if tiles and b not in named:
+                rep.err(f"meta.world.biomes: no tile names the biome {b!r} (tiles.yaml biome)")
+
+    pat = g(meta, "world", "patches")
+    if pat is not None:
+        res = ix["resources"]
+        for rid, p in (pat.get("resources") or {}).items():
+            if rid not in res:
+                rep.err(f"meta.world.patches.resources: unknown resource {rid!r}")
+            elif res[rid].get("kind") != "solid":
+                rep.err(f"meta.world.patches.resources: {rid} is not a solid resource")
+            st = p.get("start")
+            if st and st.get("amount") != st.get("per_tile", 0) * st.get("tiles", 0):
+                rep.err(f"meta.world.patches.resources.{rid}.start: amount must be per_tile × tiles")
+        rows = pat.get("resources") or {}
+        cover = set(g(meta, "start", "guarantees", "inside_starting_coverage") or [])
+        for r, p in rows.items():
+            if bool(p.get("start")) != (r in cover):
+                rep.err(f"meta.world.patches.resources.{r}: a starting patch exactly when meta.start.guarantees."
+                        f"inside_starting_coverage lists the resource (01 §9)")
+        # Archives come with towns and records stores (meta.world.archives); every other solid resource is a patch.
+        for r, x in res.items():
+            if x.get("kind") == "solid" and x.get("yields") != "records" and r not in rows:
+                rep.err(f"meta.world.patches.resources: no row for the solid resource {r} (01 §4)")
+        cb = pat.get("coast_bias") or {}
+        for r in cb.get("resources") or []:
+            if r not in res:
+                rep.err(f"meta.world.patches.coast_bias: unknown resource {r!r}")
+        for t in cb.get("on_tiles") or []:
+            if tiles and t not in tiles:
+                rep.err(f"meta.world.patches.coast_bias: unknown tile {t!r}")
+
+    towns = g(meta, "world", "towns")
+    if towns is not None:
+        bands = len(towns.get("band_upper_tiles") or []) + 1
+        if len(towns.get("probability") or []) != bands:
+            rep.err(f"meta.world.towns.probability: one P(town) per distance band ({bands})")
+        classes = towns.get("classes") or {}
+        if sorted(classes) != sorted(meta.get("town_classes") or []):
+            rep.err("meta.world.towns.classes: one row per town class (meta.town_classes)")
+        sums = [0.0] * bands
+        for c, row in classes.items():
+            p = row.get("probability")
+            if c == "starting-college":
+                if p is not None:
+                    rep.err("meta.world.towns.classes.starting-college: the starting college is placed, not drawn (01 §9)")
+                continue
+            if not (isinstance(p, list) and len(p) == bands):
+                rep.err(f"meta.world.towns.classes.{c}: one probability per distance band ({bands})")
+                continue
+            sums = [a + b for a, b in zip(sums, p)]
+            ex = row.get("exchange") or {}
+            for k in ("taps", "initial_yield"):
+                v = ex.get(k)
+                if not (isinstance(v, list) and len(v) == 2 and v[0] <= v[1]):
+                    rep.err(f"meta.world.towns.classes.{c}.exchange.{k} must be [min, max]")
+        for b, s in enumerate(sums):
+            if abs(s - 1) > 1e-9:
+                rep.err(f"meta.world.towns.classes: the class probabilities of band {b} sum to {s:g}, not 1")
+
+    gu = g(meta, "start", "guarantees") or {}
+    col = gu.get("college") or {}
+    sd = col.get("spawn_distance_tiles")
+    if sd is not None and not (isinstance(sd, list) and len(sd) == 2 and 0 <= sd[0] <= sd[1]):
+        rep.err("meta.start.guarantees.college.spawn_distance_tiles must be [min, max]")
+
+
 # ------------------------------------------------------------------ round 5 (R5-gate §4, DECISIONS §40)
 def takeoff_order_entries(order):
     """meta.endgame.takeoff_order: a technology id, or {id: level} for one level of a finite multi-level technology;
@@ -1380,6 +1533,7 @@ def run_checks(data, rep):
     check_text_file(data, ix, rep)
     check_tech_dag(ix, rep)
     check_copies(data, ix, rep)
+    check_engine_values(data, ix, rep)
     check_takeoff_order(data, ix, rep)
     check_damage(data, ix, rep)
     check_coverage(data, ix, rep)

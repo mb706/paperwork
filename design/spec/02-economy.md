@@ -16,13 +16,13 @@
 
 | Resource | Kind | Yields | Mining time | Finite? | Where it spawns | Mirrors |
 |---|---|---|---|---|---|---|
-| **Iron ore** `iron-ore-patch` | solid | Iron ore | 1 | finite | ISO (01 §4). Starting patch 600,000 ±20%, inside the starting college's coverage square (01 §9; DECISIONS §32) | iron-ore |
-| **Copper ore** `copper-ore-patch` | solid | Copper ore | 1 | finite | ISO (01 §4). Starting patch 500,000 ±20%, inside the starting college's coverage square (01 §9) | copper-ore |
-| **Coal** `coal-patch` | solid | Coal | 1 | finite | ISO (01 §4). Starting patch 400,000 ±20%, inside the starting college's coverage square (01 §9) | coal |
-| **Quartz** `quartz-patch` | solid | Quartz | 1 | finite | ISO with stone (01 §4); favours coasts and sand. Starting patch 300,000 ±20%, inside the starting college's coverage square (01 §9) | stone |
-| **Archive** `archive` | solid | Records | 1 | finite | At towns (01 §5.4, §6): library stacks beside the footprint; records stores in old mines beyond 512 tiles. Totals and the per-tile rule: meta.world.archives. The starting college's library holds 80,000 records, inside its coverage square (01 §9). Finite; never synthetic (low-background data) | ore patch (B L3: a town library, or a records store in an old mine) |
-| **Uranium ore** `uranium-ore-patch` | solid | Uranium ore | 2 | finite; needs Sulfuric acid | ISO: never within 512 tiles of spawn; 1 sulfuric acid per ore (01 §4) | uranium-ore |
-| **Exchange** `exchange` | fluid | Crawl | – | infinite, decays to a floor | At towns (01 §5.4, §7): 1–4 taps per exchange, like an oil cluster. A tap holds a Crawler (Crawling) or an Endpoint (Deep learning). Yield, floor and closing to crawlers: meta.world.exchange; Endpoints keep working on a closed exchange | crude-oil |
+| **Iron ore** `iron-ore-patch` | solid | Iron ore | 1 | finite | ISO (01 §4; numbers: meta.world.patches). The starting patch lies inside the starting college's coverage square (01 §9; DECISIONS §32) *(starting patch 600,000 ±20%, 1,000 per tile; patches: 224-tile cells at p 0.9, r₀ 14, 1,000 per tile)* | iron-ore |
+| **Copper ore** `copper-ore-patch` | solid | Copper ore | 1 | finite | ISO (01 §4; numbers: meta.world.patches). The starting patch lies inside the starting college's coverage square (01 §9) *(starting patch 500,000 ±20%, 1,000 per tile; patches: 240-tile cells at p 0.85, r₀ 13, 1,000 per tile)* | copper-ore |
+| **Coal** `coal-patch` | solid | Coal | 1 | finite | ISO (01 §4; numbers: meta.world.patches). The starting patch lies inside the starting college's coverage square (01 §9) *(starting patch 400,000 ±20%, 800 per tile; patches: 256-tile cells at p 0.8, r₀ 12, 800 per tile)* | coal |
+| **Quartz** `quartz-patch` | solid | Quartz | 1 | finite | ISO with stone (01 §4; numbers: meta.world.patches); favours coasts and sand. The starting patch lies inside the starting college's coverage square (01 §9) *(starting patch 300,000 ±20%, 600 per tile; patches: 288-tile cells at p 0.7, r₀ 10, 600 per tile)* | stone |
+| **Archive** `archive` | solid | Records | 1 | finite | At towns (01 §5.4, §6): library stacks beside the footprint; records stores in old mines far from spawn. Totals and the per-tile rule: meta.world.archives. The starting college's library holds 80,000 records, inside its coverage square (01 §9). Finite; never synthetic (low-background data) | ore patch (B L3: a town library, or a records store in an old mine) |
+| **Uranium ore** `uranium-ore-patch` | solid | Uranium ore | 2 | finite; needs Sulfuric acid | ISO (01 §4; numbers: meta.world.patches): never near spawn; 1 sulfuric acid per ore *(patches: 640-tile cells at p 0.35, r₀ 8, 400 per tile, none within 512 tiles of spawn)* | uranium-ore |
+| **Exchange** `exchange` | fluid | Crawl | – | infinite, decays to a floor | At towns (01 §5.4, §7; numbers: meta.world.towns): taps clustered like an oil field. A tap holds a Crawler (Crawling) or an Endpoint (Deep learning). Yield, floor and closing to crawlers: meta.world.exchange; Endpoints keep working on a closed exchange | crude-oil |
 | **Water** `water` | offshore | Water | – | infinite | ISO lakes and coast (01 §2) | water |
 
 
@@ -571,7 +571,7 @@ Energy is the active draw, with the ISO drain where there is one (burner draws a
 | **Data refinery** `data-refinery` | 5×5 | 420 kW (drain 14 kW) | 1 | 3 | computer (T* 40 °C) | – | 15 Steel plate + 10 Iron gear wheel + 20 Quartz + 10 Logic board + 10 Data line (8 s) | Text categorization | oil-refinery | – |
 | **Data plant** `data-plant` | 3×3 | 210 kW (drain 7 kW) | 1 | 3 | computer (T* 40 °C) | – | 5 Steel plate + 5 Iron gear wheel + 5 Logic board + 5 Data line (5 s) | Text categorization | chemical-plant (data side) | – |
 | **Trainer** `trainer` | 3×3 | 400 kW (drain 13.333 kW) | 1 | 4 | cluster (T* 35 °C) | – | 10 Steel plate + 10 Iron gear wheel + 10 Processor + 10 Copper cable (5 s) | Perceptron | centrifuge (special 3x3 maker); recipes mirror modules | Turns datasets into weights. The crafting time is the compute. |
-| **Switch** `switch` | 3×3 | 480 kW | – | 2 | network (T* 40 °C) | distribution_efficiency=1.5; supply_area=9x9 | 20 Processor + 20 Logic board + 10 Steel plate + 10 Copper cable (15 s) | Data parallelism | beacon | Lends its modules to every machine in range. Each additional switch counts for less. |
+| **Switch** `switch` | 3×3 | 480 kW | – | 2 | network (T* 40 °C) | supply_area_distance=3; distribution_efficiency=1.5; profile=inverse-sqrt | 20 Processor + 20 Logic board + 10 Steel plate + 10 Copper cable (15 s) | Data parallelism | beacon | Lends its modules to every machine in range. Each additional switch counts for less. |
 | **Endpoint** `endpoint` | 3×3 | 1 MW (drain 33.333 kW) | 1 | 2 | cluster (T* 35 °C) | deploys; must be on exchange | 10 Steel plate + 20 Processor + 10 Data line + 10 Copper cable (10 s) | Deep learning | new (F's deployment building) | Serves a checkpoint to a town. Returns ratings. |
 
 
@@ -582,7 +582,7 @@ Energy is the active draw, with the ISO drain where there is one (burner draws a
 | **Seminar** `seminar` | 3×3 | 60 kW | 1 | 2 | accelerator (T* 25 °C), with a Researcher | staff slot 1, demand 1 | 10 Logic board + 10 Iron gear wheel + 4 Transport belt (2 s) | Switching circuits | lab | Consumes papers. Needs staff. |
 | **Terminal** `terminal` | 2×2 | 30 kW | – | – | draw | – | 5 Logic board + 5 Copper cable + 1 Data line (2 s) | Time-sharing | new (DECISIONS §23d; staffing link, 01 §8) | Joins a university to a Seminar network over a data line. |
 | **Research hall** `research-hall` | 7×7 | 5 MW, interruptible | 1 | – | accelerator (T* 25 °C) | accelerator_slots=20; weights_slots=1; deploys; no module or Switch effects; tiers accelerator: speed 1 at 5 MW; accelerator-2: speed 3 at 8 MW; accelerator-3: speed 8 at 12 MW; accelerator-4: speed 20 at 16 MW | 50 Steel plate + 50 Refined concrete + 20 Rack + 20 Processor + 20 Pipe (30 s) | Automated research | new (G: accelerator hall) | The first System card written here closes the loop. |
-| **Frontier cluster** `frontier-cluster` | 9×9 | 3.99 MW | 1 | 4 | accelerator (T* 25 °C) | parts_required=100; returns=1000 system-card + 1 frontier-checkpoint | 1,000 Steel plate + 1,000 Concrete + 100 Pipe + 200 Accelerator + 200 Electric engine unit (30 s) | Scaling laws | rocket-silo | Takes {extra.parts_required} run shards and a payload. Progress is shown as loss. |
+| **Frontier cluster** `frontier-cluster` | 9×9 | 3.99 MW | 1 | 4 | accelerator (T* 25 °C) | parts_required=100; payloads=post-training-payload, final-report; empty_launch=True | 1,000 Steel plate + 1,000 Concrete + 100 Pipe + 200 Accelerator + 200 Electric engine unit (30 s) | Scaling laws | rocket-silo | Takes {extra.parts_required} run shards and a payload. Progress is shown as loss. |
 
 
 ### Power
@@ -590,19 +590,19 @@ Energy is the active draw, with the ISO drain where there is one (burner draws a
 | Building | Size | Energy | Speed | Modules | Heat | Key numbers | Recipe (time) | Unlocked by | Mirrors | Tooltip |
 |---|---|---|---|---|---|---|---|---|---|---|
 | **Boiler** `boiler` | 3×2 | 5.4 MW fuel | – | – | none | steam_per_s=60; water_per_s=6; temp_c=165; uses water; makes steam | 1 Stone furnace + 4 Pipe (0.5 s) | Steam power | boiler | – |
-| **Steam engine** `steam-engine` | 3×5 | – | – | – | 2 × electrical output | max_kw=900; uses steam | 8 Iron gear wheel + 5 Pipe + 10 Iron plate (0.5 s) | Steam power | steam-engine | – |
+| **Steam engine** `steam-engine` | 3×5 | – | – | – | 2 × electrical output | steam_per_s=30; min_temperature_c=100; max_temperature_c=165; max_kw=900; uses steam | 8 Iron gear wheel + 5 Pipe + 10 Iron plate (0.5 s) | Steam power | steam-engine | – |
 | **Solar panel** `solar-panel` | 3×3 | – | – | – | – | peak_kw=60 | 5 Steel plate + 15 Logic board + 5 Silicon (10 s) | Photovoltaics | solar-panel | – |
 | **Accumulator** `accumulator` | 2×2 | – | – | – | – | capacity_mj=5; flow_kw=300 | 2 Iron plate + 5 Battery (10 s) | Accumulators | accumulator | – |
-| **Nuclear reactor** `nuclear-reactor` | 5×5 | 120 MW fuel | – | – | none (waste heat only) | heat_mw=40; neighbor_bonus=1.0; uses uranium-fuel-cell; makes depleted-uranium-fuel-cell | 500 Concrete + 500 Steel plate + 500 Processor + 500 Copper plate (8 s) | Nuclear power | nuclear-reactor | – |
+| **Nuclear reactor** `nuclear-reactor` | 5×5 | 120 MW fuel | – | – | none (waste heat only) | max_temperature_c=1000; heat_mw=40; neighbor_bonus=1.0; uses uranium-fuel-cell; makes depleted-uranium-fuel-cell | 500 Concrete + 500 Steel plate + 500 Processor + 500 Copper plate (8 s) | Nuclear power | nuclear-reactor | – |
 | **Heat pipe** `heat-pipe` | 1×1 | – | – | – | – | – | 10 Steel plate + 20 Copper plate (1 s) | Nuclear power | heat-pipe | – |
 | **Heat exchanger** `heat-exchanger` | 3×2 | 10 MW heat | – | – | none | steam_per_s=103.09; water_per_s=10.309; temp_c=500; uses water; makes steam | 10 Steel plate + 100 Copper plate + 10 Pipe (3 s) | Nuclear power | heat-exchanger | – |
-| **Steam turbine** `steam-turbine` | 3×5 | – | – | – | 2 × electrical output | max_kw=5820; uses steam | 50 Iron gear wheel + 50 Copper plate + 20 Pipe (3 s) | Nuclear power | steam-turbine | – |
+| **Steam turbine** `steam-turbine` | 3×5 | – | – | – | 2 × electrical output | steam_per_s=60; min_temperature_c=100; max_temperature_c=500; max_kw=5820; uses steam | 50 Iron gear wheel + 50 Copper plate + 20 Pipe (3 s) | Nuclear power | steam-turbine | – |
 | **Fusion reactor** `fusion-reactor` | 6×6 | 300 MW fuel | – | – | none | neighbor_bonus=1.0; plasma_per_s=4; plasma_mw=100; electric_kw=10000; uses fusion-power-cell; makes plasma | 200 Steel plate + 200 Refined concrete + 100 Accelerator + 200 Copper cable (60 s) | Fusion power | fusion-reactor (Space Age) | – |
 | **Fusion generator** `fusion-generator` | 3×5 | – | – | – | 2 × electrical output | max_kw=50000; plasma_per_s=2; uses plasma | 100 Steel plate + 100 Copper plate + 50 Processor + 20 Pipe (30 s) | Fusion power | fusion-generator (Space Age) | – |
-| **Small electric pole** `small-electric-pole` | 1×1 | – | – | – | – | wire_reach=7.5; supply=5x5 | 1 Wood + 2 Copper cable (0.5 s) | Switching circuits | small-electric-pole | – |
-| **Medium electric pole** `medium-electric-pole` | 1×1 | – | – | – | – | wire_reach=9; supply=7x7 | 4 Iron stick + 2 Steel plate + 2 Copper cable (0.5 s) | Rural electrification | medium-electric-pole | – |
-| **Big electric pole** `big-electric-pole` | 2×2 | – | – | – | – | wire_reach=32; supply=4x4 | 8 Iron stick + 5 Steel plate + 4 Copper cable (0.5 s) | Rural electrification | big-electric-pole | – |
-| **Substation** `substation` | 2×2 | – | – | – | – | wire_reach=18; supply=18x18 | 10 Steel plate + 5 Processor + 6 Copper cable (0.5 s) | Substations | substation | – |
+| **Small electric pole** `small-electric-pole` | 1×1 | – | – | – | – | wire_reach=7.5; supply_area_distance=2.5 | 1 Wood + 2 Copper cable (0.5 s) | Switching circuits | small-electric-pole | – |
+| **Medium electric pole** `medium-electric-pole` | 1×1 | – | – | – | – | wire_reach=9; supply_area_distance=3.5 | 4 Iron stick + 2 Steel plate + 2 Copper cable (0.5 s) | Rural electrification | medium-electric-pole | – |
+| **Big electric pole** `big-electric-pole` | 2×2 | – | – | – | – | wire_reach=32; supply_area_distance=2 | 8 Iron stick + 5 Steel plate + 4 Copper cable (0.5 s) | Rural electrification | big-electric-pole | – |
+| **Substation** `substation` | 2×2 | – | – | – | – | wire_reach=18; supply_area_distance=9 | 10 Steel plate + 5 Processor + 6 Copper cable (0.5 s) | Substations | substation | – |
 
 
 ### Cooling
@@ -621,17 +621,17 @@ Energy is the active draw, with the ISO drain where there is one (burner draws a
 | **Transport belt** `transport-belt` | 1×1 | – | – | – | – | items_per_s=15 | 1 Iron plate + 1 Iron gear wheel (0.5 s) | Prior art | transport-belt | – |
 | **Fast transport belt** `fast-transport-belt` | 1×1 | – | – | – | – | items_per_s=30 | 5 Iron gear wheel + 1 Transport belt (0.5 s) | Logistics 2 | fast-transport-belt | – |
 | **Express transport belt** `express-transport-belt` | 1×1 | – | – | – | – | items_per_s=45 | 10 Iron gear wheel + 1 Fast transport belt + 20 Lubricant (0.5 s) | Logistics 3 | express-transport-belt | – |
-| **Underground belt** `underground-belt` | 1×1 | – | – | – | – | max_gap=4 | 10 Iron plate + 5 Transport belt (1 s) | Logistics | underground-belt | – |
-| **Fast underground belt** `fast-underground-belt` | 1×1 | – | – | – | – | max_gap=6 | 40 Iron gear wheel + 2 Underground belt (2 s) | Logistics 2 | fast-underground-belt | – |
-| **Express underground belt** `express-underground-belt` | 1×1 | – | – | – | – | max_gap=8 | 80 Iron gear wheel + 2 Fast underground belt + 40 Lubricant (2 s) | Logistics 3 | express-underground-belt | – |
-| **Splitter** `splitter` | 2×1 | – | – | – | – | – | 5 Logic board + 5 Iron plate + 4 Transport belt (1 s) | Logistics | splitter | – |
-| **Fast splitter** `fast-splitter` | 2×1 | – | – | – | – | – | 1 Splitter + 10 Iron gear wheel + 10 Logic board (2 s) | Logistics 2 | fast-splitter | – |
-| **Express splitter** `express-splitter` | 2×1 | – | – | – | – | – | 1 Fast splitter + 10 Iron gear wheel + 10 Processor + 80 Lubricant (2 s) | Logistics 3 | express-splitter | – |
+| **Underground belt** `underground-belt` | 1×1 | – | – | – | – | items_per_s=15; max_gap=4 | 10 Iron plate + 5 Transport belt (1 s) | Logistics | underground-belt | – |
+| **Fast underground belt** `fast-underground-belt` | 1×1 | – | – | – | – | items_per_s=30; max_gap=6 | 40 Iron gear wheel + 2 Underground belt (2 s) | Logistics 2 | fast-underground-belt | – |
+| **Express underground belt** `express-underground-belt` | 1×1 | – | – | – | – | items_per_s=45; max_gap=8 | 80 Iron gear wheel + 2 Fast underground belt + 40 Lubricant (2 s) | Logistics 3 | express-underground-belt | – |
+| **Splitter** `splitter` | 2×1 | – | – | – | – | items_per_s=15 | 5 Logic board + 5 Iron plate + 4 Transport belt (1 s) | Logistics | splitter | – |
+| **Fast splitter** `fast-splitter` | 2×1 | – | – | – | – | items_per_s=30 | 1 Splitter + 10 Iron gear wheel + 10 Logic board (2 s) | Logistics 2 | fast-splitter | – |
+| **Express splitter** `express-splitter` | 2×1 | – | – | – | – | items_per_s=45 | 1 Fast splitter + 10 Iron gear wheel + 10 Processor + 80 Lubricant (2 s) | Logistics 3 | express-splitter | – |
 | **Burner inserter** `burner-inserter` | 1×1 | 150 kJ per move fuel | – | – | draw | – | 1 Iron plate + 1 Iron gear wheel (0.5 s) | Prior art | burner-inserter | – |
-| **Inserter** `inserter` | 1×1 | 13.2 kW (drain 0.4 kW) | – | – | draw | – | 1 Logic board + 1 Iron gear wheel + 1 Iron plate (0.5 s) | Switching circuits | inserter | – |
-| **Long-handed inserter** `long-handed-inserter` | 1×1 | 20 kW (drain 0.4 kW) | – | – | draw | – | 1 Iron gear wheel + 1 Iron plate + 1 Inserter (0.5 s) | Tabulation | long-handed-inserter | – |
-| **Fast inserter** `fast-inserter` | 1×1 | 46 kW (drain 0.5 kW) | – | – | draw | – | 2 Logic board + 2 Iron plate + 1 Inserter (0.5 s) | Servomechanisms | fast-inserter | – |
-| **Bulk inserter** `bulk-inserter` | 1×1 | 132 kW (drain 1 kW) | – | – | draw | – | 15 Iron gear wheel + 15 Logic board + 1 Processor + 1 Fast inserter (0.5 s) | Batch processing | bulk-inserter | – |
+| **Inserter** `inserter` | 1×1 | 14.7 kW (drain 0.4 kW) | – | – | draw | – | 1 Logic board + 1 Iron gear wheel + 1 Iron plate (0.5 s) | Switching circuits | inserter | – |
+| **Long-handed inserter** `long-handed-inserter` | 1×1 | 21 kW (drain 0.4 kW) | – | – | draw | – | 1 Iron gear wheel + 1 Iron plate + 1 Inserter (0.5 s) | Tabulation | long-handed-inserter | – |
+| **Fast inserter** `fast-inserter` | 1×1 | 58.8 kW (drain 0.5 kW) | – | – | draw | – | 2 Logic board + 2 Iron plate + 1 Inserter (0.5 s) | Servomechanisms | fast-inserter | – |
+| **Bulk inserter** `bulk-inserter` | 1×1 | 168 kW (drain 1 kW) | – | – | draw | – | 15 Iron gear wheel + 15 Logic board + 1 Processor + 1 Fast inserter (0.5 s) | Batch processing | bulk-inserter | – |
 
 
 ### Storage and agents
@@ -693,7 +693,7 @@ Energy is the active draw, with the ISO drain where there is one (burner draws a
 | **Programmable speaker** `programmable-speaker` | 1×1 | 2 kW | – | – | draw | – | 3 Iron plate + 4 Iron stick + 5 Copper cable + 4 Logic board (2 s) | Cybernetics | programmable-speaker | – |
 | **Display panel** `display-panel` | 1×1 | – | – | – | – | – | 1 Iron plate + 1 Logic board (0.5 s) | Cybernetics | display-panel | – |
 | **Lamp** `small-lamp` | 1×1 | 5 kW | – | – | draw | – | 1 Logic board + 3 Copper cable + 1 Iron plate (0.5 s) | Lamp | small-lamp | – |
-| **Radar** `radar` | 3×3 | 300 kW | – | – | draw | – | 5 Logic board + 5 Iron gear wheel + 10 Iron plate (0.5 s) | Radar | radar | – |
+| **Radar** `radar` | 3×3 | 300 kW | – | – | draw | sector_range_chunks=14; nearby_range_chunks=3; energy_per_sector_mj=10; energy_per_nearby_scan_kj=250 | 5 Logic board + 5 Iron gear wheel + 10 Iron plate (0.5 s) | Radar | radar | – |
 | **Area scanner** `area-scanner` | 1×1 | 50 kW | – | – | draw | – | 1 Radar + 5 Logic board + 5 Copper cable (5 s) | Self-reproducing automata | new (Recursive Blueprints' scanner) | Reports what lies in an area as signals. |
 | **Constructor** `deployer` | 1×1 | – | – | – | – | – | 1 Steel chest + 10 Logic board + 5 Decision unit (10 s) | Self-reproducing automata | new (Recursive Blueprints' deployer chest; G's Deployer; named Constructor, DECISIONS §19) | Builds the blueprint it holds where a circuit signal says. |
 

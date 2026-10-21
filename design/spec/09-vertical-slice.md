@@ -131,9 +131,9 @@ The start set is Prior art's unlocks (§2.5). No pseudo recipe is in the slice: 
 | Belts | `transport-belt` | Transport belt | 1×1 | — | — | 0 |  |
 | Belts | `underground-belt` | Underground belt | 1×1 | — | — | 0 |  |
 | Inserters | `burner-inserter` | Burner inserter | 1×1 | burner 150 kJ per move | — | 0 |  |
-| Inserters | `fast-inserter` | Fast inserter | 1×1 | electric 46 kW | — | 0 |  |
-| Inserters | `inserter` | Inserter | 1×1 | electric 13.2 kW | — | 0 |  |
-| Inserters | `long-handed-inserter` | Long-handed inserter | 1×1 | electric 20 kW | — | 0 |  |
+| Inserters | `fast-inserter` | Fast inserter | 1×1 | electric 58.8 kW | — | 0 |  |
+| Inserters | `inserter` | Inserter | 1×1 | electric 14.7 kW | — | 0 |  |
+| Inserters | `long-handed-inserter` | Long-handed inserter | 1×1 | electric 21 kW | — | 0 |  |
 | Storage | `iron-chest` | Iron chest | 1×1 | — | — | 0 |  |
 | Storage | `steel-chest` | Steel chest | 1×1 | — | — | 0 |  |
 | Storage | `wooden-chest` | File drawer | 1×1 | — | — | 0 | Displayed as File drawer |

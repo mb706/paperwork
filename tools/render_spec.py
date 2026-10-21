@@ -579,15 +579,18 @@ def heat_str(e):
 
 CLASS_T = {}
 
-EXTRA_KEYS = ["items_per_s", "max_gap", "slots", "capacity", "wire_reach", "supply", "pumping_per_s", "steam_per_s",
-              "water_per_s", "temp_c", "max_kw", "peak_kw", "capacity_mj", "flow_kw", "heat_mw", "neighbor_bonus", "range",
-              "health", "clean_interval_s", "accelerator_slots", "weights_slots", "plasma_per_s", "plasma_mw",
-              "electric_kw", "distribution_efficiency", "supply_area", "parts_required", "dispatch_radius", "returns"]
+EXTRA_KEYS = ["items_per_s", "max_gap", "slots", "capacity", "wire_reach", "supply_area_distance", "pumping_per_s",
+              "steam_per_s", "water_per_s", "temp_c", "min_temperature_c", "max_temperature_c", "max_kw", "peak_kw",
+              "capacity_mj", "flow_kw", "heat_mw", "neighbor_bonus", "range", "health", "clean_interval_s",
+              "accelerator_slots", "weights_slots", "plasma_per_s", "plasma_mw", "electric_kw", "distribution_efficiency",
+              "profile", "sector_range_chunks", "nearby_range_chunks", "energy_per_sector_mj", "energy_per_nearby_scan_kj",
+              "parts_required", "payloads", "empty_launch", "dispatch_radius", "returns"]
 
 
 def extra_str(e):
     x = e.get("extra") or {}
-    parts = [f"{k}={x[k]}" for k in EXTRA_KEYS if k in x and not isinstance(x[k], (dict, list))]
+    parts = [f"{k}={x[k]}" if not isinstance(x[k], list) else f"{k}={', '.join(map(str, x[k]))}"
+             for k in EXTRA_KEYS if k in x and not isinstance(x[k], dict)]
     if e.get("staff_slots"):
         parts.append(f"staff slot {e['staff_slots']}, demand {e.get('staff_demand', 1)}")
     if e.get("deploys"):
@@ -636,12 +639,24 @@ def render_economy(ctx):
     # 1 resources
     w("## 1. Resources\n")
     rows = []
+    patches = ((meta.get("world") or {}).get("patches") or {}).get("resources") or {}
+    spread = ((meta.get("world") or {}).get("patches") or {}).get("start_amount_spread")
     for r in d["resources"]:
         fin = "infinite, decays to a floor" if r.get("infinite") else ("infinite" if r["kind"] == "offshore" else "finite")
         mt = r.get("mining_time", "–")
+        where = r.get("autoplace", "")
+        p = patches.get(r["id"])
+        if p:   # the typed numbers of meta.world.patches (01 §4)
+            st = p.get("start")
+            nums = ([f"starting patch {num(st['amount'])}" + (f" ±{spread:.0%}" if spread else "")
+                     + f", {num(st['per_tile'])} per tile"] if st else [])
+            nums.append(f"patches: {num(p['cell_tiles'])}-tile cells at p {p['probability']:g}, r₀ {p['radius_tiles']:g}, "
+                        f"{num(p['per_tile'])} per tile" + (f", none within {num(p['not_within_tiles'])} tiles of spawn"
+                                                            if p.get("not_within_tiles") else ""))
+            where += " *(" + "; ".join(nums) + ")*"
         rows.append([f"**{r['name']}** `{r['id']}`", r["kind"], ctx.iname(r["yields"]), mt,
                      fin + (f"; needs {ctx.iname(r['requires_fluid'])}" if r.get("requires_fluid") else ""),
-                     r.get("autoplace", ""), r.get("mirrors", "")])
+                     where, r.get("mirrors", "")])
     w(table(["Resource", "Kind", "Yields", "Mining time", "Finite?", "Where it spawns", "Mirrors"], rows))
     # 2 items by tier
     w("\n## 2. Items and fluids by tier\n")

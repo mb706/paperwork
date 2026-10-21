@@ -93,7 +93,7 @@ Ambient temperature falls toward the north; sunlight rises toward the south. Sit
 
 > s(y) = clamp( 1 + y / 5,700, 0.6, 1.3 ) at the chunk centre,   solar panel output = 60 kW × s × daylight(t)
 
-- daylight(t) is Factorio's day–night curve (ISO): 25,000 ticks per day; full light from dawn (0.75 of the day) to dusk (0.25), none from evening (0.45) to morning (0.55), linear between.
+- daylight(t) is Factorio's day–night curve (ISO): 25,200 ticks (7 minutes) per day, Factorio 2.0's Nauvis (1.1 had 25,000); the numbers are `meta.heat.daylight`; full light from dawn (0.75 of the day) to dusk (0.25), none from evening (0.45) to morning (0.55), linear between.
 - s = 0.73 at y = −1,520 (−5 °C), 1.2 at y = +1,120 (28 °C).
 
 **Readouts.**
