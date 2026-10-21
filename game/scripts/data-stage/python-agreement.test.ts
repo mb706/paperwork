@@ -6,7 +6,9 @@
 //     an infinite one). Beyond those, at costs above about 7 × 10^14 units, det::powi's left-to-right
 //     multiplication and Python's libm pow can differ in the last bit, so a count may differ by a unit;
 //     the engine's value is det::powi's, identical in every engine (10 §4.1);
-//   - its milestone filters print the counts of design/round4/arch-data/manifests.py, line for line.
+//   - its milestone filters print the counts of design/round4/arch-data/manifests.py, line for line;
+//   - its relationship checks (invariants.ts) refuse what validate_spec.check_engine_values and check_copies
+//     refuse, with as many errors, on the data and on a set of mutations of it (D1-r1).
 // Needs `gamedev-python` (CLAUDE.md).
 import { execFileSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
@@ -17,6 +19,7 @@ import { canonicalJson } from '../lib/canonical.ts';
 import { Diagnostics } from './diagnostics.ts';
 import { compile, hasPower, Program, unitCount } from './expr.ts';
 import { compileFormulas, forEachPoint, type PointSpec } from './formulas.ts';
+import { checkInvariants } from './invariants.ts';
 import { closure, loadManifests, loadSlice, selectTechnologies, sliceFilter, summary } from './manifests.ts';
 import { checkReferences, indexDesign } from './refs.ts';
 import { FILE_KINDS, type FileKind, validateDesign } from './schema/index.ts';
@@ -147,4 +150,118 @@ describe('milestone filters agree with manifests.py', () => {
     expect(have).toEqual(want);
     expect(have.length).toBeGreaterThanOrEqual(5);
   }, 60_000);
+});
+
+describe("relationship checks agree with validate_spec's check_engine_values and check_copies (D1-r1)", () => {
+  // Each mutation keeps the data schema-valid, so both validators reach their relationship checks, and each
+  // must refuse it with as many errors as the other. The unmutated data passes both.
+  type Data = Record<string, unknown>;
+  /** A mutation: a file kind, then keys (in a list kind, the second is the prototype's id); a value or `delete`. */
+  type Mutation = [name: string, path: string[], value: unknown];
+  const DELETE = Symbol('delete');
+  const MUTATIONS: Mutation[] = [
+    ['steam engine max_kw 901', ['entities', 'steam-engine', 'extra', 'max_kw'], 901],
+    ['steam turbine at 499 °C', ['entities', 'steam-turbine', 'extra', 'max_temperature_c'], 499],
+    ["water at steam's heat capacity", ['items', 'water', 'heat_capacity_kj_per_k'], 0.2],
+    ['steam without its limit', ['items', 'steam', 'max_temperature'], DELETE],
+    ['boiler water 6.5/s', ['entities', 'boiler', 'extra', 'water_per_s'], 6.5],
+    ['lamp without lamp priority', ['entities', 'small-lamp', 'energy', 'priority'], DELETE],
+    ['underground belt at 16/s', ['entities', 'underground-belt', 'extra', 'items_per_s'], 16],
+    ['splitter at no tier', ['entities', 'fast-splitter', 'extra', 'items_per_s'], 22.5],
+    [
+      'cluster missing a payload',
+      ['entities', 'frontier-cluster', 'extra', 'payloads'],
+      ['post-training-payload'],
+    ],
+    ['cluster without its empty launch', ['entities', 'frontier-cluster', 'extra', 'empty_launch'], false],
+    ['dusk after evening', ['meta', 'heat', 'daylight', 'dusk'], 0.5],
+    ['biome bounds out of order', ['meta', 'world', 'biomes', 'upper_c'], [-5, 22, 5, 28]],
+    [
+      'starting patch amount',
+      ['meta', 'world', 'patches', 'resources', 'iron-ore-patch', 'start', 'amount'],
+      600001,
+    ],
+    ['town band sums', ['meta', 'world', 'towns', 'classes', 'village', 'probability'], [0.5, 0.25, 0.15]],
+    [
+      'college spawn range reversed',
+      ['meta', 'start', 'guarantees', 'college', 'spawn_distance_tiles'],
+      [32, 16],
+    ],
+    ['a copy that disagrees', ['meta', 'world', 'archives', 'starting_archive'], 80001],
+  ];
+  /** Applies a mutation to a copy of the data. */
+  function mutate(d: Data, [, path, value]: Mutation): void {
+    const [kind, ...keys] = path as [string, ...string[]];
+    let node = d[kind] as Record<string, unknown>;
+    if (Array.isArray(node)) {
+      const proto = node.find((o: { id?: string }) => o.id === keys[0]);
+      if (!proto) throw new Error(`no ${keys[0]} in ${kind}`);
+      node = proto as Record<string, unknown>;
+      keys.shift();
+    }
+    const last = keys.pop() as string;
+    for (const k of keys) node = node[k] as Record<string, unknown>;
+    if (value === DELETE) delete node[last];
+    else node[last] = value;
+  }
+
+  it('gives the same verdict on the data and on every mutation of it', () => {
+    const diags0 = new Diagnostics();
+    const sources = {} as Record<FileKind, SourceFile>;
+    for (const k of FILE_KINDS)
+      sources[k] = loadYaml(
+        join(SPEC, 'data', `${k}.yaml`),
+        `design/spec/data/${k}.yaml`,
+        diags0,
+      ) as SourceFile;
+    // The unmutated data first, then one copy per mutation.
+    const cases: [string, Mutation | null][] = [
+      ['none', null],
+      ...MUTATIONS.map((m): [string, Mutation] => [m[0], m]),
+    ];
+    const datasets = cases.map(([, m]) => {
+      const d = Object.fromEntries(FILE_KINDS.map((k) => [k, structuredClone(sources[k].value)])) as Data;
+      if (m) mutate(d, m);
+      return d;
+    });
+    const py = JSON.parse(
+      python(
+        [
+          'import json, sys',
+          "sys.path.insert(0, 'tools')",
+          'import validate_spec as v',
+          'out = []',
+          'for d in json.load(sys.stdin):',
+          '    rep = v.Report()',
+          '    ix = v.index(d, rep)',
+          '    v.check_copies(d, ix, rep)',
+          '    v.check_engine_values(d, ix, rep)',
+          '    out.append(rep.errors)',
+          'print(json.dumps(out))',
+        ].join('\n'),
+        JSON.stringify(datasets),
+      ),
+    ) as string[][];
+    cases.forEach(([name], i) => {
+      const diags = new Diagnostics();
+      const mutated = Object.fromEntries(
+        FILE_KINDS.map((k) => [k, { ...sources[k], value: datasets[i]?.[k] }]),
+      ) as Record<FileKind, SourceFile>;
+      const design = validateDesign(mutated, diags);
+      expect(
+        diags.errors.map((e) => e.message),
+        `${name}: schema`,
+      ).toEqual([]);
+      if (design) checkInvariants(design, indexDesign(design), diags);
+      const ts = diags.errors.map((e) => e.message);
+      const want = py[i] ?? [];
+      if (name === 'none') expect([ts, want], name).toEqual([[], []]);
+      else {
+        expect(want.length, `${name}: validate_spec.py`).toBeGreaterThan(0);
+        expect(ts.length, `${name}: the data stage (${ts.join('; ')}) vs Python (${want.join('; ')})`).toBe(
+          want.length,
+        );
+      }
+    });
+  }, 120_000);
 });

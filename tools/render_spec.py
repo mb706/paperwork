@@ -555,6 +555,8 @@ def energy_str(e):
     p = f"{kw / 1000:g} MW" if kw >= 1000 else f"{kw:g} kW"
     if en.get("priority") == "interruptible":
         tag += ", interruptible"
+    if en.get("priority") == "lamp":
+        tag += ", while lit"
     if en.get("drain_kw"):
         tag += f" (drain {en['drain_kw']:g} kW)"
     return p + tag
@@ -1287,7 +1289,7 @@ ECONOMY_CHANGES = """
 | 7 | **Launch without a payload** (`launch-empty`, pseudo): 100 Run shards → 1 Frontier checkpoint, no System cards; unlocked by *Scaling laws* | coherence M7, C2; R4-world |
 | 8 | **Laboratory salvage** defined once in `meta.start.salvage`: 6 wreck pieces of 5 Iron plates, a crate of 1 Radar, 10 Logic boards, 20 Copper cable; the Radar's "Surplus from a wartime laboratory." moves to the salvage's Handbook note | DECISIONS §33; impl B2; coherence B1, M13 |
 | 9 | `tiles.yaml` (18 tiles: κ, buildability, walking speed, placement) and `world.yaml` (trees, three rocks, campus, exchange office, mine entrance); trees leave `resources.yaml`; concretes and landfill get `places_tile` | impl B3, J9 |
-| 10 | Boiler 6 water/s, heat exchanger 10.309 water/s (1 water → 10 steam, 2.0.7); water and steam 0.2 kJ/K per unit | impl J3 |
+| 10 | Boiler 6 water/s, heat exchanger 10.309 water/s (1 water → 10 steam, 2.0.7); water and steam 0.2 kJ/K per unit (water corrected to 2 kJ/K, at most 100 °C, and steam's limit set to 5,000 °C: factorio-data 2.0.77 fluid.lua, D1-r1) | impl J3 |
 | 11 | ISO drains (`drain_kw`) on crafting machines, inserters and pumps; inserter energy per movement and rotation, the burner inserter's ×3 (150 kJ) with no fixed draw | impl N30, J4 |
 | 12 | Threshold unit → **Decision unit**, "Outputs while its conditions hold." | DECISIONS §37 (refined); R3-accuracy M1 |
 | 13 | Tank → **Half-track** (item, entity, recipe, technology), unarmed, 80 slots | DECISIONS §38; coherence M14 |

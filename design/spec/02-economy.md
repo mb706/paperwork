@@ -692,7 +692,7 @@ Energy is the active draw, with the ISO drain where there is one (burner draws a
 | **Power switch** `power-switch` | 2×2 | – | – | – | – | – | 5 Iron plate + 5 Copper cable + 2 Logic board (2 s) | Cybernetics | power-switch | Disconnects two networks. {meta.runaways.clean.power_off_s} s without power cleans a compromised machine. |
 | **Programmable speaker** `programmable-speaker` | 1×1 | 2 kW | – | – | draw | – | 3 Iron plate + 4 Iron stick + 5 Copper cable + 4 Logic board (2 s) | Cybernetics | programmable-speaker | – |
 | **Display panel** `display-panel` | 1×1 | – | – | – | – | – | 1 Iron plate + 1 Logic board (0.5 s) | Cybernetics | display-panel | – |
-| **Lamp** `small-lamp` | 1×1 | 5 kW | – | – | draw | – | 1 Logic board + 3 Copper cable + 1 Iron plate (0.5 s) | Lamp | small-lamp | – |
+| **Lamp** `small-lamp` | 1×1 | 5 kW, while lit | – | – | draw | – | 1 Logic board + 3 Copper cable + 1 Iron plate (0.5 s) | Lamp | small-lamp | – |
 | **Radar** `radar` | 3×3 | 300 kW | – | – | draw | sector_range_chunks=14; nearby_range_chunks=3; energy_per_sector_mj=10; energy_per_nearby_scan_kj=250 | 5 Logic board + 5 Iron gear wheel + 10 Iron plate (0.5 s) | Radar | radar | – |
 | **Area scanner** `area-scanner` | 1×1 | 50 kW | – | – | draw | – | 1 Radar + 5 Logic board + 5 Copper cable (5 s) | Self-reproducing automata | new (Recursive Blueprints' scanner) | Reports what lies in an area as signals. |
 | **Constructor** `deployer` | 1×1 | – | – | – | – | – | 1 Steel chest + 10 Logic board + 5 Decision unit (10 s) | Self-reproducing automata | new (Recursive Blueprints' deployer chest; G's Deployer; named Constructor, DECISIONS §19) | Builds the blueprint it holds where a circuit signal says. |
@@ -925,7 +925,7 @@ Energy is the active draw, with the ISO drain where there is one (burner draws a
 | 7 | **Launch without a payload** (`launch-empty`, pseudo): 100 Run shards → 1 Frontier checkpoint, no System cards; unlocked by *Scaling laws* | coherence M7, C2; R4-world |
 | 8 | **Laboratory salvage** defined once in `meta.start.salvage`: 6 wreck pieces of 5 Iron plates, a crate of 1 Radar, 10 Logic boards, 20 Copper cable; the Radar's "Surplus from a wartime laboratory." moves to the salvage's Handbook note | DECISIONS §33; impl B2; coherence B1, M13 |
 | 9 | `tiles.yaml` (18 tiles: κ, buildability, walking speed, placement) and `world.yaml` (trees, three rocks, campus, exchange office, mine entrance); trees leave `resources.yaml`; concretes and landfill get `places_tile` | impl B3, J9 |
-| 10 | Boiler 6 water/s, heat exchanger 10.309 water/s (1 water → 10 steam, 2.0.7); water and steam 0.2 kJ/K per unit | impl J3 |
+| 10 | Boiler 6 water/s, heat exchanger 10.309 water/s (1 water → 10 steam, 2.0.7); water and steam 0.2 kJ/K per unit (water corrected to 2 kJ/K, at most 100 °C, and steam's limit set to 5,000 °C: factorio-data 2.0.77 fluid.lua, D1-r1) | impl J3 |
 | 11 | ISO drains (`drain_kw`) on crafting machines, inserters and pumps; inserter energy per movement and rotation, the burner inserter's ×3 (150 kJ) with no fixed draw | impl N30, J4 |
 | 12 | Threshold unit → **Decision unit**, "Outputs while its conditions hold." | DECISIONS §37 (refined); R3-accuracy M1 |
 | 13 | Tank → **Half-track** (item, entity, recipe, technology), unarmed, 80 slots | DECISIONS §38; coherence M14 |

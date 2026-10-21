@@ -3,11 +3,16 @@
 // with the design data. Error cases run on a scratch copy, so the real files are never touched.
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { type PrototypesJson, readPrototypesBin } from '../../src/shared/gen/protos.ts';
 import { edit, messages, options, scratchRepo } from '../../test/helpers/data-stage.ts';
-import { formatDiagnostic } from './diagnostics.ts';
+import { type CapabilityManifest, checkConditionalHeat } from './capabilities.ts';
+import { Diagnostics, formatDiagnostic } from './diagnostics.ts';
+import { fluidSymmetries } from './engine.ts';
 import { type DataStageOptions, type DataStageResult, runDataStage } from './index.ts';
 import type { EntityEngine } from './overlay.ts';
 import { miningArea, trimmedBox } from './overlay.ts';
+import { indexDesign } from './refs.ts';
+import { parseYaml } from './sources.ts';
 
 /** The M1 build filter, strict: every gap is an error. */
 const m1 = (game?: string, spec?: string): DataStageOptions => ({ ...options(game, spec), manifest: 'm1' });
@@ -130,6 +135,58 @@ describe('the M1 engine overlay on the repository data', () => {
     expect(ov?.prototypes.resources['iron-ore-patch']?.map_color).toBe('#6a8694');
     expect(ov?.defaults.belt_lanes).toMatchObject({ straight: 256, curve_inner: 106, curve_outer: 295 });
   });
+
+  it("emits what the slice reads (D1-r1): Seminars that never compute, flipping assemblers, 2.0's water and steam", () => {
+    const bin = r.outputs.get('public/data/prototypes.bin');
+    if (!bin) throw new Error('no prototypes.bin');
+    const p = readPrototypesBin(bin);
+    const entity = (name: string) => p.entity[p.names.entity.indexOf(name)];
+    const fluid = (name: string) => p.fluid[p.names.fluid.indexOf(name)];
+    // No Researcher in the slice (09 §9): the Seminar's accelerator class never holds, so it never throttles (S-G9).
+    expect(entity('seminar')).toMatchObject({ computing: false, t_star: 0 });
+    // Assembling machine 2's ports lie on its axis, so it flips (FFF-394; I §3.3; m1's flip_entity).
+    expect(entity('assembling-machine-2')?.flippable).toBe(true);
+    expect(entity('assembling-machine-1')?.flippable).toBe(false);
+    // factorio-data 2.0.77 fluid.lua: water 2 kJ/K up to 100 °C, steam 0.2 kJ/K up to 5,000 °C (J/K in the bin).
+    expect(fluid('water')).toMatchObject({
+      default_temperature: 15,
+      max_temperature: 100,
+      heat_capacity: 2000,
+    });
+    expect(fluid('steam')).toMatchObject({
+      default_temperature: 15,
+      max_temperature: 5000,
+      heat_capacity: 200,
+    });
+  });
+
+  it('carries the set-name tables the slice draws (D1-r1; 10 §9.9, §15.7)', () => {
+    const json = r.outputs.get('public/data/prototypes.json');
+    if (!json) throw new Error('no prototypes.json');
+    const p = JSON.parse(new TextDecoder().decode(json)) as PrototypesJson;
+    expect(p.treeSpecies).toHaveLength(10);
+    expect(p.treeSpecies).toContain('object/tree-oak');
+    expect(p.decoratives).toHaveLength(15);
+    expect(p.decoratives).toContain('decor/green-hairy-grass');
+    // skins 1 and 2, 8 block pictures each, flat and skin by skin
+    expect(p.townBuildings).toHaveLength(16);
+    expect([p.townBuildings[0], p.townBuildings[7], p.townBuildings[8]]).toEqual([
+      'town/skin-1-block-1',
+      'town/skin-1-block-8',
+      'town/skin-2-block-1',
+    ]);
+    const sets = r.model?.overlay.sets;
+    expect(sets?.tree_biomes.temperate).toEqual(['tree-willow', 'tree-beech', 'tree-oak']);
+    expect(Object.keys(sets?.decorative_biomes ?? {})).toEqual(r.model?.design.meta.world.biomes.order);
+  });
+
+  it('leaves the tables empty in a build without trees or towns (M0)', () => {
+    const m0 = runDataStage(options());
+    const json = m0.outputs.get('public/data/prototypes.json');
+    if (!json) throw new Error(m0.diagnostics.list.map(formatDiagnostic).join('\n'));
+    const p = JSON.parse(new TextDecoder().decode(json)) as PrototypesJson;
+    expect([p.treeSpecies, p.decoratives, p.cliffs, p.townBuildings]).toEqual([[], [], [], []]);
+  }, 60_000);
 });
 
 describe('the derivations', () => {
@@ -138,6 +195,78 @@ describe('the derivations', () => {
     expect(miningArea([3, 3], 2.49)).toEqual([5, 5]);
     expect(miningArea([2, 2], 1.49)).toEqual([2, 2]);
     expect(miningArea([2, 2], 1.5)).toEqual([4, 4]);
+  });
+
+  it("finds the lines a building's fluid connections are symmetric about (FFF-394)", () => {
+    const box = (
+      production: 'input' | 'output',
+      ...cs: [number, number, 'north' | 'east' | 'south' | 'west'][]
+    ) => ({
+      volume: 100,
+      production,
+      connections: cs.map(([x, y, direction]) => ({
+        position: [x, y] as [number, number],
+        direction,
+        flow: production,
+      })),
+    });
+    const e = (w: number, h: number) => ({ size: [w, h] }) as Parameters<typeof fluidSymmetries>[0];
+    // assembling machine 2: input north, output south, both on the vertical axis
+    expect(
+      fluidSymmetries(e(3, 3), [box('input', [0, -1, 'north']), box('output', [0, 1, 'south'])]),
+    ).toEqual(['vertical']);
+    // the storage tank (entities.lua 2.0.77): north and west at the north-west tile, east and south at the
+    // south-east one; symmetric about both diagonals, not the axes (it flips by its diagonal, FFF-394)
+    const tank = {
+      volume: 25000,
+      production: 'none' as const,
+      connections: (
+        [
+          [-1, -1, 'north'],
+          [1, 1, 'east'],
+          [1, 1, 'south'],
+          [-1, -1, 'west'],
+        ] as const
+      ).map(([x, y, direction]) => ({
+        position: [x, y] as [number, number],
+        direction,
+        flow: 'input-output' as const,
+      })),
+    };
+    expect(fluidSymmetries(e(3, 3), [tank])).toEqual(['diagonal', 'antidiagonal']);
+    // an input north and an output east: no line maps the building onto itself
+    expect(fluidSymmetries(e(3, 3), [box('input', [0, -1, 'north']), box('output', [1, 0, 'east'])])).toEqual(
+      [],
+    );
+  });
+
+  it('refuses a manifest whose build holds a Seminar and a Researcher but does not read heat.while', () => {
+    const diags = new Diagnostics();
+    const src = parseYaml('caps.yaml', 'manifests:\n  mx:\n    reads: []\n', diags);
+    if (!src) throw new Error('caps.yaml');
+    const seminar = { id: 'seminar', heat: { class: 'accelerator', while: 'researcher' } };
+    const ix = indexDesign({
+      items: [],
+      recipes: [],
+      entities: [seminar],
+      technologies: [],
+      resources: [],
+      tiles: [],
+      world: [],
+      enemies: [],
+    } as unknown as Parameters<typeof indexDesign>[0]);
+    const cap = { name: 'mx', reads: [] as string[] } as CapabilityManifest;
+    const build = { entities: new Set(['seminar']), items: new Set(['seminar']) };
+    checkConditionalHeat(cap, build as never, ix, src, diags);
+    expect(diags.errors).toEqual([]); // no Researcher: the data stage resolves the Seminar as not computing
+    build.items.add('researcher');
+    checkConditionalHeat(cap, build as never, ix, src, diags);
+    expect(diags.errors.map(formatDiagnostic).join('\n')).toMatch(
+      /mx's build holds seminar, which computes only while a researcher is installed, .*: mx must read entities\.heat\.while/,
+    );
+    const reads = new Diagnostics();
+    checkConditionalHeat({ ...cap, reads: ['entities.heat.while'] }, build as never, ix, src, reads);
+    expect(reads.errors).toEqual([]);
   });
 });
 
@@ -206,6 +335,40 @@ describe('the engine checks refuse gaps and disagreements', () => {
     expect(messages(runDataStage(options(game, spec))).join('\n')).toMatch(
       /planned working_sounds radar names radar-hum, which is neither a sound nor a planned one/,
     );
+  });
+
+  it('an assembler whose fluid ports are symmetric but that does not flip (D1-r1)', () => {
+    const { game, spec } = scratchRepo();
+    edit(join(game, 'data/engine/mirrors.yaml'), '    flippable: true\n', '');
+    expect(messages(runDataStage(m1(game, spec))).join('\n')).toMatch(
+      /assembler assembling-machine-2's fluid connections are symmetric \(vertical\), so it flips in Factorio 2\.0/,
+    );
+  });
+
+  it('a flipping entity whose fluid ports have no line of symmetry', () => {
+    const { game, spec } = scratchRepo();
+    edit(
+      join(game, 'data/engine/mirrors.yaml'),
+      '{position: [0, 1], direction: south, flow: output}',
+      '{position: [1, 0], direction: east, flow: output}',
+    );
+    expect(messages(runDataStage(m1(game, spec))).join('\n')).toMatch(
+      /entity assembling-machine-2 is flippable, but its fluid connections have no line of symmetry/,
+    );
+  });
+
+  it('set tables that disagree with the biomes or with themselves (D1-r1)', () => {
+    const { game, spec } = scratchRepo();
+    const sets = join(game, 'data/engine/sets.yaml');
+    edit(sets, '  desert: [tree-mesquite]', '  desert: [tree-oak]');
+    edit(sets, '  steppe: [brown-hairy-grass', '  savanna: [brown-hairy-grass');
+    edit(sets, ', skin-2-block-8]', ']');
+    const out = messages(runDataStage(options(game, spec))).join('\n');
+    expect(out).toMatch(/tree_biomes puts tree-oak in both temperate and desert/);
+    expect(out).toMatch(/tree_species entry tree-mesquite is in no biome of tree_biomes/);
+    expect(out).toMatch(/decorative_biomes names savanna, which is no biome of meta\.world\.biomes\.order/);
+    expect(out).toMatch(/decorative_biomes lacks the biome steppe/);
+    expect(out).toMatch(/town_buildings skin 2 has 7 pictures and skin 1 8/);
   });
 
   it('an overlay key that names no prototype or mirrors id', () => {

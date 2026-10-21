@@ -114,11 +114,15 @@ entities:
 
   # --- production (fast_replaceable_group assembling-machine)
   assembling-machine-1: {collision_box: [-1.2, -1.2, 1.2, 1.2], selection_box: [-1.5, -1.5, 1.5, 1.5], mining_time: 0.2, next_upgrade: assembling-machine-2}
+  # Assemblers with fluid ports flip (FFF-394, Factorio 2.0; I §3.3: "In 2.0 this covers assemblers (mirrors fluid
+  # ports)"): their ports, north input and south output, lie on the axis they flip over, so a flipped machine's
+  # pipes still meet (D1-r1). The capability manifest m1's flip_entity relies on it.
   assembling-machine-2:
     collision_box: [-1.2, -1.2, 1.2, 1.2]
     selection_box: [-1.5, -1.5, 1.5, 1.5]
     mining_time: 0.2
     next_upgrade: assembling-machine-3
+    flippable: true
     # fluid_boxes_off_when_no_fluid_recipe: the boxes exist only while the recipe has a fluid (concrete: water)
     fluid_boxes:
       - {volume: 1000, production: input, off_without_fluid_recipe: true, connections: [{position: [0, -1], direction: north, flow: input}]}
@@ -127,6 +131,7 @@ entities:
     collision_box: [-1.2, -1.2, 1.2, 1.2]
     selection_box: [-1.5, -1.5, 1.5, 1.5]
     mining_time: 0.2
+    flippable: true
     fluid_boxes:
       - {volume: 1000, production: input, off_without_fluid_recipe: true, connections: [{position: [0, -1], direction: north, flow: input}]}
       - {volume: 1000, production: output, off_without_fluid_recipe: true, connections: [{position: [0, 1], direction: south, flow: output}]}

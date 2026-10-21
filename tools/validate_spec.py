@@ -1237,9 +1237,11 @@ def check_copies(data, ix, rep):
 # ------------------------------------------------------------------ engine values (D1: no prose where the engine reads)
 def check_engine_values(data, ix, rep):
     """The typed values M1's systems read (D1; 10 §2.4 J1), checked where the data can check them: pole and Switch
-    areas, belt-tier throughput, the steam generators' flow against their power, boilers' 1 : 10, radar scans, the
-    Frontier cluster's payloads against the launch recipes, the day cycle, and the worldgen tables of meta.world and
-    meta.start.guarantees (01 §2, §4, §5, §9)."""
+    areas, belt-tier throughput, the steam generators' flow against their power, boilers' 1 : 10 and the energy it
+    carries over, the temperatures steam makers and users name against their fluids' limits, lamp priority, radar
+    scans, the Frontier cluster's payloads against the launch recipes, the day cycle, and the worldgen tables of
+    meta.world and meta.start.guarantees (01 §2, §4, §5, §9). The data stage runs the same checks
+    (game/scripts/data-stage/invariants.ts; python-agreement.test.ts holds the two to the same verdicts, D1-r1)."""
     meta, ents, items, recs = data["meta"], ix["entities"], ix["items"], ix["recipes"]
 
     def num(x):
@@ -1250,9 +1252,35 @@ def check_engine_values(data, ix, rep):
             d = d.get(k) if isinstance(d, dict) else None
         return d
 
+    def fluid_range(fid):
+        """A fluid's [default, maximum] temperature (SCHEMA.md: 15 °C and the default when omitted)."""
+        f = items.get(fid) or {}
+        lo = f.get("default_temperature", 15)
+        return lo, f.get("max_temperature", lo)
+
+    def capacity(fid):
+        return (items.get(fid) or {}).get("heat_capacity_kj_per_k", 1)
+
+    def fluids_of(e, key):
+        return [f for f in e.get(key) or [] if (items.get(f) or {}).get("type") == "fluid"]
+
     belt_speeds = set()
     for e in ents.values():
         x, t, eid = e.get("extra") or {}, e.get("type"), e.get("id")
+        pr = (e.get("energy") or {}).get("priority")
+        if (t == "lamp") != (pr == "lamp"):
+            rep.err(f"entity {eid}: energy.priority lamp is exactly the lamps' (Factorio's usage_priority \"lamp\"; 10 §5.7)")
+        # Every temperature a steam maker or user names lies within its fluid's limits (D1-r1: water 100 °C,
+        # steam 5,000 °C, factorio-data 2.0.77 fluid.lua).
+        named = [("temp_c", fluids_of(e, "produces"))] if t in ("boiler", "heat-exchanger") else []
+        if t == "generator":
+            named = [(k, fluids_of(e, "consumes")) for k in ("min_temperature_c", "max_temperature_c")]
+        for k, fl in named:
+            for f in fl:
+                lo, hi = fluid_range(f)
+                if num(x.get(k)) and not lo <= x[k] <= hi:
+                    rep.err(f"entity {eid}: extra.{k} {x[k]:g} °C lies outside {f}'s temperatures [{lo:g}, {hi:g}] "
+                            f"(items.yaml default_temperature, max_temperature)")
         if t == "electric-pole":
             for k in ("wire_reach", "supply_area_distance"):
                 if not (num(x.get(k)) and 0 < x[k] <= 64):
@@ -1275,6 +1303,12 @@ def check_engine_values(data, ix, rep):
         if t in ("boiler", "heat-exchanger") and num(x.get("steam_per_s")) and num(x.get("water_per_s")):
             if abs(x["steam_per_s"] - 10 * x["water_per_s"]) > 1e-9 * x["steam_per_s"]:
                 rep.err(f"entity {eid}: steam_per_s must be 10 × water_per_s (2.0's 1 : 10; 10 §5.8)")
+            ins, outs = fluids_of(e, "consumes"), fluids_of(e, "produces")
+            if ins and outs:
+                w, s = x["water_per_s"] * capacity(ins[0]), x["steam_per_s"] * capacity(outs[0])
+                if abs(w - s) > 1e-9 * max(w, s):
+                    rep.err(f"entity {eid}: water_per_s × {ins[0]}'s heat capacity ({w:g}) must equal steam_per_s × "
+                            f"{outs[0]}'s ({s:g}): 2.0's 1 : 10 carries the energy over (fluid.lua 2.0.77)")
         if t == "generator" and "steam" in (e.get("consumes") or []):
             if not all(num(x.get(k)) for k in ("steam_per_s", "min_temperature_c", "max_temperature_c")):
                 rep.err(f"entity {eid}: a steam generator needs extra.steam_per_s, min_temperature_c and max_temperature_c")

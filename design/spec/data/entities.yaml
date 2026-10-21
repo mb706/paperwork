@@ -672,7 +672,7 @@
   type: lamp
   size: [1, 1]
   item: small-lamp
-  energy: {source: electric, kw: 5}
+  energy: {source: electric, kw: 5, priority: lamp}
   mirrors: small-lamp
 - id: decider-combinator
   name: Decision unit

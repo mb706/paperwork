@@ -2,7 +2,8 @@
 // prototypes.json, build-manifest.json, src/shared/gen/proto-ids.ts and the expression cross-check
 // fixture. A pure function of its input files: identical inputs give byte-identical outputs (D14).
 //
-//   1. load and validate every design kind against its schema (schema/), references (refs.ts);
+//   1. load and validate every design kind against its schema (schema/), references (refs.ts) and how its values
+//      relate (invariants.ts: validate_spec.py's relationship checks, D1-r1);
 //   2. compile and check every formula (formulas.ts, expr.ts);
 //   3. load the engine overlay (overlay.ts) and the milestone filters, and check every filter's closure
 //      (manifests.ts, R17);
@@ -16,6 +17,7 @@ import { fromHex, sha256Bytes, toHex } from '../lib/hash.ts';
 import {
   type BuildSet,
   capabilityBuild,
+  checkConditionalHeat,
   checkManifestNames,
   checkReadsCarried,
   filterBuild,
@@ -28,9 +30,10 @@ import { exprFixture, loadEdgeCases } from './emit/expr-fixture.ts';
 import { protoIdsTs } from './emit/proto-ids.ts';
 import { type EmitProblem, type TableSummary, writePrototypesBin } from './emit/protos-bin.ts';
 import { prototypesJson } from './emit/protos-json.ts';
-import { checkEngine, checkOverlayNames } from './engine.ts';
+import { checkEngine, checkOverlayNames, checkSets } from './engine.ts';
 import { checkFormulaRefs } from './formula-refs.ts';
 import { compileFormulas } from './formulas.ts';
+import { checkInvariants } from './invariants.ts';
 import {
   type BuildFilter,
   checkAgainstSpec,
@@ -165,6 +168,9 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
   checkReferences(design, ix, diags);
   checkRegistries(design, diags);
   if (diags.errors.length > 0) return result;
+  // How values relate, as tools/validate_spec.py checks them (D1-r1): every build refuses data Python refuses.
+  checkInvariants(design, ix, diags);
+  if (diags.errors.length > 0) return result;
 
   // 2. Formulas.
   const formulas = compileFormulas(design, diags);
@@ -207,6 +213,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
   if (!overlay || !manifests) return result;
   checkAgainstSpec(manifests, o.specDir, diags);
   checkOverlayNames(overlay, ix, diags);
+  checkSets(overlay, design, diags);
   const filters: BuildFilter[] = [];
   for (const [name, m] of Object.entries(manifests.manifests)) {
     if ('from' in m) {
@@ -246,6 +253,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
       build = filterCapabilityBuild(cap, f, design, ix, diags, capsSrc, true);
     } else build = capabilityBuild(cap, design, ix, diags, capsSrc);
     checkReadsCarried(cap, capsSrc, diags);
+    checkConditionalHeat(cap, build, ix, capsSrc, diags);
     checkFormulaRefs(cap, design.meta, join(o.gameDir, 'crates'), diags, capsSrc);
     // The other manifests (D1): the prototypes they will support must have a complete engine overlay now, so a
     // milestone's packages can build against them (strict: a gap is an error). Nothing is emitted for them.
@@ -254,6 +262,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
       const f = filterNamed(m.filter, 'game/data/engine/capabilities.yaml');
       if (!f) continue;
       const set = filterCapabilityBuild(m, f, design, ix, diags, capsSrc, false);
+      checkConditionalHeat(m, set, ix, capsSrc, diags);
       checkEngine(buildModel(set, design, ix, overlay, formulas, diags, true), diags, true);
     }
   }
