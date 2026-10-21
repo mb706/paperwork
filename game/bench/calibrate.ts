@@ -99,8 +99,14 @@ for (const r of rows)
   console.log(
     `  ${r.scenario.padEnd(15)} ${r.metric.padEnd(20)} host ${r.host.toPrecision(4).padStart(10)}  laptop ${r.laptop.toPrecision(4).padStart(10)}  host factor ${r.factor.toFixed(2)}`,
   );
+// host ÷ laptop: above the estimate the host is slower than assumed, so budgets × 2.4 are stricter than the laptop's
+// own; below it they are more lenient, and a host number that passes may not pass on the laptop.
+const verdict =
+  factor > ESTIMATE
+    ? 'the host is slower than estimated: the × 2.4 host budgets are strict'
+    : 'the host is faster than estimated: the × 2.4 host budgets are lenient, use the measured factor';
 console.log(
-  `\nmeasured host factor (median of ${rows.length}): ${factor.toFixed(2)} (§11's estimate: ${ESTIMATE}; ${factor > ESTIMATE ? 'the host is slower than estimated: host budgets are generous' : 'the host is faster than estimated: host budgets are strict'})`,
+  `\nmeasured host factor (median of ${rows.length}): ${factor.toFixed(2)} (§11's estimate: ${ESTIMATE}; ${verdict})`,
 );
 if (write) {
   appendFileSync(

@@ -12,7 +12,7 @@
 //      in a fresh worker with its hash, and the trap's bug report, sent to the dev server's `/__report`,
 //      reproduces the panic natively (`simtool replay bench/reports/<id>`, a simcheck build).
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
@@ -337,8 +337,9 @@ test('the dev panic: the trap notice, recovery from the last autosave, a report 
   );
   const r = spawnSync(simtool(true), ['replay', join(GAME, rep.dir)], { cwd: GAME, encoding: 'utf8' });
   writeFileSync(info.outputPath('replay.txt'), `${r.stdout}\n${r.stderr}`);
+  // The autosave's tick, 20 steps, then the panic's tick: the same tick natively.
   expect(r.status).not.toBe(0);
-  expect(r.stderr).toMatch(/trap at tick \d+/);
+  expect(r.stderr).toContain(`trap at tick ${saved.tick + 21}`);
   expect(r.stderr).toContain('the dev panic');
   console.log(
     `${info.project.name}: ${rep.dir}: ${r.stderr.split('\n').find((l) => l.includes('trap at tick'))}`,
@@ -347,4 +348,6 @@ test('the dev panic: the trap notice, recovery from the last autosave, a report 
     `${info.project.name}: the trap's own console lines: ${JSON.stringify(problems.filter(expected))}`,
   );
   expect(problems.filter((m) => !expected(m))).toEqual([]);
+  // The bundle did its job: leave no report behind (a failing run keeps it for inspection).
+  rmSync(join(GAME, rep.dir), { recursive: true, force: true });
 });
