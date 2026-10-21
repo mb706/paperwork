@@ -411,6 +411,9 @@
   `http://127.0.0.1:5173/` through the tunnel; `/bench.html` is the benchmark page (its audio section needs the
   audio build, which `npm run assets` runs), Ctrl+Alt+F12 sends
   a bug report (pm/reports/C8.md has the M0 notes).
+- The M0 preview (C9): the tag `m0` checked out in `/home/mewse/browsergame/.claude/worktrees/play-m0`, built and served
+  by `vite preview` on `127.0.0.1:4173` (`PAPERWORK_PORT=4173 setsid nohup npm run preview > preview.log 2>&1 &` in
+  its `game/`); the user tunnels `ssh -L 4173:127.0.0.1:4173 cpuserver10`. pm/reports/C9.md has the commands.
 - Builds can also be published as a private claude.ai Artifact (≤ 16 MB per file).
 
 ## The game design (read before coding)
