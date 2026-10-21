@@ -300,7 +300,11 @@ export const meta = block({
           exchange: block({ chance: fraction, taps: pair, initial_yield: pair.optional() }),
         }),
       ),
-      exchange_taps: block({ min_distance_tiles: nonNeg, max_distance_tiles: posNum, min_spacing_tiles: nonNeg }),
+      exchange_taps: block({
+        min_distance_tiles: nonNeg,
+        max_distance_tiles: posNum,
+        min_spacing_tiles: nonNeg,
+      }),
       era_skin_w: z.array(num),
       exchange_skin_w: z.array(num),
     }),

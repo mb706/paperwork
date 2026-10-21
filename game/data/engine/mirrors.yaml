@@ -1,7 +1,225 @@
-# Defaults per `mirrors` id (10 §2.4 step 2): Factorio 2.0's numbers, hand-typed from the wiki and the
-# published prototype values; numbers only, never copied files. The defaults id is the leading
-# [a-z0-9-]+ token of an entity's `mirrors` (J23); `new` means none.
+# Defaults per `mirrors` id (10 §2.4 step 2): Factorio 2.0's numbers, hand-typed from the published prototype
+# values; numbers only, never copied files. The defaults id is the leading [a-z0-9-]+ token of an entity's
+# `mirrors` (J23); `new` means none.
+#
+# Source: wube/factorio-data at tag 2.0.77, base/prototypes/entity/{entities,transport-belts,mining-drill}.lua
+# (D1, 2026-10-21). Factorio 2.1.22 (design/round1/I-data) differs for these entities only in the burner
+# drill's output (2.1.7 added flipping and moved it to {-0.35, -1.3}), the solar panel's collision box
+# (±1.35) and the steam generators' minimum temperature moving out of the fluid box; this table keeps 2.0.
+#
+# Conventions. Boxes are [x0, y0, x1, y1] in tiles from the entity's centre. Positions and directions are in
+# the prototype's north-facing frame, as Factorio gives them, and turn with the entity's direction:
+#   - inserter: `pickup` and `drop` (Factorio's pickup_position and insert_position; a north-facing inserter
+#     picks up from the north), `rotation_speed` (turns per tick), `extension_speed` (tiles per tick),
+#     `hand_size` and `starting_distance` (how the arm is drawn: no gameplay effect, Lua API), `bulk`;
+#   - mining_drill: `resource_searching_radius` (the mining area: the tiles whose centres lie within it of the
+#     drill's centre, 2 × 2 and 5 × 5 here) and `vector_to_place_result` (the drop point);
+#   - offshore_pump: `pumping_position`, the water tile it pumps from;
+#   - fluid_boxes: `volume`, `production` (input, output or none), `filter`, and `connections`, each a
+#     `position` (the entity's own tile it leaves from, 2.0's convention), a `direction` (the side it faces;
+#     the neighbour is position + one tile that way), a `flow` (input, output or input-output) and a `type`
+#     (normal or underground). A fluid box holds only engine geometry: a number the design data carries (a
+#     pipe to ground's reach is entities.extra.max_gap, a steam generator's minimum temperature is its
+#     extra.min_temperature_c) is not repeated here;
+#   - lamp: `darkness_on` and `darkness_off` (darkness_for_all_lamps_on and _off: between them each lamp
+#     switches at its own threshold), and the `light`'s size (tiles), intensity and colour.
 entities:
+  # --- storage
   wooden-chest: {collision_box: [-0.35, -0.35, 0.35, 0.35], selection_box: [-0.5, -0.5, 0.5, 0.5], mining_time: 0.1}
   iron-chest: {collision_box: [-0.35, -0.35, 0.35, 0.35], selection_box: [-0.5, -0.5, 0.5, 0.5], mining_time: 0.2}
   steel-chest: {collision_box: [-0.35, -0.35, 0.35, 0.35], selection_box: [-0.5, -0.5, 0.5, 0.5], mining_time: 0.2}
+
+  # --- belts (transport-belts.lua; fast_replaceable_group transport-belt, from the type defaults)
+  transport-belt: {collision_box: [-0.4, -0.4, 0.4, 0.4], selection_box: [-0.5, -0.5, 0.5, 0.5], mining_time: 0.1, next_upgrade: fast-transport-belt}
+  fast-transport-belt: {collision_box: [-0.4, -0.4, 0.4, 0.4], selection_box: [-0.5, -0.5, 0.5, 0.5], mining_time: 0.1, next_upgrade: express-transport-belt}
+  express-transport-belt: {collision_box: [-0.4, -0.4, 0.4, 0.4], selection_box: [-0.5, -0.5, 0.5, 0.5], mining_time: 0.1}
+  underground-belt: {collision_box: [-0.4, -0.4, 0.4, 0.4], selection_box: [-0.5, -0.5, 0.5, 0.5], mining_time: 0.1, next_upgrade: fast-underground-belt}
+  fast-underground-belt: {collision_box: [-0.4, -0.4, 0.4, 0.4], selection_box: [-0.5, -0.5, 0.5, 0.5], mining_time: 0.1, next_upgrade: express-underground-belt}
+  express-underground-belt: {collision_box: [-0.4, -0.4, 0.4, 0.4], selection_box: [-0.5, -0.5, 0.5, 0.5], mining_time: 0.1}
+  splitter: {collision_box: [-0.9, -0.4, 0.9, 0.4], selection_box: [-0.9, -0.5, 0.9, 0.5], mining_time: 0.1, next_upgrade: fast-splitter}
+  fast-splitter: {collision_box: [-0.9, -0.4, 0.9, 0.4], selection_box: [-0.9, -0.5, 0.9, 0.5], mining_time: 0.1, next_upgrade: express-splitter}
+  express-splitter: {collision_box: [-0.9, -0.4, 0.9, 0.4], selection_box: [-0.9, -0.5, 0.9, 0.5], mining_time: 0.1}
+
+  # --- inserters (10 §5.4's table; fast_replaceable_group inserter, the long-handed one its own)
+  burner-inserter:
+    collision_box: [-0.15, -0.15, 0.15, 0.15]
+    selection_box: [-0.4, -0.35, 0.4, 0.45]
+    mining_time: 0.1
+    inserter: {pickup: [0, -1], drop: [0, 1.2], rotation_speed: 0.013, extension_speed: 0.035, hand_size: 0.75, starting_distance: 0.7, bulk: false}
+  inserter:
+    collision_box: [-0.15, -0.15, 0.15, 0.15]
+    selection_box: [-0.4, -0.35, 0.4, 0.45]
+    mining_time: 0.1
+    next_upgrade: fast-inserter
+    inserter: {pickup: [0, -1], drop: [0, 1.2], rotation_speed: 0.014, extension_speed: 0.035, hand_size: 0.75, starting_distance: 0.7, bulk: false}
+  long-handed-inserter:
+    collision_box: [-0.15, -0.15, 0.15, 0.15]
+    selection_box: [-0.4, -0.35, 0.4, 0.45]
+    mining_time: 0.1
+    fast_replaceable_group: long-handed-inserter
+    inserter: {pickup: [0, -2], drop: [0, 2.2], rotation_speed: 0.02, extension_speed: 0.05, hand_size: 1.5, starting_distance: 1.7, bulk: false}
+  fast-inserter:
+    collision_box: [-0.15, -0.15, 0.15, 0.15]
+    selection_box: [-0.4, -0.35, 0.4, 0.45]
+    mining_time: 0.1
+    next_upgrade: bulk-inserter
+    inserter: {pickup: [0, -1], drop: [0, 1.2], rotation_speed: 0.04, extension_speed: 0.1, hand_size: 0.75, starting_distance: 0.7, bulk: false}
+  bulk-inserter:
+    collision_box: [-0.15, -0.15, 0.15, 0.15]
+    selection_box: [-0.4, -0.35, 0.4, 0.45]
+    mining_time: 0.1
+    inserter: {pickup: [0, -1], drop: [0, 1.2], rotation_speed: 0.04, extension_speed: 0.1, hand_size: 0.75, starting_distance: 0.85, bulk: true}
+
+  # --- extraction (mining-drill.lua; fast_replaceable_group mining-drill)
+  burner-mining-drill:
+    collision_box: [-0.7, -0.7, 0.7, 0.7]
+    selection_box: [-1, -1, 1, 1]
+    mining_time: 0.3
+    fast_replaceable_group: mining-drill
+    mining_drill: {resource_searching_radius: 0.99, vector_to_place_result: [-0.5, -1.3]}
+  electric-mining-drill:
+    collision_box: [-1.35, -1.35, 1.35, 1.35]
+    selection_box: [-1.5, -1.5, 1.5, 1.5]
+    mining_time: 0.3
+    fast_replaceable_group: mining-drill
+    mining_drill: {resource_searching_radius: 2.49, vector_to_place_result: [0, -1.85]}
+    # input_fluid_box: used only on a resource that requires a fluid (uranium; mining-with-fluid, M2)
+    fluid_boxes:
+      - volume: 200
+        production: input
+        connections:
+          - {position: [-1, 0], direction: west, flow: input-output}
+          - {position: [1, 0], direction: east, flow: input-output}
+          - {position: [0, 1], direction: south, flow: input-output}
+  # 2.0's offshore pump is 1 × 1 on the shore tile, pumping from the water tile north of it (fluid_source_offset
+  # {0, -1}); the design data makes it 1 × 2 (both tiles), so its boxes and positions are given from the 1 × 2
+  # footprint's centre: Factorio's numbers + 0.5 tile in y. Placement (2.0's tile_buildability_rules): the shore
+  # tile is ground, the tile row it faces is water (the design's placement.must_touch).
+  offshore-pump:
+    collision_box: [-0.6, -0.55, 0.6, 0.8]
+    selection_box: [-0.6, -0.99, 0.6, 0.99]
+    mining_time: 0.1
+    fast_replaceable_group: offshore-pump
+    offshore_pump: {pumping_position: [0, -0.5]}
+    fluid_boxes:
+      - volume: 100
+        production: output
+        connections:
+          - {position: [0, 0.5], direction: south, flow: output}
+
+  # --- smelting (fast_replaceable_group furnace; the keypunch and the Tokenizer override theirs in prototypes.yaml)
+  stone-furnace: {collision_box: [-0.7, -0.7, 0.7, 0.7], selection_box: [-0.8, -1, 0.8, 1], mining_time: 0.2, next_upgrade: steel-furnace}
+  steel-furnace: {collision_box: [-0.7, -0.7, 0.7, 0.7], selection_box: [-0.8, -1, 0.8, 1], mining_time: 0.2}
+  electric-furnace: {collision_box: [-1.2, -1.2, 1.2, 1.2], selection_box: [-1.5, -1.5, 1.5, 1.5], mining_time: 0.2}
+
+  # --- production (fast_replaceable_group assembling-machine)
+  assembling-machine-1: {collision_box: [-1.2, -1.2, 1.2, 1.2], selection_box: [-1.5, -1.5, 1.5, 1.5], mining_time: 0.2, next_upgrade: assembling-machine-2}
+  assembling-machine-2:
+    collision_box: [-1.2, -1.2, 1.2, 1.2]
+    selection_box: [-1.5, -1.5, 1.5, 1.5]
+    mining_time: 0.2
+    next_upgrade: assembling-machine-3
+    # fluid_boxes_off_when_no_fluid_recipe: the boxes exist only while the recipe has a fluid (concrete: water)
+    fluid_boxes:
+      - {volume: 1000, production: input, off_without_fluid_recipe: true, connections: [{position: [0, -1], direction: north, flow: input}]}
+      - {volume: 1000, production: output, off_without_fluid_recipe: true, connections: [{position: [0, 1], direction: south, flow: output}]}
+  assembling-machine-3:
+    collision_box: [-1.2, -1.2, 1.2, 1.2]
+    selection_box: [-1.5, -1.5, 1.5, 1.5]
+    mining_time: 0.2
+    fluid_boxes:
+      - {volume: 1000, production: input, off_without_fluid_recipe: true, connections: [{position: [0, -1], direction: north, flow: input}]}
+      - {volume: 1000, production: output, off_without_fluid_recipe: true, connections: [{position: [0, 1], direction: south, flow: output}]}
+  lab: {collision_box: [-1.2, -1.2, 1.2, 1.2], selection_box: [-1.5, -1.5, 1.5, 1.5], mining_time: 0.2, fast_replaceable_group: lab}
+
+  # --- power
+  boiler:
+    collision_box: [-1.29, -0.79, 1.29, 0.79]
+    selection_box: [-1.5, -1, 1.5, 1]
+    mining_time: 0.2
+    fast_replaceable_group: boiler
+    fluid_boxes:
+      - volume: 200
+        production: input
+        filter: water
+        connections:
+          - {position: [-1, 0.5], direction: west, flow: input-output}
+          - {position: [1, 0.5], direction: east, flow: input-output}
+      - volume: 200
+        production: output
+        filter: steam
+        connections:
+          - {position: [0, -0.5], direction: north, flow: output}
+  steam-engine:
+    collision_box: [-1.25, -2.35, 1.25, 2.35]
+    selection_box: [-1.5, -2.5, 1.5, 2.5]
+    mining_time: 0.3
+    fast_replaceable_group: steam-engine
+    fluid_boxes:
+      - volume: 200
+        production: input
+        filter: steam
+        connections:
+          - {position: [0, 2], direction: south, flow: input-output}
+          - {position: [0, -2], direction: north, flow: input-output}
+  steam-turbine:
+    collision_box: [-1.25, -2.35, 1.25, 2.35]
+    selection_box: [-1.5, -2.5, 1.5, 2.5]
+    mining_time: 0.3
+    fast_replaceable_group: steam-engine
+    fluid_boxes:
+      - volume: 200
+        production: input
+        filter: steam
+        connections:
+          - {position: [0, 2], direction: south, flow: input-output}
+          - {position: [0, -2], direction: north, flow: input-output}
+  solar-panel: {collision_box: [-1.4, -1.4, 1.4, 1.4], selection_box: [-1.5, -1.5, 1.5, 1.5], mining_time: 0.1}
+  accumulator: {collision_box: [-0.9, -0.9, 0.9, 0.9], selection_box: [-1, -1, 1, 1], mining_time: 0.1, fast_replaceable_group: accumulator}
+  small-electric-pole: {collision_box: [-0.15, -0.15, 0.15, 0.15], selection_box: [-0.4, -0.4, 0.4, 0.4], mining_time: 0.1}
+  medium-electric-pole: {collision_box: [-0.15, -0.15, 0.15, 0.15], selection_box: [-0.5, -0.5, 0.5, 0.5], mining_time: 0.1}
+  big-electric-pole:
+    collision_box: [-0.65, -0.65, 0.65, 0.65]
+    selection_box: [-1, -1, 1, 1]
+    mining_time: 0.1
+    fast_replaceable_group: big-electric-pole
+    electric_pole: {track_coverage_during_drag_building: false}
+  substation: {collision_box: [-0.7, -0.7, 0.7, 0.7], selection_box: [-1, -1, 1, 1], mining_time: 0.1, fast_replaceable_group: substation}
+
+  # --- fluids (fast_replaceable_group pipe)
+  pipe:
+    collision_box: [-0.29, -0.29, 0.29, 0.29]
+    selection_box: [-0.5, -0.5, 0.5, 0.5]
+    mining_time: 0.1
+    fluid_boxes:
+      - volume: 100
+        production: none
+        connections:
+          - {position: [0, 0], direction: north, flow: input-output}
+          - {position: [0, 0], direction: east, flow: input-output}
+          - {position: [0, 0], direction: south, flow: input-output}
+          - {position: [0, 0], direction: west, flow: input-output}
+  pipe-to-ground:
+    collision_box: [-0.29, -0.29, 0.29, 0.2]
+    selection_box: [-0.5, -0.5, 0.5, 0.5]
+    mining_time: 0.1
+    fluid_boxes:
+      - volume: 100
+        production: none
+        connections:
+          - {position: [0, 0], direction: north, flow: input-output}
+          - {position: [0, 0], direction: south, flow: input-output, type: underground}
+
+  # --- other
+  radar: {collision_box: [-1.2, -1.2, 1.2, 1.2], selection_box: [-1.5, -1.5, 1.5, 1.5], mining_time: 0.1, fast_replaceable_group: radar}
+  small-lamp:
+    collision_box: [-0.15, -0.15, 0.15, 0.15]
+    selection_box: [-0.5, -0.5, 0.5, 0.5]
+    mining_time: 0.1
+    fast_replaceable_group: lamp
+    lamp: {darkness_on: 0.5, darkness_off: 0.3, light: {size: 40, intensity: 0.9, color: [1, 1, 0.75]}}
+  beacon: {collision_box: [-1.2, -1.2, 1.2, 1.2], selection_box: [-1.5, -1.5, 1.5, 1.5], mining_time: 0.2, fast_replaceable_group: beacon}
+  # chart colours of the turret types (utility-constants: ammo-turret {202, 167, 24}, electric-turret {0.85, 0.18, 0.18})
+  gun-turret: {map_color: '#caa718'}
+  laser-turret: {map_color: '#d92e2e'}
+  tesla-turret: {map_color: '#d92e2e'}

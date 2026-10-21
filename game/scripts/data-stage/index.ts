@@ -20,6 +20,7 @@ import { exprFixture, loadEdgeCases } from './emit/expr-fixture.ts';
 import { protoIdsTs } from './emit/proto-ids.ts';
 import { type EmitProblem, type TableSummary, writePrototypesBin } from './emit/protos-bin.ts';
 import { prototypesJson } from './emit/protos-json.ts';
+import { checkEngine } from './engine.ts';
 import { checkFormulaRefs } from './formula-refs.ts';
 import { compileFormulas } from './formulas.ts';
 import {
@@ -32,7 +33,7 @@ import {
   sliceFilter,
   summary,
 } from './manifests.ts';
-import { buildModel, CHARACTER } from './model.ts';
+import { buildModel, CHARACTER, type Model } from './model.ts';
 import { OUTPUT_PATHS } from './outputs.ts';
 import { loadOverlay, type OverlaySources } from './overlay.ts';
 import { checkReferences, indexDesign } from './refs.ts';
@@ -75,6 +76,8 @@ export interface DataStageResult {
   tables: TableSummary[];
   filters: BuildFilter[];
   prototypesHash: string | null;
+  /** The build's prototypes with their resolved engine fields (D1: tests and tools read them). */
+  model: Model | null;
   /** The extra builds' prototypes.bin sizes and hashes. */
   extra: { name: string; bytes: number; hash: string; jsonBytes: number }[];
 }
@@ -134,6 +137,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
     tables: [],
     filters: [],
     prototypesHash: null,
+    model: null,
     extra: [],
   };
   const repo = join(o.gameDir, '..');
@@ -174,6 +178,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
     mirrors: engine('mirrors.yaml'),
     prototypes: engine('prototypes.yaml'),
     sets: engine('sets.yaml'),
+    terrain: engine('terrain.yaml'),
     sounds: optionalEngine('sounds.yaml'),
   };
   const manifestsSrc = engine('manifests.yaml');
@@ -184,6 +189,7 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
     !ovSrc.mirrors ||
     !ovSrc.prototypes ||
     !ovSrc.sets ||
+    !ovSrc.terrain ||
     !manifestsSrc ||
     !capsSrc
   )
@@ -226,6 +232,8 @@ export function runDataStage(o: DataStageOptions): DataStageResult {
 
   // 5. Ids and outputs.
   const model = buildModel(build, design, ix, overlay, formulas, diags, !o.allowIncomplete);
+  checkEngine(model, diags, !o.allowIncomplete);
+  result.model = model;
   if (diags.errors.length > 0) return result;
   const schemaHash = fromHex(o.schemaHash);
   const bin = writePrototypesBin(model, schemaHash);

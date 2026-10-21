@@ -1,0 +1,33 @@
+# Terrain materials per tile id (10 §2.4 "terrain materials per tile id", §6.5, §9.9; A3 §3.1, §11). The
+# terrain shader draws each tile type with a seamless 512² material texture covering 8 × 8 tiles; this table
+# maps every tile worldgen v1 can place (the 18 of tiles.yaml) to its material and the shader's flags:
+#   - material: the texture's name (public/atlases/terrain-<material>…, built by scripts/assets/terrain.py);
+#   - crisp: exact edges with an inked kerb instead of the noise-warped blend (town tiles, the concretes, the
+#     map's edge; 10 §6.5);
+#   - water: the shore distance and the water-lining are measured from it (§9.9);
+#   - fallback: what a tile draws while its material is missing (a page not yet resident, an atlas built for
+#     another milestone): a near material's grain (`base`, or none for the paper) washed with `wash` (A3 §3.1).
+# The values are the ones the asset pipeline (C6, terrain.py) and the renderer (C4, src/render/style.ts) use
+# today: one material per tile, the concretes and town blocks in A3's urban tint, landfill in dirt's stipple.
+# The renderer and the asset build should read this table (prototypes.json, once the schema carries it) instead
+# of their own copies. A3 §11's dry and cold washes of grass for biomes are not tile types and not in A3's
+# survey materials yet (proposed there): an art decision for M1c.
+tiles:
+  grass: {material: grass}
+  dirt: {material: dirt}
+  dry-dirt: {material: dry-dirt, fallback: {base: dirt, wash: '#e6d2ad'}}
+  red-desert: {material: red-desert, fallback: {base: sand, wash: '#e8c9b0'}}
+  sand: {material: sand}
+  snow: {material: snow, fallback: {base: null, wash: '#eef1f2'}}
+  ice: {material: ice, fallback: {base: null, wash: '#d8e6ec'}}
+  rock-ground: {material: rock-ground, fallback: {base: dirt, wash: '#dcd6cb'}}
+  water: {material: water, water: true}
+  deep-water: {material: deep-water, water: true}
+  landfill: {material: landfill, fallback: {base: dirt, wash: '#e9dcc0'}}
+  concrete: {material: concrete, crisp: true, fallback: {base: null, wash: '#ecd2c8'}}
+  hazard-concrete: {material: hazard-concrete, crisp: true, fallback: {base: null, wash: '#e6c8b6'}}
+  refined-concrete: {material: refined-concrete, crisp: true, fallback: {base: null, wash: '#ecd2c8'}}
+  refined-hazard-concrete: {material: refined-hazard-concrete, crisp: true, fallback: {base: null, wash: '#e6c8b6'}}
+  town-street: {material: town-street, crisp: true, fallback: {base: null, wash: '#e8e2d2'}}
+  town-block: {material: town-block, crisp: true, fallback: {base: null, wash: '#ecd2c8'}}
+  out-of-map: {material: out-of-map, crisp: true}

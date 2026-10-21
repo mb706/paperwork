@@ -1,46 +1,91 @@
 # Engine defaults (10 §2.4 step 2), the first of two layers: per entity type here, then per `mirrors` id
 # (mirrors.yaml), then per prototype (prototypes.yaml). Only engine fields: the overlay may never set a
-# number the design data carries.
+# number the design data carries. Nested blocks (`inserter`, `electric_pole`, …) merge key by key down the
+# layers; lists (`collision_mask`, `fluid_boxes`) and boxes are replaced whole.
 #
 # Boxes: a building's selection box is its footprint; its collision box is the footprint inset by
-# `collision_inset` on every side (Factorio's convention: 0.15 for chests, 0.3 for most machines).
+# `collision_inset` on every side (Factorio's convention: 0.15 for chests, 0.3 for most machines). Every slice
+# entity has Factorio's own boxes in mirrors.yaml; these insets serve entities that mirror `new`.
+#
+# Collision masks (10 §4.4) use the engine's layers: object, water, resource, rail, player, train, item. They
+# are Factorio 2.0's defaults by type (core/lualib/collision-mask-defaults.lua, factorio-data 2.0.77) mapped
+# layer for layer: object, water_tile → water, resource, rail, player, train, item. Factorio's other layers
+# (is_object, is_lower_object, floor, transport_belt, meltable, car, elevated_*) only keep belts, pipes to
+# ground and heat pipes walkable while they still collide with buildings, which the mapped masks keep too:
+#   - building (most types): item, meltable, object, player, water_tile, is_object, is_lower_object;
+#   - belts, undergrounds, splitters: floor, meltable, object, transport_belt, water_tile (walkable);
+#   - pipe to ground: item, meltable, floor, car, water_tile, transport_belt, is_lower_object (walkable since 2.0);
+#   - heat pipe: floor, meltable, object, water_tile, is_lower_object (walkable);
+#   - ground rails: floor, item, object, rail, water_tile, is_lower_object; rail signals: floor, item, rail,
+#     water_tile, is_lower_object; rolling stock: train; gates: item, meltable, object, player, train, water_tile;
+#   - the offshore pump (entities.lua): object, train, is_object, is_lower_object (it stands over water);
+#   - the character: player, train, is_object.
+#
+# Map colours (10 §2.4: entity map colours; tile colours are design data) are Factorio 2.0's chart colours
+# (core/prototypes/utility-constants.lua `chart`, factorio-data 2.0.77): default_friendly_color {0, 0.38, 0.57}
+# for every friendly building, default_friendly_color_by_type where Factorio names the type, and
+# electric_power_pole_color for poles. Hex is #rrggbb of round(255 × channel) (or the 0–255 triplet as given).
 entity_types:
-  _all: {collision_inset: 0.3, mining_time: 0.2, rotatable: true, flippable: false, selection_priority: 50}
+  _all:
+    collision_inset: 0.3
+    mining_time: 0.2
+    rotatable: true
+    flippable: false
+    selection_priority: 50
+    collision_mask: [item, object, player, water]
+    map_color: '#006191'            # default_friendly_color {0, 0.38, 0.57}
+    # Burner energy sources (10 §5.7): Factorio's BurnerEnergySource fuel_inventory_size, 1 for every base
+    # burner building (the stone and steel furnace, burner drill and inserter, boiler; factorio-data 2.0.77);
+    # burnt_inventory_size 0 (only nuclear fuel leaves a burnt result). Read only for burner entities.
+    burner: {fuel_slots: 1, burnt_result_slots: 0}
   assembler: {fast_replaceable_group: assembling-machine}
-  furnace: {fast_replaceable_group: furnace, rotatable: false}
+  furnace:
+    fast_replaceable_group: furnace
+    rotatable: false
+    # FurnacePrototype source_inventory_size 1 and result_inventory_size 1 (the stone, steel and electric
+    # furnace, factorio-data 2.0.77); a furnace picks its recipe from the input item (10 §5.5).
+    furnace: {source_slots: 1, result_slots: 1}
   mining-drill: {}
-  offshore-pump: {collision_inset: 0.4}
+  offshore-pump: {collision_inset: 0.4, collision_mask: [object, train]}
   pumpjack: {collision_inset: 0.3}
   lab: {rotatable: false}
-  belt: {collision_inset: 0.1, fast_replaceable_group: transport-belt, mining_time: 0.1}
-  underground-belt: {collision_inset: 0.1, fast_replaceable_group: transport-belt, mining_time: 0.1}
-  splitter: {collision_inset: 0.1, fast_replaceable_group: transport-belt, mining_time: 0.1}
+  belt: {collision_inset: 0.1, fast_replaceable_group: transport-belt, mining_time: 0.1, collision_mask: [object, water], map_color: '#cca147'}       # transport-belt {0.8, 0.63, 0.28}
+  underground-belt: {collision_inset: 0.1, fast_replaceable_group: transport-belt, mining_time: 0.1, collision_mask: [object, water], map_color: '#705c00'}   # underground-belt {0.44, 0.36, 0}
+  splitter: {collision_inset: 0.1, fast_replaceable_group: transport-belt, mining_time: 0.1, collision_mask: [object, water], map_color: '#ffd100'}   # splitter {1, 0.82, 0}
   inserter: {collision_inset: 0.35, fast_replaceable_group: inserter, mining_time: 0.1}
   chest: {collision_inset: 0.15, fast_replaceable_group: container, rotatable: false, mining_time: 0.1}
   logistic-chest: {collision_inset: 0.15, fast_replaceable_group: container, rotatable: false, mining_time: 0.1}
-  pipe: {collision_inset: 0.21, fast_replaceable_group: pipe, rotatable: false, mining_time: 0.1}
-  pipe-to-ground: {collision_inset: 0.2, fast_replaceable_group: pipe, mining_time: 0.1}
-  pump: {collision_inset: 0.21}
-  storage-tank: {flippable: true}
+  pipe: {collision_inset: 0.21, fast_replaceable_group: pipe, rotatable: false, mining_time: 0.1, map_color: '#4582a5'}   # pipe {69, 130, 165}
+  pipe-to-ground: {collision_inset: 0.2, fast_replaceable_group: pipe, mining_time: 0.1, collision_mask: [item, water], map_color: '#196796'}   # pipe-to-ground {25, 103, 150}
+  pump: {collision_inset: 0.21, map_color: '#6d9ab5'}                 # pump {109, 154, 181}
+  storage-tank: {flippable: true, map_color: '#83a6bc'}               # storage-tank {131, 166, 188}
   boiler: {collision_inset: 0.29}
-  generator: {collision_inset: 0.15}
-  solar-panel: {collision_inset: 0.1, rotatable: false, fast_replaceable_group: solar-panel}
-  accumulator: {collision_inset: 0.1, rotatable: false}
+  generator: {collision_inset: 0.15, map_color: '#007fa0'}            # generator {0, 127, 160}
+  solar-panel: {collision_inset: 0.1, rotatable: false, fast_replaceable_group: solar-panel, map_color: '#1f2124'}   # solar-panel {0.12, 0.13, 0.14}
+  accumulator: {collision_inset: 0.1, rotatable: false, map_color: '#7a7a7a'}   # accumulator {0.48, 0.48, 0.48}
   reactor: {collision_inset: 0.3, rotatable: false}
-  heat-pipe: {collision_inset: 0.2, rotatable: false}
+  heat-pipe: {collision_inset: 0.2, rotatable: false, collision_mask: [object, water], map_color: '#3a82ac'}   # heat-pipe {58, 130, 172}
   heat-exchanger: {}
-  electric-pole: {collision_inset: 0.35, rotatable: false, fast_replaceable_group: electric-pole, mining_time: 0.1}
-  roboport: {collision_inset: 0.3, rotatable: false}
-  rail: {collision_inset: 0.3}
+  electric-pole:
+    collision_inset: 0.35
+    rotatable: false
+    fast_replaceable_group: electric-pole
+    mining_time: 0.1
+    map_color: '#009ea3'            # electric_power_pole_color {0, 158, 163}
+    # ElectricPolePrototype defaults (Lua API 2.0): auto-connect to at most 5 poles (I §3.4, "no common
+    # neighbour"); drag building tracks coverage (the big pole turns it off).
+    electric_pole: {auto_connect_up_to_n_wires: 5, track_coverage_during_drag_building: true}
+  roboport: {collision_inset: 0.3, rotatable: false, map_color: '#d3cf88'}   # roboport {211, 207, 136}
+  rail: {collision_inset: 0.3, collision_mask: [item, object, rail, water], map_color: '#8c8c8c'}   # rail_color {0.55, 0.55, 0.55}
   train-stop: {}
-  rail-signal: {collision_inset: 0.3}
-  locomotive: {}
-  cargo-wagon: {}
-  fluid-wagon: {}
-  beacon: {rotatable: false}
+  rail-signal: {collision_inset: 0.3, collision_mask: [item, rail, water]}
+  locomotive: {collision_mask: [train]}
+  cargo-wagon: {collision_mask: [train]}
+  fluid-wagon: {collision_mask: [train]}
+  beacon: {rotatable: false, map_color: '#074468'}                    # beacon {7, 68, 104}
   radar: {rotatable: false}
-  wall: {collision_inset: 0.01, rotatable: false, fast_replaceable_group: wall}
-  gate: {collision_inset: 0.01}
+  wall: {collision_inset: 0.01, rotatable: false, fast_replaceable_group: wall, map_color: '#ccd9cc'}   # wall {0.8, 0.85, 0.8}
+  gate: {collision_inset: 0.01, collision_mask: [item, object, player, train, water], map_color: '#808080'}   # gate {0.5, 0.5, 0.5}
   turret: {rotatable: false}
   rocket-silo: {rotatable: false}
   combinator: {collision_inset: 0.15}
@@ -48,8 +93,29 @@ entity_types:
   cooler: {}
   other: {}
 
+# Belt lane geometry (10 §5.3; wiki "Transport belts/Physics", which 10 §5.3 cites; the M1 belt package reads it).
+# Lengths are positions, 1/256 tile, per lane. A curve's lanes are drawn as quarter arcs whose radius makes
+# the arc as long as the lane (radius = length ÷ (π/2), in positions: 67.5 and 187.8, about 0.264 and
+# 0.734 tile); BELT_GEOM sends it (§15.4). On straight belts each lane's centreline lies lane_offset_tiles
+# left or right of the belt's: Factorio publishes no value, and 0.25 is the one C1c's fake sim and C4's
+# renderer use (half a lane apart, items drawn at half a tile, A3 §2).
+belt_lanes:
+  positions_per_tile: 256
+  item_spacing: 64                  # a saturated lane: 4 items per straight tile
+  lane_offset_tiles: 0.25
+  straight: 256
+  curve_inner: 106
+  curve_outer: 295
+  underground: 256                  # one lane of an underground belt entity
+  splitter_input: 128
+  splitter_buffer: 51               # the splitter's invisible internal buffer, behind its 128 input positions
+  splitter_output: 128
+  side_load_late: 68                # side-loading onto a straight belt or an underground exit
+  side_load_early: 188              # side-loading onto a straight belt or an underground entrance
+
 # Default item subgroups (groups.yaml): a placed entity's type first, then a tile, then the first tag that
-# names one, then `intermediate-product`. A fluid is in `fluid`.
+# names one, then `intermediate-product`. A fluid is in `fluid`. prototypes.yaml sets Factorio's own subgroup
+# and order string for every mirrored item of the slice.
 item_subgroups:
   by_entity_type:
     chest: storage
