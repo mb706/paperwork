@@ -271,12 +271,18 @@ describe('the upload limits (audit #5)', () => {
         c.close();
       },
     });
-    const first = post('/__shot', slow, { duplex: 'half' } as RequestInit);
-    await new Promise((r) => setTimeout(r, 100));
+    // r2 holds two files and has room for a small third (the limits above)
+    const first = post('/__report/r2/slow', slow, { duplex: 'half' } as RequestInit);
+    // the first upload is in the server's hands once its private .part file exists (no timing assumed)
+    const dir = join(reports(), 'r2');
+    for (let i = 0; i < 500 && !(existsSync(dir) && readdirSync(dir).some((f) => f.endsWith('.part'))); i++)
+      await new Promise((r) => setTimeout(r, 10));
     const second = await post('/__shot', new Uint8Array(PNG));
     expect(second.status).toBe(503);
     expect(second.headers.get('retry-after')).toBe('1');
     release();
-    expect((await first).status).toBe(400); // not a PNG, but it was the one let in
+    // the first one was let in, and completes
+    expect((await first).status).toBe(200);
+    expect(readFileSync(join(dir, 'slow')).length).toBe(10);
   });
 });
