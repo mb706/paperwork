@@ -67,3 +67,10 @@ Numbered like DECISIONS.md. Each entry gives the decision, the reason and the so
     - **Factorio's labels.** Where a UI element is Factorio's own, the English label is adopted verbatim with provenance `factorio` in `game/locale/en.yaml`, because the user explicitly wants Factorio's UI copied. Examples: "Crafting speed", "Products finished", "Save game", "Cannot insert …". This covers C8's count of 286 Factorio labels.
     - **The game's own strings.** Every string about this game's ontology (items, research, towns, the charter, the readouts) comes from the text canon (`design/spec/08-text.md`, `design/spec/data/text.yaml`).
     - **New strings.** These are *proposals* until the text owner approves them. The text audit is M1-20. C5's 22 proposals wait for that audit.
+16. **The Heat-off ruling** (M1-01; manager-approved, subject to the gate review). With Heat off:
+    - the heat toggle and the minimap still show the **ambient** temperature, which is world climate;
+    - the Heat statistics tab, the heat tooltip lines and the heat-throttling statuses are removed;
+    - 07 §3.1's "no heat toggle" line is amended to match.
+
+    09's "no heat UI" means no *factory-heat* UI. This mirrors Factorio with pollution disabled.
+17. **Belt mask bits and the inserter rest pose** (M1-01). The belt mask bits are C6's proposal plus one bit for the underground exit. An inserter's direction is the side it drops to, so the rest pose is C4's renderer pose.
