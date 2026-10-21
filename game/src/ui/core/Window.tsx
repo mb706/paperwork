@@ -15,6 +15,7 @@ import { bindingLabel } from '../input/keys.ts';
 import { type Layer, windowPositions } from '../store/ui.ts';
 import { useServices } from './context.ts';
 import { Glyph } from './Icon.tsx';
+import { clampPosition } from './place.ts';
 import { labelTip, useTip } from './tip.ts';
 
 /** The layer a component sits in (its green buttons register there). */
@@ -41,21 +42,6 @@ export interface WindowProps {
 /** Focusable elements inside a container, in tab order (no tabindex > 0 is used). */
 const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-/** Keeps a position inside the viewport: the window's top left at least 0, its far edge inside when it fits. */
-export function clampPosition(
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  vw: number,
-  vh: number,
-): { x: number; y: number } {
-  return {
-    x: Math.max(0, Math.min(x, vw - w)),
-    y: Math.max(0, Math.min(y, vh - h)),
-  };
-}
 
 export function Window(props: WindowProps): JSX.Element {
   const s = useServices();
@@ -142,7 +128,8 @@ export function Window(props: WindowProps): JSX.Element {
     }
   };
 
-  const body = (
+  // A component, so its children (green buttons) are created inside the layer's context provider.
+  const Body = () => (
     <div
       ref={el}
       class={`window pw-frame ${props.modal ? 'window-modal' : ''} ${props.class ?? ''}`}
@@ -176,7 +163,13 @@ export function Window(props: WindowProps): JSX.Element {
       <div class="window-body">{props.children}</div>
     </div>
   );
-  return reg ? <LayerContext.Provider value={reg.layer}>{body}</LayerContext.Provider> : body;
+  return reg ? (
+    <LayerContext.Provider value={reg.layer}>
+      <Body />
+    </LayerContext.Provider>
+  ) : (
+    <Body />
+  );
 }
 
 /** A frame action button (I §4.0: 24 px, at the title bar's right). */

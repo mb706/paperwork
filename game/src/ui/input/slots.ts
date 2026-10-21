@@ -22,6 +22,30 @@ export type SlotRef =
   /** `index` follows the row's page (Shift+1…0 changes it under the same element, C5-r1 4). */
   | { kind: 'quickbar'; readonly index: number; key: () => number };
 
+/**
+ * A quickbar slot's descriptor (I §4.2): slot `i` of the row that shows page `page()` now. The row's page changes
+ * under the same element (Shift+1…0, X), so the index is read when the slot is used (C5-r1 4).
+ */
+export function quickbarRef(page: () => number, i: number, key: () => number): SlotRef {
+  return {
+    kind: 'quickbar',
+    get index() {
+      return page() * 10 + i;
+    },
+    key,
+  };
+}
+
+/** A crafting queue slot's descriptor: its position now (entries before it finish and leave). */
+export function queueRef(index: () => number): SlotRef {
+  return {
+    kind: 'queue',
+    get index() {
+      return index();
+    },
+  };
+}
+
 const refs = new WeakMap<Element, SlotRef>();
 
 export function registerSlot(el: Element, ref: SlotRef): void {

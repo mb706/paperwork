@@ -1,10 +1,13 @@
 // The UI's quality bar (C5 brief; 10 §7.3 step 6, §11): UI time per frame with the character screen open, the
-// time a window takes to open, and input latency, measured against the fake sim running at 60 UPS (not test mode).
+// time a window takes to open, and input latency, measured on the real sim running at 60 UPS (not test mode) with
+// C4's renderer drawing (the renderer's own frame time is its budget, not the UI's).
 // The numbers are printed for the report; the assertions are the brief's limits with headroom for SwiftShader
 // and a loaded host. Run alone: `npx playwright test e2e/perf.spec.ts --project=chrome`.
 import { expect, test } from '@playwright/test';
 import { watchConsole } from './console.ts';
-import { startGame } from './ui-helpers.ts';
+import { type E2eGame, startGame } from './ui-helpers.ts';
+
+type W = { __game: E2eGame };
 
 const pct = (xs: number[], p: number) => {
   const s = [...xs].sort((a, b) => a - b);
@@ -33,25 +36,25 @@ test('UI time per frame, window opening and input latency @perf', async ({ page 
   // UI time with the character screen open, the world running at 60 UPS: 3 s of packets and frames.
   await page.waitForTimeout(500);
   await page.evaluate(() => {
-    const p = window.__ui?.perf();
-    p?.packet.splice(0);
-    p?.frame.splice(0);
+    const p = (window as unknown as W).__game.ui.perf();
+    p.packet.splice(0);
+    p.frame.splice(0);
   });
   await page.waitForTimeout(3000);
-  const perf = await page.evaluate(() => window.__ui?.perf() ?? { packet: [], frame: [] });
+  const perf = await page.evaluate(() => (window as unknown as W).__game.ui.perf());
   // Input latency: key down to the action posted, and to the first frame showing the character moved.
   const latency = await page.evaluate(
     () =>
       new Promise<{ act: number; seen: number }>((resolve) => {
-        const ui = window.__ui;
-        const start = ui?.character();
-        const before = ui?.sent().at(-1)?.seq ?? 0;
+        const ui = (window as unknown as W).__game.ui;
+        const start = ui.character();
+        const before = ui.sent().at(-1)?.seq ?? 0;
         const t0 = performance.now();
         window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', key: 'd' }));
         const check = () => {
-          const now = ui?.character();
+          const now = ui.character();
           if (now && start && now.x !== start.x) {
-            const act = (ui?.sent().find((x) => x.seq > before)?.at ?? t0) - t0;
+            const act = (ui.sent().find((x) => x.seq > before)?.at ?? t0) - t0;
             window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyD', key: 'd' }));
             resolve({ act, seen: performance.now() - t0 });
           } else requestAnimationFrame(check);

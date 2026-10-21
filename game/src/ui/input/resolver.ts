@@ -352,7 +352,8 @@ export class Resolver implements InputSink {
       case 'confirm-gui':
         return ui.confirmTop();
       case 'open-character-gui':
-        if (!this.inGame || this.modal || ui.window[0]() !== null) return false;
+        // I §1.4: E opens the character screen only when no window is open (else it confirms the top one).
+        if (!this.inGame || this.modal || ui.window[0]() !== null || ui.topLayer() !== null) return false;
         ui.open({ kind: 'character' });
         return true;
     }

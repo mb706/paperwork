@@ -9,6 +9,7 @@ import { Slot } from '../core/Slot.tsx';
 import { labelTip, useTip } from '../core/tip.ts';
 import { formatCount, formatDuration, t } from '../i18n/locale.ts';
 import { bindingLabel } from '../input/keys.ts';
+import { queueRef, quickbarRef } from '../input/slots.ts';
 import { NO_ITEM } from '../store/protos.ts';
 import { countOf } from '../store/records.ts';
 
@@ -70,17 +71,9 @@ function Quickbar(): JSX.Element {
                     const index = () => page() * 10 + i;
                     const key = () => c.quickbar[index()] ?? NO_ITEM;
                     const n = () => (key() === NO_ITEM ? 0 : total(key()));
-                    // The descriptor reads the page when used: Shift+1…0 changes it under the same element.
-                    const ref = {
-                      kind: 'quickbar' as const,
-                      get index() {
-                        return index();
-                      },
-                      key,
-                    };
                     return (
                       <Slot
-                        slot={ref}
+                        slot={quickbarRef(page, i, key)}
                         icon={key() === NO_ITEM ? null : (s.protos()?.itemIcon(key()) ?? null)}
                         label={key() === NO_ITEM ? '' : (s.protos()?.itemName(key()) ?? '')}
                         count={n() > 0 ? n() : null}
@@ -177,12 +170,7 @@ function CraftingQueue(): JSX.Element {
           <For each={c.queue}>
             {(e, i) => (
               <Slot
-                slot={{
-                  kind: 'queue',
-                  get index() {
-                    return i();
-                  },
-                }}
+                slot={queueRef(i)}
                 icon={s.protos()?.recipe(e.recipe)?.icon ?? 'fx/missing'}
                 label={s.protos()?.recipeName(e.recipe) ?? ''}
                 count={e.count}

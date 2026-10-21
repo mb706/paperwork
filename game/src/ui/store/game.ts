@@ -12,7 +12,7 @@
 // The player's character exists only from the tick its player joins (a new world's first tick, §3.3): until then
 // CHARACTER answers `gone` and the sim drops the subscription, so it is made again on the player's
 // `player_joined` and on each new generation.
-import { batch, createMemo, createRoot, createSignal, type Signal } from 'solid-js';
+import { batch, createComputed, createMemo, createRoot, createSignal, type Signal } from 'solid-js';
 import { createStore, reconcile, type SetStoreFunction } from 'solid-js/store';
 import type { CraftQueueView } from '../../shared/gen/projections.ts';
 import { type Character, type Hover, ProjectionKind, type UiRecord } from '../../shared/gen/projections.ts';
@@ -24,7 +24,9 @@ import {
   type HandView,
   handOf,
   type RecordOutcome,
+  type StatRow,
   type StatsView,
+  statRows,
 } from './records.ts';
 import { type SubSink, Subscriptions } from './subs.ts';
 
@@ -275,4 +277,18 @@ export class GameStore {
       dispose: () => this.subs.unsubscribe(id),
     };
   }
+}
+
+/**
+ * One half of the statistics window as a store reconciled by StatKey (C5-r1 15): a STATS record that changes a
+ * rate updates that row's fields in place, so its DOM stays; rows come and go only with their keys.
+ */
+export function createStatRows(
+  stats: () => StatsView | null,
+  side: 'produced' | 'consumed',
+  tick: () => number,
+): () => StatRow[] {
+  const [list, setList] = createStore<StatRow[]>([]);
+  createComputed(() => setList(reconcile(statRows(stats(), side, tick()), { key: 'key' })));
+  return () => list;
 }

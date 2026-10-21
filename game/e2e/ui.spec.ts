@@ -1,35 +1,91 @@
-// The UI and input layer against the fake sim (C5; 10 §7, §15.3, §15.5): Playwright drives the real input layer
-// (keys and mouse through the browser), and each test checks the actions the encoder sent and what came back in
-// the projections. Test mode stops the clock; `step(n)` runs ticks. Screenshots of the main menu and the
-// character screen land in the test output (`test-results/dev/`).
+// The UI and input layer on the real sim (C5; 10 §7, §15.3, §15.5): Playwright drives the real input layer (keys
+// and mouse through the browser), and each test checks the actions the encoder sent and what came back in the
+// projections. Test mode stops the clock; `step(n)` runs ticks. M0's world: the character starts with 8 iron plates
+// (one iron chest's recipe), an iron-ore patch nearby. Screenshots land in the test output (`test-results/dev/`).
 import { expect, type Page, test } from '@playwright/test';
 import { watchConsole } from './console.ts';
-import { lastSeq, openPage, screenOf, sentSince, startGame, step, uiState } from './ui-helpers.ts';
+import {
+  characterPos,
+  type E2eGame,
+  entities,
+  lastSeq,
+  openPage,
+  screenOf,
+  sentSince,
+  startGame,
+  step,
+  uiState,
+} from './ui-helpers.ts';
 
 const MAIN = 1; // InventoryType.main
 const CHEST = 2; // InventoryType.chest
-
-/** The nearest chest to the character, and its screen position. */
-async function nearestChest(page: Page) {
-  // The chunks arrive with the packet that answers the first view request.
-  await expect
-    .poll(() => page.evaluate(() => window.__ui?.entities().some((e) => e.name.endsWith('chest')) ?? false))
-    .toBe(true);
-  const found = await page.evaluate(() => {
-    const ui = window.__ui;
-    const c = ui?.character();
-    if (!ui || !c) return null;
-    const chests = ui
-      .entities()
-      .filter((e) => e.name.endsWith('chest'))
-      .sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y));
-    return chests[0] ?? null;
-  });
-  if (!found) throw new Error('no chest near the character');
-  return { ...found, screen: await screenOf(page, found.x, found.y) };
-}
+const PLATE = 2 * 8; // iron-plate's key (id 2, normal quality)
+const ORE = 1 * 8;
+const CHEST_ITEM = 0;
+type W = { __game: E2eGame };
 
 const slot = (page: Page, testid: string) => page.getByTestId(testid);
+
+/** Holds the movement keys toward (x, y) until the character is within `near` tiles (I §2.1: 8 directions). */
+async function walkTo(page: Page, x: number, y: number, near = 1.5): Promise<void> {
+  for (let i = 0; i < 60; i++) {
+    const c = await characterPos(page);
+    if (!c) throw new Error('no character');
+    const dx = x - c.x;
+    const dy = y - c.y;
+    if (Math.hypot(dx, dy) <= near) return;
+    const keys = [
+      ...(dx > 0.5 ? ['d'] : dx < -0.5 ? ['a'] : []),
+      ...(dy > 0.5 ? ['s'] : dy < -0.5 ? ['w'] : []),
+    ];
+    for (const k of keys) await page.keyboard.down(k);
+    await step(page, 4);
+    for (const k of keys) await page.keyboard.up(k);
+    await step(page, 1);
+  }
+  throw new Error(`could not walk to ${x}, ${y}`);
+}
+
+/** The ore tile nearest the character (the view model's resource tiles). */
+async function nearestOre(page: Page): Promise<{ x: number; y: number }> {
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as W).__game.ui.resources().length))
+    .toBeGreaterThan(0);
+  return page.evaluate(() => {
+    const ui = (window as unknown as W).__game.ui;
+    const c = ui.character() ?? { x: 0, y: 0 };
+    const all = ui
+      .resources()
+      .sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y));
+    return all[0] as { x: number; y: number };
+  });
+}
+
+/** Crafts the iron chest from the 8 starting plates (0.5 s: 30 ticks) and closes the character screen. */
+async function craftChest(page: Page): Promise<void> {
+  await page.keyboard.press('e');
+  await slot(page, 'recipe-iron-chest').click();
+  await step(page, 32);
+  await expect
+    .poll(async () => (await uiState(page)).main.find((s) => s.key === CHEST_ITEM)?.count ?? 0)
+    .toBe(1);
+  await page.keyboard.press('e');
+}
+
+/** Takes the crafted chest into the hand and builds it at world (x, y); returns its serial. */
+async function placeChest(page: Page, x: number, y: number): Promise<number> {
+  await page.keyboard.press('e');
+  const at = (await uiState(page)).main.findIndex((s) => s.key === CHEST_ITEM && s.count > 0);
+  await slot(page, `inv-${at}`).click();
+  await step(page, 1);
+  await page.keyboard.press('e');
+  const p = await screenOf(page, x, y);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.click(p.x, p.y);
+  await step(page, 1);
+  await expect.poll(async () => (await entities(page)).some((e) => e.name === 'iron-chest')).toBe(true);
+  return (await entities(page)).find((e) => e.name === 'iron-chest')?.serial as number;
+}
 
 test('the main menu: wordmark, tagline, M0 entries, footer', async ({ page }, info) => {
   const problems = watchConsole(page);
@@ -41,9 +97,9 @@ test('the main menu: wordmark, tagline, M0 entries, footer', async ({ page }, in
     await expect(page.getByTestId(id)).toBeEnabled();
   for (const id of ['menu-tips', 'menu-credits', 'menu-changelog'])
     await expect(page.getByTestId(id)).toBeDisabled();
-  await expect(page.getByTestId('build-status')).toHaveText(/^build m0 \(dev\)/);
+  await expect(page.getByTestId('menu-build')).toHaveText(/^build m0 \(dev\)/);
   await page.screenshot({ path: info.outputPath('main-menu.png') });
-  // Esc backs out of a menu page (I §1.4); E presses the green button (Play).
+  // Esc backs out of a menu page (I §1.4); E presses the page's green button (Play).
   await page.getByTestId('menu-settings').click();
   await expect(page.getByTestId('window-settings')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -61,13 +117,12 @@ test('E opens the character screen on the CHARACTER projection; E closes it', as
   const screen = page.getByTestId('character-screen');
   await expect(screen).toBeVisible();
   await expect(page.locator('[data-testid=main-inventory] [data-slot]')).toHaveCount(80);
-  const s = await uiState(page);
-  const first = s.main[0] as { key: number; count: number };
-  await expect(slot(page, 'inv-0').locator('.count')).toHaveText(String(first.count));
+  await expect(slot(page, 'inv-0').locator('.count')).toHaveText('8');
+  await expect(slot(page, 'inv-0')).toHaveAttribute('aria-label', 'Iron plate 8');
   await expect(page.locator('[data-testid=recipe-grid] [data-slot]').first()).toBeVisible();
   await page.mouse.move(0, 0);
   await page.screenshot({ path: info.outputPath('character-screen.png') });
-  await slot(page, 'inv-4').hover();
+  await slot(page, 'inv-0').hover();
   await expect(page.getByTestId('tooltip')).toBeVisible();
   await page.screenshot({ path: info.outputPath('character-screen-tooltip.png') });
   // Dragging the title bar moves the window; the position is remembered per window type (I §4.0).
@@ -95,20 +150,17 @@ test('slot clicks encode I §3.8 actions and the hand comes back in the projecti
   const problems = watchConsole(page);
   await startGame(page);
   await page.keyboard.press('e');
-  const before = (await uiState(page)).main[1] as { key: number; count: number };
   let seq = await lastSeq(page);
   // LMB picks up the whole stack: cursor_transfer; the origin slot keeps the hand marker (I §3.2).
-  await slot(page, 'inv-1').click();
+  await slot(page, 'inv-0').click();
   let sent = await sentSince(page, seq);
   expect(sent.map((x) => x.action)).toEqual([
-    { type: 'cursor_transfer', slot: { owner: { a: 0, b: 0, tag: 0 }, inv: MAIN, slot: 1 } },
+    { type: 'cursor_transfer', slot: { owner: { a: 0, b: 0, tag: 0 }, inv: MAIN, slot: 0 } },
   ]);
   await step(page, 1);
-  await expect
-    .poll(async () => (await uiState(page)).hand)
-    .toEqual({ key: before.key, count: before.count, origin: 1 });
-  await expect(slot(page, 'inv-1')).toHaveClass(/slot-hand/);
-  await expect(page.getByTestId('cursor-stack').locator('.count')).toHaveText(String(before.count));
+  await expect.poll(async () => (await uiState(page)).hand).toEqual({ key: PLATE, count: 8, origin: 0 });
+  await expect(slot(page, 'inv-0')).toHaveClass(/slot-hand/);
+  await expect(page.getByTestId('cursor-stack').locator('.count')).toHaveText('8');
   // RMB on an empty slot puts one down: cursor_split (auto-sort then files it with its kind, I §3.8).
   seq = await lastSeq(page);
   await slot(page, 'inv-30').click({ button: 'right' });
@@ -117,16 +169,17 @@ test('slot clicks encode I §3.8 actions and the hand comes back in the projecti
     const s = await uiState(page);
     return {
       hand: s.hand.count,
-      placed: s.main.filter((x) => x.key === before.key).reduce((n, x) => n + x.count, 0),
+      placed: s.main.filter((x) => x.key === PLATE).reduce((n, x) => n + x.count, 0),
     };
   };
-  await expect.poll(carried).toEqual({ hand: before.count - 1, placed: 1 });
+  await expect.poll(carried).toEqual({ hand: 7, placed: 1 });
   // Q returns the rest to its origin slot: clear_cursor.
   await page.keyboard.press('q');
   await step(page, 1);
   sent = await sentSince(page, seq);
   expect(sent.map((x) => x.type)).toEqual(['cursor_split', 'clear_cursor']);
   await expect.poll(async () => (await uiState(page)).hand.count).toBe(0);
+  await expect.poll(carried).toEqual({ hand: 0, placed: 8 });
   expect(problems).toEqual([]);
 });
 
@@ -137,7 +190,7 @@ test('crafting: LMB, RMB and Shift+LMB queue 1, 5 and all; the queue cancels thr
   await startGame(page);
   await page.keyboard.press('e');
   const recipe = slot(page, 'recipe-iron-chest');
-  await expect(recipe).toBeVisible();
+  await expect(recipe.locator('.count')).toHaveText('1'); // 8 plates: one chest
   const seq = await lastSeq(page);
   await recipe.click();
   await recipe.click({ button: 'right' });
@@ -147,73 +200,25 @@ test('crafting: LMB, RMB and Shift+LMB queue 1, 5 and all; the queue cancels thr
   expect(new Set(sent.map((x) => x.type))).toEqual(new Set(['craft']));
   await step(page, 1);
   await expect(page.getByTestId('crafting-queue')).toBeVisible();
-  const queued = (await uiState(page)).queue;
-  expect(queued.length).toBe(1); // the same recipe merges into one entry (I §3.9)
-  const n = (queued[0] as { count: number }).count;
-  expect(n).toBeGreaterThan(5);
+  expect((await uiState(page)).queue).toEqual([{ recipe: 0, count: 1 }]); // the plates make one, the rest is refused
+  // The queue's slot cancels with the cancel bindings: the plates come back.
   await page.getByTestId('queue-0').click();
   await step(page, 1);
-  await expect.poll(async () => (await uiState(page)).queue[0]?.count).toBe(n - 1);
-  // A craft completes: 0.5 s is 30 ticks (golden rule 22); the flying text names the product and the total.
-  await step(page, 30);
+  await expect.poll(async () => (await uiState(page)).queue.length).toBe(0);
+  await expect(recipe.locator('.count')).toHaveText('1');
+  // Crafted: 0.5 s is 30 ticks; the flying text names the product and the total.
+  await recipe.click();
+  await step(page, 32);
   await expect
-    .poll(async () => (await uiState(page)).flying.some((t) => /^\+1 .+ \(\d+\)$/.test(t)))
+    .poll(async () => (await uiState(page)).flying.some((t) => /^\+1 Iron chest \(1\)$/.test(t)))
     .toBe(true);
   expect(problems).toEqual([]);
 });
 
-test('the chest window: LMB opens it within reach, Shift+LMB moves a stack, Ctrl+LMB fast-transfers', async ({
-  page,
-}, info) => {
+test('walking with WASD and hand mining with RMB held, through the real input layer', async ({ page }) => {
   const problems = watchConsole(page);
   await startGame(page);
-  const chest = await nearestChest(page);
-  await page.mouse.move(chest.screen.x, chest.screen.y);
-  await expect.poll(async () => (await uiState(page)).selection?.serial).toBe(chest.serial);
-  await expect(page.getByTestId('docked-info')).toBeVisible();
-  await page.mouse.click(chest.screen.x, chest.screen.y);
-  await expect(page.getByTestId('entity-window')).toBeVisible();
-  expect((await uiState(page)).window).toBe(`entity:${chest.serial}`);
-  let seq = await lastSeq(page);
-  await slot(page, 'inv-0').click({ modifiers: ['Shift'] });
-  const sent = await sentSince(page, seq);
-  expect(sent.map((x) => x.action)).toEqual([
-    {
-      type: 'stack_transfer',
-      from: { owner: { a: 0, b: 0, tag: 0 }, inv: MAIN, slot: 0 },
-      to: { a: chest.serial, b: 0, tag: 1 },
-    },
-  ]);
-  await step(page, 1);
-  await expect(page.locator('[data-testid=entity-inventory] .count').first()).toBeVisible();
-  await page.mouse.move(0, 0);
-  await page.screenshot({ path: info.outputPath('chest-window.png') });
-  // Shift+LMB on a chest slot moves it back (to the player's main inventory: EntityRef tag 0).
-  seq = await lastSeq(page);
-  await slot(page, 'chest-0').click({ modifiers: ['Shift'] });
-  expect((await sentSince(page, seq)).map((x) => x.action)).toEqual([
-    {
-      type: 'stack_transfer',
-      from: { owner: { a: chest.serial, b: 0, tag: 1 }, inv: CHEST, slot: 0 },
-      to: { a: 0, b: 0, tag: 0 },
-    },
-  ]);
-  // Ctrl+LMB on the chest in the world: fast_entity_transfer (the window closes first with Esc).
-  await page.keyboard.press('Escape');
-  seq = await lastSeq(page);
-  await page.keyboard.down('Control');
-  await page.mouse.click(chest.screen.x, chest.screen.y);
-  await page.keyboard.up('Control');
-  expect((await sentSince(page, seq)).map((x) => x.action)).toEqual([
-    { type: 'fast_entity_transfer', target: { a: chest.serial, b: 0, tag: 1 } },
-  ]);
-  expect(problems).toEqual([]);
-});
-
-test('walking with WASD and mining with RMB held, through the real input layer', async ({ page }) => {
-  const problems = watchConsole(page);
-  await startGame(page);
-  const start = await page.evaluate(() => window.__ui?.character());
+  const start = await characterPos(page);
   let seq = await lastSeq(page);
   await page.keyboard.down('w');
   await page.keyboard.down('d');
@@ -228,25 +233,88 @@ test('walking with WASD and mining with RMB held, through the real input layer',
     { type: 'stop_walking', input_gen: 0 },
   ]);
   await step(page, 1);
-  const moved = await page.evaluate(() => window.__ui?.character());
+  const moved = await characterPos(page);
   expect(moved?.y).toBeLessThan((start?.y ?? 0) - 1);
   expect(moved?.x).toBeGreaterThan((start?.x ?? 0) + 1);
-  // Mine the nearest chest: hold RMB (begin_mining), the mining bar fills, the chest goes (I §3.7).
-  const chest = await nearestChest(page);
+  // Walk to the ore and mine a tile: hold RMB (begin_mining_terrain), the mining bar fills, ore arrives (I §3.7).
+  const ore = await nearestOre(page);
+  await walkTo(page, ore.x, ore.y, 2);
   seq = await lastSeq(page);
-  await page.mouse.move(chest.screen.x, chest.screen.y);
+  const p = await screenOf(page, ore.x, ore.y);
+  await page.mouse.move(p.x, p.y);
   await page.mouse.down({ button: 'right' });
-  await step(page, 4);
+  await step(page, 10);
   await expect(page.getByTestId('mining-bar')).toBeVisible();
-  await step(page, 60);
+  await step(page, 140);
   await page.mouse.up({ button: 'right' });
   await step(page, 1);
   const mine = await sentSince(page, seq);
-  expect(mine.map((x) => x.type)).toEqual(['begin_mining', 'stop_mining']);
-  expect(mine[0]?.action.target).toEqual({ a: chest.serial, b: 0, tag: 1 });
+  expect(mine.map((x) => x.type)).toEqual(['begin_mining_terrain', 'stop_mining']);
   await expect
-    .poll(() => page.evaluate((s) => window.__ui?.entities().some((e) => e.serial === s), chest.serial))
-    .toBe(false);
+    .poll(async () => (await uiState(page)).main.some((s) => s.key === ORE && s.count > 0))
+    .toBe(true);
+  expect(problems).toEqual([]);
+});
+
+test('the chest window: LMB opens it within reach, Shift+LMB moves a stack, Ctrl+LMB fast-transfers', async ({
+  page,
+}, info) => {
+  const problems = watchConsole(page);
+  await startGame(page);
+  await craftChest(page);
+  const c = (await characterPos(page)) as { x: number; y: number };
+  const serial = await placeChest(page, Math.floor(c.x) + 2.5, Math.floor(c.y) + 0.5);
+  const chest = (await entities(page)).find((e) => e.serial === serial) as { x: number; y: number };
+  // Mine ore to put into it: the ore is the only item M0's start leaves after the chest.
+  const ore = await nearestOre(page);
+  await walkTo(page, ore.x, ore.y, 2);
+  const op = await screenOf(page, ore.x, ore.y);
+  await page.mouse.move(op.x, op.y);
+  await page.mouse.down({ button: 'right' });
+  await step(page, 150);
+  await page.mouse.up({ button: 'right' });
+  await step(page, 1);
+  await walkTo(page, chest.x, chest.y, 3);
+  const screen = await screenOf(page, chest.x, chest.y);
+  await page.mouse.move(screen.x, screen.y);
+  await expect.poll(async () => (await uiState(page)).selection?.serial).toBe(serial);
+  await expect(page.getByTestId('docked-info')).toBeVisible();
+  await page.mouse.click(screen.x, screen.y);
+  await expect(page.getByTestId('entity-window')).toBeVisible();
+  expect((await uiState(page)).window).toBe(`entity:${serial}`);
+  const oreSlot = (await uiState(page)).main.findIndex((s) => s.key === ORE);
+  let seq = await lastSeq(page);
+  await slot(page, `inv-${oreSlot}`).click({ modifiers: ['Shift'] });
+  expect((await sentSince(page, seq)).map((x) => x.action)).toEqual([
+    {
+      type: 'stack_transfer',
+      from: { owner: { a: 0, b: 0, tag: 0 }, inv: MAIN, slot: oreSlot },
+      to: { a: serial, b: 0, tag: 1 },
+    },
+  ]);
+  await step(page, 1);
+  await expect(page.locator('[data-testid=entity-inventory] .count').first()).toBeVisible();
+  await page.mouse.move(0, 0);
+  await page.screenshot({ path: info.outputPath('chest-window.png') });
+  // Shift+LMB on the chest's slot moves it back (to the player's main inventory: EntityRef tag 0).
+  seq = await lastSeq(page);
+  await slot(page, 'chest-0').click({ modifiers: ['Shift'] });
+  expect((await sentSince(page, seq)).map((x) => x.action)).toEqual([
+    {
+      type: 'stack_transfer',
+      from: { owner: { a: serial, b: 0, tag: 1 }, inv: CHEST, slot: 0 },
+      to: { a: 0, b: 0, tag: 0 },
+    },
+  ]);
+  // Ctrl+LMB on the chest in the world: fast_entity_transfer (the window closes first with Esc).
+  await page.keyboard.press('Escape');
+  seq = await lastSeq(page);
+  await page.keyboard.down('Control');
+  await page.mouse.click(screen.x, screen.y);
+  await page.keyboard.up('Control');
+  expect((await sentSince(page, seq)).map((x) => x.action)).toEqual([
+    { type: 'fast_entity_transfer', target: { a: serial, b: 0, tag: 1 } },
+  ]);
   expect(problems).toEqual([]);
 });
 
@@ -255,19 +323,18 @@ test('building: LMB places the held chest, a drag lays a line with one drag id (
 }) => {
   const problems = watchConsole(page);
   await startGame(page);
-  // Take the iron chests into the hand from the character screen, then close it (the hand persists, I §3.2).
+  await craftChest(page);
   await page.keyboard.press('e');
-  const s = await uiState(page);
-  const chests = s.main.findIndex((x) => x.count > 0 && x.count <= 10);
-  await slot(page, `inv-${chests}`).click();
+  const at0 = (await uiState(page)).main.findIndex((s) => s.key === CHEST_ITEM && s.count > 0);
+  await slot(page, `inv-${at0}`).click();
   await step(page, 1);
   await page.keyboard.press('e');
-  const hand = (await uiState(page)).hand;
-  expect(hand.count).toBeGreaterThan(3);
-  // Four tiles south of the character, then drag three tiles west.
-  const c = (await page.evaluate(() => window.__ui?.character())) as { x: number; y: number };
+  expect((await uiState(page)).hand.count).toBe(1);
+  // Three tiles south of the character, then drag three tiles west: four builds of one drag (only the first has
+  // an item: the sim refuses the rest, no item in the hand).
+  const c = (await characterPos(page)) as { x: number; y: number };
   const tx = Math.floor(c.x);
-  const ty = Math.floor(c.y) + 4;
+  const ty = Math.floor(c.y) + 3;
   const at = (x: number) => screenOf(page, x + 0.5, ty + 0.5);
   const seq = await lastSeq(page);
   const p0 = await at(tx);
@@ -287,14 +354,12 @@ test('building: LMB places the held chest, a drag lays a line with one drag id (
     2 * tx - 5,
   ]);
   expect(new Set(builds.map((x) => x.action.drag_id)).size).toBe(1);
+  expect(new Set(builds.map((x) => x.action.mode))).toEqual(new Set([0]));
   expect(sent.at(-1)?.type).toBe('stop_drag_build');
   await step(page, 1);
-  await expect.poll(async () => (await uiState(page)).hand.count).toBe(hand.count - 4);
-  const built = await page.evaluate(
-    (y) => window.__ui?.entities().filter((e) => e.name === 'iron-chest' && e.y === y + 0.5).length ?? 0,
-    ty,
-  );
-  expect(built).toBe(4);
+  await expect.poll(async () => (await uiState(page)).hand.count).toBe(0);
+  const built = (await entities(page)).filter((e) => e.name === 'iron-chest' && e.y === ty + 0.5);
+  expect(built.map((e) => e.x)).toEqual([tx + 0.5]);
   expect(problems).toEqual([]);
 });
 
@@ -307,6 +372,7 @@ test('Esc opens the game menu; Exit to main menu asks first; E confirms', async 
   await expect(page.getByTestId('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('dialog')).toHaveCount(0);
+  await expect(page.getByTestId('game-menu')).toBeVisible();
   await page.getByTestId('game-menu-exit').click();
   await page.keyboard.press('e');
   await expect(page.getByTestId('main-menu')).toBeVisible();
@@ -328,17 +394,23 @@ test('rebinding: rotate on T is saved, its conflict is listed, and T rotates the
   await expect(page.getByTestId('conflict-rotate')).toContainText('Technologies');
   await page.getByTestId('settings-confirm').click();
   await page.reload();
+  await expect(page.getByTestId('main-menu')).toBeVisible();
   await page.getByTestId('menu-new-game').click();
   await page.getByTestId('new-game-play').click();
   await expect.poll(() => uiState(page).then((s) => s?.screen)).toBe('game');
+  await step(page, 1);
   await expect.poll(() => uiState(page).then((s) => s?.main.length ?? 0)).toBe(80);
-  const chest = await nearestChest(page);
-  await page.mouse.move(chest.screen.x, chest.screen.y);
-  await expect.poll(async () => (await uiState(page)).selection?.serial).toBe(chest.serial);
+  await craftChest(page);
+  const c = (await characterPos(page)) as { x: number; y: number };
+  const serial = await placeChest(page, Math.floor(c.x) + 2.5, Math.floor(c.y) + 0.5);
+  const e = (await entities(page)).find((x) => x.serial === serial) as { x: number; y: number };
+  const p = await screenOf(page, e.x, e.y);
+  await page.mouse.move(p.x + 1, p.y + 1);
+  await expect.poll(async () => (await uiState(page)).selection?.serial).toBe(serial);
   const seq = await lastSeq(page);
   await page.keyboard.press('t');
   expect((await sentSince(page, seq)).map((x) => x.action)).toEqual([
-    { type: 'rotate_entity', target: { a: chest.serial, b: 0, tag: 1 }, reverse: false },
+    { type: 'rotate_entity', target: { a: serial, b: 0, tag: 1 }, reverse: false },
   ]);
   expect(problems).toEqual([]);
 });

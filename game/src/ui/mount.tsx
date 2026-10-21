@@ -40,6 +40,7 @@ import {
   footprintFree,
   modelEntities,
   modelEntity,
+  modelResources,
   modelTile,
   type PreviewState,
   type Selection,
@@ -99,6 +100,8 @@ export interface UiTestHooks {
   /** Viewport px of a world position (tests click entities through the real input layer). */
   toScreen(x: number, y: number): { x: number; y: number };
   entities(): { serial: number; proto: number; name: string; x: number; y: number }[];
+  /** The resource tiles the view model holds, at their centres. */
+  resources(): { x: number; y: number; name: string }[];
   character(): { x: number; y: number } | null;
   /** The last 600 packet applications and UI frames, ms. */
   perf(): { packet: number[]; frame: number[] };
@@ -527,6 +530,12 @@ export function mountUi(o: UiOptions): UiHandle {
           name: protos.json.entity[e.proto]?.name ?? '',
           x: e.x2 / 2,
           y: e.y2 / 2,
+        })),
+      resources: () =>
+        [...modelResources(world.model)].map((r) => ({
+          x: r.tx + 0.5,
+          y: r.ty + 0.5,
+          name: protos.json.resource[r.resource]?.name ?? '',
         })),
       character: () => world.character(),
       perf: () => ({ packet: [...perf.packet], frame: [...perf.frame] }),

@@ -3,13 +3,13 @@
 // Production and Consumption halves, each a Canvas2D line graph of the series (the y axis auto-scaled) over a
 // list of rows: icon with the window's total as its badge, a bar relative to the top row, the rate per minute;
 // sorted by rate. M0's statistics are hand-mined and hand-crafted items (golden rule 26).
-import { createComputed, createEffect, createSignal, For, type JSX, on, onCleanup, Show } from 'solid-js';
-import { createStore, reconcile } from 'solid-js/store';
+import { createEffect, createSignal, For, type JSX, on, onCleanup, Show } from 'solid-js';
 import { useServices } from '../core/context.ts';
 import { Icon } from '../core/Icon.tsx';
 import { useTip } from '../core/tip.ts';
 import { Window } from '../core/Window.tsx';
 import { formatCount, formatRate, t } from '../i18n/locale.ts';
+import { createStatRows } from '../store/game.ts';
 import {
   type HeldSeries,
   PRECISION_SECONDS,
@@ -17,7 +17,6 @@ import {
   type StatsView,
   statId,
   statKind,
-  statRows,
 } from '../store/records.ts';
 import { LAYER } from '../store/ui.ts';
 
@@ -29,12 +28,7 @@ export function StatsWindow(): JSX.Element {
   const watch = s.game.watchStats(precision(), tab());
   onCleanup(watch.dispose);
   createEffect(on([precision, tab], ([p, tb]) => watch.set(p, tb), { defer: true }));
-  /** The rows of one half, reconciled by StatKey: a changed rate updates its row in place (C5-r1 15). */
-  const rows = (side: 'produced' | 'consumed') => {
-    const [list, setList] = createStore<Row[]>([]);
-    createComputed(() => setList(reconcile(statRows(watch.stats(), side, s.game.tick[0]()), { key: 'key' })));
-    return () => list;
-  };
+  const rows = (side: 'produced' | 'consumed') => createStatRows(watch.stats, side, s.game.tick[0]);
   const produced = rows('produced');
   const consumed = rows('consumed');
   return (

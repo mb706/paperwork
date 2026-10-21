@@ -17,31 +17,7 @@ import { formatDuration, t } from '../i18n/locale.ts';
 import { craftableFrom } from '../store/records.ts';
 import { useServices } from './context.ts';
 import { Icon } from './Icon.tsx';
-
-const EDGE = 10;
-
-/**
- * Where a tooltip goes (GUI px): right of its anchor, flipped left at the screen's right edge, kept 10 px inside
- * the viewport. `anchor` is in viewport px (measured on hover), `size` in GUI px.
- */
-export function placeTooltip(
-  anchor: { x: number; y: number; w: number; h: number },
-  size: { w: number; h: number },
-  viewport: { w: number; h: number },
-  scale: number,
-): { x: number; y: number } {
-  const vw = viewport.w / scale;
-  const vh = viewport.h / scale;
-  const ax = anchor.x / scale;
-  const ay = anchor.y / scale;
-  let x = ax + anchor.w / scale + 6;
-  if (x + size.w > vw - EDGE) x = ax - size.w - 6;
-  if (x < EDGE) x = EDGE;
-  let y = ay;
-  if (y + size.h > vh - EDGE) y = vh - EDGE - size.h;
-  if (y < EDGE) y = EDGE;
-  return { x, y };
-}
+import { placeTooltip } from './place.ts';
 
 export function Tooltip(): JSX.Element {
   const s = useServices();

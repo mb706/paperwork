@@ -4,7 +4,7 @@
 // read here for what picking does not answer: an entity by serial (a refusal's "X in the way"), the tile under a
 // point, and the footprint test of the build preview (I §3.3). Records are read in place with the generated
 // codecs' field readers; nothing is kept past the call (the model is valid until the next packet).
-import { EntityViewCodec } from '../../shared/gen/packet.ts';
+import { EntityViewCodec, ResourceViewCodec } from '../../shared/gen/packet.ts';
 import { chunkId, type ViewModel, type WorldPick } from '../../shared/world-view.ts';
 import type { Protos } from '../store/protos.ts';
 
@@ -101,6 +101,26 @@ export function modelEntity(model: ViewModel, serial: number): ModelEntity | nul
       }
   }
   return null;
+}
+
+/** Every resource tile the view model holds (tests and the dev hooks): its tile, resource and depletion band. */
+export function* modelResources(
+  model: ViewModel,
+): Generator<{ tx: number; ty: number; resource: number; band: number }> {
+  const R = ResourceViewCodec.get;
+  for (const c of model.chunks.values()) {
+    const v = c.resourceView;
+    for (let i = 0; i < c.resourceCount; i++) {
+      const o = i * ResourceViewCodec.SIZE;
+      const tile = R.tile(v, o);
+      yield {
+        tx: c.cx * 32 + (tile & 31),
+        ty: c.cy * 32 + (tile >> 5),
+        resource: R.resource(v, o),
+        band: R.band(v, o),
+      };
+    }
+  }
 }
 
 /** The tile id at (tx, ty), or null outside the held chunks. */
