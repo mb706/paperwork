@@ -8,3 +8,4 @@
 6 0c4fcbaf169b2cd61359d11c0344256243f667a6d091011f88796dde98d765b2 kind=value approval=pm/reviews/GATE-r2.md prev=fa19001ac5c17cfa GATE-r2: slice members sorted by (section, key) before serialisation, with a frozen vector of reused, colliding and free rows; README: envelope payloads, the immutable bump baseline, the real sound table
 7 b019f7b0c35a646462e4c381aadff3d4a2bf829e56b744bcba272b21d6e98772 kind=mechanical approval=- prev=24b6790b22c949f7 GATE-r2 #2 greybox fallback: the fixture atlas gains three greyboxes and an impossible-inserter case
 8 7c64a74a75e1c2f1fdd95fdb9f1b62dbcf4f3900c90048db431a16ccea244740 kind=mechanical approval=- prev=62c78deeecd93bf5 D1 data readiness: prototypes.json item orders and iron-plate's subgroup are Factorio 2.0's
+9 d544ac79c9c1241420adc79485994e178a31a7a1fdd51be5c6baf03458a31f78 kind=mechanical approval=- prev=9106faea6082a306 D1-r1 review fixes: prototypes.json's treeSpecies is empty in M0

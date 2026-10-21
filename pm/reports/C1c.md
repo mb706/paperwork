@@ -782,3 +782,10 @@ A hazard for every agent in the shared tree: vitest's global setup (`test/helper
 `.cache/test-tmp/`. Any vitest run started while another is running therefore removes the first run's scratch
 directories. My first CI run lost two data-stage tests that way (ENOENT under `.cache/test-tmp/data-stage-*`),
 because I had started a separate `vitest run test/golden` alongside it.
+
+## Integration: D1-r1's review fixes
+
+D1-r1 (merge 1366350) empties M0's `treeSpecies`. **Golden version 9 is a mechanical bump**: only
+`protos/prototypes.json` changed (`"treeSpecies": ["object/tree-oak"]` became `[]`). Every other `m0/` file, the
+schema hash, the atlas hashes and the contract are unchanged. `npm run ci` is green in 119 s, run on a tree that
+included C9's uncommitted e2e/ edits.

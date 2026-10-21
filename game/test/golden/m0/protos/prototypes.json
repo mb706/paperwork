@@ -905,8 +905,6 @@
     }
   ],
   "townBuildings": [],
-  "treeSpecies": [
-    "object/tree-oak"
-  ],
+  "treeSpecies": [],
   "world": []
 }
