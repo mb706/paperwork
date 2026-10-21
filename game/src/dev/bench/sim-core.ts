@@ -3,7 +3,10 @@
 // src/dev/bench/worker.ts), timed as the game runs them: per tick `sim_tick`, `sim_digest` and `sim_pending_chunks`
 // (the shell's calls), `sim_extract` per extraction. The scenarios are what `simtool bench --write-scenarios DIR`
 // exports (states, logs, subscriptions, views, both gate sets in scenarios.json); `files(name)` gives a file's bytes.
-// Metrics the ABI cannot show (`max_regenerations_per_tick`, the codec's encoding) are native only.
+// The plan is simtool's, whole (the M0 exit audit #8, C9): the warm-up, then per repetition the timed ticks and the
+// profiled ones (run untimed here: per-phase times read the host clock only in simcheck builds, so they are native
+// only), and the result says how many ticks it simulated, which the runners check against the plan's `ticks`.
+// Metrics the ABI cannot show are native only (NATIVE_ONLY); any other missing metric fails a gate.
 import { closureActions } from '../../shared/gen/actions.ts';
 import { parseClosureLog } from '../../shared/gen/container.ts';
 
@@ -17,8 +20,19 @@ export interface Gate {
 export interface Plan {
   warmup: number;
   timed: number;
+  /** Per repetition, after the timed ticks: native per-phase timing, untimed ticks here. */
+  profiled: number;
   reps: number;
+  /** The ticks the plan simulates (m0-walk's full plan: 36,000, its 10 minutes). */
+  ticks: number;
 }
+
+/**
+ * The gate metrics only the native runner measures: the codec's throughput with encoding (the sequencer's writing is
+ * Rust code the ABI does not expose) and the regenerations per tick (the World's counter). Any other gate metric a
+ * WebAssembly runner lacks fails its gate.
+ */
+export const NATIVE_ONLY: ReadonlySet<string> = new Set(['actions_per_s', 'max_regenerations_per_tick']);
 export interface BenchScenario {
   name: string;
   state: string | null;
@@ -39,6 +53,8 @@ export interface ScenarioResult {
   metrics: Record<string, number>;
   allocs: number | null;
   memory_bytes: number;
+  /** The ticks simulated (the plan's `ticks` when it ran whole). */
+  ticks: number;
 }
 
 const STATUS_OK = 0;
@@ -161,6 +177,7 @@ export function runScenario(
   sim.must('sim_load', stateInput(state));
   const m: Record<string, number> = {};
   const empty = new Uint8Array(0);
+  let ticks = 0;
   /** One tick with the shell's calls; returns its milliseconds. */
   const tick = (closure: Uint8Array): number => {
     const t = now();
@@ -168,7 +185,12 @@ export function runScenario(
     const ms = now() - t;
     sim.envelope('sim_digest');
     sim.envelope('sim_pending_chunks');
+    ticks++;
     return ms;
+  };
+  /** The plan's profiled ticks of a repetition: run as the native runner runs them (no extraction), untimed. */
+  const profiled = (): void => {
+    for (let i = 0; i < plan.profiled; i++) tick(empty);
   };
   let allocs: number | null = null;
   const counted = (f: () => void): void => {
@@ -181,7 +203,10 @@ export function runScenario(
     for (let i = 0; i < plan.warmup; i++) tick(empty);
     const times: number[] = [];
     counted(() => {
-      for (let r = 0; r < plan.reps; r++) for (let i = 0; i < plan.timed; i++) times.push(tick(empty));
+      for (let r = 0; r < plan.reps; r++) {
+        for (let i = 0; i < plan.timed; i++) times.push(tick(empty));
+        profiled();
+      }
     });
     putTicks(m, 'tick', times);
   } else if (sc.name === 'm0-chests-10k') {
@@ -201,11 +226,13 @@ export function runScenario(
     const times: number[] = [];
     const extracts: number[] = [];
     counted(() => {
-      for (let r = 0; r < plan.reps; r++)
+      for (let r = 0; r < plan.reps; r++) {
         for (let i = 0; i < plan.timed; i++) {
           times.push(tick(empty));
           extracts.push(extract());
         }
+        profiled();
+      }
     });
     putTicks(m, 'tick', times);
     putTicks(m, 'extract', extracts);
@@ -241,9 +268,12 @@ export function runScenario(
       closure: r.closure,
       actions: closureActions(r.closure).length,
     }));
-    const warm = Math.min(100, records.length);
-    for (const r of records.slice(0, warm)) tick(r.closure);
-    const timed = records.slice(warm, warm + plan.reps * 1000);
+    if (records.length < plan.warmup + plan.reps * plan.timed)
+      throw new Error(
+        `m0-codec: the log has ${records.length} ticks, the plan needs ${plan.warmup + plan.reps * plan.timed}`,
+      );
+    for (const r of records.slice(0, plan.warmup)) tick(r.closure);
+    const timed = records.slice(plan.warmup, plan.warmup + plan.reps * plan.timed);
     let ms = 0;
     let actions = 0;
     counted(() => {
@@ -278,7 +308,7 @@ export function runScenario(
   } else {
     throw new Error(`unknown scenario ${sc.name}`);
   }
-  return { metrics: m, allocs, memory_bytes: sim.memory.buffer.byteLength };
+  return { metrics: m, allocs, memory_bytes: sim.memory.buffer.byteLength, ticks };
 }
 
 /** One gate's verdict: the value, the limit on this machine (× the factor where it scales), met or not. */
@@ -308,7 +338,16 @@ export function verdicts(gates: readonly Gate[], r: ScenarioResult, factor: numb
       scales: g.scales,
       limit: g.limit,
       here,
-      met: v === undefined ? null : g.floor ? v >= here : v <= here,
+      // a native-only metric is not judged here; any other missing metric misses its gate
+      met: v === undefined ? (NATIVE_ONLY.has(g.metric) ? null : false) : g.floor ? v >= here : v <= here,
     };
   });
+}
+
+/** Why a result is not the plan's whole run, or null (the M0 exit audit #8: the simulated duration is enforced). */
+export function planProblem(sc: BenchScenario, r: ScenarioResult, quick: boolean): string | null {
+  const want = (quick ? sc.quick : sc.full).ticks;
+  if (typeof want !== 'number')
+    return `${sc.name}: scenarios.json has no ticks for its plan (rewrite the scenarios)`;
+  return r.ticks === want ? null : `${sc.name}: simulated ${r.ticks} ticks, the plan ${want}`;
 }

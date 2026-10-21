@@ -288,10 +288,48 @@ fn finish(r: &mut Report) {
     r.hwm_kib = status_kib("VmHWM:");
 }
 
-/// `m0-walk`: the full plan repeats 7 times, so that the walk lasts its 10 minutes (6,000 + 7 × 4,200 ticks).
-pub fn walk(protos: &[u8], mut plan: Plan) -> Result<Report, String> {
-    if !plan.quick {
-        plan.reps = plan.reps.max(7);
+/// The simulated ticks of a full `m0-walk`: §10.6's "walking for 10 minutes".
+pub const WALK_TICKS: u32 = 36_000;
+
+/// The plan a scenario runs: `m0-walk`'s full plan repeats 7 times and warms up 6,600 ticks, so that the walk lasts
+/// exactly its 10 minutes (6,600 + 7 × 4,200 = 36,000 ticks; the M0 exit audit #8, C9). The WebAssembly runners read
+/// the same plan from `scenarios.json` and check the ticks they ran against it.
+/// `m0-codec`'s repetitions are [`CODEC_TICKS`] ticks of 100 actions each, after a warm-up of one repetition (100 ticks
+/// in the quick plan), without profiled ticks.
+pub fn plan_of(name: &str, plan: Plan) -> Plan {
+    if name == "m0-walk" && !plan.quick {
+        let reps = plan.reps.max(7);
+        let warmup = WALK_TICKS - reps * (plan.timed + plan.profiled);
+        return Plan { reps, warmup, ..plan };
+    }
+    if name == "m0-codec" {
+        let warmup = if plan.quick { 100 } else { CODEC_TICKS };
+        return Plan { warmup, timed: CODEC_TICKS, profiled: 0, ..plan };
+    }
+    plan
+}
+
+/// The ticks of one `m0-codec` repetition: 100,000 actions, 100 a tick.
+pub const CODEC_TICKS: u32 = 100_000 / (bench::CODEC_PLAYERS as u32 * bench::CODEC_ACTIONS_PER_PLAYER);
+
+/// The ticks a scenario simulates under `plan` (after [`plan_of`]): the tick method's warm-up and repetitions, the
+/// codec's warm-up and repetitions, the load's 600 ticks.
+pub fn ticks_of(name: &str, plan: Plan) -> u32 {
+    match name {
+        "m0-walk" | "m0-chests-10k" | "m0-codec" => plan.warmup + plan.reps * (plan.timed + plan.profiled),
+        "m0-load-30k" => 600,
+        _ => 0,
+    }
+}
+
+/// `m0-walk`: 10 minutes of walking in the full plan ([`plan_of`]).
+pub fn walk(protos: &[u8], plan: Plan) -> Result<Report, String> {
+    let plan = plan_of("m0-walk", plan);
+    if !plan.quick && ticks_of("m0-walk", plan) != WALK_TICKS {
+        return Err(format!(
+            "m0-walk: the plan simulates {} ticks, not 10 minutes",
+            ticks_of("m0-walk", plan)
+        ));
     }
     let mut r = Report { scenario: "m0-walk".to_owned(), reps: plan.reps, ..Report::default() };
     let mut b = bench::m0_walk(protos).map_err(|e| e.to_string())?;
@@ -354,10 +392,11 @@ pub fn chests(protos: &[u8], plan: Plan) -> Result<Report, String> {
 /// `m0-codec`: per repetition, 1,000 ticks of 100 actions: encoding (the sequencer writes the closures) and
 /// applying (`sim_tick`: the preflight's frame check, then the rules).
 pub fn codec(protos: &[u8], plan: Plan) -> Result<Report, String> {
+    let plan = plan_of("m0-codec", plan);
     let mut r = Report { scenario: "m0-codec".to_owned(), reps: plan.reps, ..Report::default() };
     let (mut b, chest) = bench::m0_codec(protos).map_err(|e| e.to_string())?;
     let per_tick = u32::from(bench::CODEC_PLAYERS) * bench::CODEC_ACTIONS_PER_PLAYER;
-    let ticks_per_rep = 100_000 / per_tick;
+    let ticks_per_rep = plan.timed;
     let mut events = Vec::with_capacity(1 << 20);
     let mut windows = Vec::new();
     let mut run = |b: &mut Bench, n: u32| -> Result<(f64, f64), String> {
@@ -380,7 +419,7 @@ pub fn codec(protos: &[u8], plan: Plan) -> Result<Report, String> {
         windows.push(clock.stop());
         Ok((encode, apply))
     };
-    run(&mut b, if plan.quick { 100 } else { ticks_per_rep })?;
+    run(&mut b, plan.warmup)?;
     let (mut enc, mut app) = (0.0, 0.0);
     for _ in 0..plan.reps {
         let (e, a) = run(&mut b, ticks_per_rep)?;
@@ -718,16 +757,18 @@ pub fn write_scenarios(protos: &[u8], dir: &str, cache: &str) -> Result<(), Stri
     write("m0-chests-10k.state", &b.ctx.checkpoint().map_err(err)?)?;
     write("m0-chests-10k.subs", &bench::chest_windows(&windows).map_err(err)?)?;
     write("m0-chests-10k.view", &b.view)?;
-    // m0-codec: 100 warm-up ticks and three repetitions of 1,000 ticks, 100 actions each.
+    // m0-codec: the full plan's closures (a warm-up repetition and three of 1,000 ticks, 100 actions each); the quick
+    // plan runs the first 100 and one repetition of them.
     let (mut b, chest) = bench::m0_codec(protos).map_err(err)?;
     write("m0-codec.state", &b.ctx.checkpoint().map_err(err)?)?;
     let t0 = b.tick();
+    let n = ticks_of("m0-codec", plan_of("m0-codec", Plan::full()));
     let mut records = Vec::new();
-    for t in t0 + 1..=t0 + 3_100 {
+    for t in t0 + 1..=t0 + n {
         bench::codec_tick(&mut b, t, chest).map_err(err)?;
         records.push((t, b.seq.closure(t)));
     }
-    write("m0-codec.pwlog", &bench::closure_log(protos, t0, t0 + 3_100, &records).map_err(err)?)?;
+    write("m0-codec.pwlog", &bench::closure_log(protos, t0, t0 + n, &records).map_err(err)?)?;
     // m0-load-30k: the cached state, and the walk that starts at its next tick.
     let (state, _) = load_state(protos, cache)?;
     write("m0-load-30k.state", &state)?;
@@ -738,28 +779,34 @@ pub fn write_scenarios(protos: &[u8], dir: &str, cache: &str) -> Result<(), Stri
     let t1 = w.tick() + 1;
     let walk = vec![(t1, w.next_closure())];
     write("m0-load-30k.pwlog", &bench::closure_log(protos, t1 - 1, t1 + 599, &walk).map_err(err)?)?;
-    let full = Plan::full();
-    let quick = Plan::quick();
+    // each plan whole (the profiled ticks too, which the WebAssembly runners run untimed: per-phase times need the
+    // host clock of a simcheck build, so they are native only) and the ticks it simulates (the M0 exit audit #8)
+    let plan_json = |name: &str, p: Plan| {
+        let p = plan_of(name, p);
+        format!(
+            "{{\"warmup\":{},\"timed\":{},\"profiled\":{},\"reps\":{},\"ticks\":{}}}",
+            p.warmup,
+            p.timed,
+            p.profiled,
+            p.reps,
+            ticks_of(name, p)
+        )
+    };
     let scenarios: Vec<String> = bench::SCENARIOS
         .iter()
         .map(|&name| {
             let has = |ext: &str| std::path::Path::new(&path(&format!("{name}.{ext}"))).exists();
             let file = |ext: &str| if has(ext) { json_str(&format!("{name}.{ext}")) } else { "null".to_owned() };
-            let reps = if name == "m0-walk" { full.reps.max(7) } else { full.reps };
             let g = |list: &[Threshold]| list.iter().map(gate_json).collect::<Vec<_>>().join(",");
             format!(
-                "{{\"name\":{},\"state\":{},\"log\":{},\"subs\":{},\"view\":{},\"full\":{{\"warmup\":{},\"timed\":{},\"reps\":{}}},\"quick\":{{\"warmup\":{},\"timed\":{},\"reps\":{}}},\"thresholds\":[{}],\"budgets\":[{}]}}",
+                "{{\"name\":{},\"state\":{},\"log\":{},\"subs\":{},\"view\":{},\"full\":{},\"quick\":{},\"thresholds\":[{}],\"budgets\":[{}]}}",
                 json_str(name),
                 file("state"),
                 file("pwlog"),
                 file("subs"),
                 file("view"),
-                full.warmup,
-                full.timed,
-                reps,
-                quick.warmup,
-                quick.timed,
-                quick.reps,
+                plan_json(name, Plan::full()),
+                plan_json(name, Plan::quick()),
                 g(bench::thresholds(name)),
                 g(bench::budgets(name))
             )
@@ -775,6 +822,19 @@ pub fn write_scenarios(protos: &[u8], dir: &str, cache: &str) -> Result<(), Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_walk_lasts_ten_minutes_and_every_plan_counts_its_ticks() {
+        let full = plan_of("m0-walk", Plan::full());
+        assert_eq!((full.warmup, full.reps), (6_600, 7));
+        assert_eq!(ticks_of("m0-walk", full), WALK_TICKS);
+        let quick = plan_of("m0-walk", Plan::quick());
+        assert_eq!(ticks_of("m0-walk", quick), 600 + 3_600 + 600);
+        assert_eq!(ticks_of("m0-chests-10k", plan_of("m0-chests-10k", Plan::full())), 6_000 + 3 * 4_200);
+        assert_eq!(ticks_of("m0-codec", plan_of("m0-codec", Plan::full())), 1_000 + 3 * 1_000);
+        assert_eq!(ticks_of("m0-codec", plan_of("m0-codec", Plan::quick())), 100 + 1_000);
+        assert_eq!(ticks_of("m0-load-30k", Plan::full()), 600);
+    }
 
     #[test]
     fn cpu_lists_and_gates() {
