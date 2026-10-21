@@ -42,7 +42,10 @@ interface Dev {
 async function open(page: Page, query = ''): Promise<void> {
   const r = await page.request.get('/audio/music.json');
   expect(r.ok(), 'public/audio is missing: run `npm run assets` (its audio step)').toBe(true);
-  // the dev server's cargo plugin reloads every page when a build finishes: wait for sim.wasm first
+  // the dev server's generators reload every page when a build finishes: requests under /data/ are held until none
+  // runs (C9: parallel workers start while the first builds run), then wait for sim.wasm too
+  await page.request.get('/data/build-manifest.json');
+  await page.request.get('/data/fake/build-manifest.json');
   await page.goto('/?test=1&render=none');
   await expect(page.getByTestId('sim-status')).toHaveText(/^sim\.wasm ABI/, { timeout: 180_000 });
   await page.goto(`/src/dev/audio.html${query}`);

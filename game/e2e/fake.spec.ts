@@ -17,6 +17,10 @@ test('the fake sim runs in its worker and its packets decode @smoke', async ({ p
   const problems = watchConsole(page);
   // The page draws the world since C4; this test is the fake sim's, so it runs without the renderer, which needs
   // `npm run assets` (e2e/render.spec.ts draws it) and WebGL2 (headless Firefox here has none).
+  // Readiness first (C9): requests under /data/ are held until no generator runs, so no reload lands mid-test while
+  // parallel workers start the dev server's first builds.
+  await page.request.get('/data/build-manifest.json');
+  await page.request.get('/data/fake/build-manifest.json');
   await page.goto('/?sim=fake&test=1&render=none');
   await expect(page.getByTestId('sim-status')).toHaveText(/^fake sim · tick 0 · /);
   await expect(page.getByTestId('data-status')).toHaveText(/^m1: /);
