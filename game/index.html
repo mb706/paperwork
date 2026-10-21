@@ -6,68 +6,33 @@
     <title>Paperwork</title>
     <link rel="icon" href="data:," />
     <style>
-      /* The M0 scaffold's placeholder page (not the menu, which the UI package builds). Survey's paper and
-         ink (A3 §3.1); the GUI faces come with the asset build (10 §9.3). */
-      :root {
-        --paper: #ece3cb;
-        --ink: #2b2723;
-        --rule: #b9ab88;
-      }
+      /* Before the skin loads: Survey's paper and ink (A3 §3.1), so the first paint is the menu's paper. The world
+         view (C4) puts its canvas first in the body, under the UI's root. */
       html,
       body {
         margin: 0;
         height: 100%;
-        background: var(--paper);
-        color: var(--ink);
-        font-family: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+        background: #ece3cb;
+        color: #2b2723;
       }
-      main {
-        max-width: 40rem;
-        margin: 18vh auto 0;
-        padding: 0 2rem;
-      }
-      h1 {
-        font-size: 3.2rem;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-        margin: 0;
-      }
-      .tagline {
-        font-size: 1.15rem;
-        margin: 0.4rem 0 2.5rem;
-      }
-      dl {
-        font-family: "Courier Prime", "Courier New", monospace;
-        font-size: 0.9rem;
-        border-top: 1px solid var(--rule);
-        padding-top: 1rem;
-        display: grid;
-        grid-template-columns: max-content 1fr;
-        gap: 0.35rem 1.2rem;
-      }
-      dt {
-        opacity: 0.7;
-      }
-      dd {
-        margin: 0;
+      .app-status {
+        display: none;
       }
     </style>
   </head>
   <body>
-    <main>
-      <h1>Paperwork</h1>
-      <p class="tagline">Information is physical.</p>
-      <dl>
-        <dt>simulation</dt>
-        <dd data-testid="sim-status">loading sim.wasm</dd>
-        <dt>prototypes</dt>
-        <dd data-testid="data-status">loading prototypes.json</dd>
-        <dt>build</dt>
-        <dd data-testid="build-status">loading build-manifest.json</dd>
-        <dt>saves</dt>
-        <dd data-testid="storage-status">opening the IO worker</dd>
-      </dl>
-    </main>
+    <div id="ui"></div>
+    <!-- Diagnostics for the smoke tests (the build, the data stage's outputs, the world, the saves); not shown. -->
+    <dl class="app-status">
+      <dt>simulation</dt>
+      <dd data-testid="sim-status">loading sim.wasm</dd>
+      <dt>prototypes</dt>
+      <dd data-testid="data-status">loading prototypes.json</dd>
+      <dt>build</dt>
+      <dd data-testid="build-status">loading build-manifest.json</dd>
+      <dt>saves</dt>
+      <dd data-testid="storage-status">opening the IO worker</dd>
+    </dl>
     <script type="module" src="/src/app/main.ts"></script>
   </body>
 </html>

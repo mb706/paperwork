@@ -300,6 +300,42 @@
   benchmarks drain the GPU with a 1×1 `readPixels`; any WebGL canvas here logs four "GPU stall due to ReadPixels"
   compositor warnings, which `e2e/console.ts` ignores.
 
+## UI and input (`game/src/ui/`; M0 by C5; 10 §7, I §1–§4, 07)
+- **Run:** `npm run dev`, open `/`: the main menu (07 §18) → New game → the game on the real sim (the App's SimHost,
+  C4's renderer). E character screen, P production statistics, Esc game menu (Save game, Load game, Settings), LMB on a
+  chest opens it; WASD, RMB mining, LMB building with drag lines, Q, number keys, Alt alt-mode; Settings → Controls
+  rebinds (two columns, conflicts listed). Saves go through the IO worker (OPFS or IndexedDB) and load back.
+- **Wiring:** `src/app/attach-ui.ts` (`mountUi(app, world)`, one line in `main.ts`) mounts it on the App's host and
+  C4's world view; `src/ui/host.ts` holds the structural types the UI uses of both (ui/ imports only shared/). The
+  session (`src/ui/session.ts`) starts, loads, saves and leaves worlds through the host; a new state generation empties
+  everything derived from the old world. The world is the world view's: camera, `pickAt`, the view model
+  (`world/select.ts` reads it), `setHovered`; the UI draws only the selection brackets and the build preview
+  (`world/overlay.ts`, a Canvas2D layer under the DOM).
+- **Where:** `input/` (the action map with Factorio's defaults `controls.ts`, the live table and settings shape
+  `bindings.ts`, the event core and capture layer `core.ts`, the context resolver `resolver.ts`, the action encoder
+  `encoder.ts`, slot descriptors and keyboard grid navigation `slots.ts`), `store/` (projection records → Solid stores,
+  subscriptions by sub_id, UI state with E/Esc layers), `core/` (Window, Slot, Tooltip, Icon in the Survey skin),
+  `hud/`, `windows/`, `menu/`, `world/`, `mount.tsx` (wiring).
+- **Strings:** only from `game/locale/en.yaml` (UI) and prototypes.json `strings` (data names). Every locale key has
+  its source in `game/locale/en.sources.yaml` (08, text.yaml, 07, I, the schema's comments, Factorio's own labels for
+  08 §5.1's Factorio surfaces, or `proposal`: wording awaiting the text owner); `test/ui/locale.test.ts` checks each
+  cited string against its source, and fails on a key without one, on "!", ellipses or "you".
+- **Rules:** slot clicks never act in their own handlers: a slot registers what it is (`input/slots.ts`) and the input
+  core resolves the binding (also for keys), so every control stays rebindable. Windows that E and Esc act on register a
+  layer (`store/ui.ts`); green buttons register into their layer. No layout reads in the frame loop or on content
+  updates (tooltips are sized by a ResizeObserver). Pure UI state never enters the sim.
+- **Test hooks** (dev builds): `window.__game.ui.state()`, `.sent()` (the encoded actions with seqs), `.toScreen(x, y)`,
+  `.entities()`, `.resources()`, `.character()`, `.perf()`; `window.__game.step(n)` (resolves after the tick's
+  packet); in test mode the world renders on demand, so e2e helpers draw a frame after each step
+  (`__game.render.frame()`) for the camera to follow. Client settings live in localStorage (`paperwork.settings`).
+- **Tests:** `npx vitest run src/ui test/ui` (bindings, resolution through the real core, the session and generations
+  on a fake host (`test/ui/rig.ts`), golden projections and traces, the locale and its sources;
+  `test/ui/review-r1.test.ts` holds one test per codex C5-r1 finding); Vitest resolves `solid-js` to its browser
+  build, so stores and memos react as in the page. `npx playwright test e2e/ui.spec.ts e2e/game.spec.ts
+  e2e/review-r1.spec.ts` (the input layer, the M0 flow with save and load on the real sim, the browser-level review
+  findings; both browsers, Firefox with `?render=none`); `npx playwright test e2e/perf.spec.ts --project=chrome` (UI ms
+  per frame, window opening, input latency).
+
 ## Showing the game to the user
 - Dev server on `127.0.0.1:<high port>`; the user tunnels in: `ssh -L 5173:127.0.0.1:5173 cpuserver10`.
 - Builds can also be published as a private claude.ai Artifact (≤ 16 MB per file).

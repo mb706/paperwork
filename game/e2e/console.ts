@@ -8,10 +8,22 @@ import type { Page } from '@playwright/test';
  */
 const ENVIRONMENT = /GL Driver Message \(OpenGL, Performance, [A-Z_]+, High\): GPU stall due to ReadPixels/;
 
+/**
+ * Not the page's either: a fresh dev server's generators reload connected pages when their first runs end
+ * (scripts/dev-generators.ts), and Firefox reports every module load the reload aborted, and the reloads
+ * themselves as a "bounce tracker". A module that really fails to load stops the page from starting, which the
+ * tests see without these lines (C5).
+ */
+const RELOADED = /Loading failed for the module with source|has been classified as a bounce tracker/;
+
 export function watchConsole(page: Page): string[] {
   const problems: string[] = [];
   page.on('console', (m) => {
-    if ((m.type() === 'error' || m.type() === 'warning') && !ENVIRONMENT.test(m.text()))
+    if (
+      (m.type() === 'error' || m.type() === 'warning') &&
+      !ENVIRONMENT.test(m.text()) &&
+      !RELOADED.test(m.text())
+    )
       problems.push(`${m.type()}: ${m.text()}`);
   });
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));

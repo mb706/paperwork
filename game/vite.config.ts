@@ -48,4 +48,8 @@ export default defineConfig({
     reportCompressedSize: false,
   },
   worker: { format: 'es' },
+  // The page's dependencies (the UI's, and the IO worker's since C3) are pre-bundled when the server starts, so the
+  // first page load never triggers a re-optimisation and a full reload (C5: a cold e2e server reloaded mid-load in
+  // Firefox, which reports every aborted module load as a warning).
+  optimizeDeps: { include: ['solid-js', 'solid-js/web', 'solid-js/store', 'fflate', 'idb'] },
 });
